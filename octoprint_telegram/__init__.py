@@ -1173,7 +1173,7 @@ class TelegramPlugin(
                         + self._plugin_version
                         + ".\n\nPlease open your "
                         + self._plugin_name
-                        + " settings in OctoPrint and set configurations for this chat. Until then you are not able to send or receive anything useful with this Bot.\n\nMore informations on: https://github.com/fabianonline/OctoPrint-Telegram"
+                        + " settings in OctoPrint and set configurations for this chat. Until then you are not able to send or receive anything useful with this Bot.\n\nMore informations on: https://github.com/jacopotediosi/OctoPrint-Telegram"
                     )
                     message["chat_id"] = chat
                     message["disable_web_page_preview"] = True
@@ -1417,10 +1417,9 @@ class TelegramPlugin(
                 displayVersion=self._plugin_version,
                 type="github_release",
                 current=self._plugin_version,
-                user="fabianonline",
+                user="jacopotediosi",
                 repo="OctoPrint-Telegram",
-                # pip="https://github.com/fabianonline/OctoPrint-Telegram/releases/download/{target_version}/release.zip"
-                pip="https://github.com/fabianonline/OctoPrint-Telegram/archive/{target_version}.zip",
+                pip="https://github.com/jacopotediosi/OctoPrint-Telegram/archive/{target_version}.zip",
             )
         )
 

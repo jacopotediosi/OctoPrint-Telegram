@@ -27,7 +27,7 @@ plugin_author = "Fabian Schlenz, Florian Schütte"
 plugin_author_email = "mail@fabianonline.de, post@florian-schuette.de"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "https://github.com/fabianonline/OctoPrint-Telegram"
+plugin_url = "https://github.com/jacopotediosi/OctoPrint-Telegram"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"

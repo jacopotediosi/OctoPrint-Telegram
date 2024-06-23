@@ -84,7 +84,7 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	
 ### Plugin setup
 
-1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/fabianonline/OctoPrint-Telegram/archive/stable.zip`
+1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/jacopotediosi/OctoPrint-Telegram/archive/master.zip`
 
 
 2. Now enter Octoprint settings and select *Telegram* on the left.
