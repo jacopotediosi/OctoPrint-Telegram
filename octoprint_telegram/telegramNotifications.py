@@ -516,7 +516,7 @@ class TMSG:
                 return True
         zdiff = self.main._settings.get_float(["notification_height"])
         if zdiff and zdiff > 0.0:
-            if old_z is None:
+            if old_z is None or new_z < 0:
                 return False
             # check the zdiff
             if abs(new_z - (old_z or 0.0)) >= 1.0:
