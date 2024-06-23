@@ -12,6 +12,7 @@ from .telegramNotifications import (
 )  # dict of known notification messages
 from .emojiDict import telegramEmojiDict  # dict of known emojis
 from babel.dates import format_date, format_datetime, format_time
+from urllib.parse import urljoin
 
 
 bytes_reader_class = io.BytesIO
@@ -2553,6 +2554,8 @@ class TelegramPlugin(
     def take_image(self, snapshot_url=""):
         if snapshot_url == "":
             snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+        
+        snapshot_url = urljoin('http://localhost/', snapshot_url)
 
         self._logger.debug("Snapshot URL: " + str(snapshot_url))
         data = None
@@ -2743,8 +2746,8 @@ class TelegramPlugin(
 
             if stream_url == 0:
                 stream_url = self._settings.global_get(["webcam", "stream"])
-            if "http" not in stream_url:
-                stream_url = "http://localhost" + stream_url
+                
+            stream_url = urljoin('http://localhost/', stream_url)
 
             if sec == 0:
                 sec = 5  # int(self._settings.get(["number_img_gif"]))

@@ -272,15 +272,6 @@ sudo apt-get install cpulimit
 
 * `/files` and `/print` will basically show the same file dialog. If `/print` is disabled, no print button will be shown. If `/files` is disabled, no download and delete buttons will be shown. If both commands are enabled, all buttons will be shown regardles wether the user entered the dialog by `/files` or `/print`.
 
-
-If you have trouble with the image (get message like ***) please check the following step
-
-The plugin can't resolve a simple "/webcam/[...]" URL. There has to be a full address.
-Set the snapshot URL to one of the following:
-
-    http://127.0.0.1:8080/?action=snapshot
-    http://127.0.0.1/webcam/?action=snapshot
-
 <br><br><br>
 
 ## Info / Contact / Help
