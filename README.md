@@ -1,12 +1,12 @@
 <!-- omit in toc -->
 # OctoPrint-Telegram
 
-<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/logo/octoprint_telegram_logo.png" width="25%" align="left"> 
+<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/logo/octoprint_telegram_logo.png" width="25%" align="left"> 
  
 This plugin integrates Telegram Messenger with Octoprint. It sends messages (with photos if available) on print start, end and failure. Also it sends messages during the print at configurable intervals. That way you don't have to remember to regularly have a look at the printing process.
 Also, you can control Octoprint via messages (settings, start a print and much more). Send `/status` to get the current printer status or `/abort` to abort the current print. Send `/help` for a list of all recognized commands. You may also use this bot in groups.
 
-**Latest release: [1.6.5](https://github.com/fabianonline/OctoPrint-Telegram/releases)**
+**Latest release: [1.6.5](https://github.com/jacopotediosi/OctoPrint-Telegram/releases)**
 
 <!-- omit in toc -->
 ## Contents
@@ -25,7 +25,7 @@ Also, you can control Octoprint via messages (settings, start a print and much m
 
 ## Screenshots
 
-![Screenshot](https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/telegram_screen.png)
+![Screenshot](https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/telegram_screen.png)
 
 ## Installation
 
@@ -45,7 +45,7 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 
 3. The botfather hands you a token. You need this to use your bot. Keep this token secret!
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_new.png" alt="Register new bot" width="35%" align="center"/>
+	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/bot_new.png" alt="Register new bot" width="35%" align="center"/>
 	
 <!-- omit in toc -->
 #### OPTIONAL
@@ -80,11 +80,11 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	off - Turns off the printer power via the PSUControl plugin API. Requires PSU Control plugin.
 	gcode_XXX - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for exemple)
 	```
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
+	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
 	
 ### Plugin setup
 
-1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/fabianonline/OctoPrint-Telegram/archive/stable.zip`
+1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/jacopotediosi/OctoPrint-Telegram/archive/master.zip`
 
 
 2. Now enter Octoprint settings and select *Telegram* on the left.
@@ -145,7 +145,7 @@ Configuration is done via the Octoprint settings dialog. Note that only admin us
 
 6. If send emojis is enabled, emojis will be send within messages. If disabled, all emojis in messages will be changed to empty strings.
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_general.png" alt="General settings" width="70%" align="center"/><br><br><br>
+	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/set_general.png" alt="General settings" width="70%" align="center"/><br><br><br>
 
 ### Users
 
@@ -182,7 +182,7 @@ There are users (private chat with single user) or groups you will see in the li
 
 	**b)** Click the *trash bin*, to delete the user. The user is only deleted if you hit 'Save' on settings dialog.
 	
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_user.png" alt="User settings" width="70%" align="center"/><br><br><br>
+	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/set_user.png" alt="User settings" width="70%" align="center"/><br><br><br>
 
 ### Notifications
 
@@ -213,7 +213,7 @@ In this section you can configure the content of the notification messages.
 	Example: {status[progress][filepos]} - will insert the actual position in the printed file.
 	```
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_messages.png" alt="Optional bot settings" width="70%" align="center"/><br><br><br>
+	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/set_messages.png" alt="Optional bot settings" width="70%" align="center"/><br><br><br>
 
 ## Available Commands
 

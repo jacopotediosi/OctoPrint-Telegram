@@ -14,7 +14,7 @@ def is_in_python_2_7():
 # Here you find the known notification messages and their handles.
 # The only way to start a messageHandle should be via on_event() in __init__.py
 # If you want to add/remove notifications read the following:
-# SEE DOCUMENTATION IN WIKI: https://github.com/fabianonline/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
+# SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
 #####################################################################################################################################################
 
 telegramMsgDict = {

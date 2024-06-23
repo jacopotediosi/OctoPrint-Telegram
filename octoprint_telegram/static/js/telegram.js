@@ -1,7 +1,7 @@
 /*
  * View model for OctoPrint-Telegram
  *
- * Author: Fabian Schlenz
+ * Author: Jacopo Tediosi, Fabian Schlenz
  * License: AGPLv3
  */
 $(function() {

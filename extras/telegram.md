@@ -4,15 +4,15 @@ layout: plugin
 id: telegram
 title: OctoPrint-Telegram
 description: A plugin to control your printer and send notifications before, *during* and after a print via Telegram Messenger.
-author: Fabian Schlenz
+author: Jacopo Tediosi
 license: AGPLv3
 
 # TODO
 date: today's date in format YYYY-MM-DD, e.g. 2015-04-21
 
-homepage: https://github.com/fabianonline/OctoPrint-Telegram
-source: https://github.com/fabianonline/OctoPrint-Telegram
-archive: https://github.com/fabianonline/OctoPrint-Telegram/archive/stable.zip
+homepage: https://github.com/jacopotediosi/OctoPrint-Telegram
+source: https://github.com/jacopotediosi/OctoPrint-Telegram
+archive: https://github.com/jacopotediosi/OctoPrint-Telegram/archive/stable.zip
 
 # TODO set this to true if your plugin uses the dependency_links setup parameter to include
 # library versions not yet published on PyPi. SHOULD ONLY BE USED IF THERE IS NO OTHER OPTION!

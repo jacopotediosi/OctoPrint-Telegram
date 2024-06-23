@@ -21,13 +21,13 @@ plugin_version = "1.6.7"
 plugin_description = """A plugin to control your printer and send notifications before, *during* and after a print via Telegram Messenger."""
 
 # The plugin's author. Can be overwritten within OctoPrint's internal data via __plugin_author__ in the plugin module
-plugin_author = "Fabian Schlenz, Florian Schütte"
+plugin_author = "Jacopo Tediosi"
 
 # The plugin's author's mail address.
-plugin_author_email = "mail@fabianonline.de, post@florian-schuette.de"
+plugin_author_email = "jacopotediosi@gmail.com"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "https://github.com/fabianonline/OctoPrint-Telegram"
+plugin_url = "https://github.com/jacopotediosi/OctoPrint-Telegram"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"

@@ -15,7 +15,7 @@ from .telegramNotifications import telegramMsgDict
 ################################################################################################################
 # This class handles received commands/messages (commands in the following). commandDict{} holds the commands and their behavior.
 # Each command has its own handler. If you want to add/del commands, read the following:
-# SEE DOCUMENTATION IN WIKI: https://github.com/fabianonline/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
+# SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
 ################################################################################################################
 class TCMD:
     def __init__(self, main):
