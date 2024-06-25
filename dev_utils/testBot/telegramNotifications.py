@@ -84,7 +84,6 @@ class TMSG:
         self.main = main
         self.last_z = 0.0
         self.last_notification_time = 0
-        self.track = True
         self.z = ""
         self.msgCmdDict = {
             "PrinterStart": self.msgPrinterStart_Shutdown,
@@ -140,11 +139,9 @@ class TMSG:
         self._sendNotification(payload, **kwargs)
 
     def msgStatusPrinting(self, payload, **kwargs):
-        self.track = False
         self._sendNotification(payload, **kwargs)
 
     def msgStatusNotPrinting(self, payload, **kwargs):
-        self.track = False
         self._sendNotification(payload, **kwargs)
 
     def _sendNotification(self, payload, **kwargs):
@@ -200,8 +197,6 @@ class TMSG:
         kwargs["markup"] = self.main._settings["messages"][kwargs["event"]]["markup"]
         # finally send MSG
         self.main.send_msg(message, **kwargs)
-
-        self.track = True
 
     # Helper to determine if notification will be send on gcode ZChange event
     # depends on notification time and notification height
