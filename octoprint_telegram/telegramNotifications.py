@@ -214,7 +214,6 @@ class TMSG:
         self.main = main
         self.last_z = 0.0
         self.last_notification_time = 0
-        self.track = True
         self.z = ""
         self._logger = main._logger.getChild("TMSG")
 
@@ -296,11 +295,9 @@ class TMSG:
         self._sendNotification(payload, **kwargs)
 
     def msgStatusPrinting(self, payload, **kwargs):
-        self.track = False
         self._sendNotification(payload, **kwargs)
 
     def msgStatusNotPrinting(self, payload, **kwargs):
-        self.track = False
         self._sendNotification(payload, **kwargs)
 
     def msgPauseForUserEventNotify(self, payload, **kwargs):
@@ -498,10 +495,6 @@ class TMSG:
             # finally send MSG
             kwargs["inline"] = False
             self.main.send_msg(message, **kwargs)
-
-            if self.track:
-                self.main.track_action("notification/" + event)
-            self.track = True
         except Exception as ex:
             self._logger.exception("Exception on send notification: " + str(ex))
 

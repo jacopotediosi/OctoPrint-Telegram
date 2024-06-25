@@ -7,7 +7,6 @@ settingsDict = {
     "notification_time": 15,
     "message_at_print_done_delay": 0,
     "messages": telegramMsgDict,
-    "tracking_activated": False,
     "tracking_token": None,
     "debug": True,
     "send_icon": True,

@@ -231,7 +231,6 @@ class TelegramListener(threading.Thread):
             from_id = str(message["message"]["from"]["id"])
         # is /upload allowed?
         if self.main.isCommandAllowed(chat_id, from_id, "/upload"):
-            self.main.track_action("command/upload_exec")
             try:
                 file_name = message["message"]["document"]["file_name"]
                 # if not (file_name.lower().endswith('.gcode') or file_name.lower().endswith('.gco') or file_name.lower().endswith('.g')):
@@ -630,9 +629,6 @@ class TelegramListener(threading.Thread):
             raise ExitThisLoopException()
         # check if user is allowed to execute the command
         if self.main.isCommandAllowed(chat_id, from_id, command):
-            # Track command
-            if command.startswith("/"):
-                self.main.track_action("command/" + command[1:])
             # Identify user
             try:
                 user = message["message"]["chat"]["first_name"] + " " + message["message"]["chat"]["last_name"]
@@ -1009,7 +1005,6 @@ class TelegramPlugin(
         }
         self.chats = self._settings.get(["chats"])
         self.start_listening()
-        self.track_action("started")
         # Delete user profile photos if user doesn't exist anymore
         for f in os.listdir(self.get_plugin_data_folder() + "/img/user"):
             fcut = f.split(".")[0][3:]
@@ -1068,7 +1063,6 @@ class TelegramPlugin(
             notification_time=15,
             message_at_print_done_delay=0,
             messages=telegramMsgDict,
-            tracking_activated=False,
             tracking_token=None,
             chats={
                 "zBOTTOMOFCHATS": {
@@ -1372,9 +1366,6 @@ class TelegramPlugin(
                 )
                 data["token"] = ""
         old_token = self._settings.get(["token"])
-        # Update Tracking
-        if "tracking_activated" in data and not data["tracking_activated"]:
-            data["tracking_token"] = None
         # Now save settings
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
         self.set_log_level()
@@ -2936,38 +2927,6 @@ class TelegramPlugin(
 
         except OSError:
             return -1
-        return 1
-
-    def track_action(self, action):
-        try:
-            if not self._settings.get_boolean(["tracking_activated"]):
-                return
-            if self._settings.get(["tracking_token"]) is None:
-                token = "".join(random.choice("abcdef0123456789") for i in range(16))
-                self._settings.set(["tracking_token"], token)
-            params = {
-                "idsite": "3",
-                "rec": "1",
-                "url": "http://octoprint-telegram/" + action,
-                "action_name": ("%20/%20".join(action.split("/"))),
-                "_id": self._settings.get(["tracking_token"]),
-                "uid": self._settings.get(["tracking_token"]),
-                "cid": self._settings.get(["tracking_token"]),
-                "send_image": "0",
-                "_idvc": "1",
-                "dimension1": str(self._plugin_version),
-            }
-            t = threading.Thread(
-                target=requests.get,
-                args=("http://piwik.schlenz.ruhr/piwik.php",),
-                kwargs={"params": params},
-            )
-            t.daemon = True
-            t.run()
-        except Exception as ex:
-            self._logger.exception(
-                "Caught an exception trying to track_action : " + str(ex)
-            )
 
     def route_hook(self, server_routes, *args, **kwargs):
         from octoprint.server.util.tornado import (
