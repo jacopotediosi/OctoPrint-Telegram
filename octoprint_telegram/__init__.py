@@ -1904,236 +1904,112 @@ class TelegramPlugin(
                         chatID=chatID,
                     )  # and make sure you have installed libav-tools or ffmpeg with command : `sudo apt-get install libav-tools`",chatID=chat_id)
             else:
-                self._logger.debug("data so far: " + str(data))
+                self._logger.debug("Data so far: " + str(data))
 
-                if with_image:
-                    try:
-                        image_data = self.take_image(
-                            self._settings.global_get(["webcam", "snapshot"])
-                        )
-                    except Exception as ex:
-                        self._logger.info(
-                            "Caught an exception trying take image: " + str(ex)
-                        )
-
-                    try:
-                        printable_image_data = None
-                        if image_data != None:  # giloser check before using
-                            if is_in_python_2():
-                                printable_image_data = image_data.decode(
-                                    "utf8", errors="ignore"
-                                )
-                            else:
-                                printable_image_data = str(image_data)
-                        # self._logger.debug("image data so far: {}".format(printable_image_data))
-                    except Exception as ex:
-                        self._logger.info(
-                            "Caught an exception trying to create printable_image_data: "
-                            + str(ex)
-                        )
-
-                    try:
-                        if (
-                            not image_data
-                            or image_data == None
-                            or "html" in printable_image_data
-                        ):
-                            image_data = None
-                            message = "[ERR GET IMAGE]\n\n " + "".join(
-                                message
-                            )  # .decode('utf-8', errors='ignore'))
-                    except Exception as ex:
-                        self._logger.info(
-                            "Caught an exception trying to add info that we don't have image: "
-                            + str(ex)
-                        )
-
-                    try:
-                        self._logger.debug(
-                            "message so far: {}".format(message)
-                        )  # .decode('utf-8', errors='ignore')))
-                    except Exception as ex:
-                        self._logger.info(
-                            "Caught an exception trying to debug message so far: "
-                            + str(ex)
-                        )
-
-                    try:
-                        files = {}
-                        sendOneInLoop = False
-                        if self._plugin_manager.get_plugin(
-                            "multicam", True
-                        ) and self._settings.get(["multicam"]):
-                            try:
-                                curr = self._settings.global_get(
-                                    ["plugins", "multicam", "multicam_profiles"]
-                                )
-                                self._logger.debug("multicam_profiles : " + str(curr))
-                                for li in curr:
-                                    try:
-                                        snapshot_url = li.get("snapshot") # try to get the snapshot url
-                                        self._logger.debug(
-                                            "multicam url :  " + str(snapshot_url)
-                                        )
-                                        
-                                        if not snapshot_url: # if snapshot url is not stored try to create it
-                                            self._logger.debug(
-                                                "multicam profile:  " + str(li)
-                                            )
-                                            snapshot_url = li.get("URL")
-                                            self._logger.debug(
-                                                "multicam url :  " + str(snapshot_url)
-                                            )
-
-                                            defsnap = self._settings.global_get(
-                                                ["webcam", "snapshot"]
-                                            )
-                                            defstream = self._settings.global_get(
-                                                ["webcam", "stream"]
-                                            )
-                                            streamname = defstream.rsplit("/", 1).pop()
-                                            snapname = defsnap.rsplit("/", 1).pop()
-                                            if streamname in snapshot_url:
-                                                self._logger.debug(
-                                                    str(streamname)
-                                                    + " found so should be replaced by "
-                                                    + str(snapname)
-                                                )
-                                                snapshot_url = snapshot_url.replace(
-                                                    streamname, snapname
-                                                )
-
-                                        self._logger.debug(
-                                            "Snapshot URL: " + str(snapshot_url)
-                                        )
-                                        if snapshot_url != self._settings.global_get(
-                                            ["webcam", "snapshot"]
-                                        ):
-                                            image_data2 = self.take_image(snapshot_url)
-                                            if str(image_data2) != "":
-                                                self._logger.debug(
-                                                    "Image for  " + str(li.get("name"))
-                                                )
-                                                files = {
-                                                    "photo": ("image.jpg", image_data2)
-                                                }
-                                                data2 = data
-                                                data2["caption"] = ""
-                                                r = requests.post(
-                                                    self.bot_url + "/sendPhoto",
-                                                    files=files,
-                                                    data=data2,
-                                                    proxies=self.getProxies(),
-                                                )
-                                            else:
-                                                self._logger.debug(
-                                                    "no image  " + str(li.get("name"))
-                                                )
-                                        else:
-                                            self._logger.debug(
-                                                "url is the same as the one from octoprint "
-                                            )
-
-                                    except Exception as ex:
-                                        self._logger.exception(
-                                            "Exception loop multicam URL to create image: "
-                                            + str(ex)
-                                        )
-                            except Exception as ex:
-                                self._logger.exception(
-                                    "Exception occured on getting multicam options: "
-                                    + str(ex)
-                                )
-                    except Exception as ex:
-                        self._logger.exception(
-                            "Exception occured on getting multicam plugin: " + str(ex)
-                        )
-
+                images_data_to_send = []
                 r = None
 
+                # Get thumbnail
                 try:
-                    thumbnail_data = None
                     if "thumbnail" in kwargs and kwargs["thumbnail"] != None:
-                        self._logger.debug(
-                            "send_file thumbnail whithout message: "
-                            + str(kwargs["thumbnail"])
-                        )
-                        url = (
-                            "http://localhost:"
-                            + str(self.tcmd.port)
-                            + "/"
-                            + str(kwargs["thumbnail"])
-                        )
+                        self._logger.debug("Get thumbnail: " + str(kwargs['thumbnail']))
+                        
+                        url = "http://localhost:" + str(self.tcmd.port) + "/" + str(kwargs['thumbnail'])
 
-                        # outPath = self.get_plugin_data_folder()+"/tmpgif/thumbnail.png"
-                        # try:
-                        # 	os.remove(outPath)
-                        # except Exception as ex:
-                        # 	self._logger.error("Caught an exception trying clean previous images : " + str(ex))
-                        # 	self._logger.info("will try to save image in path " + os.getcwd())
                         r = requests.get(url, proxies=self.getProxies())
-
-                        if r.status_code >= 300:
-                            thumbnail_data = None
+                        r.raise_for_status()
+                        
+                        images_data_to_send.append(r.content)
+                except Exception:
+                    self._logger.exception("Exception occured on getting thumbnail")
+                    
+                # Get images
+                if with_image:
+                    # Retrieve multicam profiles
+                    multicam_profiles = None
+                    try:
+                        if self._plugin_manager.get_plugin("multicam", True) is not None and self._settings.get(["multicam"]):
+                            self._logger.debug("Multicam detected")
+                            multicam_profiles = self._settings.global_get(["plugins", "multicam", "multicam_profiles"])
+                            self._logger.debug("Multicam profiles: " + str(multicam_profiles))
                         else:
-                            thumbnail_data = r.content
+                            self._logger.debug("Multicam not detected")
+                    except Exception:
+                        self._logger.exception("Exception occured while getting multicam profiles")
+                        
+                    # If there are multicam profiles, take images from them
+                    if multicam_profiles:
+                        for multicam_profile in multicam_profiles:
+                            image_data = None
+                            
+                            try:
+                                image_data = self.take_image(
+                                    multicam_profile.get("snapshot"),
+                                    multicam_profile.get("flipH"),
+                                    multicam_profile.get("flipV"),
+                                    multicam_profile.get("rotate90")
+                                )
+                            except Exception:
+                                self._logger.exception("Caught an exception trying taking an image")
+                                
+                            if image_data:
+                                images_data_to_send.append(image_data)
+                            else:
+                                message = "[ERR GET IMAGE]\n\n" + str(message)
+                        
+                    # If there aren't multicam profiles, fallback taking image from the octoprint default camera
+                    else:
+                        image_data = None
+                        
+                        try:
+                            image_data = self.take_image(
+                                self._settings.global_get(["webcam", "snapshot"]),
+                                self._settings.global_get(["webcam", "flipH"]),
+                                self._settings.global_get(["webcam", "flipV"]),
+                                self._settings.global_get(["webcam", "rotate90"])
+                            )
+                        except Exception:
+                            self._logger.exception("Caught an exception trying taking an image")
+                            
+                        if image_data:
+                            images_data_to_send.append(image_data)
+                        else:
+                           message = "[ERR GET IMAGE]\n\n" + str(message)
 
-                        # with open(outPath, 'wb') as f:
-                        # 	f.write(r.content)
-                        # self.send_file(chatID,outPath ,"")
-                except Exception as ex:
-                    self._logger.exception(
-                        "Exception occured on getting thumbnail: " + str(ex)
-                    )
-
-                if image_data and thumbnail_data != None:
-                    self._logger.debug(
-                        "Sending with image.. and thumbnail so image first "
-                        + str(chatID)
-                    )
-                    files = {"photo": ("image.jpg", image_data)}
-                    data["caption"] = ""
+                # Send message (with images, if there are)
+                if len(images_data_to_send) == 1:
+                    self._logger.debug("Sending with one image... ChatID: " + str(chatID))
+                    
+                    if message != "":
+                        data["caption"] = message
+                        
+                    files = {"photo": ("image.jpg", images_data_to_send[0])}
+                        
                     r = requests.post(
                         self.bot_url + "/sendPhoto",
                         files=files,
                         data=data,
-                        proxies=self.getProxies(),
-                    )
-                    self._logger.debug("Sending image finished. " + str(r.status_code))
-
-                    self._logger.debug("Sending thumbnail.. " + str(chatID))
-                    files = {"photo": ("image.jpg", thumbnail_data)}
-                    if message is not "":
-                        data["caption"] = message
-                    r = requests.post(
-                        self.bot_url + "/sendPhoto",
                         files=files,
-                        data=data,
-                        proxies=self.getProxies(),
+                        proxies=self.getProxies()
                     )
-                    self._logger.debug("Sending finished. " + str(r.status_code))
-                elif image_data:
-                    self._logger.debug("Sending with image.. " + str(chatID))
-                    files = {"photo": ("image.jpg", image_data)}
-                    # self._logger.debug("files so far: " + str(files))
-                    if message is not "":
-                        data["caption"] = message
-                    r = requests.post(
-                        self.bot_url + "/sendPhoto",
-                        files=files,
-                        data=data,
-                        proxies=self.getProxies(),
-                    )
-
-                    self._logger.debug("Sending finished. " + str(r.status_code))
-
-                elif thumbnail_data != None:
-                    self._logger.debug("Sending with thumbnail.. " + str(chatID))
-                    files = {"photo": ("image.jpg", thumbnail_data)}
-
-                    if message is not "":
-                        data["caption"] = message
-
+                elif images_data_to_send:
+                    self._logger.debug("Sending with multiple images... ChatID: " + str(chatID))
+                    
+                    files = {}
+                    media = []
+                    
+                    for i, image_data_to_send in enumerate(images_data_to_send):
+                        files["photo_" + str(i)] = image_data_to_send
+                        
+                        input_media_photo = {"type":"photo", "media":"attach://photo_"+str(i)}
+                        
+                        if i==0 and message != "":
+                            input_media_photo["caption"] = message
+                        
+                        media.append(input_media_photo)
+                    
+                    data["media"] = json.dumps(media)
+                    
                     r = requests.post(
                         self.bot_url + "/sendPhoto",
                         files=files,
@@ -2544,7 +2420,7 @@ class TelegramPlugin(
             del self.updateMessageID[id]
         return uMsgID
 
-    def take_image(self, snapshot_url=""):
+    def take_image(self, snapshot_url="", flipH=False, flipV=False, rotate=False):
         if snapshot_url == "":
             snapshot_url = self._settings.global_get(["webcam", "snapshot"])
         
@@ -2552,16 +2428,15 @@ class TelegramPlugin(
 
         self._logger.debug("Snapshot URL: " + str(snapshot_url))
         data = None
+        
         if snapshot_url:
             try:
                 r = requests.get(snapshot_url, timeout=10, proxies=self.getProxies())
+                r.raise_for_status()
                 data = r.content
             except Exception as e:
                 self._logger.exception("TimeOut Exception: " + str(e))
                 return None
-        flipH = self._settings.global_get(["webcam", "flipH"])
-        flipV = self._settings.global_get(["webcam", "flipV"])
-        rotate = self._settings.global_get(["webcam", "rotate90"])
         self._logger.debug(
             "Image transformations [H:%s, V:%s, R:%s]", flipH, flipV, rotate
         )
@@ -2574,10 +2449,7 @@ class TelegramPlugin(
             if flipV:
                 image = image.transpose(Image.FLIP_TOP_BOTTOM)
             if rotate:
-                if not self._settings.get_boolean(["invertImgRot"]):
-                    image = image.transpose(Image.ROTATE_270)
-                else:
-                    image = image.transpose(Image.ROTATE_90)
+                image = image.transpose(Image.ROTATE_90)
             output = bytes_reader_class()
             image.save(output, format="JPEG")
             data = output.getvalue()
