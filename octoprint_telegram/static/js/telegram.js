@@ -15,8 +15,6 @@ $(function() {
          //   self.settings=self.settings;
         console.log(String(self.settings));
 
-        // TODO: Implement your plugin's view model here.
-        
         self.chatListHelper = new ItemListHelper(
             "known_chats",
             {
@@ -92,7 +90,6 @@ $(function() {
             self.bind["notifications"] = response.bind_msg;
             self.bind['no_setting'] = response.no_setting;
             self.bind['bind_text'] = response.bind_text;
-            var ShowGifBtn = self.settings.settings.plugins.telegram.send_gif()
             var ShowGifBtn = self.settings.settings.plugins.telegram.send_gif()
 
             if (ShowGifBtn)
@@ -378,7 +375,6 @@ $(function() {
     
         self.testToken = function(data, event) {
             self.isloading(true);
-            console.log("Testing token " + $('#settings_plugin_telegram_token').val());
             $.ajax({
                 url: API_BASEURL + "plugin/telegram",
                 type: "POST",
@@ -458,7 +454,6 @@ $(function() {
             for(var id in entries) {
                 var data = entries[id];
                 data['id'] = id;
-                data['image'] = data['image'];
                 if(data['new']) {
                     data['newUsr'] = true;
                 } else {
@@ -552,7 +547,7 @@ $(function() {
                         success: self.fromResponse
                     });
                 };
-            showConfirmationDialog('Do you really want to delete ' + data.title, function (e) {
+            showConfirmationDialog('Do you really want to delete ' + _.escape(data.title), function (e) {
                 callback();
             });
   

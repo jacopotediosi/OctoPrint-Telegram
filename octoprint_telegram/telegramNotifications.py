@@ -1,26 +1,17 @@
-import time, datetime, logging
+import time, datetime
 import octoprint.util
-from flask_babel import gettext
-import sys
 
 
-def is_in_python_2_7():
-    if sys.version[0] == "2":
-        return True
-    return False
-
-
-###################################################################################################
+##########################################################################################################################
 # Here you find the known notification messages and their handles.
 # The only way to start a messageHandle should be via on_event() in __init__.py
 # If you want to add/remove notifications read the following:
 # SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
-#####################################################################################################################################################
+##########################################################################################################################
 
 telegramMsgDict = {
     "PrinterStart": {
-        "text": "{emo:rocket} "
-        + gettext("Hello. I'm online and ready to receive your commands."),
+        "text": "{emo:rocket} Hello. I'm online and ready to receive your commands.",
         "image": False,
         "silent": False,
         "gif": False,
@@ -28,7 +19,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrinterShutdown": {
-        "text": "{emo:octopus} {emo:shutdown} " + gettext("Shutting down. Goodbye."),
+        "text": "{emo:octopus} {emo:shutdown} Shutting down. Goodbye.",
         "image": False,
         "silent": False,
         "gif": False,
@@ -36,7 +27,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrintStarted": {
-        "text": gettext("Started printing {file}."),
+        "text": "Started printing {file}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -44,7 +35,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrintPaused": {
-        "text": gettext("Paused printing {file} at {percent}%. {time_left} remaining."),
+        "text": "Paused printing {file} at {percent}%. {time_left} remaining.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -52,9 +43,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrintResumed": {
-        "text": gettext(
-            "Resumed printing {file} at {percent}%. {time_left} remaining."
-        ),
+        "text": "Resumed printing {file} at {percent}%. {time_left} remaining.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -62,7 +51,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrintFailed": {
-        "text": gettext("Printing {file} failed."),
+        "text": "Printing {file} failed.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -70,9 +59,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "ZChange": {
-        "text": gettext(
-            "Printing at Z={z}.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.\n{time_done}, {percent}% done, {time_left} remaining.\nCompleted time {time_finish}."
-        ),
+        "text": "Printing at Z={z}.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.\n{time_done}, {percent}% done, {time_left} remaining.\nCompleted time {time_finish}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -80,7 +67,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "PrintDone": {
-        "text": gettext("Finished printing {file}."),
+        "text": "Finished printing {file}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -88,9 +75,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "StatusNotPrinting": {
-        "text": gettext(
-            "Not printing.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}."
-        ),
+        "text": "Not printing.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -101,10 +86,7 @@ telegramMsgDict = {
     "StatusPrinting": {"bind_msg": "ZChange", "no_setting": True},
     "plugin_octolapse_movie_done": {"bind_msg": "MovieDone", "no_setting": True},
     "plugin_pause_for_user_event_notify": {
-        "text": "{emo:warning} "
-        + gettext(
-            "User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}."
-        ),
+        "text": "{emo:warning} User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -112,10 +94,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "gCode_M600": {
-        "text": "{emo:warning} "
-        + gettext(
-            "Color change requested.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}."
-        ),
+        "text": "{emo:warning} Color change requested.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
         "gif": False,
@@ -123,8 +102,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "Error": {
-        "text": "{emo:warning} {emo:warning} {emo:warning}"
-        + gettext("Printer Error {error_msg}"),
+        "text": "{emo:warning} {emo:warning} {emo:warning} Printer Error {error_msg}",
         "image": True,
         "silent": False,
         "gif": False,
@@ -132,7 +110,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "MovieDone": {
-        "text": "{emo:movie} " + gettext("Movie done"),
+        "text": "{emo:movie} Movie done",
         "image": False,
         "silent": False,
         "gif": True,
@@ -140,7 +118,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "Connected": {
-        "text": "{emo:link symbol} " + gettext("Printer Connected"),
+        "text": "{emo:link symbol} Printer Connected",
         "image": False,
         "silent": False,
         "gif": False,
@@ -148,7 +126,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "Disconnected": {
-        "text": "{emo:broken heart} " + gettext("Printer Disconnected"),
+        "text": "{emo:broken heart} Printer Disconnected",
         "image": False,
         "silent": False,
         "gif": False,
@@ -156,10 +134,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "Home": {
-        "text": "{emo:house building} "
-        + gettext(
-            "Printer received home command \nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}"
-        ),
+        "text": "{emo:house building} Printer received home command \nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}",
         "image": True,
         "silent": False,
         "gif": False,
@@ -167,10 +142,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "Alert": {
-        "text": "{emo:bell} "
-        + gettext(
-            "Printer received alert command \nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}"
-        ),
+        "text": "{emo:bell} Printer received alert command \nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}",
         "image": True,
         "silent": False,
         "gif": False,
@@ -178,8 +150,7 @@ telegramMsgDict = {
         "markup": "off",
     },
     "UserNotif": {
-        "text": "{emo:waving hand sign} "
-        + gettext("User Notification {UserNotif_Text}"),
+        "text": "{emo:waving hand sign} User Notification {UserNotif_Text}",
         "image": True,
         "silent": False,
         "gif": False,
@@ -188,24 +159,16 @@ telegramMsgDict = {
     },
 }
 
-# class to handle emojis on notifigation message format
+
+# Class to handle emojis on notification message format
 class EmojiFormatter:
     def __init__(self, main):
         self.main = main
 
     def __format__(self, format):
-        self.main._logger.debug("Formatting emoticon: `" + format + "`")
+        self.main._logger.debug(f"Formatting emoticon: '{format}'")
         if format in self.main.emojis:
-            if is_in_python_2_7():  # giloser try to fix emoji problem
-                try:
-                    return self.main.gEmo(format).encode("utf-8")
-                except Exception as ex:
-                    self.main._logger.debug(
-                        "Exception on formatting message: " + str(ex)
-                    )
-                    return self.main.gEmo(format)
-            else:
-                return self.main.gEmo(format)
+            return self.main.gEmo(format)
         return ""
 
 
@@ -328,43 +291,39 @@ class TMSG:
         try:
             status = self.main._printer.get_current_data()
             event = kwargs["event"]
-            self._logger.debug("event :" + str(event))
+            self._logger.debug(f"event: {event}")
             try:
                 kwargs["event"] = (
                     telegramMsgDict[event]["bind_msg"]
                     if "bind_msg" in telegramMsgDict[event]
                     else event
                 )
-            except Exception as ex:
-                self._logger.exception("Exception on get bind_msg: " + str(ex))
+            except Exception:
+                self._logger.exception("Exception on get bind_msg")
                 kwargs["event"] = event
 
             kwargs["with_image"] = self.main._settings.get(
                 ["messages", str(kwargs["event"]), "image"]
             )
             self._logger.debug(
-                "send_gif = "
-                + str(self.main._settings.get(["send_gif"]))
-                + " and this message would send gif = "
-                + str(
-                    self.main._settings.get(["messages", str(kwargs["event"]), "gif"])
-                )
+                f"send_gif = {self.main._settings.get(['send_gif'])} "
+                f"and this message would send gif = {self.main._settings.get(['messages', str(kwargs['event']), 'gif'])}"
             )
             if self.main._settings.get(["send_gif"]):
                 kwargs["with_gif"] = self.main._settings.get(
                     ["messages", str(kwargs["event"]), "gif"]
-                )  # giloser 05/05/19
+                )
             else:
                 kwargs["with_gif"] = 0
             kwargs["silent"] = self.main._settings.get(
                 ["messages", str(kwargs["event"]), "silent"]
-            )  # babs
+            )
 
-            self._logger.debug("Printer Status" + str(status))
+            self._logger.debug(f"Printer Status: {status}")
             # define locals for string formatting
             z = self.z
             temps = self.main._printer.get_current_temperatures()
-            self._logger.debug("TEMPS - " + str(temps))
+            self._logger.debug(f"TEMPS - {temps}")
             bed_temp = temps["bed"]["actual"] if "bed" in temps else 0.0
             bed_target = temps["bed"]["target"] if "bed" in temps else 0.0
             e1_temp = temps["tool0"]["actual"] if "tool0" in temps else 0.0
@@ -375,22 +334,22 @@ class TMSG:
 
             try:
                 Layers = self.main.get_current_layers()
-                self._logger.debug("Layers - " + str(Layers))
+                self._logger.debug(f"Layers - {Layers}")
                 if not Layers is None:
                     currentLayer = Layers["layer"]["current"]
                     totalLayer = Layers["layer"]["total"]
                 else:
                     currentLayer = "?"
                     totalLayer = "?"
-            except Exception as ex:
-                self._logger.exception("Exception on get_current_layers: " + str(ex))
+            except Exception:
+                self._logger.exception("Exception on get_current_layers")
 
             time_done = octoprint.util.get_formatted_timedelta(
                 datetime.timedelta(seconds=(status["progress"]["printTime"] or 0))
             )
-            if status["progress"]["printTimeLeft"] == None:
-                time_left = gettext("[Unknown]")
-                time_finish = gettext("[Unknown]")
+            if status["progress"]["printTimeLeft"] is None:
+                time_left = "[Unknown]"
+                time_finish = "[Unknown]"
             else:
                 time_left = octoprint.util.get_formatted_timedelta(
                     datetime.timedelta(
@@ -399,34 +358,34 @@ class TMSG:
                 )
                 try:
                     time_finish = self.main.calculate_ETA(time_left)
-                except Exception as ex:
-                    time_finish = str(ex)
-                    self._logger.error("Exception on formatting message: " + str(ex))
+                except Exception as e:
+                    time_finish = str(e)
+                    self._logger.exception("Exception on formatting message")
             file = status["job"]["file"]["name"]
             path = status["job"]["file"]["path"]
             owner = status["job"]["user"]
-            if owner == None:
-                owner = ''
-                if owner == '_api':
-                    owner = ''
+            if owner is None:
+                owner = ""
+                if owner == "_api":
+                    owner = ""
 
             try:
                 if event == "PrintStarted":
-                    # get additionnal metadata and thumbnail
-                    self._logger.info("get thumbnail url for path=" + str(path))
+                    # get additional metadata and thumbnail
+                    self._logger.debug(f"get thumbnail url for path={path}")
                     meta = self.main._file_manager.get_metadata(
                         octoprint.filemanager.FileDestinations.LOCAL, path
                     )
-                    if meta != None and "thumbnail" in meta:
+                    if meta is not None and "thumbnail" in meta:
                         kwargs["thumbnail"] = meta["thumbnail"]
                     else:
                         kwargs["thumbnail"] = None
-                    self._logger.info("thumbnail =" + str(kwargs["thumbnail"]))
-                    # self._logger.info("meta =" + str(meta))
+                    self._logger.debug(f"thumbnail = {kwargs['thumbnail']}")
+                    self._logger.debug(f"meta = {meta}")
                 else:
                     kwargs["thumbnail"] = None
-            except Exception as ex:
-                self._logger.exception("Exception on getting thumbnail: " + str(ex))
+            except Exception:
+                self._logger.exception("Exception on getting thumbnail")
 
             try:
                 if event == "plugin_octolapse_movie_done":
@@ -434,15 +393,12 @@ class TMSG:
                 if event == "MovieDone":
                     if "movie" in payload:
                         kwargs["movie"] = payload["movie"]
-            except Exception as ex:
-                self._logger.exception(
-                    "Exception on getting movie for MovieDone: " + str(ex)
-                )
+            except Exception:
+                self._logger.exception("Exception on getting movie for MovieDone")
 
-            
             if "user" in payload:
                 user = payload["user"]
-                if user == None:
+                if user is None:
                     user = ""
                 if user == "_api":
                     user = "API"
@@ -460,50 +416,36 @@ class TMSG:
             if "UserNotif" in payload:
                 UserNotif_Text = payload["UserNotif"]
 
-            self._logger.debug("VARS - " + str(locals()))
+            self._logger.debug(f"VARS - {locals()}")
             emo = EmojiFormatter(self.main)
             try:
-                # call format with emo class object to handle emojis, otherwise use locals
-                if is_in_python_2_7():  # giloser try to fix emoji problem
-                    message = (
-                        self.main._settings.get(["messages", kwargs["event"], "text"])
-                        .encode("utf-8")
-                        .format(emo, **locals())
-                    )
-                else:
-                    message = self.main._settings.get(
-                        ["messages", kwargs["event"], "text"]
-                    ).format(emo, **locals())
-            except Exception as ex:
-                self._logger.exception("Exception on formatting message: " + str(ex))
+                message = self.main._settings.get(
+                    ["messages", kwargs["event"], "text"]
+                ).format(emo, **locals())
+            except Exception:
+                self._logger.exception("Exception on formatting message")
                 message = (
-                    self.main.gEmo("warning")
-                    + " ERROR: I was not able to format the Notification for '"
-                    + event
-                    + "' properly. Please open your OctoPrint settings for "
-                    + self.main._plugin_name
-                    + " and check message settings for '"
-                    + event
-                    + "'."
+                    f"{self.main.gEmo('warning')} ERROR: I was not able to format the Notification for the event '{event}' properly.\n"
+                    f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
-            self._logger.debug("Sending Notification: " + message)
+            self._logger.debug(f"Sending Notification: {message}")
             self._logger.debug(kwargs)
             # Do we want to send with Markup?
             kwargs["markup"] = self.main._settings.get(
                 ["messages", kwargs["event"], "markup"]
             )
-            # finally send MSG
+            # Finally send MSG
             kwargs["inline"] = False
             self.main.send_msg(message, **kwargs)
-        except Exception as ex:
-            self._logger.exception("Exception on send notification: " + str(ex))
+        except Exception:
+            self._logger.exception("Exception on send notification")
 
-    # Helper to determine if notification will be send on gcode ZChange event
-    # depends on notification time and notification height
+    # Helper to determine if notification will be send on gcode ZChange event.
+    # Depends on notification time and notification height.
     def is_notification_necessary(self, new_z, old_z):
         timediff = self.main._settings.get_int(["notification_time"])
         if timediff and timediff > 0:
-            # check the timediff
+            # Check the timediff
             if self.last_notification_time + timediff * 60 <= time.time():
                 self.last_notification_time = time.time()
                 return True
@@ -511,9 +453,9 @@ class TMSG:
         if zdiff and zdiff > 0.0:
             if old_z is None or new_z < 0:
                 return False
-            # check the zdiff
+            # Check the zdiff
             if abs(new_z - (old_z or 0.0)) >= 1.0:
-                # big changes in height are not interesting for notifications - we ignore them
+                # Big changes in height are not interesting for notifications - we ignore them
                 self.last_z = new_z
                 return False
             if new_z >= self.last_z + zdiff or new_z < self.last_z:
@@ -522,13 +464,10 @@ class TMSG:
         return False
 
     def is_usernotification_necessary(self):
-        timediff = 30  # force to every 30 seconds
-        # check the timediff
+        timediff = 30  # Force to every 30 seconds
+        # Check the timediff
         self._logger.debug(
-            "self.last_notification_time + timediff: "
-            + str(self.last_notification_time + timediff)
-            + "<= time.time()"
-            + str(time.time())
+            f"self.last_notification_time + timediff: {self.last_notification_time + timediff} <= time.time(): {time.time()}"
         )
         if self.last_notification_time + timediff <= time.time():
             self.last_notification_time = time.time()
