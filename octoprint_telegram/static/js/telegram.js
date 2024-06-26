@@ -93,7 +93,6 @@ $(function() {
             self.bind['no_setting'] = response.no_setting;
             self.bind['bind_text'] = response.bind_text;
             var ShowGifBtn = self.settings.settings.plugins.telegram.send_gif()
-            var ShowGifBtn = self.settings.settings.plugins.telegram.send_gif()
 
             if (ShowGifBtn)
             {
