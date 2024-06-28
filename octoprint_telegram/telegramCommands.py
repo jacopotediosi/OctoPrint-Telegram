@@ -35,6 +35,7 @@ class TCMD:
             "/settings": {"cmd": self.cmdSettings, "param": True},
             "/abort": {"cmd": self.cmdAbort, "param": True},
             "/togglepause": {"cmd": self.cmdTogglePause},
+            "/home": {"cmd": self.cmdHome},
             "/shutup": {"cmd": self.cmdShutup},
             "/dontshutup": {"cmd": self.cmdNShutup},
             "/print": {"cmd": self.cmdPrint, "param": True},
@@ -533,6 +534,15 @@ class TCMD:
             self.main._printer.toggle_pause_print(user=user)
         else:
             msg = "  Currently I'm not printing, so there is nothing to pause/resume."
+        self.main.send_msg(msg, chatID=chat_id, inline=False)
+
+    ############################################################################################
+    def cmdHome(self, chat_id, from_id, cmd, parameter, user=""):
+        if self.main._printer.is_ready():
+            msg =  f"{self.gEmo('house with garden')} Homing."
+            self.main._printer.home(["x", "y", "z"])
+        else:
+            msg = f"{self.gEmo('warning')} I can't go home now."
         self.main.send_msg(msg, chatID=chat_id, inline=False)
 
     ############################################################################################
@@ -2691,6 +2701,7 @@ class TCMD:
                 "/filament - Shows you your filament spools or lets you change it. Requires the Filament Manager Plugin.\n"
                 "/print - Lets you start a print. A confirmation is required.\n"
                 "/togglepause - Pause/Resume current Print.\n"
+                "/home - Home the printer print head."
                 "/con - Connect/disconnect printer.\n"
                 "/upload - You can just send me a gcode file or a zip file to save it to my library.\n"
                 "/sys - Execute Octoprint System Commands.\n"

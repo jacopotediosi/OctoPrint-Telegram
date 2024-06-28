@@ -2021,6 +2021,12 @@ class TelegramPlugin(
                 )
                 commands.append(
                     {
+                        "command": "home",
+                        "description": "Home the printer print head",
+                    }
+                )
+                commands.append(
+                    {
                         "command": "files",
                         "description": "Lists all the files available for printing",
                     }

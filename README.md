@@ -67,6 +67,7 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	filament - Shows you your filament spools or lets you change it.
 	print - Lets you start a print. A confirmation is required.
 	togglepause - Pause/Resume current Print.
+	home - Home the printer print head.
 	con - Connect/disconnect printer.
 	upload - You can just send me a gcode file to save it to my library. Also accept zip file.
 	sys - Execute Octoprint System Commands.
@@ -235,11 +236,13 @@ In this section you can configure the content of the notification messages.
 
 **`/togglepause`** - Pause/resume the current print.
 
+**`/home`** - Home the printer print head.
+
 **`/con`** - Connect/disconnect printer. Choose between auto connect, use defaults to connect or manual connect (select port/baudrate/printer profile). You are also able to change the connection defaults and turn auto connect on/off.
 
 **`/upload`** - You can just send a gcode file or a zip file to the bot to save it in upload folder of Octoprint. If you send this command, the bot will tell you the same :) NOTE: This will NOT work in groups.
 
-**`/sys`** - Execute Octoprint System Comamnds you defined in *config.yaml*. If a confirmation is defined for the system command, it will be displayed before execution. See [Octoprint documentation](http://docs.octoprint.org/en/master/configuration/config_yaml.html#system) for details on setting up system commands. There is also a [plugin](http://plugins.octoprint.org/plugins/systemcommandeditor/) for doing this.
+**`/sys`** - Execute Octoprint System Commands you defined in *config.yaml*. If a confirmation is defined for the system command, it will be displayed before execution. See [Octoprint documentation](http://docs.octoprint.org/en/master/configuration/config_yaml.html#system) for details on setting up system commands. There is also a [plugin](http://plugins.octoprint.org/plugins/systemcommandeditor/) for doing this.
 
 **`/ctrl`** - Use self defined controls from Octoprint. Only plain controls (without input or output) will be used. If a confirmation is defined for the control, it will be displayed before execution. See [Octoprint documentation](http://docs.octoprint.org/en/master/configuration/config_yaml.html#controls) for details on setting up controls. There is also a [plugin](http://plugins.octoprint.org/plugins/customControl/) for doing this.
 
