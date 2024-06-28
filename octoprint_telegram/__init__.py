@@ -983,7 +983,6 @@ class TelegramPlugin(
     ##########
 
     def on_after_startup(self):
-        self.set_log_level()
         self._logger.addFilter(TelegramPluginLoggingFilter())
         self.tcmd = TCMD(self)
         self.triggered = False
@@ -1368,7 +1367,6 @@ class TelegramPlugin(
         old_token = self._settings.get(["token"])
         # Now save settings
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-        self.set_log_level()
         # Reconnect on new token
         # Will stop listener on invalid token
         if "token" in data:
@@ -2515,12 +2513,7 @@ class TelegramPlugin(
     def str2bool(self, v):
         return v.lower() in ("yes", "true", "t", "1")
 
-    def set_log_level(self):
-        self._logger.setLevel(
-            logging.DEBUG if self._settings.get_boolean(["debug"]) else logging.NOTSET
-        )
-
-    # checks if the received command is allowed to execute by the user
+    # Checks if the received command is allowed to execute by the user
     def isCommandAllowed(self, chat_id, from_id, command):
         if "bind_none" in self.tcmd.commandDict[command]:
             return True
