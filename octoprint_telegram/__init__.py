@@ -120,7 +120,7 @@ class TelegramListener(threading.Thread):
             # We got no message with text (command) so lets check if we got a file.
             # The following handler will check file and saves it to disk.
             elif "document" in message["message"]:
-                self.handleDocumentMessage(message, chat_id, from_id)
+                self.handleDocumentMessage(message)
             # We got message with notification for a new chat title photo so lets download it
             elif "new_chat_photo" in message["message"]:
                 self.handleNewChatPhotoMessage(message)
@@ -187,326 +187,211 @@ class TelegramListener(threading.Thread):
             t.daemon = True
             t.run()
 
-    def handleDocumentMessage(self, message, chat_id, from_id):
-        # First we have to check if chat or group is allowed to upload
-        from_id = chat_id
-        if not self.main.chats[chat_id][
-            "private"
-        ]:  # Is this needed? can one send files from groups to bots?
-            from_id = str(message["message"]["from"]["id"])
-        # Is /upload allowed?
-        if self.main.isCommandAllowed(chat_id, from_id, "/upload"):
-            try:
-                file_name = message["message"]["document"]["file_name"]
-                isZipFile = False
-                if not octoprint.filemanager.valid_file_type(file_name, "machinecode"):
-                    if file_name.lower().endswith(".zip"):
-                        isZipFile = True
-                    else:
-                        self.main.send_msg(
-                            f"{self.gEmo('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
-                            chatID=chat_id,
-                        )
-                        raise ExitThisLoopException()
-                # Download the file
-                if self.main.version >= 1.3:
-                    target_filename = f"TelegramPlugin/{file_name}"
-                    from octoprint.server.api.files import _verifyFolderExists
+    def handleDocumentMessage(self, message):
+        try:
+            self._logger.debug("Handling document message")
 
-                    if not _verifyFolderExists(
-                        octoprint.filemanager.FileDestinations.LOCAL, "TelegramPlugin"
-                    ):
-                        self.main._file_manager.add_folder(
-                            octoprint.filemanager.FileDestinations.LOCAL,
-                            "TelegramPlugin",
-                        )
-                else:
-                    target_filename = f"telegram_{file_name}"
-                # For parameter no_markup see _send_edit_msg()
+            chat_id = str(message["message"]["chat"]["id"])
+            from_id = str(message["message"]["from"]["id"])
+
+            uploaded_file_filename = os.path.basename(
+                message["message"]["document"]["file_name"]
+            )
+
+            # Check if upload command is allowed
+            if not self.main.isCommandAllowed(chat_id, from_id, "/upload"):
+                self._logger.warning(
+                    f"Received file {uploaded_file_filename} from an unauthorized user"
+                )
                 self.main.send_msg(
-                    f"{self.gEmo('save')} Saving file {target_filename}...",
+                    f"{self.gEmo('warning')} You are not authorized to upload files",
                     chatID=chat_id,
                 )
-                requests.get(
-                    f"{self.main.bot_url}/sendChatAction",
-                    params={"chat_id": chat_id, "action": "upload_document"},
-                    proxies=self.getProxies(),
-                )
-                data = self.main.get_file(message["message"]["document"]["file_id"])
-                # Try to zip the gcode file to lower the size
-                if isZipFile:
-                    try:
-                        # stream = octoprint.filemanager.util.StreamWrapper(target_filename, bytes_reader_class(data))
-                        # self.main._file_manager.add_folder(self.get_plugin_data_folder() , "tmpzip", ignore_existing=True)
-                        zip_filename = (
-                            self.main.get_plugin_data_folder() + "/tmpzip/" + file_name
-                        )
-                        with open(zip_filename, "wb") as f:
-                            f.write(data)
-                        # self.main._file_manager.add_file(octoprint.filemanager.FileDestinations.LOCAL, target_filename, stream, allow_overwrite=True)
-                    except Exception:
-                        self._logger.exception(
-                            f"Exception occured while saving file {zip_filename}"
-                        )
+                return
 
-                    self._logger.info(f"read archive {zip_filename}")
-                    try:
-                        zf = zipfile.ZipFile(zip_filename, "r")
-                        self._logger.info("namelist ")
-                        list_files = zf.namelist()
-                        stringmsg = ""
-                        nbFile = 0
-                        for filename in list_files:
-                            if octoprint.filemanager.valid_file_type(
-                                filename, "machinecode"
-                            ):
-                                try:
-                                    data = zf.read(filename)
-                                    path = (
-                                        self.main.get_plugin_data_folder()
-                                        + "/tmpzip/"
-                                        + filename
-                                    )
-                                    with open(path, "wb") as f:
-                                        f.write(data)
-                                    # stream = octoprint.filemanager.util.StreamWrapper(filename, bytes_reader_class(data))
-                                    if self.main.version >= 1.3:
-                                        target_filename = "TelegramPlugin/" + filename
-                                        from octoprint.server.api.files import (
-                                            _verifyFolderExists,
-                                        )
-
-                                        if not _verifyFolderExists(
-                                            octoprint.filemanager.FileDestinations.LOCAL,
-                                            "TelegramPlugin",
-                                        ):
-                                            self.main._file_manager.add_folder(
-                                                octoprint.filemanager.FileDestinations.LOCAL,
-                                                "TelegramPlugin",
-                                            )
-                                    else:
-                                        target_filename = f"telegram_{filename}"
-                                    file_wrapper = (
-                                        octoprint.filemanager.util.DiskFileWrapper(
-                                            target_filename, path
-                                        )
-                                    )
-                                    added_file = self.main._file_manager.add_file(
-                                        octoprint.filemanager.FileDestinations.LOCAL,
-                                        file_wrapper.filename,
-                                        file_wrapper,
-                                        allow_overwrite=True,
-                                    )
-                                    self._logger.debug(f"added_file = {added_file}")
-                                    # self.main._file_manager.add_file(octoprint.filemanager.FileDestinations.LOCAL, target_filename, stream, allow_overwrite=True)
-                                    if stringmsg == "":
-                                        stringmsg = f"{self.gEmo('upload')} I've successfully saved the file you sent me as {target_filename}"
-                                    else:
-                                        stringmsg += f", {target_filename}"
-                                    nbFile += 1
-                                    try:
-                                        os.remove(path)
-                                    except Exception:
-                                        self._logger.exception(
-                                            f"Exception occured while removing the {path} file"
-                                        )
-                                    # For parameter msg_id see _send_edit_msg()
-                                except Exception:
-                                    self._logger.exception(
-                                        f"Exception occured while processing the {filename} file"
-                                    )
-                            else:
-                                self._logger.info(
-                                    f"File {filename} is not a valid filename"
-                                )
-                    except Exception:
-                        self._logger.exception(
-                            "Exception occured while processing a file"
-                        )
-                        self.main.send_msg(
-                            f"{self.gEmo('warning')} Sorry, Problem managing the zip file.",
-                            chatID=chat_id,
-                        )
-                        raise ExitThisLoopException()
-                    finally:
-                        self._logger.info("will now close the zip file")
-                        zf.close()
-                    if stringmsg != "":
-                        self.main.send_msg(
-                            stringmsg,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
-                            chatID=chat_id,
-                        )
-                        if nbFile == 1 and self.main._settings.get(
-                            ["selectFileUpload"]
-                        ):
-                            file = self.main._file_manager.path_on_disk(
-                                octoprint.filemanager.FileDestinations.LOCAL, added_file
-                            )
-                            self._logger.debug(f"Using full path: {file}")
-                            self.main._printer.select_file(
-                                file, False, printAfterSelect=False
-                            )
-                            data = self.main._printer.get_current_data()
-                            if data["job"]["file"]["name"] is not None:
-                                msg = (
-                                    f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file} and it is loaded.\n\n"
-                                    f"{self.gEmo('question')} Do you want me to start printing it now?"
-                                )
-                                self.main.send_msg(
-                                    msg,
-                                    noMarkup=True,
-                                    msg_id=self.main.getUpdateMsgId(chat_id),
-                                    responses=[
-                                        [
-                                            [
-                                                f"{self.main.emojis['check']} Print",
-                                                "/print_s",
-                                            ],
-                                            [
-                                                f"{self.main.emojis['cross mark']} Cancel",
-                                                "/print_x",
-                                            ],
-                                        ]
-                                    ],
-                                    chatID=chat_id,
-                                )
-                            elif not self.main._printer.is_operational():
-                                self.main.send_msg(
-                                    (
-                                        f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file}, but... "
-                                        "I can't start printing: I'm not connected to a printer"
-                                    ),
-                                    chatID=chat_id,
-                                    msg_id=self.main.getUpdateMsgId(chat_id),
-                                )
-                            else:
-                                self.main.send_msg(
-                                    (
-                                        f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file}, but... "
-                                        "Problems on loading the file for print"
-                                    ),
-                                    chatID=chat_id,
-                                    msg_id=self.main.getUpdateMsgId(chat_id),
-                                )
-
-                    else:
-                        self.main.send_msg(
-                            (
-                                f"{self.gEmo('warning')} Something went wrong during processing of your file.\n"
-                                f"{self.gEmo('mistake')} Sorry. More details are in octoprint.log."
-                            ),
-                            msg_id=self.main.getUpdateMsgId(chat_id),
-                            chatID=chat_id,
-                        )
-                        self._logger.exception(
-                            "Exception occured during processing of a file"
-                        )
-
-                    # self.main._file_manager.remove_file(zip_filename)
-                    os.remove(zip_filename)
+            # Check the file extension
+            is_zip_file = False
+            if not octoprint.filemanager.valid_file_type(
+                uploaded_file_filename, "machinecode"
+            ):
+                if uploaded_file_filename.lower().endswith(".zip"):
+                    is_zip_file = True
                 else:
-                    path = self.main.get_plugin_data_folder() + "/tmpzip/" + file_name
-                    with open(path, "wb") as f:
-                        f.write(data)
-                    file_wrapper = octoprint.filemanager.util.DiskFileWrapper(
-                        target_filename, path
+                    self._logger.warning(
+                        f"Received file {uploaded_file_filename} with invalid extension"
                     )
-                    added_file = self.main._file_manager.add_file(
-                        octoprint.filemanager.FileDestinations.LOCAL,
-                        file_wrapper.filename,
-                        file_wrapper,
-                        allow_overwrite=True,
-                    )
-                    self._logger.debug(f"added_file = {added_file}")
-
-                    # stream = octoprint.filemanager.util.StreamWrapper(target_filename, bytes_reader_class(data))
-                    # self.main._file_manager.add_file(octoprint.filemanager.FileDestinations.LOCAL, target_filename, stream, allow_overwrite=True)
-                    # self.main._file_manager.add_file(octoprint.filemanager.FileDestinations.LOCAL, stream.filename, stream, allow_overwrite=True)
-
-                    # For parameter msg_id see _send_edit_msg()
-                    # pathWoDest = "/".join(fullPath.split("/")[1:]) if len(fullPath.split("/")) > 1 else fullPath
-                    # keyPrint = [f"{self.main.emojis['rocket']} Print",f"/print_{fileHash}"]
                     self.main.send_msg(
-                        f"{self.gEmo('upload')} I've successfully saved the file you sent me as {target_filename}.",
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        f"{self.gEmo('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
                         chatID=chat_id,
                     )
+                    return
 
-                    try:
-                        os.remove(path)
-                    except Exception:
-                        self._logger.exception(
-                            f"Exception occured while removing the {path} file"
-                        )
+            # Download the uploaded file
+            self.main.send_msg(
+                f"{self.gEmo('save')} Saving file {uploaded_file_filename}...",
+                chatID=chat_id,
+            )
+            uploaded_file_content = self.main.get_file(
+                message["message"]["document"]["file_id"]
+            )
 
-                    if self.main._settings.get(["selectFileUpload"]):
-                        file = self.main._file_manager.path_on_disk(
-                            octoprint.filemanager.FileDestinations.LOCAL, added_file
-                        )
-                        self._logger.debug(f"Using full path: {file}")
-                        self.main._printer.select_file(
-                            file, False, printAfterSelect=False
-                        )
-                        data = self.main._printer.get_current_data()
-                        if data["job"]["file"]["name"] is not None:
-                            msg = (
-                                f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file} and it is loaded.\n\n"
-                                f"{self.gEmo('question')} Do you want me to start printing it now?"
+            # Prepare the destination folder
+            destination_folder = self.main._file_manager.add_folder(
+                octoprint.filemanager.FileDestinations.LOCAL,
+                "TelegramPlugin",
+                ignore_existing=True,
+            )
+
+            # Save the file on disk
+            added_files_relative_paths = []
+            if is_zip_file:
+                zip_file = io.BytesIO(uploaded_file_content)
+                with zipfile.ZipFile(zip_file, "r") as zf:
+                    for member in zf.infolist():
+                        member_filename = os.path.basename(member.filename)
+
+                        try:
+                            # Don't extract folders
+                            if member.is_dir():
+                                self._logger.debug(
+                                    f"Ignoring file {member_filename} while extracting a zip because it's a folder"
+                                )
+                                continue
+
+                            # Don't extract file with invalid extensions
+                            if not octoprint.filemanager.valid_file_type(
+                                member_filename, "machinecode"
+                            ):
+                                self._logger.debug(
+                                    f"Ignoring file {member_filename} while extracting a zip because it has an invalid extension"
+                                )
+                                continue
+
+                            member_content = zf.read(member)
+                            destination_file_relative_path = os.path.join(
+                                destination_folder, member_filename
                             )
-                            self.main.send_msg(
-                                msg,
-                                noMarkup=True,
-                                msg_id=self.main.getUpdateMsgId(chat_id),
-                                responses=[
-                                    [
-                                        [
-                                            f"{self.main.emojis['check']} Print",
-                                            "/print_s",
-                                        ],
-                                        [
-                                            f"{self.main.emojis['cross mark']} Cancel",
-                                            "/print_x",
-                                        ],
-                                    ]
-                                ],
-                                chatID=chat_id,
-                            )
-                        elif not self.main._printer.is_operational():
-                            self.main.send_msg(
-                                (
-                                    f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file}, but... "
-                                    "I can't start printing: I'm not connected to a printer"
-                                ),
-                                chatID=chat_id,
-                                msg_id=self.main.getUpdateMsgId(chat_id),
-                            )
-                        else:
-                            self.main.send_msg(
-                                (
-                                    f"{self.gEmo('upload')} I've successfully saved the file you sent me as {added_file}, but... "
-                                    "Problems on loading the file for print"
-                                ),
-                                chatID=chat_id,
-                                msg_id=self.main.getUpdateMsgId(chat_id),
+                            stream_wrapper = octoprint.filemanager.util.StreamWrapper(
+                                destination_file_relative_path,
+                                io.BytesIO(member_content),
                             )
 
-            except ExitThisLoopException:
-                pass
-            except Exception:
-                self._logger.exception("Exception occured while processing a file")
+                            added_file_relative_path = self.main._file_manager.add_file(
+                                octoprint.filemanager.FileDestinations.LOCAL,
+                                destination_file_relative_path,
+                                stream_wrapper,
+                                allow_overwrite=True,
+                            )
+                            self._logger.info(
+                                f"Added file to {added_file_relative_path}"
+                            )
+
+                            added_files_relative_paths.append(
+                                destination_file_relative_path
+                            )
+                        except Exception:
+                            self._logger.exception(
+                                f"Exception while extracting file {member_filename} contained in the zip"
+                            )
+            else:
+                destination_file_relative_path = os.path.join(
+                    destination_folder, uploaded_file_filename
+                )
+                stream_wrapper = octoprint.filemanager.util.StreamWrapper(
+                    destination_file_relative_path, io.BytesIO(uploaded_file_content)
+                )
+
+                added_file_relative_path = self.main._file_manager.add_file(
+                    octoprint.filemanager.FileDestinations.LOCAL,
+                    destination_file_relative_path,
+                    stream_wrapper,
+                    allow_overwrite=True,
+                )
+                self._logger.info(f"Added file to {added_file_relative_path}")
+
+                added_files_relative_paths.append(added_file_relative_path)
+
+            # Prepare the response message
+            if added_files_relative_paths:
+                response_message = f"{self.gEmo('upload')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
+            else:
+                response_message = f"{self.gEmo('warning')} No files were added. Did you upload an empty zip?"
+
+            # If there are multiple files or the "select file after upload" settings is off
+            if len(added_files_relative_paths) != 1 or not self.main._settings.get(
+                ["selectFileUpload"]
+            ):
+                # Just send the message
                 self.main.send_msg(
-                    (
-                        f"{self.gEmo('warning')} Something went wrong during processing of your file.\n"
-                        f"{self.gEmo('mistake')} Sorry. More details are in octoprint.log."
-                    ),
+                    response_message,
+                    chatID=chat_id,
                     msg_id=self.main.getUpdateMsgId(chat_id),
+                )
+
+            # If instead only one file has been added and the "select file after upload" settings is off
+            else:
+                # Check if printer is ready
+                if not self.main._printer.is_ready():
+                    response_message += (
+                        " but I can't load it because the printer is not ready"
+                    )
+                    self.main.send_msg(
+                        response_message,
+                        chatID=chat_id,
+                        msg_id=self.main.getUpdateMsgId(chat_id),
+                    )
+                    return
+
+                # Load the uploaded file
+                try:
+                    file_to_select_abs_path = self.main._file_manager.path_on_disk(
+                        octoprint.filemanager.FileDestinations.LOCAL,
+                        added_files_relative_paths[0],
+                    )
+                    self._logger.debug(f"Selecting file: {file_to_select_abs_path}")
+                    self.main._printer.select_file(
+                        file_to_select_abs_path, sd=False, printAfterSelect=False
+                    )
+                except Exception:
+                    response_message += " but I wasn't able to load the file"
+                    self.main.send_msg(
+                        response_message,
+                        chatID=chat_id,
+                        msg_id=self.main.getUpdateMsgId(chat_id),
+                    )
+                    return
+
+                # Ask the user whether to print the loaded file
+                response_message += (
+                    " and it is loaded.\n\n"
+                    f"{self.gEmo('question')} Do you want me to start printing it now?"
+                )
+                self.main.send_msg(
+                    response_message,
+                    noMarkup=True,
+                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    responses=[
+                        [
+                            [
+                                f"{self.main.emojis['check']} Print",
+                                "/print_s",
+                            ],
+                            [
+                                f"{self.main.emojis['cross mark']} Cancel",
+                                "/print_x",
+                            ],
+                        ]
+                    ],
                     chatID=chat_id,
                 )
-        else:
-            self._logger.warning("Previous file was from an unauthorized user.")
+        except Exception:
+            self._logger.exception("Exception occured while processing a file")
             self.main.send_msg(
-                f"Don't feed the octopuses! {self.gEmo('octo')}", chatID=chat_id
+                (
+                    f"{self.gEmo('warning')} Something went wrong during processing of your file.\n"
+                    f"{self.gEmo('mistake')} Sorry. More details are in octoprint.log."
+                ),
+                chatID=chat_id,
             )
 
     def handleTextMessage(self, message, chat_id, from_id):
@@ -2637,9 +2522,6 @@ class TelegramPlugin(
 
         os.makedirs(
             os.path.join(self.get_plugin_data_folder(), "img", "user"), exist_ok=True
-        )
-        os.makedirs(
-            os.path.join(self.get_plugin_data_folder(), "tmpzip"), exist_ok=True
         )
         os.makedirs(
             os.path.join(self.get_plugin_data_folder(), "tmpgif"), exist_ok=True
