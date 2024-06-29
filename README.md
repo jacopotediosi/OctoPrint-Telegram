@@ -197,7 +197,7 @@ In this section you can configure the content of the notification messages.
 
 3. Choose if you want to send an image along with the notification message. (green = send image, yellow=no image)
 
-4. With this option you select if the image and the text are send in one message or in two separated messages. Only available if you choose to send an image.
+4. ~~With this option you select if the image and the text are send in one message or in two separated messages. Only available if you choose to send an image.~~ **NOT AVAILABLE ANYMORE**
 
 5. This buttons sets the markup options for the message text. Only available when no image will be send or if image will be send in a separate message.
 

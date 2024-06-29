@@ -15,7 +15,6 @@ telegramMsgDict = {
         "image": False,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrinterShutdown": {
@@ -23,7 +22,6 @@ telegramMsgDict = {
         "image": False,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrintStarted": {
@@ -31,7 +29,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrintPaused": {
@@ -39,7 +36,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrintResumed": {
@@ -47,7 +43,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrintFailed": {
@@ -55,7 +50,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "ZChange": {
@@ -63,7 +57,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "PrintDone": {
@@ -71,7 +64,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "StatusNotPrinting": {
@@ -79,7 +71,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
         "no_setting": True,
     },
@@ -90,7 +81,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "gCode_M600": {
@@ -98,7 +88,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "Error": {
@@ -106,7 +95,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "MovieDone": {
@@ -114,7 +102,6 @@ telegramMsgDict = {
         "image": False,
         "silent": False,
         "gif": True,
-        "combined": True,
         "markup": "off",
     },
     "Connected": {
@@ -122,7 +109,6 @@ telegramMsgDict = {
         "image": False,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "Disconnected": {
@@ -130,7 +116,6 @@ telegramMsgDict = {
         "image": False,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "Home": {
@@ -138,7 +123,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "Alert": {
@@ -146,7 +130,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
     "UserNotif": {
@@ -154,7 +137,6 @@ telegramMsgDict = {
         "image": True,
         "silent": False,
         "gif": False,
-        "combined": True,
         "markup": "off",
     },
 }
@@ -314,7 +296,7 @@ class TMSG:
                     ["messages", str(kwargs["event"]), "gif"]
                 )
             else:
-                kwargs["with_gif"] = 0
+                kwargs["with_gif"] = False
             kwargs["silent"] = self.main._settings.get(
                 ["messages", str(kwargs["event"]), "silent"]
             )

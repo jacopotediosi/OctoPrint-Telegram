@@ -385,7 +385,7 @@ class TelegramListener(threading.Thread):
                     chatID=chat_id,
                 )
         except Exception:
-            self._logger.exception("Exception occured while processing a file")
+            self._logger.exception("Exception caught processing a file")
             self.main.send_msg(
                 (
                     f"{self.gEmo('warning')} Something went wrong during processing of your file.\n"
@@ -554,7 +554,7 @@ class TelegramListener(threading.Thread):
             raise ExitThisLoopException()
         except Exception:
             self.set_status(
-                "Got an exception while trying to connect to telegram API.\n"
+                "Got an exception trying to connect to telegram API.\n"
                 "Waiting 2 minutes before trying again.\n"
                 f"Stacktrace: {traceback.format_exc()}"
             )
@@ -867,10 +867,6 @@ class TelegramPlugin(
             send_gif=False,
             multicam=False,
             no_mistake=False,
-            scale_gif=0,
-            delay_img_gif=0.5,
-            number_img_gif=20,
-            frame_img_gif=15,
             fileOrder=False,
             PreImgMethod="None",
             PreImgCommand="",
@@ -1085,8 +1081,6 @@ class TelegramPlugin(
             for msg in telegramMsgDict:
                 if msg not in messages:
                     messages.update({msg: telegramMsgDict[msg]})
-                elif "combined" not in messages[msg]:
-                    messages[msg].update({"combined": True})
 
             self._settings.set(["messages"], messages)
             self._logger.debug(f"MESSAGES: {self._settings.get(['messages'])}")
@@ -1196,7 +1190,7 @@ class TelegramPlugin(
                 )
                 self.tmsg.startEvent(event, payload, **kwargs)
         except Exception:
-            self._logger.exception("Caught exception while handling an event")
+            self._logger.exception("Caught exception handling an event")
 
     ##########
     ### SimpleApi API
@@ -1393,7 +1387,7 @@ class TelegramPlugin(
                                 ).run()
                         except Exception:
                             self._logger.exception(
-                                f"Caught an exception in loop chatId for key: {key}"
+                                f"Exception caught in loop chatId for key: {key}"
                             )
             # Seems to be a broadcast
             elif "chatID" not in kwargs:
@@ -1411,7 +1405,7 @@ class TelegramPlugin(
             else:
                 threading.Thread(target=self._send_msg, kwargs=kwargs).run()
         except Exception:
-            self._logger.exception("Caught an exception in send_msg()")
+            self._logger.exception("Exception caught in send_msg()")
 
     # This method is used to update a message text of a sent message.
     # The sent message had to have no_markup = true when calling send_msg() (otherwise it would not work)
@@ -1468,7 +1462,7 @@ class TelegramPlugin(
             if inline:
                 self.updateMessageID[chatID] = msg_id
         except Exception:
-            self._logger.exception("Caught an exception in _send_edit_msg()")
+            self._logger.exception("Exception caught in _send_edit_msg()")
 
     def _send_msg(
         self,
@@ -1484,62 +1478,36 @@ class TelegramPlugin(
         silent=False,
         **kwargs,
     ):
-        if not self.send_messages:
-            return
-
-        self._logger.debug("start _send_msg")
-
-        # PreImgMethod
-        try:
-            if with_image or with_gif:
-                premethod = self._settings.get(["PreImgMethod"])
-                self._logger.debug(f"PreImgMethod {premethod}")
-                precommand = self._settings.get(["PreImgCommand"])
-                if premethod == "GCODE":
-                    self._logger.debug(f"PreImgCommand {precommand}")
-                    self._printer.commands(precommand)
-                    self._logger.debug("PreImg gcode command executed")
-                elif premethod == "SYSTEM":
-                    self._logger.debug(f"PreImgCommand {precommand}")
-                    p = subprocess.Popen(precommand, shell=True)
-                    self._logger.debug(
-                        f"PreImg system command executed. PID={p.pid}, Command={precommand}"
-                    )
-                    while p.poll() is None:
-                        time.sleep(0.1)
-                        r = p.returncode
-                        self._logger.debug(f"PreImg system command returned: {r}")
-        except Exception:
-            self._logger.exception("Exception PreImgMethod")
-
-        if delay > 0:
-            time.sleep(delay)
+        self._logger.debug(f"Start _send_msg with args: {locals()}")
 
         try:
-            if with_image:
-                if "event" in kwargs and not self._settings.get(
-                    ["messages", kwargs["event"], "combined"]
-                ):
-                    args = locals()
-                    del args["kwargs"]["event"]
-                    del args["self"]
-                    args["message"] = ""
-                    self._logger.debug("Sending image...")
-                    threading.Thread(target=self._send_msg, kwargs=args).run()
-                    args["message"] = message
-                    args["with_image"] = False
-                    self._logger.debug("Sending text...")
-                    threading.Thread(target=self._send_msg, kwargs=args).run()
-                    return
+            # Check if messages are enabled
+            if not self.send_messages:
+                self._logger.debug("Not enabled to send messages, return...")
+                return
 
-            self._logger.debug("log instead log sending message ")
-            # self._logger.info(f"Sending a message: {message.replace('\n', '\\n')} with_image={with_image} with_gif={with_gif} chatID={chatID}")
+            # Delay
+            if delay > 0:
+                self._logger.debug(f"Sleeping {delay} seconds")
+                time.sleep(delay)
 
-            data = {}
+            # Send typing action
+            try:
+                tlg_response = requests.get(
+                    f"{self.bot_url}/sendChatAction",
+                    params={"chat_id": chatID, "action": "typing"},
+                    proxies=self.getProxies(),
+                )
+                tlg_response.raise_for_status()
+            except Exception:
+                self._logger.exception("Exception caught sending typing action")
 
-            data["disable_web_page_preview"] = not showWeb
-            data["chat_id"] = chatID
-            data["disable_notification"] = silent
+            # Preparing message data
+            message_data = {}
+
+            message_data["disable_web_page_preview"] = not showWeb
+            message_data["chat_id"] = chatID
+            message_data["disable_notification"] = silent
 
             if markup:
                 if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
@@ -1548,281 +1516,190 @@ class TelegramPlugin(
                     self._logger.warning(f"Invalid markup: {markup}")
 
             if responses:
-                myArr = []
+                inline_keyboard_buttons = []
                 for k in responses:
-                    myArr.append([{"text": x[0], "callback_data": x[1]} for x in k])
-                keyboard = {"inline_keyboard": myArr}
-                data["reply_markup"] = json.dumps(keyboard)
+                    inline_keyboard_buttons.append(
+                        [{"text": x[0], "callback_data": x[1]} for x in k]
+                    )
+                inline_keyboard = {"inline_keyboard": inline_keyboard_buttons}
+                message_data["reply_markup"] = json.dumps(inline_keyboard)
 
+            # Pre image
+            if with_image or with_gif:
+                try:
+                    self.pre_image()
+                except Exception:
+                    self._logger.exception("Exception caught calling pre_image()")
+
+            # Prepare images to send
+            images_to_send = []
+
+            # Add thumbnails to images to send
+            if kwargs.get("thumbnail"):
+                try:
+                    self._logger.debug(f"Get thumbnail: {kwargs['thumbnail']}")
+
+                    url = f"http://localhost:{self.tcmd.port}/{kwargs['thumbnail']}"
+
+                    tlg_response = requests.get(url, proxies=self.getProxies())
+                    tlg_response.raise_for_status()
+
+                    images_to_send.append(tlg_response.content)
+                except Exception:
+                    self._logger.exception("Exception caught getting thumbnail")
+
+            # Add webcam images to images to send
+            if with_image:
+                try:
+                    images_to_send += self.take_all_images()
+                except Exception:
+                    self._logger.exception("Exception caught taking all images")
+
+            # Prepare gifs to send
+            gifs_to_send = []
+
+            # Add gifs to gifs to send
             if with_gif:
                 try:
-                    sendOneInLoop = False
-                    if kwargs["event"] == "plugin_octolapse_movie_done":
-                        kwargs["event"] = "MovieDone"
-                    if kwargs["event"] == "MovieDone":
-                        ret = kwargs["movie"]
-                        # file = self._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, ret)
-                        file = ret
-                        file_size = os.path.getsize(file)
-                        humanFileSize = self.humanbytes(file_size)
-                        self._logger.info(f"File Size is : {humanFileSize}")
-                        if file_size > 50000000:  # 50MB
-                            ret = ""
-                            self._logger.debug(
-                                f"Sending without image... ChatID: {chatID}"
-                            )
-                            data["text"] = (
-                                f"{message} but file size is {humanFileSize} so we cannot send it with the message"
-                            )
-                            r = requests.post(
-                                f"{self.bot_url}/sendMessage",
-                                data=data,
-                                proxies=self.getProxies(),
-                            )
-                            self._logger.debug(f"Sending finished. {r.status_code}")
+                    # If the event already generated a gif
+                    if (
+                        kwargs["event"] == "plugin_octolapse_movie_done"
+                        or kwargs["event"] == "MovieDone"
+                    ):
+                        gifs_to_send.append(kwargs["movie"])
+                    # Otherwise, take gifs from webcams
                     else:
-                        self._logger.info("Will try to create a gif ")
-
-                        # requests.get(f"{self.main.bot_url}/sendChatAction", params = {'chat_id': chat_id, 'action': 'upload_document'}, proxies=self.getProxies())
-                        if self._plugin_manager.get_plugin(
-                            "multicam", True
-                        ) and self._settings.get(["multicam"]):
-                            try:
-                                curr = self._settings.global_get(
-                                    ["plugins", "multicam", "multicam_profiles"]
-                                )
-                                self._logger.debug(f"multicam_profiles : {curr}")
-                                ListGif = []
-                                for li in curr:
-                                    try:
-                                        self._logger.debug(f"multicam profile : {li}")
-                                        url = li.get("URL")
-                                        self._logger.debug(f"multicam URL : {url}")
-                                        ret = self.create_gif_new(chatID, 0, li)
-                                        if ret != "":
-                                            ListGif.append(ret)
-                                            # if not sendOneInLoop:
-                                            # 	self.send_file(chatID, ret,message)
-                                            # else:
-                                            # 	self.send_file(chatID, ret,"")
-                                            # sendOneInLoop = True
-                                    except Exception:
-                                        self._logger.exception(
-                                            "Exception loop multicam URL to create gif"
-                                        )
-                                ret = ListGif[-1]
-                                self._logger.debug(f"ListGif: {ListGif}")
-                                for x in ListGif:
-                                    try:
-                                        if x != ret:
-                                            self._logger.debug(
-                                                f"send_file whithout message: {x}"
-                                            )
-                                            self.send_file(chatID, x, "")
-                                    except Exception:
-                                        self._logger.exception(
-                                            "Exception loop multicam URL to send gif"
-                                        )
-
-                            except Exception:
-                                self._logger.exception(
-                                    "Exception occured on getting multicam options"
-                                )
-                        else:
-                            ret = self.create_gif_new(chatID, 0, 0)
-
-                        if ret == "":
-                            ret = self.create_gif_new(chatID, 0, 0)
-
-                    if ret != "" and not sendOneInLoop:
-                        self._logger.debug(f"send_video with message: {ret}")
-                        self.send_video(chatID, ret, message)
-                        # ret = self.create_gif_new(chatID,0,0)
-                        # if ret != "":
-                        # 	self.send_file(chatID, ret,message)
+                        gifs_to_send += self.take_all_gifs(chatID)
                 except Exception:
-                    self._logger.exception("Caught an exception trying send gif")
-                    self.send_msg(
-                        "Problem creating gif, please check log file and make sure you have installed libav-tools or ffmpeg",
-                        chatID=chatID,
-                    )
-            else:
-                self._logger.debug(f"Data so far: {data}")
+                    self._logger.exception("Exception caught taking all gifs")
 
-                images_data_to_send = []
-                r = None
-
-                # Get thumbnail
-                try:
-                    if "thumbnail" in kwargs and kwargs["thumbnail"] is not None:
-                        self._logger.debug(f"Get thumbnail: {kwargs['thumbnail']}")
-
-                        url = f"http://localhost:{self.tcmd.port}/{kwargs['thumbnail']}"
-
-                        r = requests.get(url, proxies=self.getProxies())
-                        r.raise_for_status()
-
-                        images_data_to_send.append(r.content)
-                except Exception:
-                    self._logger.exception("Exception occured on getting thumbnail")
-
-                # Get images
-                if with_image:
-                    # Retrieve multicam profiles
-                    multicam_profiles = None
-                    try:
-                        if self._plugin_manager.get_plugin(
-                            "multicam", True
-                        ) is not None and self._settings.get(["multicam"]):
-                            self._logger.debug("Multicam detected")
-                            multicam_profiles = self._settings.global_get(
-                                ["plugins", "multicam", "multicam_profiles"]
-                            )
-                            self._logger.debug(
-                                f"Multicam profiles: {multicam_profiles}"
-                            )
-                        else:
-                            self._logger.debug("Multicam not detected")
-                    except Exception:
-                        self._logger.exception(
-                            "Exception occured while getting multicam profiles"
-                        )
-
-                    # If there are multicam profiles, take images from them
-                    if multicam_profiles:
-                        for multicam_profile in multicam_profiles:
-                            image_data = None
-
-                            try:
-                                image_data = self.take_image(
-                                    multicam_profile.get("snapshot"),
-                                    multicam_profile.get("flipH"),
-                                    multicam_profile.get("flipV"),
-                                    multicam_profile.get("rotate90"),
-                                )
-                            except Exception:
-                                self._logger.exception(
-                                    "Caught an exception trying taking an image"
-                                )
-
-                            if image_data:
-                                images_data_to_send.append(image_data)
-                            else:
-                                message = f"[ERR GET IMAGE]\n\n{message}"
-
-                    # If there aren't multicam profiles, fallback taking image from the octoprint default camera
-                    else:
-                        image_data = None
-
-                        try:
-                            image_data = self.take_image(
-                                self._settings.global_get(["webcam", "snapshot"]),
-                                self._settings.global_get(["webcam", "flipH"]),
-                                self._settings.global_get(["webcam", "flipV"]),
-                                self._settings.global_get(["webcam", "rotate90"]),
-                            )
-                        except Exception:
-                            self._logger.exception(
-                                "Caught an exception trying taking an image"
-                            )
-
-                        if image_data:
-                            images_data_to_send.append(image_data)
-                        else:
-                            message = f"[ERR GET IMAGE]\n\n{message}"
-
-                # Send message (with images, if there are)
-                if len(images_data_to_send) == 1:
-                    self._logger.debug(f"Sending with one image... ChatID: {chatID}")
-
-                    if message != "":
-                        data["caption"] = message
-
-                    files = {"photo": ("image.jpg", images_data_to_send[0])}
-
-                    r = requests.post(
-                        f"{self.bot_url}/sendPhoto",
-                        data=data,
-                        files=files,
-                        proxies=self.getProxies(),
-                    )
-                elif images_data_to_send:
-                    self._logger.debug(
-                        f"Sending with multiple images... ChatID: {chatID}"
-                    )
-
-                    files = {}
-                    media = []
-
-                    for i, image_data_to_send in enumerate(images_data_to_send):
-                        files[f"photo_{i}"] = image_data_to_send
-
-                        input_media_photo = {
-                            "type": "photo",
-                            "media": f"attach://photo_{i}",
-                        }
-
-                        if i == 0 and message != "":
-                            input_media_photo["caption"] = message
-                            
-                        if message_data.get("parse_mode"):
-                            input_media_photo["parse_mode"] = message_data["parse_mode"]
-
-                        media.append(input_media_photo)
-
-                    data["media"] = json.dumps(media)
-
-                    r = requests.post(
-                        f"{self.bot_url}/sendMediaGroup",
-                        data=data,
-                        files=files,
-                        proxies=self.getProxies(),
-                    )
-                else:
-                    self._logger.debug(f"Sending without images... ChatID: {chatID}")
-                    data["text"] = message
-                    r = requests.post(
-                        f"{self.bot_url}/sendMessage",
-                        data=data,
-                        proxies=self.getProxies(),
-                    )
-
-                self._logger.debug(f"Sending finished. Status code: {r.status_code}")
-
-                if r is not None and inline:
-                    r.raise_for_status()
-                    myJson = r.json()
-                    if not myJson["ok"]:
-                        raise NameError("ReqErr")
-                    if "message_id" in myJson["result"]:
-                        self.updateMessageID[chatID] = myJson["result"]["message_id"]
-
-        except Exception:
-            self._logger.exception("Caught an exception in _send_msg()")
-
-        # PostImgMethod
-        try:
+            # Post image
             if with_image or with_gif:
-                # TODO: Find a way to decide if should and what command to light on/off
-                postmethod = self._settings.get(["PostImgMethod"])
-                self._logger.debug(f"PostImgMethod {postmethod}")
-                postcommand = self._settings.get(["PostImgCommand"])
-                if postmethod == "GCODE":
-                    self._logger.debug(f"PostImgCommand {postcommand}")
-                    self._printer.commands(postcommand)
-                    self._logger.debug("PostImg gcode command executed")
-                elif postmethod == "SYSTEM":
-                    self._logger.debug(f"PostImgCommand {postcommand}")
-                    p = subprocess.Popen(postcommand, shell=True)
-                    self._logger.debug(
-                        f"PostImg system command executed. PID={p.pid}, Command={postcommand}"
+                try:
+                    self.post_image()
+                except Exception:
+                    self._logger.exception("Exception caught calling post_image()")
+
+            # Initialize files and media
+            files = {}
+            media = []
+
+            # Send upload_video or upload_photo action
+            try:
+                action = None
+
+                if gifs_to_send:
+                    action = "upload_video"
+                elif images_to_send:
+                    action = "upload_photo"
+
+                if action:
+                    tlg_response = requests.get(
+                        f"{self.bot_url}/sendChatAction",
+                        params={"chat_id": chatID, "action": "upload_photo"},
+                        proxies=self.getProxies(),
                     )
-                    while p.poll() is None:
-                        time.sleep(0.1)
-                        r = p.returncode
-                        self._logger.debug(f"PostImg system command returned: {r}")
+                    tlg_response.raise_for_status()
+            except Exception:
+                self._logger.exception(f"Exception caught sending {action} action")
+
+            # Add images to send to files and media
+            for i, image_to_send in enumerate(images_to_send):
+                if len(image_to_send) > 50 * 1024 * 1024:
+                    self._logger.warning(f"Skipping an image bigger than 50MB")
+                    continue
+
+                files[f"photo_{i}"] = image_to_send
+
+                input_media_photo = {
+                    "type": "photo",
+                    "media": f"attach://photo_{i}",
+                }
+
+                if len(media) == 0 and message != "":
+                    input_media_photo["caption"] = message
+                    if message_data.get("parse_mode"):
+                        input_media_photo["parse_mode"] = message_data["parse_mode"]
+
+                media.append(input_media_photo)
+
+            # Add gifs to send to files and media
+            for i, gif_to_send in enumerate(gifs_to_send):
+                try:
+                    if os.path.getsize(gif_to_send) > 50 * 1024 * 1024:
+                        self._logger.warning("Skipping a gif bigger than 50MB")
+                        continue
+
+                    with open(gif_to_send, "rb") as gif_file:
+                        files[f"video_{i}"] = gif_file.read()
+
+                    input_media_video = {
+                        "type": "video",
+                        "media": f"attach://video_{i}",
+                    }
+
+                    if len(media) == 0 and message != "":
+                        input_media_video["caption"] = message
+                        if message_data.get("parse_mode"):
+                            input_media_video["parse_mode"] = message_data["parse_mode"]
+
+                    media.append(input_media_video)
+                except Exception:
+                    self._logger.exception(f"Exception caught reading gif file")
+
+            # If there are media, send a media-group message
+            if media:
+                self._logger.debug(f"Sending message with media, chat id: {chatID}")
+
+                message_data["media"] = json.dumps(media)
+
+                tlg_response = requests.post(
+                    f"{self.bot_url}/sendMediaGroup",
+                    data=message_data,
+                    files=files,
+                    proxies=self.getProxies(),
+                )
+            # If there aren't media, send a text-only message
+            else:
+                self._logger.debug(f"Sending text-only message, chat id: {chatID}")
+
+                message_data["text"] = message
+
+                tlg_response = requests.post(
+                    f"{self.bot_url}/sendMessage",
+                    data=message_data,
+                    proxies=self.getProxies(),
+                )
+
+            # Check the response
+            if tlg_response.status_code == 200:
+                self._logger.debug("Message sent successfully")
+            else:
+                self._logger.error(
+                    f"Message sent, but received bad status code: {tlg_response.status_code}. Full response was: {tlg_response.text}."
+                )
+                tlg_response.raise_for_status()
+
+            # Inline handling
+            if inline:
+                tlg_response_json = tlg_response.json()
+                if not tlg_response_json["ok"]:
+                    raise NameError("ReqErr")
+                if "message_id" in tlg_response_json["result"]:
+                    self.updateMessageID[chatID] = tlg_response_json["result"][
+                        "message_id"
+                    ]
         except Exception:
-            self._logger.exception("Exception PostImgMethod")
+            self._logger.exception("Exception caught in _send_msg()")
+            tlg_response = requests.post(
+                f"{self.bot_url}/sendMessage",
+                data={
+                    "chat_id": chatID,
+                    "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
+                },
+                proxies=self.getProxies(),
+            )
+            self.set_status("Exception sending a message")
 
     def humanbytes(self, B):
         "Return the given bytes as a human friendly KB, MB, GB, or TB string"
@@ -1862,7 +1739,7 @@ class TelegramPlugin(
                 proxies=self.getProxies(),
             )
         except Exception:
-            self._logger.exception("Caught an exception in send_file()")
+            self._logger.exception("Exception caught in send_file()")
 
     def send_editMessageMedia(self, chat_id, path, message_id):
         if not self.send_messages:
@@ -1881,7 +1758,7 @@ class TelegramPlugin(
                 proxies=self.getProxies(),
             )
         except Exception:
-            self._logger.exception("Caught an exception in send_editMessageMedia()")
+            self._logger.exception("Exception caught in send_editMessageMedia()")
 
     def delete_msg(self, chat_id, message_id):
         try:
@@ -1891,20 +1768,7 @@ class TelegramPlugin(
                 proxies=self.getProxies(),
             )
         except Exception:
-            self._logger.exception("Caught an exception in delete_msg()")
-
-    def send_video(self, chatID, video_file, message):
-        if not self.send_messages:
-            return
-
-        files = {"video": open(video_file, "rb")}
-        r = requests.post(
-            f"{self.bot_url}/sendVideo",
-            files=files,
-            data={"chat_id": chatID, "caption": message},
-            proxies=self.getProxies(),
-        )
-        self._logger.debug(f"Sending finished. {r.status_code} {r.content}")
+            self._logger.exception("Exception caught in delete_msg()")
 
     def get_file(self, file_id):
         if not self.send_messages:
@@ -2175,30 +2039,113 @@ class TelegramPlugin(
             del self.updateMessageID[id]
         return uMsgID
 
-    def take_image(self, snapshot_url="", flipH=False, flipV=False, rotate=False):
-        if snapshot_url == "":
-            snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+    def pre_image(self):
+        method = self._settings.get(["PreImgMethod"])
+        command = self._settings.get(["PreImgCommand"])
 
+        self._logger.debug(f"Starting pre_image. Method: {method}. Command: {command}.")
+
+        if method == "None":
+            return
+        elif method == "GCODE":
+            self._printer.commands(command)
+            self._logger.debug("Pre_image gcode command executed")
+        elif method == "SYSTEM":
+            p = subprocess.Popen(command, shell=True)
+            self._logger.debug(f"Pre_image system command executed. PID={p.pid}.")
+            while p.poll() is None:
+                time.sleep(0.1)
+            r = p.returncode
+            self._logger.debug(f"Pre_image system command returned: {r}")
+        else:
+            self._logger.warning(f"Unknown pre_image method: {method}")
+
+    def post_image(self):
+        method = self._settings.get(["PostImgMethod"])
+        command = self._settings.get(["PostImgCommand"])
+
+        self._logger.debug(
+            f"Starting post_image. Method: {method}. Command: {command}."
+        )
+
+        if method == "None":
+            return
+        elif method == "GCODE":
+            self._printer.commands(command)
+            self._logger.debug("Post_image gcode command executed")
+        elif method == "SYSTEM":
+            p = subprocess.Popen(command, shell=True)
+            self._logger.debug(f"Post_image system command executed. PID={p.pid}.")
+            while p.poll() is None:
+                time.sleep(0.1)
+            r = p.returncode
+            self._logger.debug(f"Post_image system command returned: {r}")
+        else:
+            self._logger.warning(f"Unknown post_image method: {method}")
+
+    def take_all_images(self):
+        self._logger.debug("Taking all images")
+
+        taken_images = []
+
+        # Retrieve multicam profiles
+        multicam_profiles = None
+        try:
+            if self._plugin_manager.get_plugin(
+                "multicam", True
+            ) is not None and self._settings.get(["multicam"]):
+                self._logger.debug("Multicam detected")
+                multicam_profiles = self._settings.global_get(
+                    ["plugins", "multicam", "multicam_profiles"]
+                )
+                self._logger.debug(f"Multicam profiles: {multicam_profiles}")
+            else:
+                self._logger.debug("Multicam not detected")
+        except Exception:
+            self._logger.exception("Caught exception getting multicam profiles")
+
+        # If there are multicam profiles, take images from them
+        if multicam_profiles:
+            for multicam_profile in multicam_profiles:
+                try:
+                    taken_image = self.take_image(
+                        multicam_profile.get("snapshot"),
+                        multicam_profile.get("flipH"),
+                        multicam_profile.get("flipV"),
+                        multicam_profile.get("rotate90"),
+                    )
+                    taken_images.append(taken_image)
+                except Exception:
+                    self._logger.exception("Exception caught taking an image")
+
+        # If there aren't multicam profiles, fallback taking image from the octoprint default camera
+        else:
+            try:
+                taken_image = self.take_image(
+                    self._settings.global_get(["webcam", "snapshot"]),
+                    self._settings.global_get(["webcam", "flipH"]),
+                    self._settings.global_get(["webcam", "flipV"]),
+                    self._settings.global_get(["webcam", "rotate90"]),
+                )
+                taken_images.append(taken_image)
+            except Exception:
+                self._logger.exception("Exception caught taking an image")
+
+        return taken_images
+
+    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False):
         snapshot_url = urljoin("http://localhost/", snapshot_url)
 
-        self._logger.debug(f"Snapshot URL: {snapshot_url}")
-        data = None
+        self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        if snapshot_url:
-            try:
-                r = requests.get(snapshot_url, timeout=10, proxies=self.getProxies())
-                r.raise_for_status()
-                data = r.content
-            except Exception:
-                self._logger.exception("Exception taking image")
-                return None
+        r = requests.get(snapshot_url, timeout=10, proxies=self.getProxies())
+        r.raise_for_status()
 
-        if data is None:
-            return None
+        image_content = r.content
 
         self._logger.debug(f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]")
         if flipH or flipV or rotate:
-            image = Image.open(bytes_reader_class(data))
+            image = Image.open(bytes_reader_class(image_content))
             if flipH:
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
             if flipV:
@@ -2207,10 +2154,220 @@ class TelegramPlugin(
                 image = image.transpose(Image.ROTATE_90)
             output = bytes_reader_class()
             image.save(output, format="JPEG")
-            data = output.getvalue()
+            image_content = output.getvalue()
             output.close()
 
-        return data
+        return image_content
+
+    def take_all_gifs(self, chat_id, duration=5):
+        self._logger.debug("Taking all gifs")
+
+        taken_gifs = []
+
+        # Retrieve multicam profiles
+        multicam_profiles = None
+        try:
+            if self._plugin_manager.get_plugin(
+                "multicam", True
+            ) is not None and self._settings.get(["multicam"]):
+                self._logger.debug("Multicam detected")
+                multicam_profiles = self._settings.global_get(
+                    ["plugins", "multicam", "multicam_profiles"]
+                )
+                self._logger.debug(f"Multicam profiles: {multicam_profiles}")
+            else:
+                self._logger.debug("Multicam not detected")
+        except Exception:
+            self._logger.exception("Caught exception getting multicam profiles")
+
+        # If there are multicam profiles, take gifs from them
+        if multicam_profiles:
+            for multicam_profile in multicam_profiles:
+                try:
+                    taken_gif = self.take_gif(chat_id, duration, multicam_profile)
+                    taken_gifs.append(taken_gif)
+                except Exception:
+                    self._logger.exception("Exception caught taking a gif")
+
+        # If there aren't multicam profiles, fallback taking image from the octoprint default camera
+        else:
+            try:
+                taken_gif = self.take_gif(
+                    chat_id,
+                    duration,
+                )
+                taken_gifs.append(taken_gif)
+            except Exception:
+                self._logger.exception("Exception caught taking a gif")
+
+        return taken_gifs
+
+    def take_gif(self, chat_id, duration=5, multicam_profile=None):
+        # TODO riscrittura in corso
+
+        # Get stream url
+        if multicam_profile:
+            stream_url = multicam_profile.get("URL")
+        else:
+            stream_url = self._settings.global_get(["webcam", "stream"])
+        stream_url = urljoin("http://localhost/", stream_url)
+
+        self._logger.debug(f"Taking gifs from url: {stream_url}")
+
+        if multicam_profile:
+            gif_basename = os.path.basename(
+                f"gif_{multicam_profile.get('name','').replace(' ', '_')}.mp4"
+            )
+            outPath = os.path.join(
+                self.get_plugin_data_folder(), "tmpgif", gif_basename
+            )
+        else:
+            outPath = os.path.join(self.get_plugin_data_folder(), "tmpgif", "gif.mp4")
+
+        self._logger.info(f"Removing file {outPath}")
+        try:
+            os.remove(outPath)
+        except Exception:
+            pass
+
+        params = []
+        self._logger.debug("Testing if nice exist")
+        if self.TestProgram(["nice", "--version"]) > 0:
+            params = ["nice", "-n", "20"]
+
+        self._logger.debug("Testing if cpulimit exist")
+        if self.TestProgram(["cpulimit", "--help"]) <= 0:
+            self._logger.error(
+                "Cpulimit don't exist so send a message to install and exit"
+            )
+            self.send_msg(
+                f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed cpulimit with following command : `sudo apt-get install cpulimit`",
+                chatID=chat_id,
+            )
+            raise Exception("Cpulimit not installed")
+
+        self._logger.debug("Testing if ffmpeg exist")
+        if self.TestProgram(["ffmpeg", "-h"]) <= 0:
+            self._logger.error(
+                "Ffmpeg don't exist so send a message to install and exit"
+            )
+            self.send_msg(
+                f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed ffmpeg with following command : `sudo apt-get install ffmpeg`",
+                chatID=chat_id,
+            )
+            raise Exception("Ffmpeg not installed")
+
+        if duration == 0:
+            duration = 5
+        elif duration > 60:
+            duration = 60
+        elif duration < 1:
+            duration = 1
+
+        self._logger.debug(f"sec={duration}")
+        # timeSec = str(datetime.timedelta(seconds=sec))
+        # self._logger.debug("timeSec="+timeSec)
+        timeSec = f"00:00:{duration:02d}"
+
+        self._logger.debug(f"timeSec={timeSec}")
+        # timout = 4*sec
+        # ffmpeg -i http://192.168.1.56/webcam/?action=stream -t 00:00:05 -vf scale=320x240 -y  -c:a copy out.mkv
+        # params = ['ffmpeg', '-y', '-i' ,stream_url, '-t', "00:00:05",'-c:v','copy', '-c:a' ,'copy']
+        used_cpu = 1
+        limit_cpu = 65
+
+        try:
+            nb_cpu = multiprocessing.cpu_count()
+            if nb_cpu > 1:
+                used_cpu = nb_cpu / 2
+                limit_cpu = 65 * used_cpu
+        except Exception:
+            self._logger.exception("Exception caught getting number of cpu")
+
+        self._logger.debug(
+            f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}"
+        )
+        params.append("cpulimit")
+        params.append("-l")
+        params.append(str(limit_cpu))
+        params.append("-f")
+        params.append("-z")
+        params.append("--")
+        params.append("ffmpeg")
+        params.append("-y")
+        params.append("-threads")
+        params.append(str(used_cpu))
+        params.append("-i")
+        params.append(stream_url)
+        params.append("-t")
+        params.append(timeSec)
+        params.append("-pix_fmt")
+        params.append("yuv420p")
+        # Work on android but seems to be a problem on some Iphone
+        # params.append( '-c:v')
+        # params.append( 'mpeg4')
+        # params.append(  '-c:a' )
+        # params.append( 'mpeg4')
+        # Works on iphone but seems to be a problem on some android
+        # params.append( '-b:v')
+        # params.append( '0')
+        # params.append( '-crf')
+        # params.append( '25')
+        # params.append( '-movflags')
+        # params.append( 'faststart')
+
+        if multicam_profile:
+            flipH = multicam_profile.get("flipH")
+            flipV = multicam_profile.get("flipV")
+            rotate = multicam_profile.get("rotate90")
+        else:
+            flipH = self._settings.global_get(["webcam", "flipH"])
+            flipV = self._settings.global_get(["webcam", "flipV"])
+            rotate = self._settings.global_get(["webcam", "rotate90"])
+
+        # Rotation
+        flipping = ""
+        if flipH or flipV or rotate:
+            self._logger.debug(
+                f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]"
+            )
+            params.append("-vf")
+            flipping = ""
+            if flipV:
+                self._logger.debug("Need flip vertical")
+                flipping += ",vflip"
+            if flipH:
+                self._logger.debug("Need flip horizontal")
+                flipping += ",hflip"
+            if rotate:
+                self._logger.debug("Need to rotate 90deg counter clockwise")
+                flipping += ",transpose=2"
+            flipping = flipping.lstrip(",")
+            params.append(flipping)
+
+        params.append(outPath)
+
+        self._logger.debug(f"will now create the video {str(params).strip('[]')}")
+
+        myproc = subprocess.Popen(
+            params, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        while True:
+            if myproc.poll() is not None:
+                break
+            try:
+                requests.get(
+                    f"{self.bot_url}/sendChatAction",
+                    params={"chat_id": chat_id, "action": "record_video"},
+                    proxies=self.getProxies(),
+                )
+            except Exception:
+                self._logger.exception("Exception caught sending action:record_video")
+            time.sleep(0.5)
+
+        self._logger.debug("Finish the video")
+
+        return outPath
 
     def get_current_layers(self):
         layers = None
@@ -2272,253 +2429,15 @@ class TelegramPlugin(
                 format = self._settings.get(["TimeFormat"])  # "%H:%M:%S"
             return finish_time.strftime(format)
         except Exception:
-            self._logger.exception("Caught an Exception in get final time")
+            self._logger.exception("Exception caught calculating ETA")
             return "There was a problem calculating the finishing time. Check the logs for more detail."
-
-    def create_gif_new(self, chatID, sec=7, multicam_prof=None):
-        ret = ""
-        stream_url = 0
-        if multicam_prof:
-            stream_url = multicam_prof.get("URL")
-
-        try:
-            try:
-                requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chatID, "action": "record_video"},
-                    proxies=self.getProxies(),
-                )
-            except Exception:
-                self._logger.exception(
-                    "Caught an exception trying sending action:record_video"
-                )
-            # 	saveDir = os.getcwd()
-            # 	os.chdir(os.path.join(self.get_plugin_data_folder(), "tmpgif"))
-
-            if multicam_prof:
-                gif_basename = os.path.basename(
-                    f"gif_{multicam_prof.get('name','').replace(' ', '_')}.mp4"
-                )
-                outPath = os.path.join(
-                    self.get_plugin_data_folder(), "tmpgif", gif_basename
-                )
-            else:
-                outPath = os.path.join(
-                    self.get_plugin_data_folder(), "tmpgif", "gif.mp4"
-                )
-
-            self._logger.info(f"Removing file {outPath}")
-            try:
-                os.remove(outPath)
-            except Exception:
-                pass
-
-            params = []
-            self._logger.info("test if nice exist")
-            if self.TestProgram(["nice", "--version"]) > 0:
-                params = ["nice", "-n", "20"]
-
-            self._logger.info("test if cpulimit exist")
-            if self.TestProgram(["cpulimit", "--help"]) <= 0:
-                self._logger.info(
-                    "cpulimit don't exist so send a message to install and exit"
-                )
-                self.send_msg(
-                    f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed cpulimit with following command : `sudo apt-get install cpulimit`",
-                    chatID=chatID,
-                )
-                return ""
-
-            self._logger.info("test if ffmpeg exist")
-            if self.TestProgram(["ffmpeg", "-h"]) <= 0:
-                self._logger.info(
-                    "ffmpeg don't exist so send a message to install and exit"
-                )
-                self.send_msg(
-                    f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed ffmpeg with following command : `sudo apt-get install ffmpeg`",
-                    chatID=chatID,
-                )
-                return ""
-
-            try:
-                requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chatID, "action": "record_video"},
-                    proxies=self.getProxies(),
-                )
-            except Exception:
-                self._logger.exception(
-                    "Caught an exception trying sending action:record_video"
-                )
-            # os.nice(20) # Force this to use less CPU
-
-            if stream_url == 0:
-                stream_url = self._settings.global_get(["webcam", "stream"])
-
-            stream_url = urljoin("http://localhost/", stream_url)
-
-            if sec == 0:
-                sec = 5  # int(self._settings.get(["number_img_gif"]))
-            elif sec > 60:
-                sec = 60
-            elif sec < 1:
-                sec = 1
-
-            self._logger.info(f"sec={sec}")
-            # timeSec = str(datetime.timedelta(seconds=sec))
-            # self._logger.info("timeSec="+timeSec)
-            timeSec = f"00:00:{sec:02d}"
-
-            self._logger.info(f"timeSec={timeSec}")
-            # timout = 4*sec
-            # ffmpeg -i http://192.168.1.56/webcam/?action=stream -t 00:00:05 -vf scale=320x240 -y  -c:a copy out.mkv
-            # params = ['ffmpeg', '-y', '-i' ,stream_url, '-t', "00:00:05",'-c:v','copy', '-c:a' ,'copy']
-            used_cpu = 1
-            limit_cpu = 65
-
-            try:
-                nb_cpu = multiprocessing.cpu_count()
-                if nb_cpu > 1:
-                    used_cpu = nb_cpu / 2
-                    limit_cpu = 65 * used_cpu
-            except Exception:
-                self._logger.exception(
-                    "Caught an exception trying to get number of cpu"
-                )
-
-            self._logger.info(
-                f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}"
-            )
-            params.append("cpulimit")
-            params.append("-l")
-            params.append(str(limit_cpu))
-            params.append("-f")
-            params.append("-z")
-            params.append("--")
-            params.append("ffmpeg")
-            params.append("-y")
-            params.append("-threads")
-            params.append(str(used_cpu))
-            params.append("-i")
-            params.append(stream_url)
-            params.append("-t")
-            params.append(timeSec)
-            params.append("-pix_fmt")
-            params.append("yuv420p")
-            # Work on android but seems to be a problem on some Iphone
-            # params.append( '-c:v')
-            # params.append( 'mpeg4')
-            # params.append(  '-c:a' )
-            # params.append( 'mpeg4')
-            # Works on iphone but seems to be a problem on some android
-            # params.append( '-b:v')
-            # params.append( '0')
-            # params.append( '-crf')
-            # params.append( '25')
-            # params.append( '-movflags')
-            # params.append( 'faststart')
-
-            if multicam_prof != 0:
-                flipH = multicam_prof.get("flipH")
-                flipV = multicam_prof.get("flipV")
-                rotate = multicam_prof.get("rotate90")
-            else:
-                flipH = self._settings.global_get(["webcam", "flipH"])
-                flipV = self._settings.global_get(["webcam", "flipV"])
-                rotate = self._settings.global_get(["webcam", "rotate90"])
-
-            # Rotation
-            flipping = ""
-            if flipH or flipV or rotate:
-                self._logger.info(
-                    f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]"
-                )
-                params.append("-vf")
-                flipping = ""
-                if flipV:
-                    self._logger.info("Need flip vertical")
-                    flipping += ",vflip"
-                if flipH:
-                    self._logger.info("Need flip horizontal")
-                    flipping += ",hflip"
-                if rotate:
-                    self._logger.info("Need to rotate 90deg counter clockwise")
-                    flipping += ",transpose=2"
-                flipping = flipping.lstrip(",")
-                params.append(flipping)
-
-            # End Rotation
-
-            # if (str(self._settings.get(["scale_gif"])) == "0"):#scale_gif
-            # 	scale = ""
-            # 	scale_opt =""
-            # else:
-            # 	params.append( "-vf")
-            # 	params.append(f"scale={self._settings.get(['scale_gif'])})
-
-            params.append(outPath)
-
-            self._logger.info(f"will now create the video {str(params).strip('[]')}")
-            try:
-                requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chatID, "action": "record_video"},
-                    proxies=self.getProxies(),
-                )
-            except Exception:
-                self._logger.exception(
-                    "Caught an exception trying sending action:record_video"
-                )
-
-            myproc = subprocess.Popen(
-                params, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            while True:
-                if myproc.poll() is not None:
-                    break
-                try:
-                    requests.get(
-                        f"{self.bot_url}/sendChatAction",
-                        params={"chat_id": chatID, "action": "record_video"},
-                        proxies=self.getProxies(),
-                    )
-                except Exception:
-                    self._logger.exception(
-                        "Caught an exception trying sending action:record_video"
-                    )
-                time.sleep(0.5)
-
-            self._logger.info("Finish the video")
-            try:
-                requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chatID, "action": "record_video"},
-                    proxies=self.getProxies(),
-                )
-            except Exception:
-                self._logger.exception(
-                    "Caught an exception trying sending action:record_video"
-                )
-            ret = outPath
-        except Exception:
-            self._logger.exception(
-                "Caught an exception trying create gif general error"
-            )
-            self.send_msg(
-                f"{self.gEmo('dizzy face')} Problem creating gif, please check log file",
-                chatID=chatID,
-            )
-            ret = ""
-
-        # os.nice(0) # Use CPU usage to default
-        return ret
 
     def TestProgram(self, name):
         try:
-            self._logger.info(f"Test exist program {str(name).strip('[]')}")
+            self._logger.debug(f"Test exist program {str(name).strip('[]')}")
             # Pipe output to /dev/null for silence
             ret = subprocess.call(name)
-            self._logger.info(f"ret = {ret}")
+            self._logger.debug(f"ret = {ret}")
             return ret >= 0
 
         except OSError:

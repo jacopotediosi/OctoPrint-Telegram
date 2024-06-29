@@ -102,236 +102,80 @@ class TCMD:
             self.main.on_event("StatusNotPrinting", {}, chatID=chat_id)
 
     ############################################################################################
-    def cmdGif(
-        self, chat_id, from_id, cmd, parameter, user=""
-    ):  # GWE 05/05/2019 add command to get gif
+    def cmdGif(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._settings.get(["send_gif"]):
-            if not self.main._printer.is_operational():
-                with_image = self.main._settings.get_boolean(["image_not_connected"])
+            # Pre image
+            try:
+                self.main.pre_image()
+            except Exception:
+                self._logger.exception("Exception caught calling pre_image()")
+
+            try:
+                try:
+                    taken_gifs = self.main.take_all_gifs(chat_id)
+                except Exception:
+                    self._logger.exception("Exception caught taking all gifs")
+
+                for taken_gif in taken_gifs:
+                    self.main.send_file(
+                        chat_id, taken_gif, ""
+                    )  # TODO: send as album + check 50MB
+            except Exception:
+                # TODO: spostare eccezione, rileggere intera funzione
+                self._logger.exception("Exception occured creating the gif")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Not connected to a printer. Use /con to connect.",
+                    f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
                     chatID=chat_id,
-                    inline=False,
-                    with_image=with_image,
                 )
-            else:
-                # elif self.main._printer.is_printing():
-                sendOneInLoop = False
-                try:
-                    ##find a way to decide if should and what command to light on
-                    premethod = self.main._settings.get(["PreImgMethod"])
-                    self._logger.debug("PreImgMethod {}".format(premethod))
-                    precommand = self.main._settings.get(["PreImgCommand"])
-                    if premethod == "GCODE":
-                        self._logger.debug("PreImgCommand {}".format(precommand))
-                        self.main._printer.commands(precommand)
-                    elif premethod == "SYSTEM":
-                        self._logger.debug("PreImgCommand {}".format(precommand))
-                        p = subprocess.Popen(precommand, shell=True)
-                        self._logger.debug(
-                            "PreImg system command executed. PID={}, Command={}".format(
-                                p.pid, precommand
-                            )
-                        )
-                        while p.poll() is None:
-                            time.sleep(0.1)
-                            r = p.returncode
-                            self._logger.debug(
-                                "PreImg system command returned: {}".format(r)
-                            )
-                except Exception:
-                    self._logger.exception("Exception PostImgMethod")
 
-                try:
-                    self._logger.info("Will try to create a gif")
-                    ret = ""
-                    if self.main._plugin_manager.get_plugin(
-                        "multicam", True
-                    ) and self.main._settings.get(["multicam"]):
-                        try:
-                            curr = self.main._settings.global_get(
-                                ["plugins", "multicam", "multicam_profiles"]
-                            )
-                            self._logger.info("multicam_profiles :  " + str(curr))
-                            for li in curr:
-                                try:
-                                    self._logger.info("multicam profile : " + str(li))
-                                    url = li.get("URL")
-                                    self._logger.info("multicam URL:  " + str(url))
-                                    ret = self.main.create_gif_new(chat_id, 5, li)
-                                    if ret != "":
-                                        self.main.send_file(chat_id, ret, "")
-                                        sendOneInLoop = True
-                                except Exception:
-                                    self._logger.exception(
-                                        "Exception loop multicam URL to create gif"
-                                    )
-                        except Exception:
-                            self._logger.exception(
-                                "Exception occured on getting multicam options"
-                            )
-                    else:
-                        ret = self.main.create_gif_new(chat_id, 5, 0)
+            # Post image
+            try:
+                self.main.post_image()
+            except Exception:
+                self._logger.exception("Exception caught calling post_image()")
 
-                    if ret == "":
-                        ret = self.main.create_gif_new(chat_id, 5, 0)
-
-                    if ret != "" and not sendOneInLoop:
-                        self.main.send_file(chat_id, ret, "")
-                except Exception:
-                    self._logger.exception(
-                        "Exception occured during creating of the gif"
-                    )
-                    self.main.send_msg(
-                        self.gEmo("dizzy face")
-                        + " Problem creating gif, please check log file ",
-                        chatID=chat_id,
-                    )
-
-                try:
-                    postmethod = self.main._settings.get(["PostImgMethod"])
-                    self._logger.debug("PostImgMethod {}".format(postmethod))
-                    postcommand = self.main._settings.get(["PostImgCommand"])
-                    if postmethod == "GCODE":
-                        self._logger.debug("PostImgCommand {}".format(postcommand))
-                        self.main._printer.commands(postcommand)
-                    elif postmethod == "SYSTEM":
-                        self._logger.debug("PostImgCommand {}".format(postcommand))
-                        p = subprocess.Popen(postcommand, shell=True)
-                        self._logger.debug(
-                            "PostImg system command executed. PID={}, Command={}".format(
-                                p.pid, postcommand
-                            )
-                        )
-                        while p.poll() is None:
-                            time.sleep(0.1)
-                            r = p.returncode
-                            self._logger.debug(
-                                "PostImg system command returned: {}".format(r)
-                            )
-                except Exception:
-                    self._logger.exception("Exception PostImgMethod")
-
-        # else:
-        # 	self.main.on_event("StatusNotPrinting", {},chatID=chat_id)
         else:
             self.main.send_msg(
-                self.gEmo("dizzy face")
-                + " Sending GIF is disabled in plugin settings.",
+                f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
                 chatID=chat_id,
             )
 
     ############################################################################################
     def cmdSuperGif(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._settings.get(["send_gif"]):
-            if not self.main._printer.is_operational():
-                with_image = self.main._settings.get_boolean(["image_not_connected"])
+            # Pre image
+            try:
+                self.main.pre_image()
+            except Exception:
+                self._logger.exception("Exception caught calling pre_image()")
+
+            try:
+                try:
+                    taken_gifs = self.main.take_all_gifs(chat_id, 10)
+                except Exception:
+                    self._logger.exception("Exception caught taking all gifs")
+
+                for taken_gif in taken_gifs:
+                    self.main.send_file(
+                        chat_id, taken_gif, ""
+                    )  # TODO: send as album + check 50MB
+            except Exception:
+                # TODO: spostare eccezione, rileggere intera funzione
+                self._logger.exception("Exception occured creating the gif")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Not connected to a printer. Use /con to connect.",
+                    f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
                     chatID=chat_id,
-                    inline=False,
-                    with_image=with_image,
                 )
-            elif self.main._printer.is_printing():
-                try:
-                    ##find a way to decide if should and what command to light on
-                    premethod = self.main._settings.get(["PreImgMethod"])
-                    self._logger.debug("PreImgMethod {}".format(premethod))
-                    precommand = self.main._settings.get(["PreImgCommand"])
-                    if premethod == "GCODE":
-                        self._logger.debug("PreImgCommand {}".format(precommand))
-                        self.main._printer.commands(precommand)
-                    elif premethod == "SYSTEM":
-                        self._logger.debug("PreImgCommand {}".format(precommand))
-                        p = subprocess.Popen(precommand, shell=True)
-                        self._logger.debug(
-                            "PreImg system command executed. PID={}, Command={}".format(
-                                p.pid, precommand
-                            )
-                        )
-                        while p.poll() is None:
-                            time.sleep(0.1)
-                            r = p.returncode
-                            self._logger.debug(
-                                "PreImg system command returned: {}".format(r)
-                            )
-                except Exception:
-                    self._logger.exception("Exception PostImgMethod")
 
-                try:
-                    sendOneInLoop = False
-                    self._logger.info("Will try to create a super gif")
-                    if self.main._plugin_manager.get_plugin(
-                        "multicam", True
-                    ) and self.main._settings.get(["multicam"]):
-                        try:
-                            curr = self.main._settings.global_get(
-                                ["plugins", "multicam", "multicam_profiles"]
-                            )
-                            self._logger.info("multicam_profiles : " + str(curr))
-                            for li in curr:
-                                try:
-                                    self._logger.info("multicam profile : " + str(li))
-                                    url = li.get("URL")
-                                    self._logger.info("multicam URL :  " + str(url))
-                                    ret = self.main.create_gif_new(chat_id, 10, li)
-                                    if ret != "":
-                                        self.main.send_file(chat_id, ret, "")
-                                        sendOneInLoop = True
-                                except Exception:
-                                    self._logger.exception(
-                                        "Exception loop multicam URL to create gif"
-                                    )
-                        except Exception:
-                            self._logger.exception(
-                                "Exception occured on getting multicam options"
-                            )
-                    else:
-                        ret = self.main.create_gif_new(chat_id, 10, 0)
+            # Post image
+            try:
+                self.main.post_image()
+            except Exception:
+                self._logger.exception("Exception caught calling post_image()")
 
-                    if ret == "":
-                        ret = self.main.create_gif_new(chat_id, 10, 0)
-
-                    if ret != "" and not sendOneInLoop:
-                        self.main.send_file(chat_id, ret, "")
-                except Exception:
-                    self._logger.error(
-                        "Exception occured during creating of the supergif"
-                    )
-                    self.main.send_msg(
-                        self.gEmo("dizzy face")
-                        + " Problem creating super gif, please check log file",
-                        chatID=chat_id,
-                    )
-
-                try:
-                    postmethod = self.main._settings.get(["PostImgMethod"])
-                    self._logger.debug("PostImgMethod {}".format(postmethod))
-                    postcommand = self.main._settings.get(["PostImgCommand"])
-                    if postmethod == "GCODE":
-                        self._logger.debug("PostImgCommand {}".format(postcommand))
-                        self.main._printer.commands(postcommand)
-                    elif postmethod == "SYSTEM":
-                        self._logger.debug("PostImgCommand {}".format(postcommand))
-                        p = subprocess.Popen(postcommand, shell=True)
-                        self._logger.debug(
-                            "PostImg system command executed. PID={}, Command={}".format(
-                                p.pid, postcommand
-                            )
-                        )
-                        while p.poll() is None:
-                            time.sleep(0.1)
-                            r = p.returncode
-                            self._logger.debug(
-                                "PostImg system command returned: {}".format(r)
-                            )
-                except Exception:
-                    self._logger.exception("Exception PostImgMethod")
-            else:
-                self.main.on_event("StatusNotPrinting", {}, chatID=chat_id)
         else:
             self.main.send_msg(
-                f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings.",
+                f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
                 chatID=chat_id,
             )
 

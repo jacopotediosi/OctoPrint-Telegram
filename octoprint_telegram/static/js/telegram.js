@@ -118,20 +118,17 @@ $(function() {
                 }
                 img = "camera";
                 hideMup = "";
-                hideComb = "";
                 if(self.settings.settings.plugins.telegram.messages[keys[id]].image()){
                     img = "camera";
                     btn = "success";
                     txt = "Send Image";
                     hideMup = "display:none";
-                    hideComb = "";
                 }
                 else{
                     img = "ban-circle";
                     btn = "warning";
                     txt = "No Image";
                     hideMup = "";
-                    hideComb = "display:none"
                 }
 
                 if(self.settings.settings.plugins.telegram.messages[keys[id]].silent()) {
@@ -139,27 +136,23 @@ $(function() {
                   bSilent = "warning";
                   txtSilent = "Silent";
                   hideMup = "";
-                  hideComb = "";
                 } else{
                   imgSilent = "volume-up";
                   bSilent = "success";
                   txtSilent = "Notification";
                   hideMup = "";
-                  hideComb = ""
                 }
                 if(self.settings.settings.plugins.telegram.messages[keys[id]].gif()){
                     imgGif = "camera";
                     bGif = "success";
                     txtGif = "Send Gif";
                     hideMup = "";
-                    hideComb = "";
                 }
                 else{
                     imgGif = "ban-circle";
                     bGif = "warning";
                     txtGif = "No Gif";
                     hideMup = "";
-                    hideComb = ""
                 }
                 if (ShowGifBtn)
                 {
@@ -168,20 +161,6 @@ $(function() {
                 else
                 {
                     showGif = "display:none"
-                }
-                // TODO set to second message setting
-                if(self.settings.settings.plugins.telegram.messages[keys[id]].combined()){
-                    img2 = "comment";
-                    btn2 = "danger";
-                    txt2 = "Combined";
-                    if(hideComb === "")
-                        hideMup = "display:none";
-                }
-                else{
-                    img2 = "comments";
-                    btn2 = "info";
-                    txt2 = "Separated";
-                    hideMup = "";
                 }
                 if(self.settings.settings.plugins.telegram.messages[keys[id]].markup()==="HTML"){
                     bOff = "info";
@@ -225,18 +204,12 @@ $(function() {
                 btnGif += '<i id="chkGif'+self.msgCnt+'"  style="' + showGif + '" class="icon-'+imgGif+'"></i> ';
                 btnGif += '<span id="chkGifTxt'+self.msgCnt+'"  style="' + showGif + '">'+txtGif+'</span></label><br>';
 
-                var btnSecMsg = '<span id="combBut'+self.msgCnt+'" style="' + hideComb + '"> <span class="muted"><small>Combined message?<br></small></span>';
-                btnSecMsg += '<label id="chk2Btn'+self.msgCnt+'" class="btn btn-'+btn2+' btn-mini" title="Toggle \'Send image in a second message\'">';
-                btnSecMsg += '<input type="checkbox" style="display:none" data-bind="checked: settings.settings.plugins.telegram.messages.'+keys[id]+'.combined, click: toggleImg2(\''+self.msgCnt+'\')"/>';
-                btnSecMsg += '<i id="chk2Img'+self.msgCnt+'" class="icon-'+img2+'"></i> ';
-                btnSecMsg += '<span id="chk2Txt'+self.msgCnt+'">'+txt2+'</span></label><br></span>';
-
                 var msgEdt = '<div class="control-group"><div class="controls " ><hr style="margin:0px 0px 0px -90px;"></div></div><div class="control-group" id="telegramMsgText'+self.msgCnt+'">';
                     msgEdt += '<label class="control-label"><strong>'+keys[id]+ '</strong>'+bind_text + '</label>';
                     msgEdt += '<div class="controls " >';
                         msgEdt += '<div class="row">';
                             msgEdt += '<div class="span9"><textarea rows="4" style="margin-left:7px;" class="block" data-bind="value: settings.settings.plugins.telegram.messages.'+keys[id]+'.text"></textarea></div>';
-                            msgEdt += '<div class="span3" style="text-align:center;">' + btnImg + btnGif + btnSecMsg + btnSilent + btnGrp + '</div>';
+                            msgEdt += '<div class="span3" style="text-align:center;">' + btnImg + btnGif + btnSilent + btnGrp + '</div>';
                         msgEdt += '</div></div></div>';
 
                 $('#telegram_msg_list').append(msgEdt);
@@ -296,21 +269,9 @@ $(function() {
                 $('#chkBtn'+data).toggleClass("btn-success btn-warning");
                 if($('#chkTxt'+data).text()==="Send Image"){
                     $('#chkTxt'+data).text("No Image");
-                    if(data !== "0"){
-                        $('#mupBut'+data).show();
-                        $('#combBut'+data).hide();
-                    }
                 }
                 else{
                     $('#chkTxt'+data).text("Send Image");
-                    if(data !== "0"){
-                        if($('#chk2Txt'+data).text()==="Combined")
-                            $('#mupBut'+data).hide();    
-                        else
-                            $('#mupBut'+data).show();   
-                    
-                        $('#combBut'+data).show();
-                    }
                 }
             }
         }
@@ -349,22 +310,6 @@ $(function() {
                 $('[id*="chkGifTxt"]').toggle();
                 $('[id*="chkGifLbl"]').toggle();
                 $('.gif-options').toggle();
-            }
-        }
-        
-
-        self.toggleImg2 = function(data){
-            if(!self.onBindLoad){
-                $('#chk2Img'+data).toggleClass("icon-comment icon-comments");
-                $('#chk2Btn'+data).toggleClass("btn-info btn-danger");
-                if($('#chk2Txt'+data).text()==="Separated"){
-                    $('#chk2Txt'+data).text("Combined"); 
-                    $('#mupBut'+data).hide();   
-                }
-                else{
-                    $('#chk2Txt'+data).text("Separated");  
-                    $('#mupBut'+data).show();
-                }
             }
         }
 
