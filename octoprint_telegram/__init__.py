@@ -1443,9 +1443,11 @@ class TelegramPlugin(
             data["text"] = message
             data["message_id"] = msg_id
             data["chat_id"] = int(chatID)
-            if markup is not None:
-                if "HTML" in markup or "Markdown" in markup:
+            if markup:
+                if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
                     data["parse_mode"] = markup
+                else:
+                    self._logger.warning(f"Invalid markup: {markup}")
             if responses and inline:
                 myArr = []
                 for k in responses:
@@ -1539,9 +1541,11 @@ class TelegramPlugin(
             data["chat_id"] = chatID
             data["disable_notification"] = silent
 
-            if markup is not None:
-                if "HTML" in markup or "Markdown" in markup:
-                    data["parse_mode"] = markup
+            if markup:
+                if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
+                    message_data["parse_mode"] = markup
+                else:
+                    self._logger.warning(f"Invalid markup: {markup}")
 
             if responses:
                 myArr = []
@@ -1760,6 +1764,9 @@ class TelegramPlugin(
 
                         if i == 0 and message != "":
                             input_media_photo["caption"] = message
+                            
+                        if message_data.get("parse_mode"):
+                            input_media_photo["parse_mode"] = message_data["parse_mode"]
 
                         media.append(input_media_photo)
 

@@ -419,6 +419,7 @@ class TMSG:
             self._logger.debug(f"VARS - {locals()}")
             emo = EmojiFormatter(self.main)
             try:
+                # TODO: escape html/markdown entities from the formatted variables
                 message = self.main._settings.get(
                     ["messages", kwargs["event"], "text"]
                 ).format(emo, **locals())
