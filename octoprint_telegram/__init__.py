@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 import threading, requests, urllib3, re, time, datetime, io, json, random, logging, traceback, io, collections, os, flask, base64, PIL, pkg_resources, subprocess, zipfile, glob, sys, multiprocessing
 import octoprint.plugin, octoprint.util, octoprint.filemanager
 from octoprint.schema.webcam import RatioEnum, Webcam, WebcamCompatibility
-from octoprint.webcams import WebcamNotAbleToTakeSnapshotException
+from octoprint.webcams import WebcamNotAbleToTakeSnapshotException, get_snapshot_webcam
 from flask_babel import gettext
 from flask_login import current_user
 from .telegramCommands import TCMD  # telegramCommands.
@@ -14,7 +14,7 @@ from .telegramNotifications import (
 )  # dict of known notification messages
 from .emojiDict import telegramEmojiDict  # dict of known emojis
 from babel.dates import format_date, format_datetime, format_time
-
+from io import BytesIO
 
 bytes_reader_class = io.BytesIO
 
@@ -46,6 +46,7 @@ class TelegramListener(threading.Thread):
         self.username = "UNKNOWN"
         self._logger = main._logger.getChild("listener")
         self.gEmo = self.main.gEmo 
+        self._capture_mutex = threading.Lock()
 
     def run(self):
         self._logger.debug("Try first connect.")
@@ -1745,10 +1746,12 @@ class TelegramPlugin(
             self._logger.debug("Caught an exception in _send_edit_msg(): " + str(ex))
 
     def take_webcam_snapshot(self, provided_webcam):
+        self._logger.debug("###########my take_webcam_snapshot ")
+
         webcam = provided_webcam.config
 
         if webcam is None:
-            self._logger.exception("Exception WebcamNotAbleToTakeSnapshotException(provided_webcam is None)")
+            self._logger.error("Exception WebcamNotAbleToTakeSnapshotException(provided_webcam is None)")
             return None
 
         # using compat.snapshot because snapshotDisplay is supposedly only for user
@@ -1756,7 +1759,7 @@ class TelegramPlugin(
         can_snapshot = snapshot_url is not None and snapshot_url != "http://" and snapshot_url != ""
 
         if not can_snapshot:
-            self._logger.exception("Exception WebcamNotAbleToTakeSnapshotException("+webcam.name+")")
+            self._logger.error("Exception WebcamNotAbleToTakeSnapshotException("+webcam.name+")")
             return None
 
         with self._capture_mutex:
@@ -2678,22 +2681,62 @@ class TelegramPlugin(
             del self.updateMessageID[id]
         return uMsgID
 
-    def take_image(self, snapshot_url="",cam_conf=0,camera = None):
+    def take_image(self, snapshot_url="",cam_conf= None,camera = None):
+        MAX_JPEG_SIZE = 5000000
         snapshot = None
         if snapshot_url == "":
-            if cam_conf == 0:
+            if cam_conf == None:
                 snapshot_url = self._settings.global_get(["webcam", "snapshot"])
             else:
                 snapshot_url = cam_conf.snapshot
                 
         
-        if cam_conf != 0 and camera != None:
+        if cam_conf != None and camera != None:
             try:
                 self._logger.debug("will try to get the snapshot from the plugin for " + str(cam_conf.name))
-                snapshot = camera.take_webcam_snapshot(cam_conf.name)
+                #snapshot = camera.take_webcam_snapshot(cam_conf)
+                snapshot = camera.take_webcam_snapshot(camera)
+                
             except Exception as e:
                 self._logger.exception("Exception get snaposhot from octoprint: " + str(e))
                 snapshot = None
+
+        if snapshot == None:
+            try:
+                can_snapshot = snapshot_url is not None and snapshot_url != "http://" and snapshot_url != ""
+
+                if not can_snapshot:
+                    raise WebcamNotAbleToTakeSnapshotException(cam_conf.name)
+
+                #with self._capture_mutex:
+                self._logger.debug(f"Capturing image from {snapshot_url}")
+                r = requests.get(
+                    snapshot_url,
+                    stream=True,
+                    timeout=15,
+                    verify=False,
+                )
+                r.raise_for_status()
+                snap = b''
+                #snap = r.iter_content(chunk_size=1024)
+                for chunk in r.iter_content(chunk_size=1024):
+                    snap += chunk
+                    if len(snap) > MAX_JPEG_SIZE:
+                        r.close()
+                        raise Exception('Payload returned from the snapshot_url is too large. Did you configure stream_url as snapshot_url?')
+
+                r.close()
+                snapshot = bytes().join(snap)
+                self._logger.debug("Got snapshot of {} bytes".format(len(snapshot)))
+                #snapshot = BytesIO(image)
+                #output = bytes_reader_class()
+                #image.save(output, format="JPEG")
+                #snapshot = output.getvalue()
+                #output.close()
+            except Exception as e:
+                self._logger.exception("Exception get snaposhot from octoprint: " + str(e))
+                snapshot = None
+
 
         if snapshot != None:
             self._logger.debug("set the snapshot to data to try to continue")
@@ -2827,13 +2870,13 @@ class TelegramPlugin(
 
         return strtime + strdate
 
-    def create_gif_new(self, chatID, sec=7, multicam_prof=0,cam_conf=0):
+    def create_gif_new(self, chatID, sec=7, multicam_prof=None,cam_conf=None):
         ret = ""
-        stream_url = 0
-        if multicam_prof != 0:
+        stream_url = None
+        if multicam_prof != None:
             stream_url = multicam_prof.get("URL")
 
-        if cam_conf != 0:
+        if cam_conf != None:
             stream_url = cam_conf.snapshot
 
         try:
@@ -2851,14 +2894,14 @@ class TelegramPlugin(
             # 	saveDir = os.getcwd()
             # 	os.chdir(self.get_plugin_data_folder()+"/tmpgif")
 
-            if multicam_prof != 0:
+            if multicam_prof != None:
                 outPath = (
                     self.get_plugin_data_folder()
                     + "/tmpgif/gif_"
                     + multicam_prof.get("name").replace(" ", "_").replace("/","_")
                     + ".mp4"
                 )
-            elif cam_conf != 0:
+            elif cam_conf != None:
                 outPath = (
                     self.get_plugin_data_folder()
                     + "/tmpgif/gif_"
@@ -2892,7 +2935,7 @@ class TelegramPlugin(
                         + " Problem creating gif, please check log file, and make sure you have installed cpulimit with following command : `sudo apt-get install cpulimit`",
                         chatID=chatID,
                     )
-                return ""
+                    return ""
 
             self._logger.info("test if ffmpeg exist")
             if self.TestProgram(["ffmpeg", "-h"]) <= 0:
@@ -2919,7 +2962,7 @@ class TelegramPlugin(
                 )
             # os.nice(20) # force this to use less CPU
 
-            if stream_url == 0:
+            if stream_url == None:
                 stream_url = self._settings.global_get(["webcam", "stream"])
             if "http" not in stream_url:
                 stream_url = "http://localhost" + stream_url
@@ -2994,7 +3037,7 @@ class TelegramPlugin(
             # params.append( '-movflags')
             # params.append( 'faststart')
 
-            if multicam_prof != 0:
+            if multicam_prof != None:
                 flipH = multicam_prof.get("flipH")
                 flipV = multicam_prof.get("flipV")
                 rotate = multicam_prof.get("rotate90")
