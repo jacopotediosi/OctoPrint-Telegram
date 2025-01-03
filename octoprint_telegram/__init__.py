@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 import threading, requests, urllib3, re, time, datetime, io, json, random, logging, traceback, io, collections, os, flask, base64, PIL, pkg_resources, subprocess, zipfile, glob, sys, multiprocessing
 import octoprint.plugin, octoprint.util, octoprint.filemanager
 from octoprint.schema.webcam import RatioEnum, Webcam, WebcamCompatibility
-from octoprint.webcams import WebcamNotAbleToTakeSnapshotException, get_snapshot_webcam
+from octoprint.webcams import WebcamNotAbleToTakeSnapshotException, get_snapshot_webcam, get_webcams
 from flask_babel import gettext
 from flask_login import current_user
 from .telegramCommands import TCMD  # telegramCommands.
@@ -905,16 +905,27 @@ class TelegramPlugin(
         }
         self.emojis.update(telegramEmojiDict)
         self.cameras = []
+        self.plugincamera = None
         self.snap_new_method = False
+        self.tcmd = TCMD(self)
 
     def initialize_cameras(self):
         self._logger.info("Initialize the camera")
+        self._logger.debug("Initialize the camera")
         if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
-            self.cameras = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
-            self.snap_new_method = True
+            plugin_manager = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
+            
+            for plugin in plugin_manager:
+                self._logger.debug("webCam plugin name " +str(plugin))
+                self.cameras = get_webcams()
+                self._logger.debug("cameras " +str(self.cameras))
+                self.plugincamera = plugin
+                self.snap_new_method = True
         else:
             self.cameras = []
             self.snap_new_method = False
+
+        self._logger.debug("self.snap_new_method : " + str(self.snap_new_method))
 
 
     # all emojis will be get via this method to disable them globaly by the corrosponding setting
@@ -987,7 +998,7 @@ class TelegramPlugin(
     ##########
 
     def is_wizard_required(self):
-        return self._settings.get(["token"]) is ""
+        return self._settings.get(["token"]) == ""
 
     def get_wizard_version(self):
         return 1
@@ -1004,7 +1015,8 @@ class TelegramPlugin(
         self.set_log_level()
         self._logger.addFilter(TelegramPluginLoggingFilter())
         self.initialize_cameras()
-        self.tcmd = TCMD(self)
+        self.tcmd.on_after_startup(self)
+        #self.tcmd = TCMD(self)
         self.triggered = False
         self.tmsg = TMSG(
             self
@@ -1038,7 +1050,7 @@ class TelegramPlugin(
         # Update user profile photos
         for key in self.chats:
             try:
-                if key is not "zBOTTOMOFCHATS":
+                if key != "zBOTTOMOFCHATS":
                     kwargs = {}
                     kwargs["chat_id"] = int(key)
                     t = threading.Thread(target=self.get_usrPic, kwargs=kwargs)
@@ -1676,7 +1688,7 @@ class TelegramPlugin(
             # This is a 'editMessageText' message
             elif (
                 "msg_id" in kwargs
-                and kwargs["msg_id"] is not ""
+                and kwargs["msg_id"] != ""
                 and kwargs["msg_id"] is not None
             ):
                 threading.Thread(target=self._send_edit_msg, kwargs=kwargs).run()
@@ -1900,7 +1912,8 @@ class TelegramPlugin(
 
                         if self.snap_new_method:
                             for camera in self.cameras:
-                                configs = camera.get_webcam_configurations()
+                                configs = camera.config
+                                #configs = camera.get_webcam_configurations()
                                 for config in configs:
                                     try:
                                         self._logger.debug("get_webcam_configurations : " + str(config))
@@ -2004,40 +2017,48 @@ class TelegramPlugin(
                 self._logger.debug("data so far: " + str(data))
                 image_data = None
                 if with_image:
+                    self._logger.debug("self.snap_new_method : " + str(self.snap_new_method))
                     if self.snap_new_method:
-                            for camera in self.cameras:
-                                configs = camera.get_webcam_configurations()
-                                for config in configs:
-                                    try:
-                                        self._logger.debug("get_webcam_configurations : " + str(config))
-                                        url = config.snapshotDisplay
-                                        self._logger.debug("cam conf URL : " + str(url))
-                                        if image_data == None:
-                                            image_data = self.take_image(url,config,camera)
-                                            self._logger.debug ("take_image return data : %s",image_data)
+                            self._logger.debug("cameras " +str(self.cameras))
+                            #for camera in self.cameras:
+                            for name, camera in self.cameras.items():
+                                self._logger.debug("camera : " + str(name))
+                                config = camera.config
+                                #configs = camera.get_webcam_configurations()
+                                
+                                #for config in configs:
+                                try:
+
+                                    self._logger.debug("get_webcam_configurations : " + str(config))
+                                    url = config.snapshotDisplay
+                                    self._logger.debug("cam conf URL : " + str(url))
+                                    if image_data == None:
+                                        image_data = self.take_image(url,config,camera)
+                                        self._logger.debug ("take_image return data : %s",image_data)
+                                    else:
+                                        image_data2 = self.take_image(url,config,camera)
+                                        self._logger.debug ("take_image return data : %s",image_data2)
+                                        if str(image_data2) != "":
+                                            self._logger.debug(
+                                                "Image for  " + str(config.name)
+                                            )
+                                            files = {
+                                                "photo": ("image.jpg", image_data2, 'image/jpeg')
+                                            }
+                                            data2 = data
+                                            data2["caption"] = ""
+                                            r = self.send_request(self.bot_url,"/sendPhoto",files,data2,self.getProxies())
                                         else:
-                                            image_data2 = self.take_image(url,config,camera)
-                                            self._logger.debug ("take_image return data : %s",image_data2)
-                                            if str(image_data2) != "":
-                                                self._logger.debug(
-                                                    "Image for  " + str(config.name)
-                                                )
-                                                files = {
-                                                    "photo": ("image.jpg", image_data2, 'image/jpeg')
-                                                }
-                                                data2 = data
-                                                data2["caption"] = ""
-                                                r = self.send_request(self.bot_url,"/sendPhoto",files,data2,self.getProxies())
-                                            else:
-                                                self._logger.debug(
-                                                    "no image  " + str(config.name)
-                                                )
-                                    except Exception as ex:
-                                        self._logger.exception(
-                                            "Exception loop webcam configuration to create gif: "
-                                            + str(ex)
-                                        )
+                                            self._logger.debug(
+                                                "no image  " + str(config.name)
+                                            )
+                                except Exception as ex:
+                                    self._logger.exception(
+                                        "Exception loop webcam configuration to create gif: "
+                                        + str(ex)
+                                    )
                     else:
+                        
                         try:
                             image_data = self.take_image(
                             self._settings.global_get(["webcam", "snapshot"])
@@ -2221,7 +2242,7 @@ class TelegramPlugin(
 
                     self._logger.debug("Sending thumbnail.. " + str(chatID))
                     files = {"photo": ("image.jpg", thumbnail_data ,'image/jpeg')}
-                    if message is not "":
+                    if message != "":
                         data["caption"] = message
                     r = self.send_request(self.bot_url,"/sendPhoto",files,data,self.getProxies())
                     self._logger.debug("Sending finished. " + str(r.status_code))
@@ -2229,7 +2250,7 @@ class TelegramPlugin(
                     self._logger.debug("Sending with image.. " + str(chatID))
                     files = {"photo": ("image.jpg", image_data ,'image/jpeg')}
                     # self._logger.debug("files so far: " + str(files))
-                    if message is not "":
+                    if message != "":
                         data["caption"] = message
                     r = self.send_request(self.bot_url,"/sendPhoto",files,data,self.getProxies())
                     self._logger.debug("Sending finished. " + str(r.status_code))
@@ -2238,7 +2259,7 @@ class TelegramPlugin(
                     self._logger.debug("Sending with thumbnail.. " + str(chatID))
                     files = {"photo": ("image.jpg", thumbnail_data, 'image/jpeg')}
 
-                    if message is not "":
+                    if message != "":
                         data["caption"] = message
 
                     r = self.send_request(self.bot_url,"/sendPhoto",files,data,self.getProxies())
@@ -2654,7 +2675,7 @@ class TelegramPlugin(
     def isCommandAllowed(self, chat_id, from_id, command):
         if "bind_none" in self.tcmd.commandDict[command]:
             return True
-        if command is not None or command is not "":
+        if command is not None or command != "":
             if self.chats[chat_id]["accept_commands"]:
                 if self.chats[chat_id]["commands"][command]:
                     return True
@@ -2695,7 +2716,7 @@ class TelegramPlugin(
             try:
                 self._logger.debug("will try to get the snapshot from the plugin for " + str(cam_conf.name))
                 #snapshot = camera.take_webcam_snapshot(cam_conf)
-                snapshot = camera.take_webcam_snapshot(camera)
+                snapshot = bytes().join(self.plugincamera.take_webcam_snapshot(camera))
                 
             except Exception as e:
                 self._logger.exception("Exception get snaposhot from octoprint: " + str(e))

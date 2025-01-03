@@ -20,8 +20,7 @@ from .telegramNotifications import telegramMsgDict
 class TCMD:
     def __init__(self, main):
         self.main = main
-        self.gEmo = self.main.gEmo
-        self._logger = main._logger.getChild("TCMD")
+        self.gEmo = self.main.gEmo        
         self.SettingsTemp = []
         self.tuneTemp = [100, 100]
         self.tempTemp = []
@@ -29,7 +28,7 @@ class TCMD:
         self.dirHashDict = {}
         self.tmpFileHash = ""
         self._spoolManagerPluginImplementation = None
-        self.port = self.main._settings.global_get(["server", "port"])
+        
         self.commandDict = {
             "Yes": {"cmd": self.cmdYes, "bind_none": True},
             "No": {"cmd": self.cmdNo, "bind_none": True},
@@ -59,6 +58,10 @@ class TCMD:
             "/help": {"cmd": self.cmdHelp, "bind_none": True},
             "/gcode": {"cmd": self.cmdGCode, "param": True},
         }
+
+    def on_after_startup(self,main):
+        self._logger = main._logger.getChild("TCMD")
+        self.port = self.main._settings.global_get(["server", "port"])
 
     ############################################################################################
     # COMMAND HANDLERS
