@@ -1911,7 +1911,8 @@ class TelegramPlugin(
                         self._logger.info("Will try to create a gif ")
 
                         if self.snap_new_method:
-                            for camera in self.cameras:
+                            #for camera in self.cameras:
+                            for name, camera in self.cameras.items():
                                 configs = camera.config
                                 #configs = camera.get_webcam_configurations()
                                 for config in configs:
