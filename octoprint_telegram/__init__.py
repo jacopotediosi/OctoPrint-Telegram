@@ -1912,36 +1912,38 @@ class TelegramPlugin(
 
                         if self.snap_new_method:
                             #for camera in self.cameras:
+                            ListGif = []
                             for name, camera in self.cameras.items():
-                                configs = camera.config
+                                config = camera.config
                                 #configs = camera.get_webcam_configurations()
-                                for config in configs:
-                                    try:
-                                        self._logger.debug("get_webcam_configurations : " + str(config))
-                                        url = config.snapshotDisplay
-                                        self._logger.debug("multicam URL : " + str(url))
-                                        ret = self.create_gif_new(chatID, 0, 0,config)
-                                        if ret != "":
-                                            ListGif.append(ret)
-                                    except Exception as ex:
-                                        self._logger.exception(
-                                            "Exception loop webcam configuration to create gif: "
-                                            + str(ex)
+                                #for config in configs:
+
+                                try:
+                                    self._logger.debug("get_webcam_configurations : " + str(config))
+                                    url = config.snapshotDisplay
+                                    self._logger.debug("multicam URL : " + str(url))
+                                    ret = self.create_gif_new(chatID, 0, None,config)
+                                    if ret != "":
+                                        ListGif.append(ret)
+                                except Exception as ex:
+                                    self._logger.exception(
+                                        "Exception loop webcam configuration to create gif: "
+                                        + str(ex)
+                                    )
+                            ret = ListGif[-1]
+                            self._logger.debug("ListGif: " + str(ListGif))
+                            for x in ListGif:
+                                try:
+                                    if x != ret:
+                                        self._logger.debug(
+                                            "send_file whithout message: " + str(x)
                                         )
-                                    ret = ListGif[-1]
-                                    self._logger.debug("ListGif: " + str(ListGif))
-                                    for x in ListGif:
-                                        try:
-                                            if x != ret:
-                                                self._logger.debug(
-                                                    "send_file whithout message: " + str(x)
-                                                )
-                                                self.send_file(chatID, x, "")
-                                        except Exception as ex:
-                                            self._logger.exception(
-                                                "Exception loop multicam URL to send gif: "
-                                                + str(ex)
-                                            )
+                                        self.send_file(chatID, x, "")
+                                except Exception as ex:
+                                    self._logger.exception(
+                                        "Exception loop multicam URL to send gif: "
+                                        + str(ex)
+                                    )
                         else:
                             # requests.get(self.main.bot_url + "/sendChatAction", params = {'chat_id': chat_id, 'action': 'upload_document'}, proxies=self.getProxies())
                             if self._plugin_manager.get_plugin(
@@ -2899,8 +2901,19 @@ class TelegramPlugin(
             stream_url = multicam_prof.get("URL")
 
         if cam_conf != None:
-            stream_url = cam_conf.snapshot
+            try:
 
+                extra = cam_conf.extras
+                if extra != None:
+                    stream_url = extra["stream"]
+                else:
+                    stream_url = cam_conf.snapshotDisplay
+            except Exception as ex:
+                self._logger.error(
+                    "Caught an exception trying to get stream url: "
+                    + str(ex)
+                )
+                stream_url = cam_conf.snapshotDisplay
         try:
             try:
                 requests.get(
