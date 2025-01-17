@@ -20,8 +20,7 @@ from .telegramNotifications import telegramMsgDict
 class TCMD:
     def __init__(self, main):
         self.main = main
-        self.gEmo = self.main.gEmo
-        self._logger = main._logger.getChild("TCMD")
+        self.gEmo = self.main.gEmo        
         self.SettingsTemp = []
         self.tuneTemp = [100, 100]
         self.tempTemp = []
@@ -29,7 +28,7 @@ class TCMD:
         self.dirHashDict = {}
         self.tmpFileHash = ""
         self._spoolManagerPluginImplementation = None
-        self.port = self.main._settings.global_get(["server", "port"])
+        
         self.commandDict = {
             "Yes": {"cmd": self.cmdYes, "bind_none": True},
             "No": {"cmd": self.cmdNo, "bind_none": True},
@@ -46,6 +45,7 @@ class TCMD:
             "/dontshutup": {"cmd": self.cmdNShutup},
             "/print": {"cmd": self.cmdPrint, "param": True},
             "/files": {"cmd": self.cmdFiles, "param": True},
+            "/again": {"cmd": self.cmdAgain, "param": True}, #giloser 16-10-2021
             "/upload": {"cmd": self.cmdUpload},
             "/filament": {"cmd": self.cmdFilament, "param": True},
             "/sys": {"cmd": self.cmdSys, "param": True},
@@ -58,6 +58,10 @@ class TCMD:
             "/help": {"cmd": self.cmdHelp, "bind_none": True},
             "/gcode": {"cmd": self.cmdGCode, "param": True},
         }
+
+    def on_after_startup(self,main):
+        self._logger = main._logger.getChild("TCMD")
+        self.port = self.main._settings.global_get(["server", "port"])
 
     ############################################################################################
     # COMMAND HANDLERS
@@ -779,6 +783,24 @@ class TCMD:
             + " To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
             chatID=chat_id,
         )
+
+    ############################################################################################
+    def cmdAgain(self,chat_id,from_id,cmd,parameter, user=""): 
+        try:
+            data = self.main._printer.get_current_data()
+            if self.main._printer.is_printing():
+                self.main.send_msg(self.gEmo("warning") + " A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort? ",chatID=chat_id)#, msg_id = self.main.getUpdateMsgId(chat_id))
+            elif not self.main._printer.is_operational():
+                self.main.send_msg(self.gEmo("warning") + gettext(" Can't start printing: I'm not connected to a printer."),chatID=chat_id)#, msg_id = self.main.getUpdateMsgId(chat_id))
+            elif data["job"]["file"]["name"] is not None:
+                file = data["job"]["file"]["name"]
+                msg = self.gEmo("info") + gettext(" The file " +str(file)+" is loaded.\n\n"+self.gEmo("question")+" Do you want me to start printing it now?", file=data["job"]["file"]["name"])
+                self.main.send_msg(msg,noMarkup=True, responses=[[[self.main.emojis["check"]+gettext("Print"),"/print_s"], [self.main.emojis["cross mark"]+gettext(" Cancel"),"/print_x"]]],chatID=chat_id)#, msg_id = self.main.getUpdateMsgId(chat_id))
+            else:
+                self.main.send_msg(self.gEmo("warning") + gettext(" File not loaded. Please use this after another print."),chatID=chat_id)#, msg_id = self.main.getUpdateMsgId(chat_id))
+        except Exception as e:
+            self._logger.warn("Command failed: %s" % e)
+            self.main.send_msg(self.gEmo("warning") + " Command failed with exception: %s!" % e,chatID = chat_id)#, msg_id = self.main.getUpdateMsgId(chat_id))
 
     ############################################################################################
     def cmdSys(self, chat_id, from_id, cmd, parameter, user = ""):

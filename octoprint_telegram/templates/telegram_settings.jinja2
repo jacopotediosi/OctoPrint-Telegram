@@ -249,6 +249,10 @@
             </select>
 			<span class="help-block"><small>Action pre image could be none, a gcode or a system command (script name with full path)</small></span>
 			<input type="text" class="input-block-level" id="settings_plugin_telegram_PreImgCommand" data-bind="value: settings.settings.plugins.telegram.PreImgCommand"/>
+
+			<input type="number" step="any" min="0.0" class="input-mini text-right" data-bind="value: settings.settings.plugins.telegram.precommand_delay" />
+			<span class="add-on">s</span>
+			<span class="help-block"><small>Wait this many seconds after pre image action. Set to 0 to disable.</small></span>
 		</div>
 	</div>
 	
@@ -263,6 +267,10 @@
             </select>
 			<span class="help-block"><small>Action post image could be none, a gcode or a system command (script name with full path)</small></span>
 			<input type="text" class="input-block-level" id="settings_plugin_telegram_PostImgCommand" data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
+
+			<input type="number" step="any" min="0.0" class="input-mini text-right" data-bind="value: settings.settings.plugins.telegram.postcommand_delay" />
+			<span class="add-on">s</span>
+			<span class="help-block"><small>Wait this many seconds before post image action. Set to 0 to disable.</small></span>
 		</div>
 	</div>
 

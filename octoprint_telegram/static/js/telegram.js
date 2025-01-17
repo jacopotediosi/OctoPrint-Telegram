@@ -590,7 +590,9 @@ $(function() {
             var settings_to_check_number = [
                 settings.notification_height,
                 settings.notification_time,
-                settings.message_at_print_done_delay
+                settings.message_at_print_done_delay,
+                setting.precommand_delay,
+                setting.postcommand_delay
             ];
             for (var i = 0; i < settings_to_check_number.length; i++) {
                 if (!self.isNumber(settings_to_check_number[i]())) {

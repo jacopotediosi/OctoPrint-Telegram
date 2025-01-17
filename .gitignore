@@ -11,3 +11,5 @@ dist
 *.yaml
 dev_utils/NOTES.txt
 dev_utils/NOTES.txt
+octoprint_telegram/__init__.py.bak
+octoprint_telegram/telegramCommands.py.bak
