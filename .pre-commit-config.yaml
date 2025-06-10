@@ -1,26 +1,16 @@
-exclude: "translations|templates|static|.txt|.md|.github"
+exclude: "translations|templates|static|.txt|.md|.github|setup.py|dev_utils"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-merge-conflict
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.7.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
     hooks:
-      - id: isort
-        args: ["--profile", "black"]
-
-  - repo: https://github.com/psf/black
-    rev: 20.8b1
-    hooks:
-      - id: black
-
-  - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.8.4
-    hooks:
-      - id: flake8
-        args: [--max-line-length=120]
+      - id: ruff-check
+        args: ["--fix", "--line-length=120", "--extend-select=I"]
+      - id: ruff-format
