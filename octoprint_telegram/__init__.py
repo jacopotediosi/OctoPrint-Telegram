@@ -20,6 +20,7 @@ import pkg_resources
 import requests
 import urllib3
 from flask_login import current_user
+from octoprint.access.permissions import Permissions
 from PIL import Image
 
 from .emojiDict import telegramEmojiDict  # Dict of known emojis
@@ -1214,15 +1215,13 @@ class TelegramPlugin(
     ### SimpleApi API
     ##########
 
-    def get_api_commands(self):
-        return dict(
-            testToken=["token"],
-            testEvent=["event"],
-            delChat=["ID"],
-            setCommandList=["force"],
-        )
+    def is_api_protected(self):
+        return True
 
     def on_api_get(self, request):
+        if not Permissions.SETTINGS.can():
+            return "Insufficient permissions", 403
+
         # Got an user-update with this command, so lets do that
         if (
             "id" in request.args
@@ -1292,7 +1291,18 @@ class TelegramPlugin(
             }
         )
 
+    def get_api_commands(self):
+        return dict(
+            delChat=["ID"],
+            setCommandList=["force"],
+            testEvent=["event"],
+            testToken=["token"],
+        )
+
     def on_api_command(self, command, data):
+        if not Permissions.SETTINGS.can():
+            return "Insufficient permissions", 403
+
         if command == "testToken":
             self._logger.debug(f"Testing token {data['token']}")
             try:
@@ -2200,6 +2210,10 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking gifs from url: {stream_url}")
 
+        os.makedirs(
+            os.path.join(self.get_plugin_data_folder(), "tmpgif"), exist_ok=True
+        )
+
         if multicam_profile:
             gif_basename = os.path.basename(
                 f"gif_{multicam_profile.get('name', '').replace(' ', '_')}.mp4"
@@ -2419,31 +2433,40 @@ class TelegramPlugin(
             return "There was a problem calculating the finishing time. Check the logs for more detail."
 
     def route_hook(self, server_routes, *args, **kwargs):
-        from octoprint.server.util.tornado import LargeResponseHandler
+        from octoprint.server import app
+        from octoprint.server.util.flask import (
+            permission_validator,
+        )
+        from octoprint.server.util.tornado import (
+            LargeResponseHandler,
+            access_validation_factory,
+        )
 
         os.makedirs(
             os.path.join(self.get_plugin_data_folder(), "img", "user"), exist_ok=True
-        )
-        os.makedirs(
-            os.path.join(self.get_plugin_data_folder(), "tmpgif"), exist_ok=True
         )
 
         return [
             (
                 r"/img/user/(.*)",
                 LargeResponseHandler,
-                dict(
-                    path=os.path.join(self.get_plugin_data_folder(), "img", "user"),
-                    allow_client_caching=False,
-                ),
+                {
+                    "path": os.path.join(self.get_plugin_data_folder(), "img", "user"),
+                    "allow_client_caching": False,
+                    "access_validation": access_validation_factory(
+                        app,
+                        permission_validator,
+                        Permissions.SETTINGS,
+                    ),
+                },
             ),
             (
                 r"/static/img/(.*)",
                 LargeResponseHandler,
-                dict(
-                    path=os.path.join(self._basefolder, "static", "img"),
-                    allow_client_caching=True,
-                ),
+                {
+                    "path": os.path.join(self._basefolder, "static", "img"),
+                    "allow_client_caching": True,
+                },
             ),
         ]
 
