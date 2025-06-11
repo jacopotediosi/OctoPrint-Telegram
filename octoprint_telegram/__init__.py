@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -2246,11 +2247,11 @@ class TelegramPlugin(
 
         params = []
         self._logger.debug("Testing if nice exist")
-        if self.TestProgram(["nice", "--version"]) > 0:
+        if shutil.which("nice") is not None:
             params = ["nice", "-n", "20"]
 
         self._logger.debug("Testing if cpulimit exist")
-        if self.TestProgram(["cpulimit", "--help"]) <= 0:
+        if shutil.which("cpulimit") is None:
             self._logger.error(
                 "Cpulimit don't exist so send a message to install and exit"
             )
@@ -2261,7 +2262,7 @@ class TelegramPlugin(
             raise Exception("Cpulimit not installed")
 
         self._logger.debug("Testing if ffmpeg exist")
-        if self.TestProgram(["ffmpeg", "-h"]) <= 0:
+        if shutil.which("ffmpeg") is None:
             self._logger.error(
                 "Ffmpeg don't exist so send a message to install and exit"
             )
@@ -2445,17 +2446,6 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Exception caught calculating ETA")
             return "There was a problem calculating the finishing time. Check the logs for more detail."
-
-    def TestProgram(self, name):
-        try:
-            self._logger.debug(f"Test exist program {str(name).strip('[]')}")
-            # Pipe output to /dev/null for silence
-            ret = subprocess.call(name)
-            self._logger.debug(f"ret = {ret}")
-            return ret >= 0
-
-        except OSError:
-            return -1
 
     def route_hook(self, server_routes, *args, **kwargs):
         from octoprint.server.util.tornado import LargeResponseHandler
