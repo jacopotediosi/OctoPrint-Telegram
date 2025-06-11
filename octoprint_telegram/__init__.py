@@ -1,15 +1,32 @@
-import threading, requests, urllib3, re, time, datetime, json, logging, traceback, io, os, pkg_resources, subprocess, zipfile, multiprocessing
-import octoprint.plugin, octoprint.util, octoprint.filemanager
-from flask_login import current_user
-from .telegramCommands import TCMD
-from .telegramNotifications import TMSG
-from .telegramNotifications import (
-    telegramMsgDict,
-)  # Dict of known notification messages
-from .emojiDict import telegramEmojiDict  # Dict of known emojis
-from PIL import Image
+import datetime
+import io
+import json
+import logging
+import multiprocessing
+import os
+import re
+import subprocess
+import threading
+import time
+import traceback
+import zipfile
 from urllib.parse import urljoin
 
+import octoprint.filemanager
+import octoprint.plugin
+import octoprint.util
+import pkg_resources
+import requests
+import urllib3
+from flask_login import current_user
+from PIL import Image
+
+from .emojiDict import telegramEmojiDict  # Dict of known emojis
+from .telegramCommands import TCMD
+from .telegramNotifications import (
+    TMSG,
+    telegramMsgDict,
+)  # Dict of known notification messages
 
 bytes_reader_class = io.BytesIO
 
@@ -433,7 +450,7 @@ class TelegramListener(threading.Thread):
             # Identify user
             try:
                 user = f"{message['message']['chat']['first_name']} {message['message']['chat']['last_name']}"
-            except:
+            except:  # noqa: E722
                 user = ""
             # Execute command
             self.main.tcmd.commandDict[command]["cmd"](
@@ -655,33 +672,33 @@ class TelegramPlugin(
         self.newChat = {}
         # Use of emojis see below at method gEmo()
         self.emojis = {
-            "octo": "\U0001F419",  # Octopus
-            "mistake": "\U0001F616",
-            "notify": "\U0001F514",
-            "shutdown": "\U0001F4A4",
-            "shutup": "\U0001F64A",
-            "noNotify": "\U0001F515",
-            "notallowed": "\U0001F62C",
-            "rocket": "\U0001F680",
-            "save": "\U0001F4BE",
+            "octo": "\U0001f419",  # Octopus
+            "mistake": "\U0001f616",
+            "notify": "\U0001f514",
+            "shutdown": "\U0001f4a4",
+            "shutup": "\U0001f64a",
+            "noNotify": "\U0001f515",
+            "notallowed": "\U0001f62c",
+            "rocket": "\U0001f680",
+            "save": "\U0001f4be",
             "heart": "\U00002764",
             "info": "\U00002139",
-            "settings": "\U0001F4DD",
-            "clock": "\U000023F0",
-            "height": "\U00002B06",
+            "settings": "\U0001f4dd",
+            "clock": "\U000023f0",
+            "height": "\U00002b06",
             "question": "\U00002753",
-            "warning": "\U000026A0",
-            "enter": "\U0000270F",
-            "upload": "\U0001F4E5",
+            "warning": "\U000026a0",
+            "enter": "\U0000270f",
+            "upload": "\U0001f4e5",
             "check": "\U00002705",
-            "lamp": "\U0001F4A1",
-            "movie": "\U0001F3AC",
-            "finish": "\U0001F3C1",
-            "cam": "\U0001F3A6",
-            "hooray": "\U0001F389",
-            "error": "\U000026D4",
-            "play": "\U000025B6",
-            "stop": "\U000025FC",
+            "lamp": "\U0001f4a1",
+            "movie": "\U0001f3ac",
+            "finish": "\U0001f3c1",
+            "cam": "\U0001f3a6",
+            "hooray": "\U0001f389",
+            "error": "\U000026d4",
+            "play": "\U000025b6",
+            "stop": "\U000025fc",
         }
         self.emojis.update(telegramEmojiDict)
 
@@ -1103,7 +1120,7 @@ class TelegramPlugin(
                 if "new" in data["chats"][key]:
                     data["chats"][key]["new"] = False
                 # Look for deleted chats
-                if not key in self.chats and not key == "zBOTTOMOFCHATS":
+                if key not in self.chats and not key == "zBOTTOMOFCHATS":
                     delList.append(key)
             # Delete chats finally
             for key in delList:
@@ -1606,7 +1623,7 @@ class TelegramPlugin(
             # Add images to send to files and media
             for i, image_to_send in enumerate(images_to_send):
                 if len(image_to_send) > 50 * 1024 * 1024:
-                    self._logger.warning(f"Skipping an image bigger than 50MB")
+                    self._logger.warning("Skipping an image bigger than 50MB")
                     continue
 
                 files[f"photo_{i}"] = image_to_send
@@ -1645,7 +1662,7 @@ class TelegramPlugin(
 
                     media.append(input_media_video)
                 except Exception:
-                    self._logger.exception(f"Exception caught reading gif file")
+                    self._logger.exception("Exception caught reading gif file")
 
             # If there are media, send a media-group message
             if media:
@@ -1732,7 +1749,7 @@ class TelegramPlugin(
                 proxies=self.getProxies(),
             )
             files = {"document": open(path, "rb")}
-            r = requests.post(
+            requests.post(
                 f"{self.bot_url}/sendDocument",
                 files=files,
                 data={"chat_id": chat_id, "caption": text},
@@ -1751,7 +1768,7 @@ class TelegramPlugin(
                 proxies=self.getProxies(),
             )
             files = {"document": open(path, "rb")}
-            r = requests.post(
+            requests.post(
                 f"{self.bot_url}/editMessageMedia",
                 files=files,
                 data={"chat_id": chat_id, "message_id": message_id},
@@ -1762,7 +1779,7 @@ class TelegramPlugin(
 
     def delete_msg(self, chat_id, message_id):
         try:
-            r = requests.post(
+            requests.post(
                 f"{self.bot_url}/deleteMessage",
                 data={"chat_id": chat_id, "message_id": message_id},
                 proxies=self.getProxies(),
@@ -1782,7 +1799,7 @@ class TelegramPlugin(
         )
         r.raise_for_status()
         data = r.json()
-        if not "ok" in data:
+        if "ok" not in data:
             raise Exception(
                 f"Telegram didn't respond well to getFile. The response was: {r.text}"
             )
@@ -1812,7 +1829,7 @@ class TelegramPlugin(
                 )
                 r.raise_for_status()
                 data = r.json()
-                if not "ok" in data:
+                if "ok" not in data:
                     raise Exception(
                         f"Telegram didn't respond well to getUserProfilePhoto. Chat id: {chat_id}. The response was: {r.text}."
                     )
@@ -1848,7 +1865,7 @@ class TelegramPlugin(
         self._logger.debug(f"getMe returned: {response.json()}")
         self._logger.debug(f"getMe status code: {response.status_code}")
         json = response.json()
-        if not "ok" in json or not json["ok"]:
+        if "ok" not in json or not json["ok"]:
             if json["description"]:
                 raise Exception
             else:
@@ -2216,7 +2233,7 @@ class TelegramPlugin(
 
         if multicam_profile:
             gif_basename = os.path.basename(
-                f"gif_{multicam_profile.get('name','').replace(' ', '_')}.mp4"
+                f"gif_{multicam_profile.get('name', '').replace(' ', '_')}.mp4"
             )
             outPath = os.path.join(
                 self.get_plugin_data_folder(), "tmpgif", gif_basename

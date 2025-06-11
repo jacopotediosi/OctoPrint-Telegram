@@ -1,6 +1,7 @@
-import time, datetime
-import octoprint.util
+import datetime
+import time
 
+import octoprint.util
 
 ##########################################################################################################################
 # Here you find the known notification messages and their handles.
@@ -317,7 +318,7 @@ class TMSG:
             try:
                 Layers = self.main.get_current_layers()
                 self._logger.debug(f"Layers - {Layers}")
-                if not Layers is None:
+                if Layers is not None:
                     currentLayer = Layers["layer"]["current"]
                     totalLayer = Layers["layer"]["total"]
                 else:

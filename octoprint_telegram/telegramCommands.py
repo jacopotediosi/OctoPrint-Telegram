@@ -1,6 +1,13 @@
-from octoprint.printer import UnknownScript
-import sarge, hashlib, datetime, operator, socket, requests, base64
+import base64
+import datetime
+import hashlib
+import operator
+import socket
+
 import octoprint.filemanager
+import requests
+import sarge
+from octoprint.printer import UnknownScript
 
 
 #################################################################################################################################
@@ -553,12 +560,7 @@ class TCMD:
                     self.generate_dir_hash_dict()
                     keys = []
                     keys.extend(
-                        [
-                            (
-                                [k, (f"{cmd}_{self.hashMe(k, 8)}/|0")]
-                                for k in storages
-                            )
-                        ]
+                        [([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)]
                     )
                     keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
                     msg_id = (
@@ -960,9 +962,9 @@ class TCMD:
                         chatID=chat_id,
                     )
                 else:
-                    if (
-                        answer.json()["isPSUOn"] == True
-                    ):  # I know it's overcoding, but it's clearer.
+                    if answer.json()[
+                        "isPSUOn"
+                    ]:  # I know it's overcoding, but it's clearer.
                         self.main.send_msg(
                             self.gEmo("warning")
                             + "Printer has already been turned on.",
@@ -1031,7 +1033,7 @@ class TCMD:
                         "X-Api-Key": self.main._settings.global_get(["api", "key"]),
                     }
                     if plugpluginname == "tuyasmartplug":
-                        data = f"{{ \"command\":\"turnOn\",\"label\":\"{pluglabel}\" }}"
+                        data = f'{{ "command":"turnOn","label":"{pluglabel}" }}'
                     elif plugpluginname == "tasmota_mqtt":
                         data = (
                             '{ "command":"turnOn","topic":"'
@@ -1041,7 +1043,7 @@ class TCMD:
                             + '" }'
                         )
                     elif plugpluginname == "tplinksmartplug":
-                        data = f"{{ \"command\":\"turnOn\",\"ip\":\"{pluglabel}\" }}"
+                        data = f'{{ "command":"turnOn","ip":"{pluglabel}" }}'
                     answer = requests.post(
                         "http://localhost:"
                         + str(self.port)
@@ -1108,7 +1110,7 @@ class TCMD:
                     )
                     force = True
                     if (
-                        answer.status_code >= 300 or force == True
+                        answer.status_code >= 300 or force
                     ):  # It's not true that it's right. But so be it.
                         self._logger.debug(
                             f"Call response (POST API octoprint): {str(answer)}"
@@ -1188,9 +1190,7 @@ class TCMD:
                                     if firstplug == "":
                                         firstplug = str(label["ip"])
                             except Exception as e:
-                                self._logger.exception(
-                                    f"loop to add plug failed: {e}"
-                                )
+                                self._logger.exception(f"loop to add plug failed: {e}")
 
                         if len(json_data) == 1:
                             self.main.send_msg(
@@ -1265,7 +1265,7 @@ class TCMD:
                         chatID=chat_id,
                     )
                 else:
-                    if answer.json()["isPSUOn"] == False:
+                    if not answer.json()["isPSUOn"]:
                         self.main.send_msg(
                             self.gEmo("warning")
                             + "Printer has already been turned off.",
@@ -1334,7 +1334,7 @@ class TCMD:
                         "X-Api-Key": self.main._settings.global_get(["api", "key"]),
                     }
                     if plugpluginname == "tuyasmartplug":
-                        data = f"{{ \"command\":\"turnOff\",\"label\":\"{pluglabel}\" }}"
+                        data = f'{{ "command":"turnOff","label":"{pluglabel}" }}'
                     elif plugpluginname == "tasmota_mqtt":
                         data = (
                             '{ "command":"turnOff","topic":"'
@@ -1344,7 +1344,7 @@ class TCMD:
                             + '"}'
                         )
                     elif plugpluginname == "tplinksmartplug":
-                        data = f"{{ \"command\":\"turnOff\",\"ip\":\"{pluglabel}\" }}"
+                        data = f'{{ "command":"turnOff","ip":"{pluglabel}" }}'
                     answer = requests.post(
                         "http://localhost:"
                         + str(self.port)
@@ -1411,7 +1411,7 @@ class TCMD:
                     )
                     force = True
                     if (
-                        answer.status_code >= 300 or force == True
+                        answer.status_code >= 300 or force
                     ):  # It's not true that it's right. But so be it.
                         self._logger.debug(
                             f"Call response (POST API octoprint): {str(answer)}"
@@ -1491,9 +1491,7 @@ class TCMD:
                                     if firstplug == "":
                                         firstplug = str(label["ip"])
                             except Exception as e:
-                                self._logger.exception(
-                                    f"loop to add plug failed: {e}"
-                                )
+                                self._logger.exception(f"loop to add plug failed: {e}")
 
                         if len(json_data) == 1:
                             self.main.send_msg(
@@ -1577,9 +1575,7 @@ class TCMD:
                         params = parameter.split("_")
                         pluglabel = params[0]
                         if plugpluginname == "tuyasmartplug":
-                            data = (
-                                f"{{ \"command\":\"turnOff\",\"label\":\"{pluglabel}\"  }}"
-                            )
+                            data = f'{{ "command":"turnOff","label":"{pluglabel}"  }}'
                         elif plugpluginname == "tasmota_mqtt":
                             relayN = params[1]
                             data = (
@@ -1590,7 +1586,7 @@ class TCMD:
                                 + '"}'
                             )
                         elif plugpluginname == "tplinksmartplug":
-                            data = f"{{ \"command\":\"turnOff\",\"ip\":\"{pluglabel}\"  }}"
+                            data = f'{{ "command":"turnOff","ip":"{pluglabel}"  }}'
                         headers = {
                             "Content-Type": "application/json",
                             "X-Api-Key": self.main._settings.global_get(["api", "key"]),
@@ -1620,9 +1616,7 @@ class TCMD:
                     )
                     return
             if answer.status_code >= 300:
-                self._logger.debug(
-                    f"Call response (POST API octoprint): {str(answer)}"
-                )
+                self._logger.debug(f"Call response (POST API octoprint): {str(answer)}")
                 self.main.send_msg(
                     f"{self.gEmo('warning')}Something wrong, shutdown failed.",
                     chatID=chat_id,
@@ -1673,7 +1667,7 @@ class TCMD:
                         params = parameter.split("_")
                         pluglabel = params[0]
                         if plugpluginname == "tuyasmartplug":
-                            data = f"{{ \"command\":\"turnOn\",\"label\":\"{pluglabel}\"  }}"
+                            data = f'{{ "command":"turnOn","label":"{pluglabel}"  }}'
                         elif plugpluginname == "tasmota_mqtt":
                             relayN = params[1]
                             data = (
@@ -1684,7 +1678,7 @@ class TCMD:
                                 + '"}'
                             )
                         elif plugpluginname == "tplinksmartplug":
-                            data = f"{{ \"command\":\"turnOn\",\"ip\":\"{pluglabel}\"  }}"
+                            data = f'{{ "command":"turnOn","ip":"{pluglabel}"  }}'
                         self._logger.debug(
                             "Call POST API octoprint): url {} with data {}".format(
                                 str(
@@ -1731,9 +1725,7 @@ class TCMD:
                     return
 
             if answer.status_code >= 300:
-                self._logger.debug(
-                    f"Call response (POST API octoprint): {str(answer)}"
-                )
+                self._logger.debug(f"Call response (POST API octoprint): {str(answer)}")
                 self.main.send_msg(
                     f"{self.gEmo('warning')}Something wrong, Power on attempt failed.",
                     chatID=chat_id,
@@ -2000,7 +1992,7 @@ class TCMD:
                         self.tempTemp[toolNo] = 0
                 msg = (
                     f"{self.gEmo('fire')} Set temperature for tool {params[1]}.\n"
-                    f"Current: {temps[f"tool{params[1]}"]['actual']:.02f}/*{self.tempTemp[toolNo]}\u00b0C*"
+                    f"Current: {temps[f'tool{params[1]}']['actual']:.02f}/*{self.tempTemp[toolNo]}\u00b0C*"
                 )
                 keys = [
                     [
@@ -2331,7 +2323,6 @@ class TCMD:
                 errorText = ""
                 if params[0] == "spools":
                     try:
-
                         if self._spoolManagerPluginImplementation is None:
                             self._spoolManagerPluginImplementation = (
                                 self.main._plugin_manager.get_plugin(
@@ -2553,9 +2544,6 @@ class TCMD:
     def fileList(self, pathHash, page, cmd, chat_id, wait=0):
         try:
             fullPath = self.dirHashDict[pathHash]
-            storageKeys = list(
-                self.main._file_manager.list_files(recursive=False).keys()
-            )
             dest = fullPath.split("/")[0]
             pathWoDest = (
                 "/".join(fullPath.split("/")[1:])
@@ -2595,7 +2583,7 @@ class TCMD:
                             HistList = val["history"]
                             HistList.sort(key=lambda x: x["timestamp"], reverse=True)
                             try:
-                                if HistList[0]["success"] == True:
+                                if HistList[0]["success"]:
                                     # vfilename = self.main.emojis['party face']+" "+('.').join(key.split('.')[:-1])
                                     vfilename = (
                                         self.main.emojis["party popper"]
@@ -2609,7 +2597,7 @@ class TCMD:
                                         + " "
                                         + (".").join(key.split(".")[:-1])
                                     )
-                            except Exception as ex:
+                            except Exception:
                                 vfilename = (
                                     self.main.emojis["page facing up"]
                                     + " "
@@ -2751,7 +2739,7 @@ class TCMD:
                 HistList = file["history"]
                 HistList.sort(key=lambda x: x["timestamp"], reverse=True)
                 try:
-                    if HistList[0]["success"] == True:
+                    if HistList[0]["success"]:
                         # vfilename = self.main.emojis['party face']+" "+('.').join(key.split('.')[:-1])
                         msg += (
                             "\n<b>"
@@ -2767,7 +2755,7 @@ class TCMD:
                             + "Number of Print:</b> "
                             + str(len(file["history"]))
                         )
-                except Exception as ex:
+                except Exception:
                     msg += (
                         "\n<b>"
                         + self.main.emojis["page facing up"]
@@ -2775,10 +2763,8 @@ class TCMD:
                         + str(len(file["history"]))
                     )
             else:
-                msg += (
-                    f"\n<b>{self.main.emojis['squared new']}Number of Print:</b> 0"
-                )
-        except Exception as ex:
+                msg += f"\n<b>{self.main.emojis['squared new']}Number of Print:</b> 0"
+        except Exception:
             msg += f"\n<b>{self.main.emojis['squared new']}Number of Print:</b> 0"
 
         msg += (
@@ -2889,9 +2875,7 @@ class TCMD:
                     res = requests.post(url, payload)
                     if res.status_code < 300:
                         test = res.json()
-                        msg = (
-                            f"<a href='{test['data']['url']}' >&#8199;</a>\n{msg}"
-                        )
+                        msg = f"<a href='{test['data']['url']}' >&#8199;</a>\n{msg}"
         except Exception as ex:
             self._logger.error(f"An Exception the get the thumbnail : {str(ex)}")
 
@@ -2922,7 +2906,6 @@ class TCMD:
         ]
         keysRow = []
         keys = []
-        chkID = chat_id
         if self.main.isCommandAllowed(chat_id, from_id, "/print"):
             keysRow.append(keyPrint)
         keysRow.append(keyDetails)
@@ -2977,9 +2960,7 @@ class TCMD:
             printTime = 0
             if "analysis" in meta:
                 if "filament" in meta["analysis"]:
-                    msg += (
-                        f"\n<b>{self.main.emojis['straight ruler']}Filament:</b> "
-                    )
+                    msg += f"\n<b>{self.main.emojis['straight ruler']}Filament:</b> "
                     filament = meta["analysis"]["filament"]
                     if len(filament) == 1 and "length" in filament["tool0"]:
                         msg += self.formatFilament(filament["tool0"])
@@ -3040,9 +3021,7 @@ class TCMD:
                             self._logger.error(
                                 f"An Exception the cost function in decode : {str(ex)}"
                             )
-                            msg += (
-                                f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
-                            )
+                            msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
                         self._logger.debug("AF TRY")
                     except Exception as ex:
                         self._logger.error(
@@ -3327,7 +3306,7 @@ class TCMD:
     ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
     ############################################################################################
     def fileCopyMove(self, target, command, source, destination):
-        from octoprint.server.api.files import _verifyFolderExists, _verifyFileExists
+        from octoprint.server.api.files import _verifyFileExists, _verifyFolderExists
 
         if not _verifyFileExists(target, source) and not _verifyFolderExists(
             target, source
@@ -3370,14 +3349,13 @@ class TCMD:
     ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
     ############################################################################################
     def fileDelete(self, target, source):
-        from octoprint.server.api.files import (
-            _verifyFolderExists,
-            _verifyFileExists,
-            _isBusy,
-        )
-
         # prohibit deleting or moving files that are currently in use
-        from octoprint.server.api.files import _getCurrentFile
+        from octoprint.server.api.files import (
+            _getCurrentFile,
+            _isBusy,
+            _verifyFileExists,
+            _verifyFolderExists,
+        )
 
         currentOrigin, currentFilename = _getCurrentFile()
 
@@ -3397,7 +3375,7 @@ class TCMD:
             else:
                 self.main._file_manager.remove_file(target, source)
         elif _verifyFolderExists(target, source):
-            if not target in [octoprint.filemanager.FileDestinations.LOCAL]:
+            if target not in [octoprint.filemanager.FileDestinations.LOCAL]:
                 return "Unknown target"
 
             folderpath = source
@@ -3493,8 +3471,8 @@ class TCMD:
                         )
                     elif (
                         ("commands" in key or "command" in key or "script" in key)
-                        and not "regex" in key
-                        and not "input" in key
+                        and "regex" not in key
+                        and "input" not in key
                     ):
                         newKey = {}
                         if "script" in key:
