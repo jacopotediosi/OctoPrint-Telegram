@@ -16,11 +16,11 @@ from urllib.parse import urljoin
 import octoprint.filemanager
 import octoprint.plugin
 import octoprint.util
-import pkg_resources
 import requests
 import urllib3
 from flask_login import current_user
 from octoprint.access.permissions import Permissions
+from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
 
 from .emojiDict import telegramEmojiDict  # Dict of known emojis
@@ -652,9 +652,9 @@ class TelegramPlugin(
     octoprint.plugin.TemplatePlugin,
     octoprint.plugin.SimpleApiPlugin,
     octoprint.plugin.AssetPlugin,
+    octoprint.plugin.WizardPlugin,
 ):
-    def __init__(self, version):
-        self.version = float(version)
+    def __init__(self):
         # For more init stuff see on_after_startup()
         self.thread = None
         self.bot_url = None
@@ -2496,76 +2496,12 @@ class TelegramPlugin(
         return line
 
 
-########################################
-########################################
-### Some methods to check version and
-### get the right implementation
-########################################
-########################################
-
-
-# Copied from pluginmanager plugin
-def _is_octoprint_compatible(compatibility_entries):
-    """
-    Tests if the current octoprint_version is compatible to any of the provided ``compatibility_entries``
-    """
-
-    octoprint_version = _get_octoprint_version()
-    for octo_compat in compatibility_entries:
-        if not any(
-            octo_compat.startswith(c)
-            for c in ("<", "<=", "!=", "==", ">=", ">", "~=", "===")
-        ):
-            octo_compat = f">={octo_compat}"
-
-        s = next(pkg_resources.parse_requirements(f"OctoPrint{octo_compat}"))
-        if octoprint_version in s:
-            break
-    else:
-        return False
-
-    return True
-
-
-# Copied from pluginmanager plugin
-def _get_octoprint_version():
-    from octoprint.server import VERSION
-
-    octoprint_version_string = VERSION
-
-    if "-" in octoprint_version_string:
-        octoprint_version_string = octoprint_version_string[
-            : octoprint_version_string.find("-")
-        ]
-
-    octoprint_version = pkg_resources.parse_version(octoprint_version_string)
-    if isinstance(octoprint_version, tuple):
-        # Old setuptools
-        base_version = []
-        for part in octoprint_version:
-            if part.startswith("*"):
-                break
-            base_version.append(part)
-        octoprint_version = ".".join(base_version)
-    else:
-        # New setuptools
-        octoprint_version = pkg_resources.parse_version(octoprint_version.base_version)
-
-    return octoprint_version
-
-
-# Check if we have min version 1.3.0.
-# This is important because of WizardPlugin mixin and folders in filebrowser.
+# Check that we are running on OctoPrint >= 1.4.0, which introduced the granular permissions system
 def get_implementation_class():
-    if not _is_octoprint_compatible(["1.3.0"]):
-        return TelegramPlugin(1.2)
-    else:
+    if not is_octoprint_compatible(">=1.4.0"):
+        raise Exception("OctoPrint 1.4.0 or greater required.")
 
-        class NewTelegramPlugin(TelegramPlugin, octoprint.plugin.WizardPlugin):
-            def __init__(self, version):
-                super().__init__(version)
-
-        return NewTelegramPlugin(1.3)
+    return TelegramPlugin()
 
 
 __plugin_name__ = "Telegram Notifications"

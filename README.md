@@ -228,7 +228,7 @@ In this section you can configure the content of the notification messages.
 
 **`/settings`** - Displays the current notification settings (time and height) and allows you to change them.
 
-**`/files`** - Lists all the files available for printing in upload folder and allows you download and delete them. You also can view detailed informations of the file like print history. If OctoPrint Version is >= 1.3.0, subdirectories are listed and you are able to move/copy files. 
+**`/files`** - Lists all the files available for printing in upload folder and allows you download and delete them. You also can view detailed informations of the file like print history.
 
 **`/filament`** - Shows your filament spools and the percentage of usage. In addition you can change the filament spool with this command. Requires the [Filament Manager Plugin](https://plugins.octoprint.org/plugins/filamentmanager/)
 

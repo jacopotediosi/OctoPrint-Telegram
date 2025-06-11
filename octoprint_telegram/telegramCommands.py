@@ -2556,20 +2556,19 @@ class TCMD:
             files = fileList[dest]
             arrayD = []
             self._logger.debug("fileList before loop folder ")
-            if self.main.version >= 1.3:
-                M = {k: v for k, v in files.items() if v["type"] == "folder"}
-                for key in M:
-                    arrayD.append(
-                        [
-                            f"{self.main.emojis['open file folder']} {key}",
-                            cmd
-                            + "_"
-                            + pathHash
-                            + "|0|"
-                            + self.hashMe(fullPath + key + "/", 8)
-                            + "|dir",
-                        ]
-                    )
+            M = {k: v for k, v in files.items() if v["type"] == "folder"}
+            for key in M:
+                arrayD.append(
+                    [
+                        f"{self.main.emojis['open file folder']} {key}",
+                        cmd
+                        + "_"
+                        + pathHash
+                        + "|0|"
+                        + self.hashMe(fullPath + key + "/", 8)
+                        + "|dir",
+                    ]
+                )
             array = []
             self._logger.debug("fileList before loop files items")
             L = {k: v for k, v in files.items() if v["type"] == "machinecode"}
@@ -2912,9 +2911,8 @@ class TCMD:
         keys.append(keysRow)
         keysRow = []
         if self.main.is_command_allowed(chat_id, from_id, "/files"):
-            if self.main.version >= 1.3:
-                keysRow.append(keyMove)
-                keysRow.append(keyCopy)
+            keysRow.append(keyMove)
+            keysRow.append(keyCopy)
             keysRow.append(keyDelete)
             keys.append(keysRow)
             keysRow = []
