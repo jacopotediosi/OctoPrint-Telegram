@@ -1,4 +1,4 @@
-exclude: "translations|templates|static|.txt|.md|.github|setup.py|dev_utils"
+exclude: "translations|templates|static|.txt|.md|.github|setup.py"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

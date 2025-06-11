@@ -1,6 +1,4 @@
-from __future__ import absolute_import
-import logging, hashlib
-from telegramNotifications import telegramMsgDict
+import hashlib
 
 ################################################################################################################
 # This class handles received commands/messages (commands in the following). commandDict{} holds the commands and their behavior.
@@ -23,7 +21,7 @@ class TCMD:
                 "bind_cmd": "/settings",
                 "lastState": "/settings",
             },
-            (self.main.gEmo("enter") + " Enter height"): {
+            f"{self.main.gEmo('enter')} Enter height": {
                 "cmd": self.cmdSetHeight,
                 "bind_cmd": "/settings",
                 "lastState": "Change height",
@@ -38,7 +36,7 @@ class TCMD:
                 "bind_cmd": "/settings",
                 "lastState": "/settings",
             },
-            (self.main.gEmo("enter") + " Enter time"): {
+            f"{self.main.gEmo('enter')} Enter time": {
                 "cmd": self.cmdSetTime,
                 "bind_cmd": "/settings",
                 "lastState": "Change time",
@@ -100,14 +98,14 @@ class TCMD:
 
     #######################
     def checkState(self, chat_id, cmd, parameter=""):
-        if not chat_id in self.stateList:
+        if chat_id not in self.stateList:
             self.stateList[chat_id] = ["", ""]
         ret = True
         if "lastState" in self.commandDict[cmd]:
             if self.commandDict[cmd]["lastState"] != self.stateList[chat_id][0]:
                 ret = False
         self.stateList[chat_id][0] = cmd
-        if parameter is not None and parameter is not "":
+        if parameter is not None and parameter != "":
             self.stateList[chat_id][1] = parameter
         return ret
 
@@ -122,7 +120,7 @@ class TCMD:
     #######################
     def cmdTest(self, chat_id, **kwargs):
         self.main.send_msg(
-            self.main.gEmo("question") + " Is this a test?\n\n",
+            f"{self.main.gEmo('question')} Is this a test?\n\n",
             responses=["Yes", "No"],
             chatID=chat_id,
         )
@@ -166,7 +164,7 @@ class TCMD:
     #######################
     def cmdChgHeight(self, chat_id, **kwargs):
         self.main.send_msg(
-            self.main.gEmo("enter") + " " + "Enter height",
+            f"{self.main.gEmo('enter')} Enter height",
             force_reply=True,
             chatID=chat_id,
             noMarkup=True,
@@ -187,7 +185,7 @@ class TCMD:
     #######################
     def cmdChgTime(self, chat_id, **kwargs):
         self.main.send_msg(
-            self.main.gEmo("enter") + " " + "Enter time",
+            f"{self.main.gEmo('enter')} Enter time",
             force_reply=True,
             chatID=chat_id,
         )
@@ -196,7 +194,7 @@ class TCMD:
     def cmdSetTime(self, chat_id, parameter, **kwargs):
         self.main._settings["notification_time"] = int(parameter)
         self.main.send_msg(
-            self.main.gEmo("clock") + " Notification time is now %(time)dmins.",
+            f"{self.main.gEmo('clock')} Notification time is now %(time)dmins.",
             time=self.main._settings["notification_time"],
             chatID=chat_id,
         )
@@ -228,7 +226,7 @@ class TCMD:
     #######################
     def cmdHalt(self, chat_id, **kwargs):
         self.main.send_msg(
-            self.main.gEmo("info") + " Aborting the print.", chatID=chat_id
+            f"{self.main.gEmo('info')} Aborting the print.", chatID=chat_id
         )
         # self.main._printer.cancel_print()
 
@@ -254,7 +252,7 @@ class TCMD:
         if chat_id in self.main.shut_up:
             del self.main.shut_up[chat_id]
         self.main.send_msg(
-            self.main.gEmo("notify") + " Yay, I can talk again.", chatID=chat_id
+            f"{self.main.gEmo('notify')} Yay, I can talk again.", chatID=chat_id
         )
 
     #######################
@@ -267,24 +265,25 @@ class TCMD:
 
     #######################
     def cmdRunPrint(self, chat_id, parameter, **kwargs):
-        print "Looking for hash: %s", parameter
+        print("Looking for hash: %s", parameter)
         # destination, file = self.find_file_by_hash(parameter)
-        # print "Destination: %s", destination
-        # print "File: %s", file
-        if file is None or parameter is None or parameter is "":
+        # print("Destination: %s", destination)
+        # print("File: %s", file)
+        file = None
+        if file is None or parameter is None or parameter == "":
             self.main.send_msg(
                 self.main.gEmo("warning")
                 + " I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?",
                 chatID=chat_id,
             )
             return
-        # print "data: %s", self.main._printer.get_current_data()
-        # print "state: %s", self.main._printer.get_current_job()
+        # print("data: %s", self.main._printer.get_current_data())
+        # print("state: %s", self.main._printer.get_current_job())
         # if destination==octoprint.filemanager.FileDestinations.SDCARD:
         # self.main._printer.select_file(file, True, printAfterSelect=False)
         # else:
         # file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
-        # print "Using full path: %s", file
+        # print("Using full path: %s", file)
         # self.main._printer.select_file(file, False, printAfterSelect=False)
         # data = self.main._printer.get_current_data()
         # if data['job']['file']['name'] is not None:
@@ -304,7 +303,7 @@ class TCMD:
         # return
         # self.main._printer.start_print()
         self.main.send_msg(
-            self.main.gEmo("rocket") + " Started the print job.", chatID=chat_id
+            f"{self.main.gEmo('rocket')} Started the print job.", chatID=chat_id
         )
 
     #######################
@@ -323,7 +322,7 @@ class TCMD:
     #######################
     def cmdUpload(self, chat_id, **kwargs):
         self.main.send_msg(
-            self.main.gEmo("info") + " To upload a gcode file, just send it to me.",
+            f"{self.main.gEmo('info')} To upload a gcode file, just send it to me.",
             chatID=chat_id,
         )
 
@@ -356,7 +355,7 @@ class TCMD:
         # self.main.send_msg(self.main.gEmo('question') + " Really execute "+command['name']+"?",responses=["Do System Command", "Cancel"],chatID=chat_id)
         # return
         self.main.send_msg(
-            self.main.gEmo("warning") + " Sorry, i don't know this System Command.",
+            f"{self.main.gEmo('warning')} Sorry, i don't know this System Command.",
             chatID=chat_id,
         )
 
@@ -417,18 +416,15 @@ class TCMD:
         # self.main.send_msg(self.main.gEmo('check') + " Control Command " + command['name'] + " executed." ,chatID=chat_id)
         # else:
         self.main.send_msg(
-            self.main.gEmo("warning")
-            + " Control Command ctrl_"
-            + parameter
-            + " not found.",
+            f"{self.main.gEmo('warning')} Control Command ctrl_{parameter} not found.",
             chatID=chat_id,
         )
 
     #######################
     def cmdUser(self, chat_id, **kwargs):
-        msg = self.main.gEmo("info") + " *Your user settings:*\n\n"
-        msg += "*ID:* " + str(chat_id) + "\n"
-        msg += "*Name:* " + str(self.main.chats[chat_id]["title"]) + "\n"
+        msg = f"{self.main.gEmo('info')} *Your user settings:*\n\n"
+        msg += f"*ID:* {str(chat_id)}\n"
+        msg += f"*Name:* {str(self.main.chats[chat_id]['title'])}\n"
         if self.main.chats[chat_id]["private"]:
             msg += "*Type:* Private\n\n"
         else:
@@ -449,7 +445,7 @@ class TCMD:
                     and "bind_cmd" not in self.commandDict[key]
                     and "bind_none" not in self.commandDict[key]
                 ):
-                    msg += key + ", "
+                    msg += f"{key}, "
                     myTmp += 1
             if myTmp < 1:
                 msg += "You are NOT allowed to send any command."
@@ -464,7 +460,7 @@ class TCMD:
             myTmp = 0
             for key in self.main.chats[chat_id]["notifications"]:
                 if self.main.chats[chat_id]["notifications"][key]:
-                    msg += key + ", "
+                    msg += f"{key}, "
                     myTmp += 1
             if myTmp < 1:
                 msg += "You will receive NO notifications."
@@ -493,14 +489,14 @@ class TCMD:
     def cmdConnect(self, chat_id, **kwargs):
         # self.main._printer.connect()
         self.main.send_msg(
-            self.main.gEmo("info") + " Connection started.", chatID=chat_id
+            f"{self.main.gEmo('info')} Connection started.", chatID=chat_id
         )
 
     #######################
     def cmdDisconnect(self, chat_id, **kwargs):
         # self.main._printer.disconnect()
         self.main.send_msg(
-            self.main.gEmo("info") + " Printer disconnected.", chatID=chat_id
+            f"{self.main.gEmo('info')} Printer disconnected.", chatID=chat_id
         )
 
     #######################

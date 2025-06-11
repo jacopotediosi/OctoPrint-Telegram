@@ -1,10 +1,13 @@
-import json, codecs, os, sys
+import codecs
+import json
+import os
+import sys
 
 if len(sys.argv) < 2:
-    sys.exit("Usage: %s <path to JSON file>" % sys.argv[0])
+    sys.exit(f"Usage: {sys.argv[0]} <path to JSON file>")
 
 if not os.path.exists(sys.argv[1]):
-    sys.exit("ERROR: JSOn file %s was not found!" % sys.argv[1])
+    sys.exit(f"ERROR: JSOn file {sys.argv[1]} was not found!")
 
 with open(sys.argv[1]) as data_file:
     data = json.load(data_file)
@@ -19,22 +22,22 @@ for d in data:
             myDict[d["description"]] = d["emoji"]
             cntPass += 1
         else:
-            print "Double entry for: {}".format(str(d))
+            print(f"Double entry for: {str(d)}")
     else:
-        print "No description or emoji found for: {}".format(str(d))
+        print(f"No description or emoji found for: {str(d)}")
 
 fileName = "emojiDict.py"
-print "\n\nAdded " + str(cntPass) + " of " + str(cntE) + " emojis in " + str(
-    sys.argv[1]
-) + ".\nSving now to " + fileName
+print(
+    f"\n\nAdded {cntPass} of {cntE} emojis in {sys.argv[1]}.\nSaving now to {fileName}"
+)
 
 f = codecs.open(fileName, encoding="utf-8", mode="w+")
 f.write(
     "# Generated with Data from:\n# https://github.com/github/gemoji\n\n# Overview can be found here (description in table on the page used as key in this dict):\n# http://apps.timwhitlock.info/emoji/tables/unicode\n\n\ntelegramEmojiDict = {\n"
 )  # python will convert \n to os.linesep
 for d in myDict:
-    f.write("'{}'".format(d) + ": u'" + myDict[d].encode("unicode_escape") + "',\n")
+    f.write(f"'{d}': u'{myDict[d].encode('unicode_escape')}',\n")
 f.write("}")
 f.close()  # you can omit in most cases as the destructor will call it
 
-print "DONE"
+print("DONE")

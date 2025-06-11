@@ -1,10 +1,18 @@
-from __future__ import absolute_import
-from PIL import Image
-import threading, requests, re, time, datetime, StringIO, json, random, logging, traceback, io, collections, os, base64, PIL
-from telegramCommands import TCMD  # telegramCommands.
-from telegramNotifications import TMSG  # telegramNotifications
-from telegramNotifications import telegramMsgDict  # dict of known notification messages
+import json
+import threading
+import time
+import traceback
+
+import PIL
+import requests
+import StringIO
 from emojiDict import telegramEmojiDict  # dict of known emojis
+from PIL import Image
+from telegramCommands import TCMD  # telegramCommands.
+from telegramNotifications import (
+    TMSG,  # telegramNotifications
+    telegramMsgDict,  # dict of known notification messages
+)
 from users import settingsDict
 
 ####################################################
@@ -25,10 +33,10 @@ class TelegramListener(threading.Thread):
         self.gEmo = self.main.gEmo
 
     def run(self):
-        print "Try first connect."
+        print("Try first connect.")
         self.try_first_contact()
         # repeat fetching and processing messages unitil thread stopped
-        print "Listener is running."
+        print("Listener is running.")
         try:
             while not self.do_stop:
                 try:
@@ -37,11 +45,14 @@ class TelegramListener(threading.Thread):
                     # do nothing, just go to the next loop
                     pass
         except Exception as ex:
-            print "An Exception crashed the Listener: " + str(
-                ex
-            ) + " Traceback: " + traceback.format_exc()
+            print(
+                "An Exception crashed the Listener: "
+                + str(ex)
+                + " Traceback: "
+                + traceback.format_exc()
+            )
 
-        print "Listener exits NOW."
+        print("Listener exits NOW.")
 
     # Try to get first contact. Repeat every 120sek if no success
     # or stop if task stopped
@@ -51,7 +62,7 @@ class TelegramListener(threading.Thread):
             try:
                 self.username = self.main.test_token()
                 gotContact = True
-                self.set_status("Connected as" + self.username + ".", ok=True)
+                self.set_status(f"Connected as{self.username}.", ok=True)
             except Exception as ex:
                 self.set_status(
                     "Got an exception while initially trying to connect to telegram (Listener not running: "
@@ -61,7 +72,6 @@ class TelegramListener(threading.Thread):
                 time.sleep(120)
 
     def loop(self):
-        chat_id = ""
         json = self.get_updates()
 
         try:
@@ -72,9 +82,9 @@ class TelegramListener(threading.Thread):
             raise exit
         # wooooops. can't handle the message
         except Exception as ex:
-            print "Exception caught! " + str(ex)
+            print(f"Exception caught! {str(ex)}")
 
-        self.set_status("Connected as " + self.username + ".", ok=True)
+        self.set_status(f"Connected as {self.username}.", ok=True)
         # we had first contact after octoprint startup
         # so lets send startup message
         if self.first_contact:
@@ -82,7 +92,7 @@ class TelegramListener(threading.Thread):
             self.main.on_event("PrinterStart", {})
 
     def process_message(self, message):
-        print "MESSAGE: " + str(message)
+        print(f"MESSAGE: {str(message)}")
         # Get the update_id to only request newer Messages the next time
         if message["update_id"] >= self.update_offset:
             self.update_offset = message["update_id"] + 1
@@ -114,15 +124,17 @@ class TelegramListener(threading.Thread):
                 self.handle_left_chat_member_message(message, chat_id, from_id)
             # we are at the end. At this point we don't know what message type it is, so we do nothing
             else:
-                print "Got an unknown message. Doing nothing. Data: " + str(message)
+                print(f"Got an unknown message. Doing nothing. Data: {str(message)}")
         elif "callback_query" in message:
             self.handle_callback_query(message)
         else:
-            print "Response is missing .message or .message.chat or .callback_query.Skipping it."
+            print(
+                "Response is missing .message or .message.chat or .callback_query.Skipping it."
+            )
             raise ExitThisLoopException()
 
     def handle_callback_query(self, message):
-        print "IN CALLBACK"
+        print("IN CALLBACK")
         message["callback_query"]["message"]["reply_to_message"]["text"] = message[
             "callback_query"
         ]["data"]
@@ -130,28 +142,28 @@ class TelegramListener(threading.Thread):
         self.handle_text_message(message["callback_query"], chat_id, from_id)
 
     def handle_left_chat_member_message(self, message, chat_id, from_id):
-        print "Message Del_Chat"
+        print("Message Del_Chat")
         if (
             message["message"]["left_chat_member"]["username"] == self.username[1:]
             and str(message["message"]["chat"]["id"]) in self.main.chats
         ):
             del self.main.chats[str(message["message"]["chat"]["id"])]
             # do a self._settings.save() ???
-            print "Chat deleted"
+            print("Chat deleted")
 
     def handle_delete_chat_photo_message(self, message, chat_id, from_id):
-        print "Message Del_Chat_Photo"
+        print("Message Del_Chat_Photo")
         try:
             # os.remove(self.main.get_plugin_data_folder()+"/img/user/pic" +str(message['message']['chat']['id'])+".jpg")
-            print "File removed"
+            print("File removed")
         except OSError:
             pass
 
     def handle_new_chat_photo_message(self, message, chat_id, from_id):
-        print "Message New_Chat_Photo"
+        print("Message New_Chat_Photo")
         # only if we know the chat
         if str(message["message"]["chat"]["id"]) in self.main.chats:
-            print "New_Chat_Photo Found User"
+            print("New_Chat_Photo Found User")
             kwargs = {
                 "chat_id": int(message["message"]["chat"]["id"]),
                 "file_id": message["message"]["new_chat_photo"][0]["file_id"],
@@ -183,18 +195,18 @@ class TelegramListener(threading.Thread):
                     )
                     raise ExitThisLoopException()
                 # download the file
-                target_filename = "telegram_" + file_name
+                target_filename = f"telegram_{file_name}"
                 # for parameter no_markup see _send_edit_msg()
                 self.main.send_msg(
-                    (self.gEmo("save") + " Saving file {}...".format(target_filename)),
+                    f"{self.gEmo('save')} Saving file {target_filename}...",
                     chatID=chat_id,
                     noMarkup=True,
                 )
                 requests.get(
-                    self.main.bot_url + "/sendChatAction",
+                    f"{self.main.bot_url}/sendChatAction",
                     params={"chat_id": chat_id, "action": "upload_document"},
                 )
-                data = self.main.get_file(message["message"]["document"]["file_id"])
+                # data = self.main.get_file(message["message"]["document"]["file_id"])
                 # stream = octoprint.filemanager.util.StreamWrapper(file_name, io.BytesIO(data))
                 # self.main._file_manager.add_file(octoprint.filemanager.FileDestinations.LOCAL, target_filename, stream, allow_overwrite=True)
                 # for parameter msg_id see _send_edit_msg()
@@ -206,7 +218,7 @@ class TelegramListener(threading.Thread):
                     msg_id=self.get_update_msg_id(chat_id),
                     chatID=chat_id,
                 )
-            except Exception as ex:
+            except Exception:
                 self.main.send_msg(
                     self.gEmo("warning")
                     + " Something went wrong during processing of your file."
@@ -215,11 +227,13 @@ class TelegramListener(threading.Thread):
                     msg_id=self.get_update_msg_id(chat_id),
                     chatID=chat_id,
                 )
-                print "Exception occured during processing of a file: " + traceback.format_exc()
+                print(
+                    f"Exception occured during processing of a file: {traceback.format_exc()}"
+                )
         else:
-            print "Previous file was from an unauthorized user."
+            print("Previous file was from an unauthorized user.")
             self.main.send_msg(
-                "Don't feed the octopuses! " + self.gEmo("octo"), chatID=chat_id
+                f"Don't feed the octopuses! {self.gEmo('octo')}", chatID=chat_id
             )
 
     def handle_text_message(self, message, chat_id, from_id):
@@ -235,29 +249,32 @@ class TelegramListener(threading.Thread):
         ):
             command = message["message"]["reply_to_message"]["text"]
             parameter = message["message"]["text"]
-            print command.encode("utf-8")
+            print(command.encode("utf-8"))
             if command.encode("utf-8") not in [
                 str(k.encode("utf-8")) for k in self.main.tcmd.commandDict.keys()
             ]:
-                print "IN IF"
+                print("IN IF")
                 command = message["message"]["text"]
                 parameter = message["message"]["reply_to_message"]["text"]
         # if command is '/print_', '/sys_' or '/ctrl_', get the parameter
         elif "/print_" in command or "/sys_" in command or "/ctrl_" in command:
             parameter = "_".join(command.split("_")[1:])
-            command = command.split("_")[0] + "_"
-        print "DONE"
-        print "Got a command: '" + str(
-            command.encode("utf-8")
-        ) + "' with parameter: '" + str(parameter.encode("utf-8")) + "' in chat " + str(
-            message["message"]["chat"]["id"]
+            command = f"{command.split('_')[0]}_"
+        print("DONE")
+        print(
+            "Got a command: '"
+            + str(command.encode("utf-8"))
+            + "' with parameter: '"
+            + str(parameter.encode("utf-8"))
+            + "' in chat "
+            + str(message["message"]["chat"]["id"])
         )
         # is command  known?
         if command not in self.main.tcmd.commandDict:
             # we dont know the command so skip the message
-            print "Previous command was an unknown command."
+            print("Previous command was an unknown command.")
             self.main.send_msg(
-                "I do not understand you! " + self.gEmo("mistake"), chatID=chat_id
+                f"I do not understand you! {self.gEmo('mistake')}", chatID=chat_id
             )
             raise ExitThisLoopException()
         # check if user is allowed to execute the command
@@ -275,9 +292,9 @@ class TelegramListener(threading.Thread):
             self.main.messageResponseID = None
         else:
             # user was not alloed to execute this command
-            print "Previous command was from an unauthorized user."
+            print("Previous command was from an unauthorized user.")
             self.main.send_msg(
-                "You are not allowed to do this! " + self.gEmo("notallowed"),
+                f"You are not allowed to do this! {self.gEmo('notallowed')}",
                 chatID=chat_id,
             )
 
@@ -297,11 +314,11 @@ class TelegramListener(threading.Thread):
             data["private"] = True
             data["title"] = ""
             if "first_name" in chat:
-                data["title"] += chat["first_name"] + " - "
+                data["title"] += f"{chat['first_name']} - "
             if "last_name" in chat:
-                data["title"] += chat["last_name"] + " - "
+                data["title"] += f"{chat['last_name']} - "
             if "username" in chat:
-                data["title"] += "@" + chat["username"]
+                data["title"] += f"@{chat['username']}"
         from_id = chat_id
         # if message is from a group, chat_id will be left as id of group
         # and from_id is set to id of user who send the message
@@ -315,7 +332,7 @@ class TelegramListener(threading.Thread):
                     and from_id not in self.main.chats
                     and not self.main.chats[chat_id]["accept_commands"]
                 ):
-                    print "Previous command was from an unknown user."
+                    print("Previous command was from an unknown user.")
                     self.main.send_msg(
                         "I don't know you! Certainly you are a nice Person "
                         + self.gEmo("heart"),
@@ -335,18 +352,18 @@ class TelegramListener(threading.Thread):
             t = threading.Thread(target=self.main.get_usrPic, kwargs=kwargs)
             t.daemon = True
             t.run()
-            print "Got new User"
+            print("Got new User")
             raise ExitThisLoopException()
         # if octoprint just started we only check connection. so discard messages
         # we do this on end of this function. so we don't miss a new user who tried to
         # pair with the bot when printer was offline.
         if self.first_contact:
-            print "Ignoring message because first_contact is True."
+            print("Ignoring message because first_contact is True.")
             raise ExitThisLoopException()
         return (chat_id, from_id)
 
     def get_updates(self):
-        print "listener: sending request with offset " + str(self.update_offset) + "..."
+        print(f"listener: sending request with offset {str(self.update_offset)}...")
         req = None
 
         # try to check for incoming messages. wait 120sek and repeat on failure
@@ -400,7 +417,7 @@ class TelegramListener(threading.Thread):
 
     # checks if the received command is allowed to execute by the user
     def is_command_allowed(self, chat_id, from_id, command):
-        if command is not None or command is not "":
+        if command is not None or command != "":
             if self.main.chats[chat_id]["accept_commands"]:
                 if self.main.chats[chat_id]["commands"][command]:
                     return True
@@ -434,12 +451,12 @@ class TelegramListener(threading.Thread):
     def set_status(self, status, ok=False):
         if status != self.main.connection_state_str:
             if self.do_stop:
-                print "Would set status but do_stop is True: %s", status
+                print("Would set status but do_stop is True: %s", status)
                 return
             if ok:
-                print "Setting status: %s", status
+                print("Setting status: %s", status)
             else:
-                print "Setting status: %s", status
+                print("Setting status: %s", status)
         self.connection_ok = ok
         self.main.connection_state_str = status
 
@@ -469,33 +486,33 @@ class TelegramPlugin:
         self.shut_up = {}
         # use of emojis see below at method gEmo()
         self.emojis = {
-            "octo": "\U0001F419",  # octopus
-            "mistake": "\U0001F616",
-            "notify": "\U0001F514",
-            "shutdown": "\U0001F4A4",
-            "shutup": "\U0001F64A",
-            "noNotify": "\U0001F515",
-            "notallowed": "\U0001F62C",
-            "rocket": "\U0001F680",
-            "save": "\U0001F4BE",
+            "octo": "\U0001f419",  # octopus
+            "mistake": "\U0001f616",
+            "notify": "\U0001f514",
+            "shutdown": "\U0001f4a4",
+            "shutup": "\U0001f64a",
+            "noNotify": "\U0001f515",
+            "notallowed": "\U0001f62c",
+            "rocket": "\U0001f680",
+            "save": "\U0001f4be",
             "heart": "\U00002764",
             "info": "\U00002139",
-            "settings": "\U0001F4DD",
-            "clock": "\U000023F0",
-            "height": "\U00002B06",
+            "settings": "\U0001f4dd",
+            "clock": "\U000023f0",
+            "height": "\U00002b06",
             "question": "\U00002753",
-            "warning": "\U000026A0",
-            "enter": "\U0000270F",
-            "upload": "\U0001F4E5",
+            "warning": "\U000026a0",
+            "enter": "\U0000270f",
+            "upload": "\U0001f4e5",
             "check": "\U00002705",
-            "lamp": "\U0001F4A1",
-            "movie": "\U0001F3AC",
-            "finish": "\U0001F3C1",
-            "cam": "\U0001F3A6",
-            "hooray": "\U0001F389",
-            "error": "\U000026D4",
-            "play": "\U000025B6",
-            "stop": "\U000025FC",
+            "lamp": "\U0001f4a1",
+            "movie": "\U0001f3ac",
+            "finish": "\U0001f3c1",
+            "cam": "\U0001f3a6",
+            "hooray": "\U0001f389",
+            "error": "\U000026d4",
+            "play": "\U000025b6",
+            "stop": "\U000025fc",
         }
         self.emojis.update(telegramEmojiDict)
         # initial settings for new chat. See on_after_startup()
@@ -518,7 +535,7 @@ class TelegramPlugin:
             data = settingsDict["chats"][key].copy()
             if "commands" in data:
                 for cmd in self.tcmd.commandDict:
-                    if not cmd in data["commands"]:
+                    if cmd not in data["commands"]:
                         data["commands"].update({cmd: True})
             else:
                 data["commands"] = {
@@ -526,7 +543,7 @@ class TelegramPlugin:
                 }
             if "notifications" in data:
                 for cmd in telegramMsgDict:
-                    if not cmd in data["notifications"]:
+                    if cmd not in data["notifications"]:
                         data["notifications"].update({cmd: True})
             else:
                 data["notifications"] = {
@@ -535,7 +552,7 @@ class TelegramPlugin:
             settingsDict["chats"][key] = data
         self.chats = self._settings["chats"]
         self.start_listening()
-        print str(self.chats)
+        print(str(self.chats))
 
     # all emojis will be get via this method to disable them globaly by the corrosponding setting
     # so if you want to use emojis anywhere use gEmo("...") istead of emojis["..."]
@@ -545,10 +562,10 @@ class TelegramPlugin:
     # starts the telegram listener thread
     def start_listening(self):
         if self._settings["token"] != "" and self.thread is None:
-            print "Starting listener."
-            self.bot_url = "https://api.telegram.org/bot" + self._settings["token"]
+            print("Starting listener.")
+            self.bot_url = f"https://api.telegram.org/bot{self._settings['token']}"
             self.bot_file_url = (
-                "https://api.telegram.org/file/bot" + self._settings["token"]
+                f"https://api.telegram.org/file/bot{self._settings['token']}"
             )
             self.thread = TelegramListener(self)
             self.thread.daemon = True
@@ -558,7 +575,7 @@ class TelegramPlugin:
     def stop_listening(self):
         self.on_event("PrinterShutdown", {})
         if self.thread is not None:
-            print "Stopping listener."
+            print("Stopping listener.")
             self.thread.stop()
             self.thread = None
 
@@ -570,14 +587,14 @@ class TelegramPlugin:
         try:
             # if we know the event, start handler
             if event in self.tmsg.msgCmdDict:
-                print "Got an event: " + event + " Payload: " + str(payload)
+                print(f"Got an event: {event} Payload: {str(payload)}")
                 # Start event handler
                 self.tmsg.startEvent(event, payload, **kwargs)
             else:
                 # return as fast as possible
                 return
         except Exception as e:
-            print "Exception: " + str(e)
+            print(f"Exception: {str(e)}")
 
     ##########
     ### Telegram API-Functions
@@ -588,7 +605,7 @@ class TelegramPlugin:
         try:
             # If it's a regular event notification
             if "chatID" not in kwargs and "event" in kwargs:
-                print "Send_msg() found event: " + str(kwargs["event"])
+                print(f"Send_msg() found event: {str(kwargs['event'])}")
                 for key in self.chats:
                     if key != "zBOTTOMOFCHATS":
                         if (
@@ -597,25 +614,21 @@ class TelegramPlugin:
                             and self.chats[key]["send_notifications"]
                         ):
                             kwargs["chatID"] = key
-                            t = threading.Thread(
-                                target=self._send_msg, kwargs=kwargs
-                            ).run()
+                            threading.Thread(target=self._send_msg, kwargs=kwargs).run()
             # Seems to be a broadcast
             elif "chatID" not in kwargs:
                 for key in self.chats:
                     kwargs["chatID"] = key
-                    t = threading.Thread(target=self._send_msg, kwargs=kwargs).run()
+                    threading.Thread(target=self._send_msg, kwargs=kwargs).run()
             # This is a 'editMessageText' message
             elif "msg_id" in kwargs:
                 if kwargs["msg_id"] is not None:
-                    t = threading.Thread(
-                        target=self._send_edit_msg, kwargs=kwargs
-                    ).run()
+                    threading.Thread(target=self._send_edit_msg, kwargs=kwargs).run()
             # direct message or event notification to a chat_id
             else:
-                t = threading.Thread(target=self._send_msg, kwargs=kwargs).run()
+                threading.Thread(target=self._send_msg, kwargs=kwargs).run()
         except Exception as ex:
-            print "Caught an exception in send_msg(): " + str(ex)
+            print(f"Caught an exception in send_msg(): {str(ex)}")
 
     # this method is used to update a message text of a sent message
     # the sent message had to have no_markup = true when calling send_msg() (otherwise it would not work)
@@ -625,22 +638,26 @@ class TelegramPlugin:
         self, message="", msg_id="", chatID="", force_reply=False, **kwargs
     ):
         try:
-            print "Sending a message UPDATE: "  # + message.replace("\n", "\\n") + " chatID= " + str(chatID)
+            print(
+                "Sending a message UPDATE: "
+            )  # + message.replace("\n", "\\n") + " chatID= " + str(chatID)
             data = {}
             data["text"] = message
             data["message_id"] = msg_id
             data["chat_id"] = int(chatID)
-            print "SENDING UPDATE: " + str(data)
-            req = requests.post(self.bot_url + "/editMessageText", data=data)
+            print(f"SENDING UPDATE: {str(data)}")
+            req = requests.post(f"{self.bot_url}/editMessageText", data=data)
             if req.headers["content-type"] != "application/json":
-                print "Unexpected Content-Type. Expected: application/json. Was: " + str(
-                    req.headers["content-type"]
-                ) + ". Waiting 2 minutes before trying again."
+                print(
+                    "Unexpected Content-Type. Expected: application/json. Was: "
+                    + str(req.headers["content-type"])
+                    + ". Waiting 2 minutes before trying again."
+                )
                 return
             myJson = req.json()
-            print "REQUEST RES: " + str(myJson)
+            print(f"REQUEST RES: {str(myJson)}")
         except Exception as ex:
-            print "Caught an exception in _send_edit_msg(): " + str(ex)
+            print(f"Caught an exception in _send_edit_msg(): {str(ex)}")
 
     def _send_msg(
         self,
@@ -653,7 +670,7 @@ class TelegramPlugin:
         chatID="",
         markup="",
         showWeb=False,
-        **kwargs
+        **kwargs,
     ):
         if delay > 0:
             time.sleep(delay)
@@ -666,23 +683,25 @@ class TelegramPlugin:
                     and not self._settings["messages"][kwargs["event"]]["combined"]
                 ):
                     args = locals()
-                    # print "Sending seperated image message..."
+                    # print("Sending seperated image message...")
                     # for key in args:
-                    # print "Local: " + str(key) + " | " + str(args[key])
+                    # print("Local: " + str(key) + " | " + str(args[key]))
                     # if key is not "kwargs" and key is not "self":
                     # kwargs.update({key:args[key]})
                     del args["kwargs"]["event"]
                     del args["self"]
                     args["message"] = ""
-                    print "Sending image..."
+                    print("Sending image...")
                     t = threading.Thread(target=self._send_msg, kwargs=args).run()
                     args["message"] = message
                     args["with_image"] = False
-                    print "Sending text..."
+                    print("Sending text...")
                     t = threading.Thread(target=self._send_msg, kwargs=args).run()
                     return
 
-            print "Sending a message: "  # + str(message.replace("\n", "\\n") )+ " with_image=" + str(with_image) + " chatID= " + str(chatID)
+            print(
+                "Sending a message: "
+            )  # + str(message.replace("\n", "\\n") )+ " with_image=" + str(with_image) + " chatID= " + str(chatID)
             data = {}
             # Do we want to show web link previews?
             data["disable_web_page_preview"] = not showWeb
@@ -694,7 +713,7 @@ class TelegramPlugin:
                 if "HTML" in markup or "Markdown" in markup:
                     data["parse_mode"] = markup
             if force_reply:
-                if self.messageResponseID != None:
+                if self.messageResponseID is not None:
                     data["reply_markup"] = json.dumps(
                         {"force_reply": True, "selective": True}
                     )
@@ -702,7 +721,7 @@ class TelegramPlugin:
                 else:
                     data["reply_markup"] = json.dumps({"force_reply": True})
             if responses:
-                if self.messageResponseID != None:
+                if self.messageResponseID is not None:
                     keyboard = {
                         "inline_keyboard": [
                             map(
@@ -727,7 +746,7 @@ class TelegramPlugin:
             image_data = None
             if with_image:
                 image_data = self.take_image()
-            print "data so far: " + str(data)
+            print(f"data so far: {str(data)}")
 
             if chatID in self.updateMessageID:
                 del self.updateMessageID[chatID]
@@ -735,17 +754,17 @@ class TelegramPlugin:
             r = None
             data["chat_id"] = chatID
             if image_data:
-                print "Sending with image.. " + str(chatID)
+                print(f"Sending with image.. {str(chatID)}")
                 files = {"photo": ("image.jpg", image_data)}
-                if message is not "":
+                if message != "":
                     data["caption"] = message
-                r = requests.post(self.bot_url + "/sendPhoto", files=files, data=data)
-                print "Sending finished. " + str(r.status_code)
+                r = requests.post(f"{self.bot_url}/sendPhoto", files=files, data=data)
+                print(f"Sending finished. {str(r.status_code)}")
             else:
-                print "Sending without image.. " + str(chatID)
+                print(f"Sending without image.. {str(chatID)}")
                 data["text"] = message
-                r = requests.post(self.bot_url + "/sendMessage", data=data)
-                print "Sending finished. " + str(r.status_code)
+                r = requests.post(f"{self.bot_url}/sendMessage", data=data)
+                print(f"Sending finished. {str(r.status_code)}")
             if r is not None and noMarkup:
                 r.raise_for_status()
                 myJson = r.json()
@@ -754,57 +773,53 @@ class TelegramPlugin:
                 if "message_id" in myJson["result"]:
                     self.updateMessageID[chatID] = myJson["result"]["message_id"]
         except Exception as ex:
-            print "Caught an exception in _send_msg(): " + str(ex)
+            print(f"Caught an exception in _send_msg(): {str(ex)}")
         self.messageResponseID = None
 
     def send_video(self, message, video_file):
-        files = {"video": open(video_file, "rb")}
+        # files = {"video": open(video_file, "rb")}
         # r = requests.post(self.bot_url + "/sendVideo", files=files, data={'chat_id':self._settings["chat"]), 'caption':message})
-        print "Sending finished. " + str(r.status_code) + " " + str(r.content)
+        print("Sending finished. ")  # + str(r.status_code) + " " + str(r.content))
 
     def get_file(self, file_id):
-        print "Requesting file with id %s.", file_id
-        r = requests.get(self.bot_url + "/getFile", data={"file_id": file_id})
+        print("Requesting file with id %s.", file_id)
+        r = requests.get(f"{self.bot_url}/getFile", data={"file_id": file_id})
         # {"ok":true,"result":{"file_id":"BQADAgADCgADrWJxCW_eFdzxDPpQAg","file_size":26,"file_path":"document\/file_3.gcode"}}
         r.raise_for_status()
         data = r.json()
-        if not "ok" in data:
+        if "ok" not in data:
             raise Exception(
-                _(
-                    "Telegram didn't respond well to getFile. The response was: %(response)s",
-                    response=r.text,
-                )
+                "Telegram didn't respond well to getFile. The response was: %(response)s",
+                response=r.text,
             )
-        url = self.bot_file_url + "/" + data["result"]["file_path"]
-        print "Downloading file: %s", url
+        url = f"{self.bot_file_url}/{data['result']['file_path']}"
+        print("Downloading file: %s", url)
         r = requests.get(url)
         r.raise_for_status()
         return r.content
 
     def get_usrPic(self, chat_id, file_id=""):
-        print "Requesting Profile Photo for chat_id: " + str(chat_id)
+        print(f"Requesting Profile Photo for chat_id: {str(chat_id)}")
         try:
             if file_id == "":
                 if int(chat_id) < 0:
-                    print "Not able to load group photos. " + str(chat_id) + " EXIT"
+                    print(f"Not able to load group photos. {str(chat_id)} EXIT")
                     return
                 r = requests.get(
-                    self.bot_url + "/getUserProfilePhotos",
+                    f"{self.bot_url}/getUserProfilePhotos",
                     params={"limit": 1, "user_id": chat_id},
                 )
                 r.raise_for_status()
                 data = r.json()
-                if not "ok" in data:
+                if "ok" not in data:
                     raise Exception(
-                        _(
-                            "Telegram didn't respond well to getUserProfilePhoto "
-                            + str(chat_id)
-                            + ". The response was: %(response)s",
-                            response=r.text,
-                        )
+                        "Telegram didn't respond well to getUserProfilePhoto "
+                        + str(chat_id)
+                        + ". The response was: %(response)s",
+                        response=r.text,
                     )
                 if data["result"]["total_count"] < 1:
-                    print "NO PHOTOS " + str(chat_id) + ". EXIT"
+                    print(f"NO PHOTOS {str(chat_id)}. EXIT")
                     return
                 r = self.get_file(data["result"]["photos"][0][0]["file_id"])
             else:
@@ -813,19 +828,19 @@ class TelegramPlugin:
             img = Image.open(StringIO.StringIO(r))
             img = img.resize((40, 40), PIL.Image.ANTIALIAS)
             # img.save(file_name, format="JPEG")
-            print "Saved Photo " + str(chat_id)
+            print(f"Saved Photo {str(chat_id)}")
 
         except Exception as ex:
-            print "Can't load UserImage: " + str(ex)
+            print(f"Can't load UserImage: {str(ex)}")
 
     def test_token(self, token=None):
         if token is None:
             token = self._settings["token"]
-        response = requests.get("https://api.telegram.org/bot" + token + "/getMe")
-        print "getMe returned: " + str(response.json())
-        print "getMe status code: " + str(response.status_code)
+        response = requests.get(f"https://api.telegram.org/bot{token}/getMe")
+        print(f"getMe returned: {str(response.json())}")
+        print(f"getMe status code: {str(response.status_code)}")
         json = response.json()
-        if not "ok" in json or not json["ok"]:
+        if "ok" not in json or not json["ok"]:
             if json["description"]:
                 raise (
                     Exception(
@@ -837,18 +852,15 @@ class TelegramPlugin:
             else:
                 raise (Exception("Telegram returned an unspecified error."))
         else:
-            return "@" + json["result"]["username"]
+            return f"@{json['result']['username']}"
 
     ##########
     ### Helper methods
     ##########
 
-    def str2bool(self, v):
-        return v.lower() in ("yes", "true", "t", "1")
-
     def take_image(self):
         # snapshot_url = self._settings.global_get(["webcam", "snapshot"])
-        # print "Snapshot URL: " + str(snapshot_url)
+        # print("Snapshot URL: " + str(snapshot_url))
         data = None
         # if snapshot_url:
         # try:

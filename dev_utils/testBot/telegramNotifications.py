@@ -1,5 +1,4 @@
-from __future__ import absolute_import
-import time, datetime, logging
+import time
 
 ###################################################################################################
 # Here you find the known notification messages and their handles.
@@ -10,14 +9,13 @@ import time, datetime, logging
 
 telegramMsgDict = {
     "PrinterStart": {
-        "text": "{emo:rocket} "
-        + "Hello. I'm online and ready to receive your commands.",
+        "text": "{emo:rocket} Hello. I'm online and ready to receive your commands.",
         "image": False,
         "combined": True,
         "markup": "off",
     },
     "PrinterShutdown": {
-        "text": "{emo:octo} {emo:shutdown} " + "Shutting down. Goodbye.",
+        "text": "{emo:octo} {emo:shutdown} Shutting down. Goodbye.",
         "image": False,
         "combined": True,
         "markup": "off",
@@ -68,6 +66,7 @@ telegramMsgDict = {
     "StatusPrinting": {"bind_msg": "ZChange", "no_setting": True},
 }
 
+
 # class to handle emojis on notifigation message format
 class EmojiFormatter:
     def __init__(self, main):
@@ -99,7 +98,6 @@ class TMSG:
         }
 
     def startEvent(self, event, payload, **kwargs):
-        status = {}
         self.z = 0.0
         kwargs["event"] = event
         self.msgCmdDict[event](payload, **kwargs)
@@ -114,7 +112,7 @@ class TMSG:
         ] or not self.is_notification_necessary(0.2, 0.3):
             return
         self.z = 0.3
-        print "Z-Change. new_z=old_z=last_z= notification_height= notification_time="
+        print("Z-Change. new_z=old_z=last_z= notification_height= notification_time=")
 
         self._sendNotification(payload, **kwargs)
 
@@ -155,11 +153,11 @@ class TMSG:
         kwargs["with_image"] = self.main._settings["messages"][str(kwargs["event"])][
             "image"
         ]
-        print "Printer Status" + str(status)
+        print(f"Printer Status{str(status)}")
         # define locals for string formatting
         z = self.z
         temps = []
-        print "TEMPS - " + str(temps)
+        print(f"TEMPS - {str(temps)}")
         bed_temp = 0.0
         bed_target = 0.0
         e1_temp = 0.0
@@ -183,7 +181,7 @@ class TMSG:
                 emo, **locals()
             )
         except Exception as ex:
-            print "Exception on formatting message: " + str(ex)
+            print(f"Exception on formatting message: {str(ex)}")
             message = (
                 self.main.gEmo("warning")
                 + " ERROR: I was not able to format the Notification for '"
@@ -192,7 +190,7 @@ class TMSG:
                 + event
                 + "'."
             )
-        print "Sending Notification: " + message
+        print(f"Sending Notification: {message}")
         # Do we want to send with Markup?
         kwargs["markup"] = self.main._settings["messages"][kwargs["event"]]["markup"]
         # finally send MSG
