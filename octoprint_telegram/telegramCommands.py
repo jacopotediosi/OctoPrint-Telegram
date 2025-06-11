@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from octoprint.printer import UnknownScript
 import sarge, hashlib, datetime, operator, socket, requests, base64
 import octoprint.filemanager
@@ -2633,7 +2631,7 @@ class TCMD:
                             f"An Exception in fileList loop file items : {str(ex)}"
                         )
 
-                    self._logger.debug("vfilename : {}".format(vfilename))
+                    self._logger.debug(f"vfilename : {vfilename}")
                     vhash = self.hashMe(pathWoDest + key)
                     self._logger.debug(f"vhash : {str(vhash)}")
                     if vhash != "":

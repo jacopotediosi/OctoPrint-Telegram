@@ -608,7 +608,7 @@ class TelegramListener(threading.Thread):
 
 class TelegramPluginLoggingFilter(logging.Filter):
     def filter(self, record):
-        for match in re.findall("[0-9]+:[a-zA-Z0-9_\-]+", record.msg):
+        for match in re.findall(r"[0-9]+:[a-zA-Z0-9_\-]+", record.msg):
             new = re.sub(
                 "[0-9]", "1", re.sub("[a-z]", "a", re.sub("[A-Z]", "A", match))
             )
@@ -1118,7 +1118,7 @@ class TelegramPlugin(
         # Check token for right format
         if "token" in data:
             data["token"] = data["token"].strip()
-            if not re.match("^[0-9]+:[a-zA-Z0-9_\-]+$", data["token"]):
+            if not re.match(r"^[0-9]+:[a-zA-Z0-9_\-]+$", data["token"]):
                 self._logger.error(
                     "Not saving token because it doesn't seem to have the right format."
                 )
@@ -2565,7 +2565,7 @@ def get_implementation_class():
 
         class NewTelegramPlugin(TelegramPlugin, octoprint.plugin.WizardPlugin):
             def __init__(self, version):
-                super(NewTelegramPlugin, self).__init__(version)
+                super().__init__(version)
 
         return NewTelegramPlugin(1.3)
 

@@ -5,7 +5,6 @@
 #
 # Overview can be found here (description in table on the page used as key in this dict):
 # http://apps.timwhitlock.info/emoji/tables/unicode
-from __future__ import unicode_literals
 
 
 telegramEmojiDict = {

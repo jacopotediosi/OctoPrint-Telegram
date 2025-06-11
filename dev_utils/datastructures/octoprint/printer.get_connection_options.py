@@ -1,4 +1,4 @@
- {
+{
  	'portPreference': 'VIRTUAL', 
  	'autoconnect': True, 
  	'baudrates': [

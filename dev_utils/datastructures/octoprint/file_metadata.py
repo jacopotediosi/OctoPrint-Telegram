@@ -1,4 +1,4 @@
- METADATA: {
+METADATA: {
 	'statistics': {
 		'averagePrintTime': {
 			'FlowPrintr': 882.9036154747009
