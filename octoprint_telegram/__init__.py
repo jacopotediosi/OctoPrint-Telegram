@@ -52,7 +52,7 @@ class TelegramListener(threading.Thread):
 
     def run(self):
         self._logger.debug("Try first connect.")
-        self.tryFirstContact()
+        self.try_first_contact()
         # Repeat fetching and processing messages until thread stopped
         self._logger.debug("Listener is running.")
         try:
@@ -67,7 +67,7 @@ class TelegramListener(threading.Thread):
         self._logger.debug("Listener exits NOW.")
 
     # Try to get first contact. Repeat every 120sek if no success or stop if task stopped.
-    def tryFirstContact(self):
+    def try_first_contact(self):
         gotContact = False
         while not self.do_stop and not gotContact:
             try:
@@ -83,11 +83,11 @@ class TelegramListener(threading.Thread):
                 time.sleep(120)
 
     def loop(self):
-        json = self.getUpdates()
+        json = self.get_updates()
         try:
             # Seems like we got a message, so lets process it
             for message in json["result"]:
-                self.processMessage(message)
+                self.process_message(message)
         except ExitThisLoopException:
             raise
         # Can't handle the message
@@ -120,13 +120,13 @@ class TelegramListener(threading.Thread):
                 f"Not changing update_offset - otherwise would reduce it from {self.update_offset} to {1 + new_value}"
             )
 
-    def processMessage(self, message):
+    def process_message(self, message):
         self._logger.debug(f"MESSAGE: {message}")
         # Get the update_id to only request newer Messages the next time
         self.set_update_offset(message["update_id"])
         # No message no cookies
         if "message" in message and message["message"].get("chat"):
-            chat_id, from_id = self.parseUserData(message)
+            chat_id, from_id = self.parse_user_data(message)
 
             # If we come here without a continue (discard message) we have a message from a known and not new user
             # so let's check what he send us.
@@ -134,40 +134,40 @@ class TelegramListener(threading.Thread):
             # If message is a text message, we probably got a command.
             # When the command is not known, the following handler will discard it.
             if "text" in message["message"]:
-                self.handleTextMessage(message, chat_id, from_id)
+                self.handle_text_message(message, chat_id, from_id)
             # We got no message with text (command) so lets check if we got a file.
             # The following handler will check file and saves it to disk.
             elif "document" in message["message"]:
-                self.handleDocumentMessage(message)
+                self.handle_document_message(message)
             # We got message with notification for a new chat title photo so lets download it
             elif "new_chat_photo" in message["message"]:
-                self.handleNewChatPhotoMessage(message)
+                self.handle_new_chat_photo_message(message)
             # We got message with notification for a deleted chat title photo so we do the same
             elif "delete_chat_photo" in message["message"]:
-                self.handleDeleteChatPhotoMessage(message)
+                self.handle_delete_chat_photo_message(message)
             # A member was removed from a group, so lets check if it's our bot and
             # delete the group from our chats if it is
             elif "left_chat_member" in message["message"]:
-                self.handleLeftChatMemberMessage(message)
+                self.handle_left_chat_member_message(message)
             # At this point we don't know what message type it is, so we do nothing
             else:
                 self._logger.warning(
                     f"Got an unknown message. Doing nothing. Data: {message}"
                 )
         elif "callback_query" in message:
-            self.handleCallbackQuery(message)
+            self.handle_callback_query(message)
         else:
             self._logger.warning(
                 "Response is missing .message or .message.chat or callback_query. Skipping it."
             )
             raise ExitThisLoopException()
 
-    def handleCallbackQuery(self, message):
+    def handle_callback_query(self, message):
         message["callback_query"]["message"]["text"] = message["callback_query"]["data"]
-        chat_id, from_id = self.parseUserData(message["callback_query"])
-        self.handleTextMessage(message["callback_query"], chat_id, from_id)
+        chat_id, from_id = self.parse_user_data(message["callback_query"])
+        self.handle_text_message(message["callback_query"], chat_id, from_id)
 
-    def handleLeftChatMemberMessage(self, message):
+    def handle_left_chat_member_message(self, message):
         self._logger.debug("Message Del_Chat")
         if (
             message["message"]["left_chat_member"]["username"] == self.username[1:]
@@ -177,7 +177,7 @@ class TelegramListener(threading.Thread):
             # Do a self._settings.save() ???
             self._logger.debug("Chat deleted")
 
-    def handleDeleteChatPhotoMessage(self, message):
+    def handle_delete_chat_photo_message(self, message):
         self._logger.debug("Message Del_Chat_Photo")
         path_to_remove = os.path.join(
             self.main.get_plugin_data_folder(),
@@ -191,7 +191,7 @@ class TelegramListener(threading.Thread):
         except OSError:
             self._logger.exception(f"Failed to remove file {path_to_remove}")
 
-    def handleNewChatPhotoMessage(self, message):
+    def handle_new_chat_photo_message(self, message):
         self._logger.debug("Message New_Chat_Photo")
         chat_id = message["message"]["chat"]["id"]
         # Only if we know the chat
@@ -205,7 +205,7 @@ class TelegramListener(threading.Thread):
             t.daemon = True
             t.run()
 
-    def handleDocumentMessage(self, message):
+    def handle_document_message(self, message):
         try:
             self._logger.debug("Handling document message")
 
@@ -217,7 +217,7 @@ class TelegramListener(threading.Thread):
             )
 
             # Check if upload command is allowed
-            if not self.main.isCommandAllowed(chat_id, from_id, "/upload"):
+            if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
                 self._logger.warning(
                     f"Received file {uploaded_file_filename} from an unauthorized user"
                 )
@@ -343,7 +343,7 @@ class TelegramListener(threading.Thread):
                 self.main.send_msg(
                     response_message,
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
 
             # If instead only one file has been added and the "select file after upload" settings is off
@@ -356,7 +356,7 @@ class TelegramListener(threading.Thread):
                     self.main.send_msg(
                         response_message,
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
 
@@ -375,7 +375,7 @@ class TelegramListener(threading.Thread):
                     self.main.send_msg(
                         response_message,
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
 
@@ -387,7 +387,7 @@ class TelegramListener(threading.Thread):
                 self.main.send_msg(
                     response_message,
                     noMarkup=True,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     responses=[
                         [
                             [
@@ -412,7 +412,7 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def handleTextMessage(self, message, chat_id, from_id):
+    def handle_text_message(self, message, chat_id, from_id):
         # We got a chat message.
         # Handle special messages from groups (/command@BotName).
         command = str(message["message"]["text"].split("@")[0])
@@ -447,7 +447,7 @@ class TelegramListener(threading.Thread):
                 )
             raise ExitThisLoopException()
         # Check if user is allowed to execute the command
-        if self.main.isCommandAllowed(chat_id, from_id, command):
+        if self.main.is_command_allowed(chat_id, from_id, command):
             # Identify user
             try:
                 user = f"{message['message']['chat']['first_name']} {message['message']['chat']['last_name']}"
@@ -465,7 +465,7 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def parseUserData(self, message):
+    def parse_user_data(self, message):
         self.main.chats = self.main._settings.get(["chats"])
         chat = message["message"]["chat"]
         chat_id = str(chat["id"])
@@ -525,7 +525,7 @@ class TelegramListener(threading.Thread):
             raise ExitThisLoopException()
         return (chat_id, from_id)
 
-    def getUpdates(self):
+    def get_updates(self):
         self._logger.debug(
             f"listener: sending request with offset {self.update_offset}..."
         )
@@ -541,7 +541,7 @@ class TelegramListener(threading.Thread):
                         params={"offset": self.update_offset, "timeout": 0},
                         allow_redirects=False,
                         timeout=10,
-                        proxies=self.getProxies(),
+                        proxies=self.get_proxies(),
                     )
                     json = req.json()
                     if not json["ok"]:
@@ -565,7 +565,7 @@ class TelegramListener(threading.Thread):
                     params={"offset": self.update_offset, "timeout": 30},
                     allow_redirects=False,
                     timeout=40,
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
         except requests.exceptions.Timeout:
             # Just start the next loop
@@ -618,7 +618,7 @@ class TelegramListener(threading.Thread):
         self.connection_ok = ok
         self.main.connection_state_str = status
 
-    def getProxies(self):
+    def get_proxies(self):
         http_proxy = self.main._settings.get(["http_proxy"])
         https_proxy = self.main._settings.get(["https_proxy"])
         return {"http": http_proxy, "https": https_proxy}
@@ -974,7 +974,7 @@ class TelegramPlugin(
                     r = requests.post(
                         f"{self.bot_url}/sendMessage",
                         data=message,
-                        proxies=self.getProxies(),
+                        proxies=self.get_proxies(),
                     )
                     r.raise_for_status()
                     if r.headers["content-type"] != "application/json":
@@ -1468,7 +1468,7 @@ class TelegramPlugin(
                 data["reply_markup"] = json.dumps(keyboard)
             self._logger.debug(f"SENDING UPDATE: {data}")
             req = requests.post(
-                f"{self.bot_url}/editMessageText", data=data, proxies=self.getProxies()
+                f"{self.bot_url}/editMessageText", data=data, proxies=self.get_proxies()
             )
             if req.headers["content-type"] != "application/json":
                 self._logger.warning(
@@ -1514,7 +1514,7 @@ class TelegramPlugin(
                 tlg_response = requests.get(
                     f"{self.bot_url}/sendChatAction",
                     params={"chat_id": chatID, "action": "typing"},
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
                 tlg_response.raise_for_status()
             except Exception:
@@ -1559,7 +1559,7 @@ class TelegramPlugin(
 
                     url = f"http://localhost:{self.tcmd.port}/{kwargs['thumbnail']}"
 
-                    tlg_response = requests.get(url, proxies=self.getProxies())
+                    tlg_response = requests.get(url, proxies=self.get_proxies())
                     tlg_response.raise_for_status()
 
                     images_to_send.append(tlg_response.content)
@@ -1615,7 +1615,7 @@ class TelegramPlugin(
                     tlg_response = requests.get(
                         f"{self.bot_url}/sendChatAction",
                         params={"chat_id": chatID, "action": "upload_photo"},
-                        proxies=self.getProxies(),
+                        proxies=self.get_proxies(),
                     )
                     tlg_response.raise_for_status()
             except Exception:
@@ -1675,7 +1675,7 @@ class TelegramPlugin(
                     f"{self.bot_url}/sendMediaGroup",
                     data=message_data,
                     files=files,
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
             # If there aren't media, send a text-only message
             else:
@@ -1686,7 +1686,7 @@ class TelegramPlugin(
                 tlg_response = requests.post(
                     f"{self.bot_url}/sendMessage",
                     data=message_data,
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
 
             # Check the response
@@ -1715,7 +1715,7 @@ class TelegramPlugin(
                     "chat_id": chatID,
                     "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
                 },
-                proxies=self.getProxies(),
+                proxies=self.get_proxies(),
             )
             self.set_status("Exception sending a message")
 
@@ -1747,46 +1747,17 @@ class TelegramPlugin(
             requests.get(
                 f"{self.bot_url}/sendChatAction",
                 params={"chat_id": chat_id, "action": "upload_document"},
-                proxies=self.getProxies(),
+                proxies=self.get_proxies(),
             )
             with open(path, "rb") as document:
                 requests.post(
                     f"{self.bot_url}/sendDocument",
                     files={"document": document},
                     data={"chat_id": chat_id, "caption": text},
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
         except Exception:
             self._logger.exception("Exception caught in send_file()")
-
-    def send_editMessageMedia(self, chat_id, path, message_id):
-        if not self.send_messages:
-            return
-        try:
-            requests.get(
-                f"{self.bot_url}/sendChatAction",
-                params={"chat_id": chat_id, "action": "upload_document"},
-                proxies=self.getProxies(),
-            )
-            with open(path, "rb") as document:
-                requests.post(
-                    f"{self.bot_url}/editMessageMedia",
-                    files={"document": document},
-                    data={"chat_id": chat_id, "message_id": message_id},
-                    proxies=self.getProxies(),
-                )
-        except Exception:
-            self._logger.exception("Exception caught in send_editMessageMedia()")
-
-    def delete_msg(self, chat_id, message_id):
-        try:
-            requests.post(
-                f"{self.bot_url}/deleteMessage",
-                data={"chat_id": chat_id, "message_id": message_id},
-                proxies=self.getProxies(),
-            )
-        except Exception:
-            self._logger.exception("Exception caught in delete_msg()")
 
     def get_file(self, file_id):
         if not self.send_messages:
@@ -1796,7 +1767,7 @@ class TelegramPlugin(
         r = requests.get(
             f"{self.bot_url}/getFile",
             data={"file_id": file_id},
-            proxies=self.getProxies(),
+            proxies=self.get_proxies(),
         )
         r.raise_for_status()
         data = r.json()
@@ -1806,7 +1777,7 @@ class TelegramPlugin(
             )
         url = f"{self.bot_file_url}/{data['result']['file_path']}"
         self._logger.debug(f"Downloading file: {url}")
-        r = requests.get(url, proxies=self.getProxies())
+        r = requests.get(url, proxies=self.get_proxies())
         r.raise_for_status()
         return r.content
 
@@ -1826,7 +1797,7 @@ class TelegramPlugin(
                 r = requests.get(
                     f"{self.bot_url}/getUserProfilePhotos",
                     params={"limit": 1, "user_id": chat_id},
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
                 r.raise_for_status()
                 data = r.json()
@@ -1861,7 +1832,7 @@ class TelegramPlugin(
         if token is None:
             token = self._settings.get(["token"])
         response = requests.get(
-            f"https://api.telegram.org/bot{token}/getMe", proxies=self.getProxies()
+            f"https://api.telegram.org/bot{token}/getMe", proxies=self.get_proxies()
         )
         self._logger.debug(f"getMe returned: {response.json()}")
         self._logger.debug(f"getMe status code: {response.status_code}")
@@ -1880,7 +1851,7 @@ class TelegramPlugin(
             if not force:
                 # Check if a list of commands was already set
                 resp = requests.get(
-                    f"{self.bot_url}/getMyCommands", proxies=self.getProxies()
+                    f"{self.bot_url}/getMyCommands", proxies=self.get_proxies()
                 ).json()
                 self._logger.debug(f"getMyCommands returned {resp}")
                 shallRun = len(resp["result"]) == 0
@@ -2005,13 +1976,13 @@ class TelegramPlugin(
                 resp = requests.post(
                     f"{self.bot_url}/setMyCommands",
                     data={"commands": json.dumps(commands)},
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 ).json()
                 self._logger.debug(f"setMyCommands returned {resp}")
         except Exception:
             pass
 
-    def getProxies(self):
+    def get_proxies(self):
         http_proxy = self._settings.get(["http_proxy"])
         https_proxy = self._settings.get(["https_proxy"])
         return {"http": http_proxy, "https": https_proxy}
@@ -2024,7 +1995,7 @@ class TelegramPlugin(
         return v.lower() in ("yes", "true", "t", "1")
 
     # Checks if the received command is allowed to execute by the user
-    def isCommandAllowed(self, chat_id, from_id, command):
+    def is_command_allowed(self, chat_id, from_id, command):
         if "bind_none" in self.tcmd.commandDict[command]:
             return True
         if command is not None or command != "":
@@ -2047,7 +2018,7 @@ class TelegramPlugin(
 
     # Helper function to handle /editMessageText Telegram API commands
     # See main._send_edit_msg()
-    def getUpdateMsgId(self, id):
+    def get_update_msg_id(self, id):
         uMsgID = ""
         if id in self.updateMessageID:
             uMsgID = self.updateMessageID[id]
@@ -2153,7 +2124,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, proxies=self.getProxies())
+        r = requests.get(snapshot_url, timeout=10, proxies=self.get_proxies())
         r.raise_for_status()
 
         image_content = r.content
@@ -2374,7 +2345,7 @@ class TelegramPlugin(
                 requests.get(
                     f"{self.bot_url}/sendChatAction",
                     params={"chat_id": chat_id, "action": "record_video"},
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
             except Exception:
                 self._logger.exception("Exception caught sending action:record_video")
@@ -2398,7 +2369,7 @@ class TelegramPlugin(
                     f"http://localhost:{int(self.tcmd.port)}/plugin/DisplayLayerProgress/values",
                     headers=headers,
                     timeout=3,
-                    proxies=self.getProxies(),
+                    proxies=self.get_proxies(),
                 )
                 self._logger.debug(f"get_current_layers : r={r}")
                 if r.status_code >= 300:

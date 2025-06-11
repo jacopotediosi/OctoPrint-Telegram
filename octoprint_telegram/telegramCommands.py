@@ -65,7 +65,7 @@ class TCMD:
         self.main.send_msg(
             "Alright.",
             chatID=chat_id,
-            msg_id=self.main.getUpdateMsgId(chat_id),
+            msg_id=self.main.get_update_msg_id(chat_id),
             inline=False,
         )
 
@@ -74,7 +74,7 @@ class TCMD:
         self.main.send_msg(
             "Maybe next time.",
             chatID=chat_id,
-            msg_id=self.main.getUpdateMsgId(chat_id),
+            msg_id=self.main.get_update_msg_id(chat_id),
             inline=False,
         )
 
@@ -229,7 +229,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
             elif params[0] == "t":
@@ -263,7 +263,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
             elif params[0] == "g":
@@ -309,7 +309,7 @@ class TCMD:
                 f"{self.gEmo('video camera')} Multicam is activate: {multicam_emo}"
             )
 
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(
                 msg,
                 responses=[
@@ -345,7 +345,7 @@ class TCMD:
             self.main.send_msg(
                 f"{self.gEmo('info')} Aborting the print.",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
         else:
             if self.main._printer.is_printing():
@@ -430,35 +430,35 @@ class TCMD:
                         self.gEmo("warning")
                         + " Uh oh... No file is selected for printing. Did you select one using /list?",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif not self.main._printer.is_operational():
                     self.main.send_msg(
                         self.gEmo("warning")
                         + " Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif self.main._printer.is_printing():
                     self.main.send_msg(
                         self.gEmo("warning")
                         + " A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 else:
                     self.main._printer.start_print(user=user)
                     self.main.send_msg(
                         f"{self.gEmo('rocket')} Started the print job.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
             elif parameter == "x":  # do not print
                 self.main._printer.unselect_file()
                 self.main.send_msg(
                     "Maybe next time.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
             else:  # prepare print
                 self._logger.debug("Looking for hash: %s", parameter)
@@ -472,7 +472,7 @@ class TCMD:
                         msg,
                         chatID=chat_id,
                         noMarkup=True,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
                 if destination == octoprint.filemanager.FileDestinations.SDCARD:
@@ -492,7 +492,7 @@ class TCMD:
                     self.main.send_msg(
                         msg,
                         noMarkup=True,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                         responses=[
                             [
                                 [
@@ -512,14 +512,14 @@ class TCMD:
                         self.gEmo("warning")
                         + " Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 else:
                     self.main.send_msg(
                         self.gEmo("warning")
                         + " Uh oh... Problems on loading the file for print.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
         else:
             self.cmdFiles(chat_id, from_id, cmd, parameter, user)
@@ -564,7 +564,9 @@ class TCMD:
                     )
                     keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
                     msg_id = (
-                        self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+                        self.main.get_update_msg_id(chat_id)
+                        if parameter == "back"
+                        else ""
                     )
                     self.main.send_msg(
                         f"{self.gEmo('save')} *Select Storage*",
@@ -578,7 +580,7 @@ class TCMD:
             self.main.send_msg(
                 f"{self.gEmo('warning')} Command failed, please check log files",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -614,7 +616,7 @@ class TCMD:
                             ]
                         ],
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                         markup="MarkdownV2",
                     )
                     return
@@ -648,20 +650,20 @@ class TCMD:
                             + " Command failed with return code %i: %s"
                             % (returncode, stderr_text),
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
                         f"{self.gEmo('check')} System Command executed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Command failed")
                     self.main.send_msg(
                         f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
             elif params[0] == "do":
@@ -697,7 +699,7 @@ class TCMD:
                             ]
                         ],
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
                 else:
@@ -726,7 +728,7 @@ class TCMD:
                                     + " Command failed with return code %i: %s"
                                     % (returncode, stderr_text),
                                     chatID=chat_id,
-                                    msg_id=self.main.getUpdateMsgId(chat_id),
+                                    msg_id=self.main.get_update_msg_id(chat_id),
                                 )
                                 return
                         self.main.send_msg(
@@ -735,7 +737,7 @@ class TCMD:
                             + command["name"]
                             + " executed.",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                     except Exception:
                         self._logger.exception("Command failed")
@@ -743,13 +745,13 @@ class TCMD:
                             self.gEmo("warning")
                             + " Command failed, please check log files",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
             else:
                 self.main.send_msg(
                     f"{self.gEmo('warning')} Sorry, i don't know this System Command.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 return
         else:
@@ -832,7 +834,7 @@ class TCMD:
             message = self.gEmo("info") + message_text
 
             keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
     ############################################################################################
@@ -872,7 +874,7 @@ class TCMD:
                             ]
                         ],
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
                 else:
@@ -885,7 +887,7 @@ class TCMD:
                                 + " Unknown script: "
                                 + command["command"],
                                 chatID=chat_id,
-                                msg_id=self.main.getUpdateMsgId(chat_id),
+                                msg_id=self.main.get_update_msg_id(chat_id),
                             )
                     elif type(command["command"]) is type([]):
                         for key in command["command"]:
@@ -898,13 +900,13 @@ class TCMD:
                         + command["name"]
                         + " executed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
             else:
                 self.main.send_msg(
                     f"{self.gEmo('warning')} Control Command not found.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
         else:
             message = f"{self.gEmo('info')} The following Printer Controls are known."
@@ -934,7 +936,7 @@ class TCMD:
                 message += (
                     f"\n\n{self.gEmo('warning')} No Printer Control Command found..."
                 )
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
     ############################################################################################
@@ -1060,20 +1062,20 @@ class TCMD:
                             self.gEmo("warning")
                             + "Something wrong, Power on attempt failed.",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
                         f"{self.gEmo('check')} Command executed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
                         f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 return
             else:
@@ -1220,7 +1222,7 @@ class TCMD:
                                 ]
                             )
                             msg_id = (
-                                self.main.getUpdateMsgId(chat_id)
+                                self.main.get_update_msg_id(chat_id)
                                 if parameter == "back"
                                 else ""
                             )
@@ -1233,7 +1235,7 @@ class TCMD:
                     self.main.send_msg(
                         f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
         else:
@@ -1361,20 +1363,20 @@ class TCMD:
                             self.gEmo("warning")
                             + "Something wrong, Power off attempt failed.",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
                         f"{self.gEmo('check')} Command executed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
                         f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 return
             else:
@@ -1521,7 +1523,7 @@ class TCMD:
                                 ]
                             )
                             msg_id = (
-                                self.main.getUpdateMsgId(chat_id)
+                                self.main.get_update_msg_id(chat_id)
                                 if parameter == "back"
                                 else ""
                             )
@@ -1534,7 +1536,7 @@ class TCMD:
                     self.main.send_msg(
                         f"{self.gEmo('warning')} Command failed, please check logs",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
         else:
@@ -1604,14 +1606,14 @@ class TCMD:
                         self.main.send_msg(
                             self.gEmo("warning") + " Command failed, please check logs",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                 else:
                     self._logger.debug("should had parameters but not")
                     self.main.send_msg(
                         f"{self.gEmo('warning')}Something wrong, shutdown failed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
             if answer.status_code >= 300:
@@ -1619,20 +1621,20 @@ class TCMD:
                 self.main.send_msg(
                     f"{self.gEmo('warning')}Something wrong, shutdown failed.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 return
             self.main.send_msg(
                 f"{self.gEmo('check')} Shutdown Command executed.",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
         except Exception:
             self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
                 f"{self.gEmo('warning')} Command failed, please check logs",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
         return
 
@@ -1711,14 +1713,14 @@ class TCMD:
                         self.main.send_msg(
                             self.gEmo("warning") + " Command failed, please check logs",
                             chatID=chat_id,
-                            msg_id=self.main.getUpdateMsgId(chat_id),
+                            msg_id=self.main.get_update_msg_id(chat_id),
                         )
                 else:
                     self._logger.debug("should had parameters but not")
                     self.main.send_msg(
                         f"{self.gEmo('warning')}Something wrong, shutdown failed.",
                         chatID=chat_id,
-                        msg_id=self.main.getUpdateMsgId(chat_id),
+                        msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
 
@@ -1727,20 +1729,20 @@ class TCMD:
                 self.main.send_msg(
                     f"{self.gEmo('warning')}Something wrong, Power on attempt failed.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 return
             self.main.send_msg(
                 f"{self.gEmo('check')} Command executed.",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
         except Exception:
             self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
                 f"{self.gEmo('warning')} Command failed, please check logs",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
         return
 
@@ -1811,7 +1813,7 @@ class TCMD:
                 f"*Profile*: {str(con[3] if con[3] is None else con[3]['name'])}\n"
                 f"*AutoConnect*: {str(con2['autoconnect'])}\n\n"
             )
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             if self.main._printer.is_operational():
                 if self.main._printer.is_printing() or self.main._printer.is_paused():
                     self.main.send_msg(
@@ -1921,7 +1923,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
             elif params[0] == "flow":
@@ -1961,7 +1963,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
             elif params[0] == "e":
@@ -2026,7 +2028,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
             elif params[0] == "b":
@@ -2085,7 +2087,7 @@ class TCMD:
                     msg,
                     chatID=chat_id,
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="MarkdownV2",
                 )
         else:
@@ -2093,7 +2095,7 @@ class TCMD:
             profile = self.main._printer_profile_manager.get_current()
             temps = self.main._printer.get_current_temperatures()
             self.tempTemp = []
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             keys = [
                 [
                     [
@@ -2183,7 +2185,7 @@ class TCMD:
                                     + " "
                                     + str(selection["spool"]["profile"]["material"])
                                 )
-                        msg_id = self.main.getUpdateMsgId(chat_id)
+                        msg_id = self.main.get_update_msg_id(chat_id)
                         self.main.send_msg(
                             message, chatID=chat_id, msg_id=msg_id, inline=False
                         )
@@ -2194,7 +2196,7 @@ class TCMD:
                         )
                         if errorText != "":
                             message += f"\nError text: {str(errorText)}"
-                        msg_id = self.main.getUpdateMsgId(chat_id)
+                        msg_id = self.main.get_update_msg_id(chat_id)
                         self.main.send_msg(
                             message, chatID=chat_id, msg_id=msg_id, inline=False
                         )
@@ -2228,7 +2230,7 @@ class TCMD:
                                 + " "
                                 + str(resp["selection"]["spool"]["profile"]["material"])
                             )
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2236,7 +2238,7 @@ class TCMD:
                             message = f"{self.gEmo('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2285,7 +2287,7 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
                             self.main.send_msg(
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
@@ -2294,7 +2296,7 @@ class TCMD:
                             message = f"{self.gEmo('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2308,7 +2310,7 @@ class TCMD:
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
                 msg_id = (
-                    self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+                    self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 )
                 self.main.send_msg(
                     message, chatID=chat_id, responses=keys, msg_id=msg_id
@@ -2350,7 +2352,7 @@ class TCMD:
                         # for selection in resp2["selections"]:
                         # 	if selection["tool"] == 0:
                         # 		message += "\n\nCurrently selected: " + str(selection["spool"]["profile"]["vendor"]) + " " + str(selection["spool"]["name"]) + " " + str(selection["spool"]["profile"]["material"])
-                        msg_id = self.main.getUpdateMsgId(chat_id)
+                        msg_id = self.main.get_update_msg_id(chat_id)
                         self.main.send_msg(
                             message, chatID=chat_id, msg_id=msg_id, inline=False
                         )
@@ -2361,7 +2363,7 @@ class TCMD:
                         )
                         if errorText != "":
                             message += f"\nError text: {str(errorText)}"
-                        msg_id = self.main.getUpdateMsgId(chat_id)
+                        msg_id = self.main.get_update_msg_id(chat_id)
                         self.main.send_msg(
                             message, chatID=chat_id, msg_id=msg_id, inline=False
                         )
@@ -2395,7 +2397,7 @@ class TCMD:
                                 + " "
                                 + str(resp["selection"]["spool"]["profile"]["material"])
                             )
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2403,7 +2405,7 @@ class TCMD:
                             message = f"{self.gEmo('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2452,7 +2454,7 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
                             self.main.send_msg(
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
@@ -2461,7 +2463,7 @@ class TCMD:
                             message = f"{self.gEmo('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
-                            msg_id = self.main.getUpdateMsgId(chat_id)
+                            msg_id = self.main.get_update_msg_id(chat_id)
                             self.main.send_msg(
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
@@ -2475,14 +2477,14 @@ class TCMD:
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
                 msg_id = (
-                    self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+                    self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 )
                 self.main.send_msg(
                     message, chatID=chat_id, responses=keys, msg_id=msg_id
                 )
         else:
             message = f"{self.gEmo('warning')} No filament manager plugin installed."
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, msg_id=msg_id)
 
     ###########################################################################################
@@ -2495,7 +2497,7 @@ class TCMD:
                 self.gEmo("info")
                 + " call gCode commande with /gcode_XXX where XXX is the gcode command"
             )
-            msg_id = self.main.getUpdateMsgId(chat_id) if parameter == "back" else ""
+            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, msg_id=msg_id)
 
     ############################################################################################
@@ -2705,7 +2707,7 @@ class TCMD:
                 chatID=chat_id,
                 markup="MarkdownV2",
                 responses=keys,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
                 delay=wait,
             )
         except Exception:
@@ -2904,12 +2906,12 @@ class TCMD:
         ]
         keysRow = []
         keys = []
-        if self.main.isCommandAllowed(chat_id, from_id, "/print"):
+        if self.main.is_command_allowed(chat_id, from_id, "/print"):
             keysRow.append(keyPrint)
         keysRow.append(keyDetails)
         keys.append(keysRow)
         keysRow = []
-        if self.main.isCommandAllowed(chat_id, from_id, "/files"):
+        if self.main.is_command_allowed(chat_id, from_id, "/files"):
             if self.main.version >= 1.3:
                 keysRow.append(keyMove)
                 keysRow.append(keyCopy)
@@ -2928,7 +2930,7 @@ class TCMD:
             chatID=chat_id,
             markup="HTML",
             responses=keys,
-            msg_id=self.main.getUpdateMsgId(chat_id),
+            msg_id=self.main.get_update_msg_id(chat_id),
             delay=wait,
         )
 
@@ -3090,7 +3092,7 @@ class TCMD:
                         ]
                     ]
                 ],
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
                 markup="HTML",
             )
         elif opt.startswith("dl"):
@@ -3099,7 +3101,7 @@ class TCMD:
                 self.main.send_msg(
                     f"{self.gEmo('warning') + path} ist to big to download (>50MB)!",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 self.fileDetails(loc, page, cmd, hash, chat_id, from_id, wait=3)
             else:
@@ -3107,7 +3109,7 @@ class TCMD:
                     chat_id, self.main._file_manager.path_on_disk(dest, path), ""
                 )
         elif opt.startswith("m"):
-            msg_id = self.main.getUpdateMsgId(chat_id)
+            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "m_m":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
@@ -3167,7 +3169,7 @@ class TCMD:
                 )
 
         elif opt.startswith("c"):
-            msg_id = self.main.getUpdateMsgId(chat_id)
+            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "c_c":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
@@ -3226,7 +3228,7 @@ class TCMD:
                 )
 
         elif opt.startswith("d"):
-            msg_id = self.main.getUpdateMsgId(chat_id)
+            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "d_d":
                 delRes = self.fileDelete(dest, path)
                 if delRes == "GOOD":
@@ -3298,7 +3300,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="MarkdownV2",
                     responses=keys,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
 
     ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
@@ -3544,7 +3546,7 @@ class TCMD:
                 ],
                 chatID=chat_id,
                 markup="MarkdownV2",
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3586,7 +3588,7 @@ class TCMD:
                 + (str(con["portPreference"]) if con["portPreference"] else "AUTO"),
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3634,7 +3636,7 @@ class TCMD:
                 ),
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3681,7 +3683,7 @@ class TCMD:
                 + con2["name"],
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3713,7 +3715,7 @@ class TCMD:
                 + str(con["autoconnect"]),
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3745,7 +3747,7 @@ class TCMD:
             self.main.send_msg(
                 f"{self.gEmo('info')} Connecting...",
                 chatID=chat_id,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
             self.main._printer.connect(
                 port=self.conSettingsTemp[0],
@@ -3771,13 +3773,13 @@ class TCMD:
                 self.main.send_msg(
                     f"{self.gEmo('check')} Connection established.",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
             else:
                 self.main.send_msg(
                     f"{self.gEmo('warning')} Failed to start connection.\n\n{con[0]}",
                     chatID=chat_id,
-                    msg_id=self.main.getUpdateMsgId(chat_id),
+                    msg_id=self.main.get_update_msg_id(chat_id),
                 )
         else:
             keys = [
@@ -3797,7 +3799,7 @@ class TCMD:
                 f"{self.gEmo('question')} Select connection option.",
                 chatID=chat_id,
                 responses=keys,
-                msg_id=self.main.getUpdateMsgId(chat_id),
+                msg_id=self.main.get_update_msg_id(chat_id),
             )
 
     ############################################################################################
@@ -3806,7 +3808,7 @@ class TCMD:
         self.main.send_msg(
             f"{self.gEmo('info')} Printer disconnected.",
             chatID=chat_id,
-            msg_id=self.main.getUpdateMsgId(chat_id),
+            msg_id=self.main.get_update_msg_id(chat_id),
         )
 
     ############################################################################################

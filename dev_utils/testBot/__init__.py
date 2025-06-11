@@ -26,7 +26,7 @@ class TelegramListener(threading.Thread):
 
     def run(self):
         print "Try first connect."
-        self.tryFirstContact()
+        self.try_first_contact()
         # repeat fetching and processing messages unitil thread stopped
         print "Listener is running."
         try:
@@ -45,7 +45,7 @@ class TelegramListener(threading.Thread):
 
     # Try to get first contact. Repeat every 120sek if no success
     # or stop if task stopped
-    def tryFirstContact(self):
+    def try_first_contact(self):
         gotContact = False
         while not self.do_stop and not gotContact:
             try:
@@ -62,12 +62,12 @@ class TelegramListener(threading.Thread):
 
     def loop(self):
         chat_id = ""
-        json = self.getUpdates()
+        json = self.get_updates()
 
         try:
             # seems like we got a message, so lets process it.
             for message in json["result"]:
-                self.processMessage(message)
+                self.process_message(message)
         except ExitThisLoopException as exit:
             raise exit
         # wooooops. can't handle the message
@@ -81,55 +81,55 @@ class TelegramListener(threading.Thread):
             self.first_contact = False
             self.main.on_event("PrinterStart", {})
 
-    def processMessage(self, message):
+    def process_message(self, message):
         print "MESSAGE: " + str(message)
         # Get the update_id to only request newer Messages the next time
         if message["update_id"] >= self.update_offset:
             self.update_offset = message["update_id"] + 1
         # no message no cookies
         if "message" in message and message["message"]["chat"]:
-            chat_id, from_id = self.parseUserData(message)
+            chat_id, from_id = self.parse_user_data(message)
             # if we come here without a continue (discard message)
             # we have a message from a known and not new user
             # so let's check what he send us
             # if message is a text message, we probably got a command
             # if the command is not known, the following handler will discard it
             if "text" in message["message"]:
-                self.handleTextMessage(message, chat_id, from_id)
+                self.handle_text_message(message, chat_id, from_id)
             # we got no message with text (command) so lets check if we got a file
             # the following handler will check file and saves it to disk
             elif "document" in message["message"]:
-                self.handleDocumentMessage(message, chat_id, from_id)
+                self.handle_document_message(message, chat_id, from_id)
             # we got message with notification for a new chat title photo
             # so lets download it
             elif "new_chat_photo" in message["message"]:
-                self.handleNewChatPhotoMessage(message, chat_id, from_id)
+                self.handle_new_chat_photo_message(message, chat_id, from_id)
             # we got message with notification for a deleted chat title photo
             # so we do the same
             elif "delete_chat_photo" in message["message"]:
-                self.handleDeleteChatPhotoMessage(message, chat_id, from_id)
+                self.handle_delete_chat_photo_message(message, chat_id, from_id)
             # a member was removed from a group, so lets check if it's our bot and
             # delete the group from our chats if it is our bot
             elif "left_chat_member" in message["message"]:
-                self.handleLeftChatMemberMessage(message, chat_id, from_id)
+                self.handle_left_chat_member_message(message, chat_id, from_id)
             # we are at the end. At this point we don't know what message type it is, so we do nothing
             else:
                 print "Got an unknown message. Doing nothing. Data: " + str(message)
         elif "callback_query" in message:
-            self.handleCallbackQuery(message)
+            self.handle_callback_query(message)
         else:
             print "Response is missing .message or .message.chat or .callback_query.Skipping it."
             raise ExitThisLoopException()
 
-    def handleCallbackQuery(self, message):
+    def handle_callback_query(self, message):
         print "IN CALLBACK"
         message["callback_query"]["message"]["reply_to_message"]["text"] = message[
             "callback_query"
         ]["data"]
-        chat_id, from_id = self.parseUserData(message["callback_query"])
-        self.handleTextMessage(message["callback_query"], chat_id, from_id)
+        chat_id, from_id = self.parse_user_data(message["callback_query"])
+        self.handle_text_message(message["callback_query"], chat_id, from_id)
 
-    def handleLeftChatMemberMessage(self, message, chat_id, from_id):
+    def handle_left_chat_member_message(self, message, chat_id, from_id):
         print "Message Del_Chat"
         if (
             message["message"]["left_chat_member"]["username"] == self.username[1:]
@@ -139,7 +139,7 @@ class TelegramListener(threading.Thread):
             # do a self._settings.save() ???
             print "Chat deleted"
 
-    def handleDeleteChatPhotoMessage(self, message, chat_id, from_id):
+    def handle_delete_chat_photo_message(self, message, chat_id, from_id):
         print "Message Del_Chat_Photo"
         try:
             # os.remove(self.main.get_plugin_data_folder()+"/img/user/pic" +str(message['message']['chat']['id'])+".jpg")
@@ -147,7 +147,7 @@ class TelegramListener(threading.Thread):
         except OSError:
             pass
 
-    def handleNewChatPhotoMessage(self, message, chat_id, from_id):
+    def handle_new_chat_photo_message(self, message, chat_id, from_id):
         print "Message New_Chat_Photo"
         # only if we know the chat
         if str(message["message"]["chat"]["id"]) in self.main.chats:
@@ -160,7 +160,7 @@ class TelegramListener(threading.Thread):
             t.daemon = True
             t.run()
 
-    def handleDocumentMessage(self, message, chat_id, from_id):
+    def handle_document_message(self, message, chat_id, from_id):
         # first we have to check if chat or group is allowed to upload
         from_id = chat_id
         if not self.main.chats[chat_id][
@@ -168,7 +168,7 @@ class TelegramListener(threading.Thread):
         ]:  # is this needed? can one send files from groups to bots?
             from_id = str(message["message"]["from"]["id"])
         # is /upload allowed?
-        if self.isCommandAllowed(chat_id, from_id, "/upload"):
+        if self.is_command_allowed(chat_id, from_id, "/upload"):
             try:
                 file_name = message["message"]["document"]["file_name"]
                 if not (
@@ -203,7 +203,7 @@ class TelegramListener(threading.Thread):
                     + " I've successfully saved the file you sent me as {}.".format(
                         target_filename
                     ),
-                    msg_id=self.getUpdateMsgId(chat_id),
+                    msg_id=self.get_update_msg_id(chat_id),
                     chatID=chat_id,
                 )
             except Exception as ex:
@@ -212,7 +212,7 @@ class TelegramListener(threading.Thread):
                     + " Something went wrong during processing of your file."
                     + self.gEmo("mistake")
                     + " Sorry. More details are in octoprint.log.",
-                    msg_id=self.getUpdateMsgId(chat_id),
+                    msg_id=self.get_update_msg_id(chat_id),
                     chatID=chat_id,
                 )
                 print "Exception occured during processing of a file: " + traceback.format_exc()
@@ -222,7 +222,7 @@ class TelegramListener(threading.Thread):
                 "Don't feed the octopuses! " + self.gEmo("octo"), chatID=chat_id
             )
 
-    def handleTextMessage(self, message, chat_id, from_id):
+    def handle_text_message(self, message, chat_id, from_id):
         # We got a chat message.
         # handle special messages from groups (/commad@BotName)
         command = message["message"]["text"].split("@")[0]
@@ -261,7 +261,7 @@ class TelegramListener(threading.Thread):
             )
             raise ExitThisLoopException()
         # check if user is allowed to execute the command
-        if self.isCommandAllowed(
+        if self.is_command_allowed(
             chat_id, from_id, command
         ) and self.main.tcmd.checkState(from_id, command, parameter):
             # messageRespondID is needed to send command replys only to the sender
@@ -281,7 +281,7 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def parseUserData(self, message):
+    def parse_user_data(self, message):
         self.main.chats = self.main._settings["chats"]
         chat = message["message"]["chat"]
         chat_id = str(chat["id"])
@@ -345,7 +345,7 @@ class TelegramListener(threading.Thread):
             raise ExitThisLoopException()
         return (chat_id, from_id)
 
-    def getUpdates(self):
+    def get_updates(self):
         print "listener: sending request with offset " + str(self.update_offset) + "..."
         req = None
 
@@ -356,7 +356,7 @@ class TelegramListener(threading.Thread):
                 timeout = 0
                 self.update_offset = 1
             req = requests.get(
-                self.main.bot_url + "/getUpdates",
+                f"{self.main.bot_url}/getUpdates",
                 params={"offset": self.update_offset, "timeout": timeout},
                 allow_redirects=False,
                 timeout=timeout + 10,
@@ -399,7 +399,7 @@ class TelegramListener(threading.Thread):
         return json
 
     # checks if the received command is allowed to execute by the user
-    def isCommandAllowed(self, chat_id, from_id, command):
+    def is_command_allowed(self, chat_id, from_id, command):
         if command is not None or command is not "":
             if self.main.chats[chat_id]["accept_commands"]:
                 if self.main.chats[chat_id]["commands"][command]:
@@ -420,7 +420,7 @@ class TelegramListener(threading.Thread):
 
     # Helper function to handle /editMessageText Telegram API commands
     # see main._send_edit_msg()
-    def getUpdateMsgId(self, id):
+    def get_update_msg_id(self, id):
         uMsgID = None
         if id in self.main.updateMessageID:
             uMsgID = self.main.updateMessageID[id]

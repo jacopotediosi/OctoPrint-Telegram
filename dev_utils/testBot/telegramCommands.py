@@ -181,7 +181,7 @@ class TCMD:
             + str(self.main._settings["notification_height"])
             + "mm.",
             chatID=chat_id,
-            msg_id=self.main.thread.getUpdateMsgId(chat_id),
+            msg_id=self.main.thread.get_update_msg_id(chat_id),
         )
 
     #######################
