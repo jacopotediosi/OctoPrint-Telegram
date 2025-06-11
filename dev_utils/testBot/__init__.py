@@ -677,27 +677,6 @@ class TelegramPlugin:
         try:
             if with_image is None:
                 with_image = False
-            if with_image:
-                if (
-                    "event" in kwargs
-                    and not self._settings["messages"][kwargs["event"]]["combined"]
-                ):
-                    args = locals()
-                    # print("Sending seperated image message...")
-                    # for key in args:
-                    # print("Local: " + str(key) + " | " + str(args[key]))
-                    # if key is not "kwargs" and key is not "self":
-                    # kwargs.update({key:args[key]})
-                    del args["kwargs"]["event"]
-                    del args["self"]
-                    args["message"] = ""
-                    print("Sending image...")
-                    t = threading.Thread(target=self._send_msg, kwargs=args).run()
-                    args["message"] = message
-                    args["with_image"] = False
-                    print("Sending text...")
-                    t = threading.Thread(target=self._send_msg, kwargs=args).run()
-                    return
 
             print(
                 "Sending a message: "
