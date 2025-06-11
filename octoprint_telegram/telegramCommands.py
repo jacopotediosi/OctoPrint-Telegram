@@ -573,10 +573,10 @@ class TCMD:
                         responses=keys,
                         msg_id=msg_id,
                     )
-        except Exception as e:
-            self._logger.warning(f"Command failed: {e}")
+        except Exception:
+            self._logger.exception("Command failed")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed with exception: {e}!",
+                f"{self.gEmo('warning')} Command failed, please check log files",
                 chatID=chat_id,
                 msg_id=self.main.getUpdateMsgId(chat_id),
             )
@@ -656,10 +656,10 @@ class TCMD:
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
-                except Exception as e:
-                    self._logger.warning(f"Command failed: {e}")
+                except Exception:
+                    self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {e}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
@@ -737,11 +737,11 @@ class TCMD:
                             chatID=chat_id,
                             msg_id=self.main.getUpdateMsgId(chat_id),
                         )
-                    except Exception as e:
-                        self._logger.warning(f"Command failed: {e}")
+                    except Exception:
+                        self._logger.exception("Command failed")
                         self.main.send_msg(
                             self.gEmo("warning")
-                            + f" Command failed with exception: {e}!",
+                            + " Command failed, please check log files",
                             chatID=chat_id,
                             msg_id=self.main.getUpdateMsgId(chat_id),
                         )
@@ -971,10 +971,10 @@ class TCMD:
                             chatID=chat_id,
                         )
                         return
-            except Exception as e:
+            except Exception:
                 self._logger.exception("Failed to connect to call api")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Command failed with exception: {e}!",
+                    f"{self.gEmo('warning')} Command failed, please check log files",
                     chatID=chat_id,
                 )
 
@@ -1018,10 +1018,10 @@ class TCMD:
                             chatID=chat_id,
                         )
                         return
-                except Exception as ex:
-                    self._logger.exception(f"Failed to connect to call api: {ex}")
+                except Exception:
+                    self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
                     )
 
@@ -1068,10 +1068,10 @@ class TCMD:
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
-                except Exception as ex:
-                    self._logger.exception(f"Failed to connect to call api: {ex}")
+                except Exception:
+                    self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
@@ -1124,11 +1124,11 @@ class TCMD:
                                 json_data = curr
                             else:
                                 json_data = None
-                        except Exception as e:
-                            self._logger.exception(f"getting settings failed: {e}")
+                        except Exception:
+                            self._logger.exception("getting settings failed")
                             self.main.send_msg(
                                 self.gEmo("warning")
-                                + "Something wrong, power on command failed.",
+                                + "Something wrong, power on command failed, please check log files.",
                                 chatID=chat_id,
                             )
                             return
@@ -1189,8 +1189,8 @@ class TCMD:
                                     )
                                     if firstplug == "":
                                         firstplug = str(label["ip"])
-                            except Exception as e:
-                                self._logger.exception(f"loop to add plug failed: {e}")
+                            except Exception:
+                                self._logger.exception("Loop to add plug failed")
 
                         if len(json_data) == 1:
                             self.main.send_msg(
@@ -1228,10 +1228,10 @@ class TCMD:
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
                             )
                         return
-                except Exception as e:
-                    self._logger.exception(f"Command failed: {e}")
+                except Exception:
+                    self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {e}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
@@ -1272,10 +1272,10 @@ class TCMD:
                             chatID=chat_id,
                         )
                         return
-            except Exception as ex:
-                self._logger.exception(f"Failed to connect to call api: {ex}")
+            except Exception:
+                self._logger.exception("Failed to connect to call api")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                    f"{self.gEmo('warning')} Command failed, please check log files",
                     chatID=chat_id,
                 )
 
@@ -1319,10 +1319,10 @@ class TCMD:
                             chatID=chat_id,
                         )
                         return
-                except Exception as ex:
-                    self._logger.exception(f"Failed to connect to call api: {ex}")
+                except Exception:
+                    self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files!",
                         chatID=chat_id,
                     )
 
@@ -1369,10 +1369,10 @@ class TCMD:
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
-                except Exception as ex:
-                    self._logger.exception(f"Failed to connect to call api: {ex}")
+                except Exception:
+                    self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                        f"{self.gEmo('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
@@ -1425,8 +1425,8 @@ class TCMD:
                                 json_data = curr
                             else:
                                 json_data = None
-                        except Exception as e:
-                            self._logger.exception(f"getting settings failed: {e}")
+                        except Exception:
+                            self._logger.exception("getting settings failed")
                             self.main.send_msg(
                                 self.gEmo("warning")
                                 + "Something wrong, power on command failed.",
@@ -1490,8 +1490,8 @@ class TCMD:
                                     )
                                     if firstplug == "":
                                         firstplug = str(label["ip"])
-                            except Exception as e:
-                                self._logger.exception(f"loop to add plug failed: {e}")
+                            except Exception:
+                                self._logger.exception("Loop to add plug failed")
 
                         if len(json_data) == 1:
                             self.main.send_msg(
@@ -1529,10 +1529,10 @@ class TCMD:
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
                             )
                         return
-                except Exception as e:
-                    self._logger.exception(f"Command failed: {e}")
+                except Exception:
+                    self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed with exception: {e}!",
+                        f"{self.gEmo('warning')} Command failed, please check logs",
                         chatID=chat_id,
                         msg_id=self.main.getUpdateMsgId(chat_id),
                     )
@@ -1599,11 +1599,10 @@ class TCMD:
                             headers=headers,
                             data=data,
                         )
-                    except Exception as ex:
-                        self._logger.exception(f"Failed to connect to call api: {ex}")
+                    except Exception:
+                        self._logger.exception("Failed to connect to call api")
                         self.main.send_msg(
-                            self.gEmo("warning")
-                            + f" Command failed with exception: {ex}!",
+                            self.gEmo("warning") + " Command failed, please check logs",
                             chatID=chat_id,
                             msg_id=self.main.getUpdateMsgId(chat_id),
                         )
@@ -1628,10 +1627,10 @@ class TCMD:
                 chatID=chat_id,
                 msg_id=self.main.getUpdateMsgId(chat_id),
             )
-        except Exception as ex:
-            self._logger.exception(f"Failed to connect to call api: {ex}")
+        except Exception:
+            self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                f"{self.gEmo('warning')} Command failed, please check logs",
                 chatID=chat_id,
                 msg_id=self.main.getUpdateMsgId(chat_id),
             )
@@ -1707,11 +1706,10 @@ class TCMD:
                                 str(answer.status_code), str(answer.text)
                             )
                         )
-                    except Exception as ex:
-                        self._logger.exception(f"Failed to connect to call api: {ex}")
+                    except Exception:
+                        self._logger.exception("Failed to connect to call api")
                         self.main.send_msg(
-                            self.gEmo("warning")
-                            + f" Command failed with exception: {ex}!",
+                            self.gEmo("warning") + " Command failed, please check logs",
                             chatID=chat_id,
                             msg_id=self.main.getUpdateMsgId(chat_id),
                         )
@@ -1737,10 +1735,10 @@ class TCMD:
                 chatID=chat_id,
                 msg_id=self.main.getUpdateMsgId(chat_id),
             )
-        except Exception as ex:
-            self._logger.exception(f"Failed to connect to call api: {ex}")
+        except Exception:
+            self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed with exception: {ex}!",
+                f"{self.gEmo('warning')} Command failed, please check logs",
                 chatID=chat_id,
                 msg_id=self.main.getUpdateMsgId(chat_id),
             )
@@ -2609,14 +2607,14 @@ class TCMD:
                                 + " "
                                 + (".").join(key.split(".")[:-1])
                             )
-                    except Exception as ex:
+                    except Exception:
                         vfilename = (
                             self.main.emojis["squared new"]
                             + " "
                             + (".").join(key.split(".")[:-1])
                         )
-                        self._logger.debug(
-                            f"An Exception in fileList loop file items : {str(ex)}"
+                        self._logger.exception(
+                            "Caught an Exception in fileList loop file items"
                         )
 
                     self._logger.debug(f"vfilename : {vfilename}")
@@ -2626,9 +2624,9 @@ class TCMD:
                         vcmd = f"{cmd}_{pathHash}|{str(page)}|{vhash}"
                         self._logger.debug(f"cmd : {str(cmd)}")
                         array.append([vfilename, vcmd])
-                except Exception as ex:
-                    self._logger.error(
-                        f"An Exception in fileList loop file items : {str(ex)}"
+                except Exception:
+                    self._logger.exception(
+                        "Caught an Exception in fileList loop file items"
                     )
                     self._logger.error(f"files[key]{str(files[key])}")
             arrayD = sorted(arrayD)
@@ -2710,8 +2708,8 @@ class TCMD:
                 msg_id=self.main.getUpdateMsgId(chat_id),
                 delay=wait,
             )
-        except Exception as ex:
-            self._logger.error(f"An Exception in fileList : {str(ex)}")
+        except Exception:
+            self._logger.exception("Caught an Exception in fileList")
 
     ############################################################################################
     def fileDetails(self, pathHash, page, cmd, fileHash, chat_id, from_id, wait=0):
@@ -2729,8 +2727,8 @@ class TCMD:
                     "%Y-%m-%d %H:%M:%S"
                 )
             )
-        except Exception as ex:
-            self._logger.info(f"An Exception in get upload time : {str(ex)}")
+        except Exception:
+            self._logger.exception("Caught an Exception in get upload time")
 
         self._logger.debug(f"val : {str(file)}")
         self._logger.debug(f"meta : {str(meta)}")
@@ -2808,8 +2806,8 @@ class TCMD:
                 + "Completed Time:</b> "
                 + time_finish
             )
-        except Exception as ex:
-            self._logger.info(f"An Exception in get final time : {str(ex)}")
+        except Exception:
+            self._logger.info("Caught an Exception in get final time")
         if self.main._plugin_manager.get_plugin("cost", True):
             if printTime != 0 and filaLen != 0:
                 try:
@@ -2831,14 +2829,14 @@ class TCMD:
                             + curr
                             + f"{filaLen / 1000 * cpM + printTime / 3600 * cpH:.02f} "
                         )
-                    except Exception as ex:
-                        self._logger.error(
-                            f"An Exception the cost function in decode : {str(ex)}"
+                    except Exception:
+                        self._logger.exception(
+                            "Caught an Exception the cost function in decode"
                         )
                         msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
-                except Exception as ex:
-                    self._logger.error(
-                        f"An Exception the cost function on get: {str(ex)}"
+                except Exception:
+                    self._logger.exception(
+                        "Caught an Exception the cost function on get"
                     )
                     msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
             else:
@@ -2876,8 +2874,8 @@ class TCMD:
                     if res.status_code < 300:
                         test = res.json()
                         msg = f"<a href='{test['data']['url']}' >&#8199;</a>\n{msg}"
-        except Exception as ex:
-            self._logger.error(f"An Exception the get the thumbnail : {str(ex)}")
+        except Exception:
+            self._logger.exception("Caught an Exception getting the thumbnail")
 
         keyPrint = [f"{self.main.emojis['rocket']} Print", f"/print_{fileHash}"]
         keyDetails = [
@@ -2993,8 +2991,8 @@ class TCMD:
                     + "Completed Time:</b> "
                     + time_finish
                 )
-            except Exception as ex:
-                self._logger.error(f"An Exception in get final time : {str(ex)}")
+            except Exception:
+                self._logger.exception("Caught an Exception in get final time")
             if self.main._plugin_manager.get_plugin("cost", True):
                 if printTime != 0 and filaLen != 0:
                     try:
@@ -3017,15 +3015,15 @@ class TCMD:
                                 + "%.02f "
                                 % ((filaLen / 1000) * cpM + (printTime / 3600) * cpH)
                             )
-                        except Exception as ex:
-                            self._logger.error(
-                                f"An Exception the cost function in decode : {str(ex)}"
+                        except Exception:
+                            self._logger.exception(
+                                "An Exception the cost function in decode"
                             )
                             msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
                         self._logger.debug("AF TRY")
-                    except Exception as ex:
-                        self._logger.error(
-                            f"An Exception the cost function on get: {str(ex)}"
+                    except Exception:
+                        self._logger.exception(
+                            "Caught an Exception the cost function on get"
                         )
                         msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
                 else:
@@ -3403,8 +3401,8 @@ class TCMD:
                     self.generate_dir_hash_dict_recursively(tree[key], f"{key}/")
                 )
             self._logger.debug(str(self.dirHashDict))
-        except Exception as ex:
-            self._logger.error(f"An Exception in generate_dir_hash_dict : {str(ex)}")
+        except Exception:
+            self._logger.exception("Caught an Exception in generate_dir_hash_dict")
 
     ############################################################################################
     def generate_dir_hash_dict_recursively(self, tree, loc):
@@ -3418,9 +3416,9 @@ class TCMD:
                             tree[key]["children"], f"{loc + key}/"
                         )
                     )
-        except Exception as ex:
-            self._logger.error(
-                f"An Exception in generate_dir_hash_dict_recursively : {str(ex)}"
+        except Exception:
+            self._logger.exception(
+                "Caught an Exception in generate_dir_hash_dict_recursively"
             )
         return myDict
 
@@ -3432,8 +3430,8 @@ class TCMD:
                 result, file = self.find_file_by_hash_recursively(tree[key], hash)
                 if result is not None:
                     return key, result, file
-        except Exception as ex:
-            self._logger.error(f"An Exception in find_file_by_hash : {str(ex)}")
+        except Exception:
+            self._logger.exception("Caught an Exception in find_file_by_hash")
         return None, None, None
 
     ############################################################################################
