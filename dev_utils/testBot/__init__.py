@@ -805,7 +805,7 @@ class TelegramPlugin:
                 r = self.get_file(file_id)
             # file_name = self.get_plugin_data_folder() + "/img/user/pic" + str(chat_id) + ".jpg"
             img = Image.open(StringIO.StringIO(r))
-            img = img.resize((40, 40), PIL.Image.ANTIALIAS)
+            img = img.resize((40, 40), PIL.Image.LANCZOS)
             # img.save(file_name, format="JPEG")
             print(f"Saved Photo {str(chat_id)}")
 

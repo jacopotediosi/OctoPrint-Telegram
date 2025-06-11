@@ -1828,7 +1828,7 @@ class TelegramPlugin(
                 os.path.basename(f"pic{chat_id}.jpg"),
             )
             img = Image.open(bytes_reader_class(r))
-            img = img.resize((40, 40), Image.ANTIALIAS)
+            img = img.resize((40, 40), Image.LANCZOS)
             img.save(file_name, format="JPEG")
             self._logger.info(f"Saved Photo. Chat id: {chat_id}")
 
