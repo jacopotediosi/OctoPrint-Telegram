@@ -436,7 +436,7 @@ class TelegramListener(threading.Thread):
             parameter = "_".join(command.split("_")[1:])
             command = command.split("_")[0]
         self._logger.info(
-            f"Got a command: '{command}' with parameter: '{parameter}' in chat id  {message['message']['chat']['id']}"
+            f"Got a command: '{command}' with parameter: '{parameter}' in chat id {message['message']['chat']['id']}"
         )
         # Is command  known?
         if command not in self.main.tcmd.commandDict:
@@ -1446,7 +1446,7 @@ class TelegramPlugin(
         chatID="",
         responses=None,
         inline=True,
-        markup=None,
+        markup="off",
         delay=0,
         **kwargs,
     ):
@@ -1465,7 +1465,7 @@ class TelegramPlugin(
             data["text"] = message
             data["message_id"] = msg_id
             data["chat_id"] = int(chatID)
-            if markup:
+            if markup != "off":
                 if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
                     data["parse_mode"] = markup
                 else:
@@ -1501,7 +1501,7 @@ class TelegramPlugin(
         delay=0,
         inline=True,
         chatID="",
-        markup=None,
+        markup="off",
         showWeb=False,
         silent=False,
         **kwargs,
@@ -1537,7 +1537,7 @@ class TelegramPlugin(
             message_data["chat_id"] = chatID
             message_data["disable_notification"] = silent
 
-            if markup:
+            if markup != "off":
                 if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
                     message_data["parse_mode"] = markup
                 else:
