@@ -1748,13 +1748,13 @@ class TelegramPlugin(
                 params={"chat_id": chat_id, "action": "upload_document"},
                 proxies=self.getProxies(),
             )
-            files = {"document": open(path, "rb")}
-            requests.post(
-                f"{self.bot_url}/sendDocument",
-                files=files,
-                data={"chat_id": chat_id, "caption": text},
-                proxies=self.getProxies(),
-            )
+            with open(path, "rb") as document:
+                requests.post(
+                    f"{self.bot_url}/sendDocument",
+                    files={"document": document},
+                    data={"chat_id": chat_id, "caption": text},
+                    proxies=self.getProxies(),
+                )
         except Exception:
             self._logger.exception("Exception caught in send_file()")
 
@@ -1767,13 +1767,13 @@ class TelegramPlugin(
                 params={"chat_id": chat_id, "action": "upload_document"},
                 proxies=self.getProxies(),
             )
-            files = {"document": open(path, "rb")}
-            requests.post(
-                f"{self.bot_url}/editMessageMedia",
-                files=files,
-                data={"chat_id": chat_id, "message_id": message_id},
-                proxies=self.getProxies(),
-            )
+            with open(path, "rb") as document:
+                requests.post(
+                    f"{self.bot_url}/editMessageMedia",
+                    files={"document": document},
+                    data={"chat_id": chat_id, "message_id": message_id},
+                    proxies=self.getProxies(),
+                )
         except Exception:
             self._logger.exception("Exception caught in send_editMessageMedia()")
 
@@ -1866,10 +1866,7 @@ class TelegramPlugin(
         self._logger.debug(f"getMe status code: {response.status_code}")
         json = response.json()
         if "ok" not in json or not json["ok"]:
-            if json["description"]:
-                raise Exception
-            else:
-                raise Exception
+            raise Exception
         else:
             return f"@{json['result']['username']}"
 
