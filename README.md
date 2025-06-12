@@ -1,8 +1,8 @@
 <!-- omit in toc -->
 # OctoPrint-Telegram
 
-<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/logo/octoprint_telegram_logo.png" width="25%" align="left"> 
- 
+<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/logo/octoprint_telegram_logo.png" width="25%" align="left">
+
 This plugin integrates Telegram Messenger with Octoprint. It sends messages (with photos if available) on print start, end and failure. Also it sends messages during the print at configurable intervals. That way you don't have to remember to regularly have a look at the printing process.
 Also, you can control Octoprint via messages (settings, start a print and much more). Send `/status` to get the current printer status or `/abort` to abort the current print. Send `/help` for a list of all recognized commands. You may also use this bot in groups.
 
@@ -33,7 +33,7 @@ To set up Octoprint Telegram, you have to follow the following three steps.
 
 ### Create Telegram Bot
 
-To allow the plugin to send messages via telegram, you need to register a telegram bot. 
+To allow the plugin to send messages via telegram, you need to register a telegram bot.
 
 If you already have a bot, you only need your bot token to proceed. GOTO `4.` (optional) or go dirctly over to [Plugin Setup](#plugin-setup).
 
@@ -46,12 +46,12 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 3. The botfather hands you a token. You need this to use your bot. Keep this token secret!
 
 	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/bot_new.png" alt="Register new bot" width="35%" align="center"/>
-	
+
 <!-- omit in toc -->
 #### OPTIONAL
 
 	While you're there, you could also do the following steps:
-    
+
 
 4. Give your bot a nice profile picture. Send `/setuserpic` to @botfather, select the bot and send the Octoprint logo or any other image you like.
 
@@ -75,14 +75,14 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	tune - Set feed- and flowrate. Control temperatures.
 	user - get user info.
 	help - show list of commands.
-	gif - send a gif of 5 seconds 
-	supergif - send a gif of 10 seconds 
+	gif - send a gif of 5 seconds
+	supergif - send a gif of 10 seconds
 	on - Turns on the printer power via the PSUControl plugin API. Requires PSU Control plugin installation.
 	off - Turns off the printer power via the PSUControl plugin API. Requires PSU Control plugin.
 	gcode_XXX - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for exemple)
 	```
 	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
-	
+
 ### Plugin setup
 
 1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/jacopotediosi/OctoPrint-Telegram/archive/master.zip`
@@ -138,7 +138,7 @@ Configuration is done via the Octoprint settings dialog. Note that only admin us
    * Setting the height to 1.0mm would send messages at z=1.0, z=2.0, z=3.0 and so on.
    * Having the height at 1.0mm with a layer height of 0.3 would send messages at z=1.2, z=2.4, z=3.6 and so on.
    * Setting the time or height to `0` disables those checks. Setting both values to `0` completely disables automatic notifications while printing.
-  
+
 4. Set a delay to wait for print head moving out of camera view on end of print.
 
 
@@ -161,28 +161,28 @@ There are users (private chat with single user) or groups you will see in the li
 3. **IMPORTANT**<br>**a)** By clicking the *pencil* icon, you are able to enable/disable commands and notifications for the user/group in general. This will not affect the settings you made in `1.` and `2.`. It's an easy way to quickly activate/deactivate a user/group withot changing the settings. You will find the following options:
 	* For users:
 	  * *Allow to send commands*: This option will give the user the ability to send commands you defined in `1.`
-	* For groups: 
+	* For groups:
 	  * *Allow user commands*: This will allow *known* users to send commands. Settings of the specific users will be used. No other users in the group are allowed to send commands.
-		``` 
+		```
 		Example: User A, B and C are in one group. Only user A and B are known by the bot.
 		User A has /print enabled and user B has not. Both have /status enabled.
 		So user A is allowed to send /print and /status while user B is only allowed to
 		send /status. User C is not allowed to send any command.
 		```
-        
+
 	  * *Allow to send commands*: When this option is enabled, all users in the group are allowed to send commands. Choose the allowed commands by setting up `1.` for the group. If *Allow user commands* is enabled, known users will have the ability to send commands activated for them but not for the group.
-		``` 
+		```
 		Example: 'Allow user commands' is enabled for the group. User A and B are in the group.
-		Only user A is known by the bot. User A has /print enabled and the group has not. 
-		The group has /status enabled but user A not. So user A is allowed to send 
-		/print (user rights) and /status (group rights) while user B is only allowed to send 
+		Only user A is known by the bot. User A has /print enabled and the group has not.
+		The group has /status enabled but user A not. So user A is allowed to send
+		/print (user rights) and /status (group rights) while user B is only allowed to send
 		/status. If 'Allow user commands' is disabled, also A will only be able to send /status.
 		```
 	* For both:
 	  * *Send notifications*: This will allow the bot to send the notifications you enabled in `2.` to the user/group.
 
 	**b)** Click the *trash bin*, to delete the user. The user is only deleted if you hit 'Save' on settings dialog.
-	
+
 	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/set_user.png" alt="User settings" width="70%" align="center"/><br><br><br>
 
 ### Notifications
@@ -232,7 +232,7 @@ In this section you can configure the content of the notification messages.
 
 **`/filament`** - Shows your filament spools and the percentage of usage. In addition you can change the filament spool with this command. Requires the [Filament Manager Plugin](https://plugins.octoprint.org/plugins/filamentmanager/)
 
-**`/print`** - Will open a file dialog showing the files stored in octoprint. You can select a file to print it. 
+**`/print`** - Will open a file dialog showing the files stored in octoprint. You can select a file to print it.
 
 **`/togglepause`** - Pause/resume the current print.
 
@@ -283,4 +283,3 @@ If you want to talk to other users of this plugin and maybe have some influence 
 you can join the [Octoprint-Telegram-Users-Group](https://telegram.me/joinchat/CXFirQjl9XTp5dr4OZqH9Q).
 
 This software is licensed under [AGPLv3](http://www.gnu.org/licenses/agpl-3.0.txt)
-

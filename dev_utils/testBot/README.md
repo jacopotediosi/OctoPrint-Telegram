@@ -26,7 +26,7 @@ Setup token and one or more chats. The structure of a chat should look something
 			'accept_commands' : True,
 			'send_notifications' : True,
 			'title' : 'ExampleUser',
-			'commands':{  
+			'commands':{
 				'/print': False
 			},
 			'notifications':{
