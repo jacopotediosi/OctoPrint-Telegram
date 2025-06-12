@@ -2047,26 +2047,36 @@ class TelegramPlugin(
     def str2bool(self, v):
         return v.lower() in ("yes", "true", "t", "1")
 
-    # Checks if the received command is allowed to execute by the user
+    # Check if the received command is allowed to be executed by the user
     def is_command_allowed(self, chat_id, from_id, command):
+        # If no commands, nothing to allow
+        if not command:
+            return False
+
+        is_group_chat = int(chat_id) < 0
+
+        chat_settings = self.chats.get(chat_id, {})
+        chat_accept_commands = chat_settings.get("accept_commands", False)
+        chat_accept_this_command = chat_settings.get("commands", {}).get(command, False)
+        chat_allow_commands_from_users = chat_settings.get("allow_users", False)
+
+        from_settings = self.chats.get(from_id, {})
+        from_accept_commands = from_settings.get("accept_commands", False)
+        from_accept_this_command = from_settings.get("commands", {}).get(command, False)
+
+        # Always allowed commands (e.g., /help, etc)
         if "bind_none" in self.tcmd.commandDict[command]:
             return True
-        if command is not None or command != "":
-            if self.chats[chat_id]["accept_commands"]:
-                if self.chats[chat_id]["commands"][command]:
-                    return True
-                elif int(chat_id) < 0 and self.chats[chat_id]["allow_users"]:
-                    if (
-                        self.chats[from_id]["commands"][command]
-                        and self.chats[from_id]["accept_commands"]
-                    ):
-                        return True
-            elif int(chat_id) < 0 and self.chats[chat_id]["allow_users"]:
-                if (
-                    self.chats[from_id]["commands"][command]
-                    and self.chats[from_id]["accept_commands"]
-                ):
-                    return True
+
+        # Commands allowed for all chat members (both in private chat and in groups)
+        if chat_accept_commands and chat_accept_this_command:
+            return True
+
+        # User personal permissions within groups
+        if is_group_chat and chat_allow_commands_from_users:
+            if from_accept_commands and from_accept_this_command:
+                return True
+
         return False
 
     # Helper function to handle /editMessageText Telegram API commands
