@@ -1212,6 +1212,13 @@ class TelegramPlugin(
             self._logger.exception("Caught exception handling an event")
 
     ##########
+    ### TemplatePlugin mixin
+    ##########
+
+    def is_template_autoescaped(self):
+        return True
+
+    ##########
     ### SimpleApi API
     ##########
 
