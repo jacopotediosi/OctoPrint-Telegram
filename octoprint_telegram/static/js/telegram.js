@@ -8,12 +8,9 @@ $(function() {
     function TelegramViewModel(parameters) {
         var self = this;
 
-        // assign the injected parameters, e.g.:
-        // self.loginStateViewModel = parameters[0];
         self.settings = parameters[0];
-        //else
-         //   self.settings=self.settings;
-        console.log(String(self.settings));
+
+        self.pluginIdentifier = "telegram";
 
         self.chatListHelper = new ItemListHelper(
             "known_chats",
@@ -50,38 +47,40 @@ $(function() {
         self.markupFrom = [];
         self.onBindLoad = false;
     
-        self.requestData = function(ignore,update) {
-
-            ignore = typeof ignore !== 'undefined' ? ignore : false;
-            update = typeof update !== 'undefined' ? update : false;
-
-            if (update)
-                urlPath = "plugin/telegram?id="+self.currChatID+"&cmd="+$('#telegram-acccmd-chkbox-box').prop( "checked" )+"&note="+$('#telegram-notify-chkbox-box').prop( "checked" )+"&allow="+$('#telegram-user-allowed-chkbox-box').prop( "checked" );
-            else
-                urlPath = "plugin/telegram";
+        self.requestData = function(ignore = false, update = false) {
             if(self.reloadUsr() || ignore){
                 self.isloading(true);
-                $.ajax({
-                    url: API_BASEURL + urlPath,
-                    type: "GET",
-                    dataType: "json",
-                    success: self.fromResponse
-                });
+
+                if (update) { 
+                    OctoPrint.simpleApiCommand(
+                        self.pluginIdentifier,
+                        "editUser",
+                        {
+                            chat_id: self.currChatID,
+                            accept_commands: $("#telegram-acccmd-chkbox-box").prop("checked"),
+                            send_notifications: $("#telegram-notify-chkbox-box").prop("checked"),
+                            allow_users: $("#telegram-user-allowed-chkbox-box").prop("checked"),
+                        }
+                    ).done((response) => self.fromResponse(response));
+                } else {
+                    OctoPrint.simpleApiGet(self.pluginIdentifier).done(
+                        (response) => self.fromResponse(response)
+                    );
+                }
                 
-               if(!ignore) self.reloadPending = setTimeout(self.requestData,20000);
-            }
-            else
+                if(!ignore) {
+                    self.reloadPending = setTimeout(self.requestData,20000);
+                }
+            } else {
                 self.reloadPending = setTimeout(self.requestData,500);
+            }
         };
 
         self.requestBindings = function() {
             self.isloading(true);
-            $.ajax({
-                url: API_BASEURL + "plugin/telegram?bindings=true",
-                type: "GET",
-                dataType: "json",
-                success: self.fromBindings
-            });      
+            OctoPrint.simpleApiGet(self.pluginIdentifier, {
+                data: { bindings: true },
+            }).done((response) => self.fromBindings(response));
         };
 
         self.fromBindings = function(response){
@@ -320,14 +319,9 @@ $(function() {
     
         self.testToken = function(data, event) {
             self.isloading(true);
-            $.ajax({
-                url: API_BASEURL + "plugin/telegram",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({ "command": "testToken", "token": $('#settings_plugin_telegram_token').val()}),
-                contentType: "application/json",
-                success: self.testResponse
-            });
+            OctoPrint.simpleApiCommand(self.pluginIdentifier, "testToken", {
+                token: $("#settings_plugin_telegram_token").val(),
+            }).done((response) => self.testResponse(response));
         }
         
         self.testResponse = function(response) {
@@ -364,24 +358,18 @@ $(function() {
         }
 
         self.setCommandList = function(data, event) {
-            console.log("StartSetCommandList");
             $('#CmdteleErrored').addClass("text-warning"); 
             $('#CmdteleErrored').removeClass("text-danger"); 
             $('#CmdteleErrored').removeClass("text-sucess"); 
             self.setCommandList_state_str("Please wait ...")
             var callback = function() {
-                $.ajax({ 
-                    url: API_BASEURL + "plugin/telegram",
-                    type: "POST",
-                    dataType: "json",
-                    data: JSON.stringify({ "command": "setCommandList", "force": 'True'}),
-                    contentType: "application/json",
-                    success: self.setCommandResponse
-                });
+                OctoPrint.simpleApiCommand(
+                    self.pluginIdentifier,
+                    "setCommandList",
+                    {}
+                ).done((response) => self.setCommandResponse(response));
             };
-            showConfirmationDialog('Do you really want to set default commands ', function (e) {
-                callback();
-            });
+            showConfirmationDialog('Do you really want to set default commands?', callback);
         }
         
         self.fromResponse = function(response) {
@@ -479,23 +467,14 @@ $(function() {
         self.delChat = function(data) {
             if (data === undefined) return;
             var callback = function() {
-                    self.isloading(true);
-                    data['command'] = "delChat";
-                    data['ID'] = data.id
-                    console.log("Delete Chat Data " + String(data['ID']));
-                    $.ajax({
-                        url: API_BASEURL + "plugin/telegram",
-                        type: "POST",
-                        dataType: "json",
-                        data: JSON.stringify(data),
-                        contentType: "application/json",
-                        success: self.fromResponse
-                    });
-                };
-            showConfirmationDialog('Do you really want to delete ' + _.escape(data.title), function (e) {
-                callback();
-            });
-  
+                self.isloading(true);
+                OctoPrint.simpleApiCommand(
+                    self.pluginIdentifier,
+                    "delChat",
+                    {"chat_id": data.id}
+                ).done((response) => self.fromResponse(response));
+            };
+            showConfirmationDialog('Do you really want to delete ' + _.escape(data.title), callback);
         }
 
         self.onSettingsHidden = function() {

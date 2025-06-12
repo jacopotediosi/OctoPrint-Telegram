@@ -1222,24 +1222,10 @@ class TelegramPlugin(
         if not Permissions.SETTINGS.can():
             return "Insufficient permissions", 403
 
-        # Got an user-update with this command, so lets do that
-        if (
-            "id" in request.args
-            and "cmd" in request.args
-            and "note" in request.args
-            and "allow" in request.args
-        ):
-            self.chats[request.args["id"]]["accept_commands"] = self.str2bool(
-                str(request.args["cmd"])
-            )
-            self.chats[request.args["id"]]["send_notifications"] = self.str2bool(
-                str(request.args["note"])
-            )
-            self.chats[request.args["id"]]["allow_users"] = self.str2bool(
-                str(request.args["allow"])
-            )
-            self._logger.debug(f"Updated chat - {request.args['id']}")
-        elif "bindings" in request.args:
+        return self.get_chat_settings("bindings" in request.args)
+
+    def get_chat_settings(self, bindings=False):
+        if bindings:
             bind_text = {}
             for key in {k: v for k, v in telegramMsgDict.items() if "bind_msg" in v}:
                 if telegramMsgDict[key]["bind_msg"] in bind_text:
@@ -1262,41 +1248,47 @@ class TelegramPlugin(
                     ],
                 }
             )
-
-        retChats = {
-            k: v
-            for k, v in self.chats.items()
-            if "delMe" not in v and k != "zBOTTOMOFCHATS"
-        }
-        for chat in retChats:
-            if os.path.isfile(
-                os.path.join(
-                    self.get_plugin_data_folder(),
-                    "img",
-                    "user",
-                    os.path.basename(f"pic{chat}.jpg"),
-                )
-            ):
-                retChats[chat]["image"] = f"/plugin/telegram/img/user/pic{chat}.jpg"
-            elif int(chat) < 0:
-                retChats[chat]["image"] = "/plugin/telegram/static/img/group.jpg"
-            else:
-                retChats[chat]["image"] = "/plugin/telegram/static/img/default.jpg"
-
-        return json.dumps(
-            {
-                "chats": retChats,
-                "connection_state_str": self.connection_state_str,
-                "connection_ok": self.connection_ok,
+        else:
+            retChats = {
+                k: v
+                for k, v in self.chats.items()
+                if "delMe" not in v and k != "zBOTTOMOFCHATS"
             }
-        )
+            for chat in retChats:
+                if os.path.isfile(
+                    os.path.join(
+                        self.get_plugin_data_folder(),
+                        "img",
+                        "user",
+                        os.path.basename(f"pic{chat}.jpg"),
+                    )
+                ):
+                    retChats[chat]["image"] = f"/plugin/telegram/img/user/pic{chat}.jpg"
+                elif int(chat) < 0:
+                    retChats[chat]["image"] = "/plugin/telegram/static/img/group.jpg"
+                else:
+                    retChats[chat]["image"] = "/plugin/telegram/static/img/default.jpg"
+
+            return json.dumps(
+                {
+                    "chats": retChats,
+                    "connection_state_str": self.connection_state_str,
+                    "connection_ok": self.connection_ok,
+                }
+            )
 
     def get_api_commands(self):
         return dict(
-            delChat=["ID"],
-            setCommandList=["force"],
+            delChat=["chat_id"],
+            setCommandList=[],
             testEvent=["event"],
             testToken=["token"],
+            editUser=[
+                "chat_id",
+                "accept_commands",
+                "send_notifications",
+                "allow_users",
+            ],
         )
 
     def on_api_command(self, command, data):
@@ -1304,45 +1296,48 @@ class TelegramPlugin(
             return "Insufficient permissions", 403
 
         if command == "testToken":
-            self._logger.debug(f"Testing token {data['token']}")
+            token = str(data.get("token"))
+
+            self._logger.info(f"Received testToken command to test token {token}")
+
             try:
-                if self._settings.get(["token"]) != data["token"]:
-                    username = self.test_token(data["token"])
-                    self._settings.set(["token"], data["token"])
-                    self.stop_listening()  # To start with new token if already running
-                    self.start_listening()
-                    return json.dumps(
-                        {
-                            "ok": True,
-                            "connection_state_str": f"Token valid for {username}.",
-                            "error_msg": None,
-                            "username": username,
-                        }
-                    )
+                username = self.test_token(token)
+                self._settings.set(["token"], token)
+                self.stop_listening()  # To start with new token if already running
+                self.start_listening()
                 return json.dumps(
                     {
                         "ok": True,
-                        "connection_state_str": f"Token valid for {self.thread.username}.",
+                        "connection_state_str": f"Token valid for {username}.",
                         "error_msg": None,
-                        "username": self.thread.username,
+                        "username": username,
                     }
                 )
             except Exception as e:
+                self._logger.exception("Caught an exception testing token")
                 return json.dumps(
                     {
                         "ok": False,
-                        "connection_state_str": f"Error:{e}",
+                        "connection_state_str": f"Error testing token: {e}",
                         "username": None,
                         "error_msg": str(e),
                     }
                 )
-        # Delete a chat (will not be removed and show up again on octorint restart
-        # if save button is not pressed on settings dialog)
+
+        # Delete a chat (will show up again on octorint restart)
         elif command == "delChat":
-            strId = str(data["ID"])
-            if strId in self.chats:
-                del self.chats[strId]
-                # Do self._settings.save() here???????
+            chat_id = str(data.get("chat_id"))
+
+            self._logger.info(
+                f"Received delChat command to delete chat with id {chat_id}"
+            )
+
+            if chat_id not in self.chats:
+                self._logger.warning(f"Chat id {chat_id} is unknown")
+                return "Unknown chat with given id", 404
+
+            del self.chats[chat_id]
+
             return json.dumps(
                 {
                     "chats": {
@@ -1354,18 +1349,22 @@ class TelegramPlugin(
                     "connection_ok": self.connection_ok,
                 }
             )
+
         elif command == "testEvent":
-            self._logger.debug(f"Testing event {data['event']}")
+            event = data.get("event")
+            self._logger.info(f"Received testEvent command to test event '{event}'")
             try:
-                self.on_event(data["event"], {})
+                self.on_event(event, {})
                 return json.dumps({"ok": True, "error_msg": None})
             except Exception as e:
-                return json.dumps({"ok": False, "username": None, "error_msg": str(e)})
+                self._logger.exception(f"Caught an exception testing event {event}")
+                return json.dumps({"ok": False, "error_msg": str(e)})
+
         elif command == "setCommandList":
-            self._logger.debug("Set default command for bot")
             try:
+                self._logger.info("Received setCommandList command")
                 self.setMyCommands(True)
-                self._logger.debug("Set default command for bot done will return ok")
+                self._logger.info("Command list set")
                 return json.dumps(
                     {
                         "ok": True,
@@ -1374,6 +1373,9 @@ class TelegramPlugin(
                     }
                 )
             except Exception as e:
+                self._logger.exception(
+                    "Caught an exception setting default bot commands"
+                )
                 return json.dumps(
                     {
                         "ok": False,
@@ -1381,6 +1383,40 @@ class TelegramPlugin(
                         "error_msg": str(e),
                     }
                 )
+
+        elif command == "editUser":
+            chat_id = str(data.get("chat_id"))
+
+            # Log editUser attempt
+            self._logger.info(f"Received editUser command for chat id {chat_id}")
+
+            # Check if chat_id is known
+            if chat_id not in self.chats:
+                self._logger.warning(f"Chat id {chat_id} is unknown")
+                return "Unknown chat with given id", 404
+
+            settings_keys = ("accept_commands", "send_notifications", "allow_users")
+
+            # Check that settings_keys are boolean
+            invalid_keys = [
+                k for k in settings_keys if not isinstance(data.get(k), bool)
+            ]
+            if invalid_keys:
+                self._logger.warning(
+                    f"Received args {', '.join(invalid_keys)} are not boolean"
+                )
+                return f"Invalid values: {', '.join(invalid_keys)} must be boolean", 400
+
+            # Update user
+            for key in settings_keys:
+                self.chats[chat_id][key] = data[key]
+
+            # Logging successful user update
+            settings = ", ".join(f"{k}={data[k]}" for k in settings_keys)
+            self._logger.info(f"Updated settings for chat {chat_id} - {settings}")
+
+            # Return updated chats settings
+            return self.get_chat_settings()
 
     ##########
     ### Telegram API-Functions
@@ -1848,7 +1884,7 @@ class TelegramPlugin(
         self._logger.debug(f"getMe status code: {response.status_code}")
         json = response.json()
         if "ok" not in json or not json["ok"]:
-            raise Exception
+            raise Exception(f"Telegram API response was: {json}")
         else:
             return f"@{json['result']['username']}"
 
