@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OctoPrint-Telegram"
+version = "1.6.7"
+description = "A plugin to control your printer and send notifications before, *during* and after a print via Telegram Messenger."
+authors = [
+    { name = "Jacopo Tediosi", email = "jacopotediosi@gmail.com" },
+]
+requires-python = ">=3.7,<4"
+dependencies = [
+    "pillow",
+    "requests[socks]",
+]
+dynamic = [
+    "license",
+]
+
+[project.entry-points."octoprint.plugin"]
+telegram = "octoprint_telegram"
+
+[project.urls]
+Homepage = "https://github.com/jacopotediosi/OctoPrint-Telegram"
+
+[project.optional-dependencies]
+develop = [
+    "go-task-bin",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "markdown"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "octoprint_telegram",
+    "octoprint_telegram.*",
+]
