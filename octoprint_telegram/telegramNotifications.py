@@ -307,12 +307,12 @@ class TMSG:
             z = self.z
             temps = self.main._printer.get_current_temperatures()
             self._logger.debug(f"TEMPS - {temps}")
-            bed_temp = temps["bed"]["actual"] if "bed" in temps else 0.0
-            bed_target = temps["bed"]["target"] if "bed" in temps else 0.0
-            e1_temp = temps["tool0"]["actual"] if "tool0" in temps else 0.0
-            e1_target = temps["tool0"]["target"] if "tool0" in temps else 0.0
-            e2_temp = temps["tool1"]["actual"] if "tool1" in temps else 0.0
-            e2_target = temps["tool1"]["target"] if "tool1" in temps else 0.0
+            bed_temp = temps.get("bed", {}).get("actual", 0.0)
+            bed_target = temps.get("bed", {}).get("target", 0.0)
+            e1_temp = temps.get("tool0", {}).get("actual", 0.0)
+            e1_target = temps.get("tool0", {}).get("target", 0.0)
+            e2_temp = temps.get("tool1", {}).get("actual", 0.0)
+            e2_target = temps.get("tool1", {}).get("target", 0.0)
             percent = int(status["progress"]["completion"] or 0)
 
             try:

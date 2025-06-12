@@ -11,6 +11,7 @@ import threading
 import time
 import traceback
 import zipfile
+from typing import List
 from urllib.parse import urljoin
 
 import octoprint.filemanager
@@ -481,13 +482,16 @@ class TelegramListener(threading.Thread):
             data["title"] = chat["title"]
         elif chat["type"] == "private":
             data["private"] = True
-            data["title"] = ""
-            if "first_name" in chat:
-                data["title"] += f"{chat['first_name']} - "
-            if "last_name" in chat:
-                data["title"] += f"{chat['last_name']} - "
-            if "username" in chat:
-                data["title"] += f"@{chat['username']}"
+
+        title_parts = []
+        if "first_name" in chat:
+            title_parts.append(chat["first_name"])
+        if "last_name" in chat:
+            title_parts.append(chat["last_name"])
+        if "username" in chat:
+            title_parts.append(f"@{chat['username']}")
+        data["title"] = " - ".join(title_parts)
+
         from_id = chat_id
         # If message is from a group, chat_id will be left as id of group
         # and from_id is set to id of user who send the message
@@ -707,8 +711,8 @@ class TelegramPlugin(
     # All emojis will be get via this method to disable them globaly by the corrosponding setting.
     # So if you want to use emojis anywhere use gEmo("...") instead of emojis["..."].
     def gEmo(self, key):
-        if self._settings.get(["send_icon"]) and key in self.emojis:
-            return self.emojis[key]
+        if self._settings.get(["send_icon"]):
+            return self.emojis.get(key, "")
         return ""
 
     # Starts the telegram listener thread
@@ -989,13 +993,16 @@ class TelegramPlugin(
                         data["title"] = chat["title"]
                     elif chat["type"] == "private":
                         data["private"] = True
-                        data["title"] = ""
+
+                        title_parts = []
                         if "first_name" in chat:
-                            data["title"] += f"{chat['first_name']} - "
+                            title_parts.append(chat["first_name"])
                         if "last_name" in chat:
-                            data["title"] += f"{chat['last_name']} - "
+                            title_parts.append(chat["last_name"])
                         if "username" in chat:
-                            data["title"] += f"@{chat['username']}"
+                            title_parts.append(f"@{chat['username']}")
+                        data["title"] = " - ".join(title_parts)
+
                 except Exception:
                     self._logger.exception(
                         "ERROR migrating chat. Done with defaults private=true,title=[UNKNOWN]"
@@ -1116,7 +1123,7 @@ class TelegramPlugin(
 
     def on_settings_save(self, data):
         # Remove 'new'-flag and apply bindings for all chats
-        if "chats" in data and data["chats"]:
+        if data.get("chats"):
             delList = []
             for key in data["chats"]:
                 if "new" in data["chats"][key]:
@@ -1509,7 +1516,7 @@ class TelegramPlugin(
             data["message_id"] = msg_id
             data["chat_id"] = int(chatID)
             if markup != "off":
-                if markup in ("HTML", "Markdown", "MarkdownV2"):
+                if markup in {"HTML", "Markdown", "MarkdownV2"}:
                     data["parse_mode"] = markup
                 else:
                     self._logger.warning(f"Invalid markup: {markup}")
@@ -1640,7 +1647,7 @@ class TelegramPlugin(
                         gifs_to_send.append(kwargs["movie"])
                     # Otherwise, take gifs from webcams
                     else:
-                        gifs_to_send += self.take_all_gifs(chatID)
+                        gifs_to_send += self.take_all_gifs()
                 except Exception:
                     self._logger.exception("Exception caught taking all gifs")
 
@@ -1667,7 +1674,7 @@ class TelegramPlugin(
                 if action:
                     tlg_response = requests.get(
                         f"{self.bot_url}/sendChatAction",
-                        params={"chat_id": chatID, "action": "upload_photo"},
+                        params={"chat_id": chatID, "action": action},
                         proxies=self.get_proxies(),
                     )
                     tlg_response.raise_for_status()
@@ -1890,7 +1897,7 @@ class TelegramPlugin(
         self._logger.debug(f"getMe returned: {response.json()}")
         self._logger.debug(f"getMe status code: {response.status_code}")
         json = response.json()
-        if "ok" not in json or not json["ok"]:
+        if not json.get("ok"):
             raise Exception(f"Telegram API response was: {json}")
         else:
             return f"@{json['result']['username']}"
@@ -2044,9 +2051,6 @@ class TelegramPlugin(
     ### Helper methods
     ##########
 
-    def str2bool(self, v):
-        return v.lower() in ("yes", "true", "t", "1")
-
     # Check if the received command is allowed to be executed by the user
     def is_command_allowed(self, chat_id, from_id, command):
         # If no commands, nothing to allow
@@ -2132,17 +2136,18 @@ class TelegramPlugin(
         else:
             self._logger.warning(f"Unknown post_image method: {method}")
 
-    def take_all_images(self):
+    def take_all_images(self) -> List[bytes]:
         self._logger.debug("Taking all images")
 
-        taken_images = []
+        taken_images_contents = []
 
         # Retrieve multicam profiles
         multicam_profiles = None
         try:
-            if self._plugin_manager.get_plugin(
+            multicam_enabled = self._plugin_manager.get_plugin(
                 "multicam", True
-            ) is not None and self._settings.get(["multicam"]):
+            ) and self._settings.get(["multicam"])
+            if multicam_enabled:
                 self._logger.debug("Multicam detected")
                 multicam_profiles = self._settings.global_get(
                     ["plugins", "multicam", "multicam_profiles"]
@@ -2157,32 +2162,32 @@ class TelegramPlugin(
         if multicam_profiles:
             for multicam_profile in multicam_profiles:
                 try:
-                    taken_image = self.take_image(
+                    taken_image_content = self.take_image(
                         multicam_profile.get("snapshot"),
                         multicam_profile.get("flipH"),
                         multicam_profile.get("flipV"),
                         multicam_profile.get("rotate90"),
                     )
-                    taken_images.append(taken_image)
+                    taken_images_contents.append(taken_image_content)
                 except Exception:
                     self._logger.exception("Exception caught taking an image")
 
         # If there aren't multicam profiles, fallback taking image from the octoprint default camera
         else:
             try:
-                taken_image = self.take_image(
+                taken_image_content = self.take_image(
                     self._settings.global_get(["webcam", "snapshot"]),
                     self._settings.global_get(["webcam", "flipH"]),
                     self._settings.global_get(["webcam", "flipV"]),
                     self._settings.global_get(["webcam", "rotate90"]),
                 )
-                taken_images.append(taken_image)
+                taken_images_contents.append(taken_image_content)
             except Exception:
                 self._logger.exception("Exception caught taking an image")
 
-        return taken_images
+        return taken_images_contents
 
-    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False):
+    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False) -> bytes:
         snapshot_url = urljoin("http://localhost/", snapshot_url)
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
@@ -2192,8 +2197,10 @@ class TelegramPlugin(
 
         image_content = r.content
 
-        self._logger.debug(f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]")
         if flipH or flipV or rotate:
+            self._logger.debug(
+                f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]"
+            )
             image = Image.open(bytes_reader_class(image_content))
             if flipH:
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
@@ -2208,17 +2215,18 @@ class TelegramPlugin(
 
         return image_content
 
-    def take_all_gifs(self, chat_id, duration=5):
+    def take_all_gifs(self, duration=5) -> List[str]:
         self._logger.debug("Taking all gifs")
 
-        taken_gifs = []
+        taken_gif_paths = []
 
         # Retrieve multicam profiles
         multicam_profiles = None
         try:
-            if self._plugin_manager.get_plugin(
+            multicam_enabled = self._plugin_manager.get_plugin(
                 "multicam", True
-            ) is not None and self._settings.get(["multicam"]):
+            ) and self._settings.get(["multicam"])
+            if multicam_enabled:
                 self._logger.debug("Multicam detected")
                 multicam_profiles = self._settings.global_get(
                     ["plugins", "multicam", "multicam_profiles"]
@@ -2233,194 +2241,146 @@ class TelegramPlugin(
         if multicam_profiles:
             for multicam_profile in multicam_profiles:
                 try:
-                    taken_gif = self.take_gif(chat_id, duration, multicam_profile)
-                    taken_gifs.append(taken_gif)
+                    multicam_profile_name = multicam_profile.get("name", "").replace(
+                        " ", "_"
+                    )
+                    gif_filename = f"gif_{multicam_profile_name}.mp4"
+
+                    taken_gif_path = self.take_gif(
+                        multicam_profile.get("URL"),
+                        duration,
+                        gif_filename,
+                        multicam_profile.get("flipH"),
+                        multicam_profile.get("flipV"),
+                        multicam_profile.get("rotate90"),
+                    )
+                    taken_gif_paths.append(taken_gif_path)
                 except Exception:
                     self._logger.exception("Exception caught taking a gif")
 
         # If there aren't multicam profiles, fallback taking image from the octoprint default camera
         else:
             try:
-                taken_gif = self.take_gif(
-                    chat_id,
+                gif_filename = "gif.mp4"
+
+                taken_gif_path = self.take_gif(
+                    self._settings.global_get(["webcam", "stream"]),
                     duration,
+                    gif_filename,
+                    self._settings.global_get(["webcam", "flipH"]),
+                    self._settings.global_get(["webcam", "flipV"]),
+                    self._settings.global_get(["webcam", "rotate90"]),
                 )
-                taken_gifs.append(taken_gif)
+                taken_gif_paths.append(taken_gif_path)
             except Exception:
                 self._logger.exception("Exception caught taking a gif")
 
-        return taken_gifs
+        return taken_gif_paths
 
-    def take_gif(self, chat_id, duration=5, multicam_profile=None):
-        # TODO riscrittura in corso
-
-        # Get stream url
-        if multicam_profile:
-            stream_url = multicam_profile.get("URL")
-        else:
-            stream_url = self._settings.global_get(["webcam", "stream"])
+    def take_gif(
+        self,
+        stream_url,
+        duration=5,
+        gif_filename="gif.mp4",
+        flipH=False,
+        flipV=False,
+        rotate=False,
+    ) -> str:
         stream_url = urljoin("http://localhost/", stream_url)
 
         self._logger.debug(f"Taking gifs from url: {stream_url}")
 
-        os.makedirs(
-            os.path.join(self.get_plugin_data_folder(), "tmpgif"), exist_ok=True
-        )
+        tmpgif_dir = os.path.join(self.get_plugin_data_folder(), "tmpgif")
 
-        if multicam_profile:
-            gif_basename = os.path.basename(
-                f"gif_{multicam_profile.get('name', '').replace(' ', '_')}.mp4"
-            )
-            outPath = os.path.join(
-                self.get_plugin_data_folder(), "tmpgif", gif_basename
-            )
-        else:
-            outPath = os.path.join(self.get_plugin_data_folder(), "tmpgif", "gif.mp4")
+        os.makedirs(tmpgif_dir, exist_ok=True)
 
-        self._logger.info(f"Removing file {outPath}")
+        gif_path = os.path.join(tmpgif_dir, gif_filename)
+
+        self._logger.debug(f"Removing file {gif_path}")
         try:
-            os.remove(outPath)
-        except Exception:
+            os.remove(gif_path)
+        except FileNotFoundError:
             pass
 
-        params = []
-        self._logger.debug("Testing if nice exist")
-        if shutil.which("nice") is not None:
-            params = ["nice", "-n", "20"]
+        for tool in ["cpulimit", "ffmpeg"]:
+            if not shutil.which(tool):
+                self._logger.error(f"{tool} not installed")
+                raise RuntimeError(f"{tool} not installed")
 
-        self._logger.debug("Testing if cpulimit exist")
-        if shutil.which("cpulimit") is None:
-            self._logger.error(
-                "Cpulimit don't exist so send a message to install and exit"
-            )
-            self.send_msg(
-                f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed cpulimit with following command : `sudo apt-get install cpulimit`",
-                chatID=chat_id,
-            )
-            raise Exception("Cpulimit not installed")
+        duration = max(1, min(duration, 60))
+        self._logger.debug(f"duration={duration}")
 
-        self._logger.debug("Testing if ffmpeg exist")
-        if shutil.which("ffmpeg") is None:
-            self._logger.error(
-                "Ffmpeg don't exist so send a message to install and exit"
-            )
-            self.send_msg(
-                f"{self.gEmo('dizzy face')} Problem creating gif, please check log file, and make sure you have installed ffmpeg with following command : `sudo apt-get install ffmpeg`",
-                chatID=chat_id,
-            )
-            raise Exception("Ffmpeg not installed")
+        time_sec = str(datetime.timedelta(seconds=duration))
+        self._logger.debug(f"timeSec={time_sec}")
 
-        if duration == 0:
-            duration = 5
-        elif duration > 60:
-            duration = 60
-        elif duration < 1:
-            duration = 1
-
-        self._logger.debug(f"sec={duration}")
-        # timeSec = str(datetime.timedelta(seconds=sec))
-        # self._logger.debug("timeSec="+timeSec)
-        timeSec = f"00:00:{duration:02d}"
-
-        self._logger.debug(f"timeSec={timeSec}")
-        # timout = 4*sec
-        # ffmpeg -i http://192.168.1.56/webcam/?action=stream -t 00:00:05 -vf scale=320x240 -y  -c:a copy out.mkv
-        # params = ['ffmpeg', '-y', '-i' ,stream_url, '-t', "00:00:05",'-c:v','copy', '-c:a' ,'copy']
-        used_cpu = 1
-        limit_cpu = 65
-
+        used_cpu, limit_cpu = 1, 65
         try:
             nb_cpu = multiprocessing.cpu_count()
             if nb_cpu > 1:
-                used_cpu = nb_cpu / 2
+                used_cpu = nb_cpu // 2
                 limit_cpu = 65 * used_cpu
-        except Exception:
-            self._logger.exception("Exception caught getting number of cpu")
-
-        self._logger.debug(
-            f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}"
-        )
-        params.append("cpulimit")
-        params.append("-l")
-        params.append(str(limit_cpu))
-        params.append("-f")
-        params.append("-z")
-        params.append("--")
-        params.append("ffmpeg")
-        params.append("-y")
-        params.append("-threads")
-        params.append(str(used_cpu))
-        params.append("-i")
-        params.append(stream_url)
-        params.append("-t")
-        params.append(timeSec)
-        params.append("-pix_fmt")
-        params.append("yuv420p")
-        # Work on android but seems to be a problem on some Iphone
-        # params.append( '-c:v')
-        # params.append( 'mpeg4')
-        # params.append(  '-c:a' )
-        # params.append( 'mpeg4')
-        # Works on iphone but seems to be a problem on some android
-        # params.append( '-b:v')
-        # params.append( '0')
-        # params.append( '-crf')
-        # params.append( '25')
-        # params.append( '-movflags')
-        # params.append( 'faststart')
-
-        if multicam_profile:
-            flipH = multicam_profile.get("flipH")
-            flipV = multicam_profile.get("flipV")
-            rotate = multicam_profile.get("rotate90")
-        else:
-            flipH = self._settings.global_get(["webcam", "flipH"])
-            flipV = self._settings.global_get(["webcam", "flipV"])
-            rotate = self._settings.global_get(["webcam", "rotate90"])
-
-        # Rotation
-        flipping = ""
-        if flipH or flipV or rotate:
             self._logger.debug(
-                f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]"
+                f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}"
             )
-            params.append("-vf")
-            flipping = ""
-            if flipV:
-                self._logger.debug("Need flip vertical")
-                flipping += ",vflip"
-            if flipH:
-                self._logger.debug("Need flip horizontal")
-                flipping += ",hflip"
-            if rotate:
-                self._logger.debug("Need to rotate 90deg counter clockwise")
-                flipping += ",transpose=2"
-            flipping = flipping.lstrip(",")
-            params.append(flipping)
+        except Exception:
+            self._logger.exception(
+                "Exception caught getting number of cpu. Using defaults..."
+            )
 
-        params.append(outPath)
+        cmd = []
+        if shutil.which("nice"):
+            cmd = ["nice", "-n", "20"]
 
-        self._logger.debug(f"will now create the video {str(params).strip('[]')}")
+        cmd += [
+            "cpulimit",
+            "-l",
+            str(limit_cpu),
+            "-f",
+            "-z",
+            "--",
+            "ffmpeg",
+            "-y",
+            "-threads",
+            str(used_cpu),
+            "-i",
+            str(stream_url),
+            "-t",
+            str(time_sec),
+            "-pix_fmt",
+            "yuv420p",
+        ]
+        # Work on android but seems to be a problem on some Iphone
+        # params.append('-c:v')
+        # params.append('mpeg4')
+        # params.append('-c:a' )
+        # params.append('mpeg4')
+        # Works on iphone but seems to be a problem on some android
+        # params.append('-b:v')
+        # params.append('0')
+        # params.append('-crf')
+        # params.append('25')
+        # params.append('-movflags')
+        # params.append('faststart')
 
-        myproc = subprocess.Popen(
-            params, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        while True:
-            if myproc.poll() is not None:
-                break
-            try:
-                requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chat_id, "action": "record_video"},
-                    proxies=self.get_proxies(),
-                )
-            except Exception:
-                self._logger.exception("Exception caught sending action:record_video")
-            time.sleep(0.5)
+        filters = []
+        if flipV:
+            filters.append("vflip")
+        if flipH:
+            filters.append("hflip")
+        if rotate:
+            filters.append("transpose=2")
 
-        self._logger.debug("Finish the video")
+        if filters:
+            filter_str = ",".join(filters)
+            cmd += ["-vf", filter_str]
 
-        return outPath
+        cmd.append(gif_path)
+
+        self._logger.debug(f"Creating video by running command {cmd}")
+        subprocess.run(cmd)
+        self._logger.debug("Video created")
+
+        return gif_path
 
     def get_current_layers(self):
         layers = None

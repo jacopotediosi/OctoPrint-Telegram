@@ -116,17 +116,13 @@ class TCMD:
                 self._logger.exception("Exception caught calling pre_image()")
 
             try:
-                try:
-                    taken_gifs = self.main.take_all_gifs(chat_id)
-                except Exception:
-                    self._logger.exception("Exception caught taking all gifs")
+                taken_gifs = self.main.take_all_gifs()
 
                 for taken_gif in taken_gifs:
                     self.main.send_file(
                         chat_id, taken_gif, ""
                     )  # TODO: send as album + check 50MB
             except Exception:
-                # TODO: spostare eccezione, rileggere intera funzione
                 self._logger.exception("Exception occured creating the gif")
                 self.main.send_msg(
                     f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
@@ -138,7 +134,6 @@ class TCMD:
                 self.main.post_image()
             except Exception:
                 self._logger.exception("Exception caught calling post_image()")
-
         else:
             self.main.send_msg(
                 f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
@@ -155,17 +150,13 @@ class TCMD:
                 self._logger.exception("Exception caught calling pre_image()")
 
             try:
-                try:
-                    taken_gifs = self.main.take_all_gifs(chat_id, 10)
-                except Exception:
-                    self._logger.exception("Exception caught taking all gifs")
+                taken_gifs = self.main.take_all_gifs(10)
 
                 for taken_gif in taken_gifs:
                     self.main.send_file(
                         chat_id, taken_gif, ""
                     )  # TODO: send as album + check 50MB
             except Exception:
-                # TODO: spostare eccezione, rileggere intera funzione
                 self._logger.exception("Exception occured creating the gif")
                 self.main.send_msg(
                     f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
@@ -177,7 +168,6 @@ class TCMD:
                 self.main.post_image()
             except Exception:
                 self._logger.exception("Exception caught calling post_image()")
-
         else:
             self.main.send_msg(
                 f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
@@ -350,8 +340,7 @@ class TCMD:
         else:
             if self.main._printer.is_printing():
                 self.main.send_msg(
-                    self.gEmo("question")
-                    + " Really abort the currently running print?",
+                    f"{self.gEmo('question')} Really abort the currently running print?",
                     responses=[
                         [
                             [
@@ -365,8 +354,7 @@ class TCMD:
                 )
             else:
                 self.main.send_msg(
-                    self.gEmo("info")
-                    + " Currently I'm not printing, so there is nothing to stop.",
+                    f"{self.gEmo('info')} Currently I'm not printing, so there is nothing to stop.",
                     chatID=chat_id,
                     inline=False,
                 )
@@ -427,22 +415,19 @@ class TCMD:
                 data = self.main._printer.get_current_data()
                 if data["job"]["file"]["name"] is None:
                     self.main.send_msg(
-                        self.gEmo("warning")
-                        + " Uh oh... No file is selected for printing. Did you select one using /list?",
+                        f"{self.gEmo('warning')} Uh oh... No file is selected for printing. Did you select one using /list?",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif not self.main._printer.is_operational():
                     self.main.send_msg(
-                        self.gEmo("warning")
-                        + " Can't start printing: I'm not connected to a printer.",
+                        f"{self.gEmo('warning')} Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif self.main._printer.is_printing():
                     self.main.send_msg(
-                        self.gEmo("warning")
-                        + " A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
+                        f"{self.gEmo('warning')} A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -464,10 +449,7 @@ class TCMD:
                 self._logger.debug("Looking for hash: %s", parameter)
                 destination, file, f = self.find_file_by_hash(parameter)
                 if file is None:
-                    msg = (
-                        self.gEmo("warning")
-                        + " I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?"
-                    )
+                    msg = f"{self.gEmo('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
@@ -509,15 +491,13 @@ class TCMD:
                     )
                 elif not self.main._printer.is_operational():
                     self.main.send_msg(
-                        self.gEmo("warning")
-                        + " Can't start printing: I'm not connected to a printer.",
+                        f"{self.gEmo('warning')} Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 else:
                     self.main.send_msg(
-                        self.gEmo("warning")
-                        + " Uh oh... Problems on loading the file for print.",
+                        f"{self.gEmo('warning')} Uh oh... Problems on loading the file for print.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -586,8 +566,7 @@ class TCMD:
     ############################################################################################
     def cmdUpload(self, chat_id, from_id, cmd, parameter, user=""):
         self.main.send_msg(
-            self.gEmo("info")
-            + " To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
+            f"{self.gEmo('info')} To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
             chatID=chat_id,
         )
 
@@ -646,9 +625,7 @@ class TCMD:
                             % (returncode, stderr_text)
                         )
                         self.main.send_msg(
-                            self.gEmo("warning")
-                            + " Command failed with return code %i: %s"
-                            % (returncode, stderr_text),
+                            f"{self.gEmo('warning')} Command failed with return code {returncode}: {stderr_text}",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
