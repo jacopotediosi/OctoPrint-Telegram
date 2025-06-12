@@ -1068,7 +1068,7 @@ class TelegramPlugin(
                 # Finally delete commands
                 for cmd in delCmd:
                     del chats[chat]["commands"][cmd]
-                # If there are new commands in comamndDict, add them to settings
+                # If there are new commands in commandDict, add them to settings
                 for cmd in tcmd.commandDict:
                     if cmd not in chats[chat]["commands"]:
                         if "bind_none" not in tcmd.commandDict[cmd]:
@@ -1509,7 +1509,7 @@ class TelegramPlugin(
             data["message_id"] = msg_id
             data["chat_id"] = int(chatID)
             if markup != "off":
-                if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
+                if markup in ("HTML", "Markdown", "MarkdownV2"):
                     data["parse_mode"] = markup
                 else:
                     self._logger.warning(f"Invalid markup: {markup}")

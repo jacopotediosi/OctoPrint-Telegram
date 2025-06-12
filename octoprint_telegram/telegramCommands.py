@@ -230,7 +230,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
             elif params[0] == "t":
                 if len(params) > 1:
@@ -264,7 +264,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
             elif params[0] == "g":
                 if self.main._settings.get_boolean(["send_gif"]):
@@ -335,7 +335,7 @@ class TCMD:
                 ],
                 chatID=chat_id,
                 msg_id=msg_id,
-                markup="MarkdownV2",
+                markup="Markdown",
             )
 
     ############################################################################################
@@ -571,7 +571,7 @@ class TCMD:
                     self.main.send_msg(
                         f"{self.gEmo('save')} *Select Storage*",
                         chatID=chat_id,
-                        markup="MarkdownV2",
+                        markup="Markdown",
                         responses=keys,
                         msg_id=msg_id,
                     )
@@ -617,7 +617,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
-                        markup="MarkdownV2",
+                        markup="Markdown",
                     )
                     return
                 try:
@@ -1790,7 +1790,7 @@ class TCMD:
         else:
             msg += "You will receive NO notifications.\n\n"
 
-        self.main.send_msg(msg, chatID=chat_id, markup="MarkdownV2")
+        self.main.send_msg(msg, chatID=chat_id, markup="Markdown")
 
     ############################################################################################
     def cmdConnection(self, chat_id, from_id, cmd, parameter, user=""):
@@ -1834,7 +1834,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=msg_id,
-                        markup="MarkdownV2",
+                        markup="Markdown",
                     )
                 else:
                     self.main.send_msg(
@@ -1857,7 +1857,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=msg_id,
-                        markup="MarkdownV2",
+                        markup="Markdown",
                     )
             else:
                 self.main.send_msg(
@@ -1877,7 +1877,7 @@ class TCMD:
                     ],
                     chatID=chat_id,
                     msg_id=msg_id,
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
 
     ############################################################################################
@@ -1924,7 +1924,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
             elif params[0] == "flow":
                 if len(params) > 1:
@@ -1964,7 +1964,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
             elif params[0] == "e":
                 temps = self.main._printer.get_current_temperatures()
@@ -2029,7 +2029,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
             elif params[0] == "b":
                 temps = self.main._printer.get_current_temperatures()
@@ -2088,7 +2088,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
         else:
             msg = f"{self.gEmo('settings')} *Tune print settings*"
@@ -2128,7 +2128,7 @@ class TCMD:
                 keys.append(tmpKeys)
             keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
             self.main.send_msg(
-                msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="MarkdownV2"
+                msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="Markdown"
             )
 
     ############################################################################################
@@ -2509,22 +2509,20 @@ class TCMD:
         else:
             switch_command = ""
         self.main.send_msg(
-            self.gEmo("info")
-            + (
-                " *The following commands are known:*\n\n"
+            (
+                f"{self.gEmo('info')} *The following commands are known:*\n\n"
                 "/abort - Aborts the currently running print. A confirmation is required.\n"
                 "/shutup - Disables automatic notifications till the next print ends.\n"
                 "/dontshutup - The opposite of /shutup - Makes the bot talk again.\n"
                 "/status - Sends the current status including a current photo.\n"
-                "/gif - Sends a gif from the current video. "
-                f"{self.gEmo('warning')}\n"
+                f"/gif - Sends a gif from the current video. {self.gEmo('warning')}\n"
                 "/supergif - Sends a bigger gif from the current video.\n"
                 "/settings - Displays the current notification settings and allows you to change them.\n"
                 "/files - Lists all the files available for printing.\n"
                 "/filament - Shows you your filament spools or lets you change it. Requires the Filament Manager Plugin.\n"
                 "/print - Lets you start a print. A confirmation is required.\n"
                 "/togglepause - Pause/Resume current Print.\n"
-                "/home - Home the printer print head."
+                "/home - Home the printer print head.\n"
                 "/con - Connect/disconnect printer.\n"
                 "/upload - You can just send me a gcode file or a zip file to save it to my library.\n"
                 "/sys - Execute Octoprint System Commands.\n"
@@ -2535,7 +2533,7 @@ class TCMD:
             + switch_command
             + "/help - Show this help message.",
             chatID=chat_id,
-            markup="MarkdownV2",
+            markup="Markdown",
         )
 
     ############################################################################################
@@ -2704,7 +2702,7 @@ class TCMD:
             self.main.send_msg(
                 f"{self.gEmo('save')} Files in */{pathWoDest[:-1]}*    \\[{pageStr}]",
                 chatID=chat_id,
-                markup="MarkdownV2",
+                markup="Markdown",
                 responses=keys,
                 msg_id=self.main.get_update_msg_id(chat_id),
                 delay=wait,
@@ -3163,7 +3161,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
 
         elif opt.startswith("c"):
@@ -3222,7 +3220,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
-                    markup="MarkdownV2",
+                    markup="Markdown",
                 )
 
         elif opt.startswith("d"):
@@ -3296,7 +3294,7 @@ class TCMD:
                 self.main.send_msg(
                     f"{self.gEmo('question')} *Choose sorting order of files*",
                     chatID=chat_id,
-                    markup="MarkdownV2",
+                    markup="Markdown",
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
@@ -3543,7 +3541,7 @@ class TCMD:
                     ],
                 ],
                 chatID=chat_id,
-                markup="MarkdownV2",
+                markup="Markdown",
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
 
