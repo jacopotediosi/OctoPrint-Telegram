@@ -877,7 +877,6 @@ class TelegramPlugin(
             notification_time=15,
             message_at_print_done_delay=0,
             messages=telegramMsgDict,
-            tracking_token=None,
             chats={
                 "zBOTTOMOFCHATS": {
                     "send_notifications": False,
@@ -1168,7 +1167,7 @@ class TelegramPlugin(
         data = octoprint.plugin.SettingsPlugin.on_settings_load(self)
 
         # Only return our restricted settings to admin users - this is only needed for OctoPrint <= 1.2.16
-        restricted = (("token", None), ("tracking_token", None), ("chats", dict()))
+        restricted = (("token", None), ("chats", dict()))
         for r, v in restricted:
             if r in data and (
                 current_user is None
@@ -1181,7 +1180,7 @@ class TelegramPlugin(
 
     def get_settings_restricted_paths(self):
         # Only used in OctoPrint versions > 1.2.16
-        return dict(admin=[["token"], ["tracking_token"], ["chats"]])
+        return dict(admin=[["token"], ["chats"]])
 
     ##########
     ### Softwareupdate API
