@@ -890,7 +890,6 @@ class TelegramPlugin(
             image_not_connected=True,
             gif_not_connected=False,
             send_gif=False,
-            multicam=False,
             no_mistake=False,
             fileOrder=False,
             PreImgMethod="None",
