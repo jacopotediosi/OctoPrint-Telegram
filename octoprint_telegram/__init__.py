@@ -2302,10 +2302,18 @@ class TelegramPlugin(
         except FileNotFoundError:
             pass
 
-        for tool in ["cpulimit", "ffmpeg"]:
-            if not shutil.which(tool):
-                self._logger.error(f"{tool} not installed")
-                raise RuntimeError(f"{tool} not installed")
+        ffmpeg_path = shutil.which("ffmpeg")
+        cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
+
+        if not ffmpeg_path:
+            self._logger.error("ffmpeg not installed")
+            raise RuntimeError("ffmpeg not installed")
+
+        if cpulimiter_path:
+            self._logger.debug(f"Using CPU limiter: {cpulimiter_path}")
+        else:
+            self._logger.error("Neither cpulimit nor limitcpu is installed")
+            raise RuntimeError("No CPU limiter (cpulimit or limitcpu) available")
 
         duration = max(1, min(duration, 60))
         self._logger.debug(f"duration={duration}")
@@ -2332,13 +2340,13 @@ class TelegramPlugin(
             cmd = ["nice", "-n", "20"]
 
         cmd += [
-            "cpulimit",
+            cpulimiter_path,
             "-l",
             str(limit_cpu),
             "-f",
             "-z",
             "--",
-            "ffmpeg",
+            ffmpeg_path,
             "-y",
             "-threads",
             str(used_cpu),
