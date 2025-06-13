@@ -24,6 +24,7 @@ from flask_login import current_user
 from octoprint.access.permissions import Permissions
 from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
+from werkzeug.utils import secure_filename
 
 from .emojiDict import telegramEmojiDict  # Dict of known emojis
 from .telegramCommands import TCMD
@@ -2178,45 +2179,74 @@ class TelegramPlugin(
             "rotate90",
         ]
 
-        # Multicam
+        # New webcam integration (OctoPrint >= 1.9.0)
         try:
-            multicam_enabled = self._plugin_manager.get_plugin(
-                "multicam", True
-            ) and self._settings.get(["multicam"])
-            if multicam_enabled:
-                self._logger.debug("Multicam detected")
-
-                multicam_profiles = (
-                    self._settings.global_get(
-                        ["plugins", "multicam", "multicam_profiles"]
-                    )
-                    or []
+            if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
+                webcam_providers = self._plugin_manager.get_implementations(
+                    octoprint.plugin.types.WebcamProviderPlugin
                 )
-                self._logger.debug(f"Multicam profiles: {multicam_profiles}")
 
-                # Convert multicam_profiles to webcam_profiles, because multicam names some keys differently
-                # Map format: webcam_config_key: multicam_key
-                multicam_key_map = {
-                    "name": "name",
-                    "snapshot": "snapshot",
-                    "stream": "URL",
-                    "flipH": "flipH",
-                    "flipV": "flipV",
-                    "rotate90": "rotate90",
+                # Convert the new webcam integration values to webcam_profiles
+                # Map format: webcam_config_key: new webcam integration key
+                key_map = {
+                    "name": lambda wc: wc.name,
+                    "snapshot": lambda wc: wc.compat.snapshot,
+                    "stream": lambda wc: wc.compat.stream,
+                    "flipH": lambda wc: wc.flipH,
+                    "flipV": lambda wc: wc.flipV,
+                    "rotate90": lambda wc: wc.rotate90,
                 }
-                webcam_profiles = [
-                    {
-                        key: profile.get(multicam_key_map[key])
-                        for key in webcam_config_keys
-                    }
-                    for profile in multicam_profiles
-                ]
 
-                self._logger.debug(f"Multicam profiles: {webcam_profiles}")
+                for webcam_provider in webcam_providers:
+                    webcam_configurations = webcam_provider.get_webcam_configurations()
+                    for webcam_configuration in webcam_configurations:
+                        profile = {
+                            key: extractor(webcam_configuration)
+                            for key, extractor in key_map.items()
+                        }
+                        webcam_profiles.append(profile)
         except Exception:
-            self._logger.exception("Caught exception getting multicam profiles")
+            self._logger.exception(
+                "Caught exception getting new webcam integration profiles"
+            )
 
-        # Fallback on legacy webcam settings
+        # Fallback to Multicam plugin
+        if not webcam_profiles:
+            try:
+                multicam_enabled = self._plugin_manager.get_plugin(
+                    "multicam", True
+                ) and self._settings.get(["multicam"])
+                if multicam_enabled:
+                    self._logger.debug("Multicam detected")
+
+                    multicam_profiles = (
+                        self._settings.global_get(
+                            ["plugins", "multicam", "multicam_profiles"]
+                        )
+                        or []
+                    )
+                    self._logger.debug(f"Multicam profiles: {multicam_profiles}")
+
+                    # Convert multicam_profiles to webcam_profiles, because multicam names some keys differently
+                    # Map format: webcam_config_key: multicam_key
+                    key_map = {
+                        "name": "name",
+                        "snapshot": "snapshot",
+                        "stream": "URL",
+                        "flipH": "flipH",
+                        "flipV": "flipV",
+                        "rotate90": "rotate90",
+                    }
+                    webcam_profiles = [
+                        {key: profile.get(key_map[key]) for key in webcam_config_keys}
+                        for profile in multicam_profiles
+                    ]
+
+                    self._logger.debug(f"Multicam profiles: {webcam_profiles}")
+            except Exception:
+                self._logger.exception("Caught exception getting multicam profiles")
+
+        # Fallback to legacy webcam settings
         if not webcam_profiles:
             webcam_profiles = [
                 {
@@ -2291,8 +2321,8 @@ class TelegramPlugin(
         webcam_profiles = self.get_webcam_profiles()
         for profile in webcam_profiles:
             try:
-                profile_name = profile.get("name", "default").replace(" ", "_")
-                gif_filename = f"gif_{profile_name}.mp4"
+                profile_name = profile.get("name", "default")
+                gif_filename = secure_filename(f"gif_{profile_name}.mp4")
 
                 taken_gif_path = self.take_gif(
                     profile.get("stream"),
