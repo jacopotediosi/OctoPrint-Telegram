@@ -768,6 +768,9 @@ class TelegramPlugin(
     def get_assets(self):
         return dict(js=["js/telegram.js"])
 
+    def get_tmpgif_dir(self):
+        return os.path.join(self.get_plugin_data_folder(), "tmpgif")
+
     ##########
     ### Template API
     ##########
@@ -817,6 +820,10 @@ class TelegramPlugin(
         }
 
         self.chats = self._settings.get(["chats"])
+
+        # Create / clean tmpgif folder
+        shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
+        os.makedirs(self.get_tmpgif_dir(), exist_ok=True)
 
         self.start_listening()
 
@@ -2376,11 +2383,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking gifs from url: {stream_url}")
 
-        tmpgif_dir = os.path.join(self.get_plugin_data_folder(), "tmpgif")
-
-        os.makedirs(tmpgif_dir, exist_ok=True)
-
-        gif_path = os.path.join(tmpgif_dir, gif_filename)
+        gif_path = os.path.join(self.get_tmpgif_dir(), gif_filename)
 
         self._logger.debug(f"Removing file {gif_path}")
         try:
