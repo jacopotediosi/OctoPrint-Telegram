@@ -109,68 +109,22 @@ class TCMD:
     ############################################################################################
     def cmdGif(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._settings.get(["send_gif"]):
-            # Pre image
-            try:
-                self.main.pre_image()
-            except Exception:
-                self._logger.exception("Exception caught calling pre_image()")
-
-            try:
-                taken_gifs = self.main.take_all_gifs()
-
-                for taken_gif in taken_gifs:
-                    self.main.send_file(
-                        chat_id, taken_gif, ""
-                    )  # TODO: send as album + check 50MB
-            except Exception:
-                self._logger.exception("Exception occured creating the gif")
-                self.main.send_msg(
-                    f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
-                    chatID=chat_id,
-                )
-
-            # Post image
-            try:
-                self.main.post_image()
-            except Exception:
-                self._logger.exception("Exception caught calling post_image()")
+            self.main.send_msg("Here are your GIF(s)", chatID=chat_id, with_gif=True)
         else:
             self.main.send_msg(
-                f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
+                f"{self.gEmo('dizzy face')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
             )
 
     ############################################################################################
     def cmdSuperGif(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._settings.get(["send_gif"]):
-            # Pre image
-            try:
-                self.main.pre_image()
-            except Exception:
-                self._logger.exception("Exception caught calling pre_image()")
-
-            try:
-                taken_gifs = self.main.take_all_gifs(10)
-
-                for taken_gif in taken_gifs:
-                    self.main.send_file(
-                        chat_id, taken_gif, ""
-                    )  # TODO: send as album + check 50MB
-            except Exception:
-                self._logger.exception("Exception occured creating the gif")
-                self.main.send_msg(
-                    f"{self.gEmo('dizzy face')} Problem sending gif, please check log files",
-                    chatID=chat_id,
-                )
-
-            # Post image
-            try:
-                self.main.post_image()
-            except Exception:
-                self._logger.exception("Exception caught calling post_image()")
+            self.main.send_msg(
+                "Here are your GIF(s)", chatID=chat_id, with_gif=True, gif_duration=10
+            )
         else:
             self.main.send_msg(
-                f"{self.gEmo('dizzy face')} Sending GIF is disabled in plugin settings",
+                f"{self.gEmo('dizzy face')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
             )
 

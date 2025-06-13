@@ -1554,6 +1554,7 @@ class TelegramPlugin(
         markup="off",
         showWeb=False,
         silent=False,
+        gif_duration=5,
         **kwargs,
     ):
         self._logger.debug(f"Start _send_msg with args: {locals()}")
@@ -1615,9 +1616,9 @@ class TelegramPlugin(
             # Add thumbnails to images to send
             if kwargs.get("thumbnail"):
                 try:
-                    self._logger.debug(f"Get thumbnail: {kwargs['thumbnail']}")
+                    self._logger.debug(f"Get thumbnail: {kwargs.get('thumbnail')}")
 
-                    url = f"http://localhost:{self.tcmd.port}/{kwargs['thumbnail']}"
+                    url = f"http://localhost:{self.tcmd.port}/{kwargs.get('thumbnail', '')}"
 
                     tlg_response = requests.get(url, proxies=self.get_proxies())
                     tlg_response.raise_for_status()
@@ -1641,13 +1642,13 @@ class TelegramPlugin(
                 try:
                     # If the event already generated a gif
                     if (
-                        kwargs["event"] == "plugin_octolapse_movie_done"
-                        or kwargs["event"] == "MovieDone"
+                        kwargs.get("event") == "plugin_octolapse_movie_done"
+                        or kwargs.get("event") == "MovieDone"
                     ):
-                        gifs_to_send.append(kwargs["movie"])
+                        gifs_to_send.append(kwargs.get("movie", ""))
                     # Otherwise, take gifs from webcams
                     else:
-                        gifs_to_send += self.take_all_gifs()
+                        gifs_to_send += self.take_all_gifs(gif_duration)
                 except Exception:
                     self._logger.exception("Exception caught taking all gifs")
 
