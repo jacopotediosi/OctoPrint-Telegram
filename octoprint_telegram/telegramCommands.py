@@ -37,6 +37,7 @@ class TCMD:
             "/status": {"cmd": self.cmdStatus},
             "/gif": {"cmd": self.cmdGif},
             "/supergif": {"cmd": self.cmdSuperGif},
+            "/photo": {"cmd": self.cmdPhoto},
             "/settings": {"cmd": self.cmdSettings, "param": True},
             "/abort": {"cmd": self.cmdAbort, "param": True},
             "/togglepause": {"cmd": self.cmdTogglePause},
@@ -127,6 +128,10 @@ class TCMD:
                 f"{self.gEmo('dizzy face')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
             )
+
+    ############################################################################################
+    def cmdPhoto(self, chat_id, from_id, cmd, parameter, user=""):
+        self.main.send_msg("Here are your photo(s)", chatID=chat_id, with_image=True)
 
     ############################################################################################
     def cmdSettings(self, chat_id, from_id, cmd, parameter, user=""):
@@ -2448,6 +2453,7 @@ class TCMD:
                 "/status - Sends the current status including a current photo.\n"
                 f"/gif - Sends a gif from the current video. {self.gEmo('warning')}\n"
                 "/supergif - Sends a bigger gif from the current video.\n"
+                "/photo - Sends a photo from webcams.\n"
                 "/settings - Displays the current notification settings and allows you to change them.\n"
                 "/files - Lists all the files available for printing.\n"
                 "/filament - Shows you your filament spools or lets you change it. Requires the Filament Manager Plugin.\n"

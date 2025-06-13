@@ -2021,6 +2021,12 @@ class TelegramPlugin(
                 )
                 commands.append(
                     {
+                        "command": "photo",
+                        "description": "Sends photo from webcams",
+                    }
+                )
+                commands.append(
+                    {
                         "command": "shutup",
                         "description": "Disables automatic notifications until the next print ends",
                     }

@@ -75,8 +75,9 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	tune - Set feed- and flowrate. Control temperatures.
 	user - get user info.
 	help - show list of commands.
-	gif - send a gif of 5 seconds
-	supergif - send a gif of 10 seconds
+	gif - send gif of 5 seconds
+	supergif - send gif of 10 seconds
+	photo - send photo from webcams
 	on - Turns on the printer power via the PSUControl plugin API. Requires PSU Control plugin installation.
 	off - Turns off the printer power via the PSUControl plugin API. Requires PSU Control plugin.
 	gcode_XXX - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for exemple)
@@ -252,11 +253,13 @@ In this section you can configure the content of the notification messages.
 
 **`/help`** - Displays a help message with all accepted commands and a short description.
 
-**`/gif`** - Send a gif create from 20 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
+**`/gif`** - Send a gif created from 20 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
 sudo apt-get install cpulimit
 
-**`/supergif`** - Send a gif create from 60 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
+**`/supergif`** - Send a gif created from 60 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
 sudo apt-get install cpulimit
+
+**`/photo`** - send photo from webcams.
 
 **`/on`** - Turns on the Printer power via - the PSUControl plugin API. Requires the [PSU Control plugin](https://github.com/kantlivelong/OctoPrint-PSUControl)
 										   - the TuyaSmartplug plugin API. Requires the [TuyaSmartplug plugin](https://github.com/ziirish/OctoPrint-TuyaSmartplug/) sadly for now wait on accept the push request to get the list of plug
