@@ -11,6 +11,7 @@ import threading
 import time
 import traceback
 import zipfile
+from contextlib import contextmanager
 from typing import List
 from urllib.parse import urljoin
 
@@ -1570,17 +1571,6 @@ class TelegramPlugin(
                 self._logger.debug(f"Sleeping {delay} seconds")
                 time.sleep(delay)
 
-            # Send typing action
-            try:
-                tlg_response = requests.get(
-                    f"{self.bot_url}/sendChatAction",
-                    params={"chat_id": chatID, "action": "typing"},
-                    proxies=self.get_proxies(),
-                )
-                tlg_response.raise_for_status()
-            except Exception:
-                self._logger.exception("Exception caught sending typing action")
-
             # Preparing message data
             message_data = {}
 
@@ -1629,28 +1619,30 @@ class TelegramPlugin(
 
             # Add webcam images to images to send
             if with_image:
-                try:
-                    images_to_send += self.take_all_images()
-                except Exception:
-                    self._logger.exception("Exception caught taking all images")
+                with self.telegram_action_context(chatID, "record_video"):
+                    try:
+                        images_to_send += self.take_all_images()
+                    except Exception:
+                        self._logger.exception("Exception caught taking all images")
 
             # Prepare gifs to send
             gifs_to_send = []
 
             # Add gifs to gifs to send
             if with_gif:
-                try:
-                    # If the event already generated a gif
-                    if (
-                        kwargs.get("event") == "plugin_octolapse_movie_done"
-                        or kwargs.get("event") == "MovieDone"
-                    ):
-                        gifs_to_send.append(kwargs.get("movie", ""))
-                    # Otherwise, take gifs from webcams
-                    else:
-                        gifs_to_send += self.take_all_gifs(gif_duration)
-                except Exception:
-                    self._logger.exception("Exception caught taking all gifs")
+                with self.telegram_action_context(chatID, "record_video"):
+                    try:
+                        # If the event already generated a gif
+                        if (
+                            kwargs.get("event") == "plugin_octolapse_movie_done"
+                            or kwargs.get("event") == "MovieDone"
+                        ):
+                            gifs_to_send.append(kwargs.get("movie", ""))
+                        # Otherwise, take gifs from webcams
+                        else:
+                            gifs_to_send += self.take_all_gifs(gif_duration)
+                    except Exception:
+                        self._logger.exception("Exception caught taking all gifs")
 
             # Post image
             if with_image or with_gif:
@@ -1662,25 +1654,6 @@ class TelegramPlugin(
             # Initialize files and media
             files = {}
             media = []
-
-            # Send upload_video or upload_photo action
-            try:
-                action = None
-
-                if gifs_to_send:
-                    action = "upload_video"
-                elif images_to_send:
-                    action = "upload_photo"
-
-                if action:
-                    tlg_response = requests.get(
-                        f"{self.bot_url}/sendChatAction",
-                        params={"chat_id": chatID, "action": action},
-                        proxies=self.get_proxies(),
-                    )
-                    tlg_response.raise_for_status()
-            except Exception:
-                self._logger.exception(f"Exception caught sending {action} action")
 
             # Add images to send to files and media
             for i, image_to_send in enumerate(images_to_send):
@@ -1730,25 +1703,46 @@ class TelegramPlugin(
             if media:
                 self._logger.debug(f"Sending message with media, chat id: {chatID}")
 
-                message_data["media"] = json.dumps(media)
+                if gifs_to_send:
+                    action = "upload_video"
+                else:
+                    action = "upload_photo"
+                with self.telegram_action_context(chatID, action):
+                    try:
+                        message_data["media"] = json.dumps(media)
 
-                tlg_response = requests.post(
-                    f"{self.bot_url}/sendMediaGroup",
-                    data=message_data,
-                    files=files,
-                    proxies=self.get_proxies(),
-                )
+                        tlg_response = requests.post(
+                            f"{self.bot_url}/sendMediaGroup",
+                            data=message_data,
+                            files=files,
+                            proxies=self.get_proxies(),
+                        )
+                        if not tlg_response.ok:
+                            self._logger.error(
+                                f"Failed with status {tlg_response.status_code}: {tlg_response.text}"
+                            )
+                    except Exception:
+                        self._logger.exception("Exception caught in _send_msg()")
+
             # If there aren't media, send a text-only message
             else:
                 self._logger.debug(f"Sending text-only message, chat id: {chatID}")
 
-                message_data["text"] = message
+                with self.telegram_action_context(chatID, "typing"):
+                    try:
+                        message_data["text"] = message
 
-                tlg_response = requests.post(
-                    f"{self.bot_url}/sendMessage",
-                    data=message_data,
-                    proxies=self.get_proxies(),
-                )
+                        tlg_response = requests.post(
+                            f"{self.bot_url}/sendMessage",
+                            data=message_data,
+                            proxies=self.get_proxies(),
+                        )
+                        if not tlg_response.ok:
+                            self._logger.error(
+                                f"Failed with status {tlg_response.status_code}: {tlg_response.text}"
+                            )
+                    except Exception:
+                        self._logger.exception("Exception caught in _send_msg()")
 
             # Check the response
             if tlg_response.status_code == 200:
@@ -1804,21 +1798,21 @@ class TelegramPlugin(
         if not self.send_messages:
             return
 
-        try:
-            requests.get(
-                f"{self.bot_url}/sendChatAction",
-                params={"chat_id": chat_id, "action": "upload_document"},
-                proxies=self.get_proxies(),
-            )
-            with open(path, "rb") as document:
-                requests.post(
-                    f"{self.bot_url}/sendDocument",
-                    files={"document": document},
-                    data={"chat_id": chat_id, "caption": text},
-                    proxies=self.get_proxies(),
-                )
-        except Exception:
-            self._logger.exception("Exception caught in send_file()")
+        with self.telegram_action_context(chat_id, "upload_document"):
+            try:
+                with open(path, "rb") as document:
+                    r = requests.post(
+                        f"{self.bot_url}/sendDocument",
+                        files={"document": document},
+                        data={"chat_id": chat_id, "caption": text},
+                        proxies=self.get_proxies(),
+                    )
+                    if not r.ok:
+                        self._logger.error(
+                            f"Failed with status {r.status_code}: {r.text}"
+                        )
+            except Exception:
+                self._logger.exception("Exception caught in send_file()")
 
     def get_file(self, file_id):
         if not self.send_messages:
@@ -1885,6 +1879,36 @@ class TelegramPlugin(
 
         except Exception:
             self._logger.exception("Can't load UserImage")
+
+    @contextmanager
+    def telegram_action_context(self, chat_id, action):
+        if not chat_id or not action:
+            yield
+            return
+
+        stop_event = threading.Event()
+
+        def _loop():
+            try:
+                while not stop_event.is_set():
+                    requests.get(
+                        f"{self.bot_url}/sendChatAction",
+                        params={"chat_id": chat_id, "action": action},
+                        proxies=self.get_proxies(),
+                        timeout=5,
+                    )
+                    time.sleep(4.5)  # Telegram action expires after ~5s
+            except Exception:
+                self._logger.exception("Exception in telegram_action_context loop")
+
+        thread = threading.Thread(target=_loop, daemon=True)
+        thread.start()
+
+        try:
+            yield
+        finally:
+            stop_event.set()
+            thread.join(timeout=2)
 
     def test_token(self, token=None):
         if not self.send_messages:
