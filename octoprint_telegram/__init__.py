@@ -2167,50 +2167,87 @@ class TelegramPlugin(
         else:
             self._logger.warning(f"Unknown post_image method: {method}")
 
-    def take_all_images(self) -> List[bytes]:
-        self._logger.debug("Taking all images")
+    def get_webcam_profiles(self):
+        webcam_profiles = []
+        webcam_config_keys = [
+            "name",
+            "snapshot",
+            "stream",
+            "flipH",
+            "flipV",
+            "rotate90",
+        ]
 
-        taken_images_contents = []
-
-        # Retrieve multicam profiles
-        multicam_profiles = None
+        # Multicam
         try:
             multicam_enabled = self._plugin_manager.get_plugin(
                 "multicam", True
             ) and self._settings.get(["multicam"])
             if multicam_enabled:
                 self._logger.debug("Multicam detected")
-                multicam_profiles = self._settings.global_get(
-                    ["plugins", "multicam", "multicam_profiles"]
+
+                multicam_profiles = (
+                    self._settings.global_get(
+                        ["plugins", "multicam", "multicam_profiles"]
+                    )
+                    or []
                 )
                 self._logger.debug(f"Multicam profiles: {multicam_profiles}")
-            else:
-                self._logger.debug("Multicam not detected")
+
+                # Convert multicam_profiles to webcam_profiles, because multicam names some keys differently
+                # Map format: webcam_config_key: multicam_key
+                multicam_key_map = {
+                    "name": "name",
+                    "snapshot": "snapshot",
+                    "stream": "URL",
+                    "flipH": "flipH",
+                    "flipV": "flipV",
+                    "rotate90": "rotate90",
+                }
+                webcam_profiles = [
+                    {
+                        key: profile.get(multicam_key_map[key])
+                        for key in webcam_config_keys
+                    }
+                    for profile in multicam_profiles
+                ]
+
+                self._logger.debug(f"Multicam profiles: {webcam_profiles}")
         except Exception:
             self._logger.exception("Caught exception getting multicam profiles")
 
-        # If there are multicam profiles, take images from them
-        if multicam_profiles:
-            for multicam_profile in multicam_profiles:
-                try:
-                    taken_image_content = self.take_image(
-                        multicam_profile.get("snapshot"),
-                        multicam_profile.get("flipH"),
-                        multicam_profile.get("flipV"),
-                        multicam_profile.get("rotate90"),
-                    )
-                    taken_images_contents.append(taken_image_content)
-                except Exception:
-                    self._logger.exception("Exception caught taking an image")
+        # Fallback on legacy webcam settings
+        if not webcam_profiles:
+            webcam_profiles = [
+                {
+                    key: self._settings.global_get(["webcam", key])
+                    for key in webcam_config_keys
+                }
+            ]
 
-        # If there aren't multicam profiles, fallback taking image from the octoprint default camera
-        else:
+        # Return webcam profiles
+        return [
+            {
+                key: profile.get(key)
+                for key in webcam_config_keys
+                if profile.get(key) is not None
+            }
+            for profile in webcam_profiles
+        ]
+
+    def take_all_images(self) -> List[bytes]:
+        taken_images_contents = []
+
+        self._logger.debug("Taking all images")
+
+        webcam_profiles = self.get_webcam_profiles()
+        for profile in webcam_profiles:
             try:
                 taken_image_content = self.take_image(
-                    self._settings.global_get(["webcam", "snapshot"]),
-                    self._settings.global_get(["webcam", "flipH"]),
-                    self._settings.global_get(["webcam", "flipV"]),
-                    self._settings.global_get(["webcam", "rotate90"]),
+                    profile.get("snapshot"),
+                    profile.get("flipH", False),
+                    profile.get("flipV", False),
+                    profile.get("rotate90", False),
                 )
                 taken_images_contents.append(taken_image_content)
             except Exception:
@@ -2247,60 +2284,23 @@ class TelegramPlugin(
         return image_content
 
     def take_all_gifs(self, duration=5) -> List[str]:
-        self._logger.debug("Taking all gifs")
-
         taken_gif_paths = []
 
-        # Retrieve multicam profiles
-        multicam_profiles = None
-        try:
-            multicam_enabled = self._plugin_manager.get_plugin(
-                "multicam", True
-            ) and self._settings.get(["multicam"])
-            if multicam_enabled:
-                self._logger.debug("Multicam detected")
-                multicam_profiles = self._settings.global_get(
-                    ["plugins", "multicam", "multicam_profiles"]
-                )
-                self._logger.debug(f"Multicam profiles: {multicam_profiles}")
-            else:
-                self._logger.debug("Multicam not detected")
-        except Exception:
-            self._logger.exception("Caught exception getting multicam profiles")
+        self._logger.debug("Taking all gifs")
 
-        # If there are multicam profiles, take gifs from them
-        if multicam_profiles:
-            for multicam_profile in multicam_profiles:
-                try:
-                    multicam_profile_name = multicam_profile.get("name", "").replace(
-                        " ", "_"
-                    )
-                    gif_filename = f"gif_{multicam_profile_name}.mp4"
-
-                    taken_gif_path = self.take_gif(
-                        multicam_profile.get("URL"),
-                        duration,
-                        gif_filename,
-                        multicam_profile.get("flipH"),
-                        multicam_profile.get("flipV"),
-                        multicam_profile.get("rotate90"),
-                    )
-                    taken_gif_paths.append(taken_gif_path)
-                except Exception:
-                    self._logger.exception("Exception caught taking a gif")
-
-        # If there aren't multicam profiles, fallback taking image from the octoprint default camera
-        else:
+        webcam_profiles = self.get_webcam_profiles()
+        for profile in webcam_profiles:
             try:
-                gif_filename = "gif.mp4"
+                profile_name = profile.get("name", "default").replace(" ", "_")
+                gif_filename = f"gif_{profile_name}.mp4"
 
                 taken_gif_path = self.take_gif(
-                    self._settings.global_get(["webcam", "stream"]),
+                    profile.get("stream"),
                     duration,
                     gif_filename,
-                    self._settings.global_get(["webcam", "flipH"]),
-                    self._settings.global_get(["webcam", "flipV"]),
-                    self._settings.global_get(["webcam", "rotate90"]),
+                    profile.get("flipH", False),
+                    profile.get("flipV", False),
+                    profile.get("rotate90", False),
                 )
                 taken_gif_paths.append(taken_gif_path)
             except Exception:
