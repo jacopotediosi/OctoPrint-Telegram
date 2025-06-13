@@ -223,14 +223,6 @@ class TCMD:
                 self.main._settings.save()
                 self.cmdSettings(chat_id, from_id, cmd, "back", user)
                 return
-            elif params[0] == "m":
-                if self.main._settings.get_boolean(["multicam"]):
-                    self.main._settings.set_int(["multicam"], 0, force=True)
-                else:
-                    self.main._settings.set_int(["multicam"], 1, force=True)
-                self.main._settings.save()
-                self.cmdSettings(chat_id, from_id, cmd, "back", user)
-                return
         else:
             if self.main._settings.get_boolean(["send_gif"]):
                 gif_txt = "Deactivate gif"
@@ -238,13 +230,6 @@ class TCMD:
             else:
                 gif_txt = "Activate gif"
                 gif_emo = self.gEmo("error")
-
-            if self.main._settings.get_boolean(["multicam"]):
-                multicam_txt = "Deactivate management of multicam"
-                multicam_emo = self.gEmo("check")
-            else:
-                multicam_txt = "Activate mangement of multicam"
-                multicam_emo = self.gEmo("error")
 
             self.SettingsTemp = [
                 self.main._settings.get_float(["notification_height"]),
@@ -254,8 +239,7 @@ class TCMD:
                 f"{self.gEmo('settings')} *Current notification settings are:*\n\n"
                 f"{self.gEmo('height')} Height: {self.main._settings.get_float(['notification_height']):.2f}mm\n\n"
                 f"{self.gEmo('clock')} Time: {self.main._settings.get_int(['notification_time']):d}min\n\n"
-                f"{self.gEmo('film frame')} Gif is activate: {gif_emo}\n\n"
-                f"{self.gEmo('video camera')} Multicam is activate: {multicam_emo}"
+                f"{self.gEmo('film frame')} Gif is activate: {gif_emo}"
             )
 
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
@@ -274,10 +258,6 @@ class TCMD:
                         [
                             self.main.emojis["film frame"] + str(gif_txt),
                             "/settings_g",
-                        ],
-                        [
-                            self.main.emojis["video camera"] + str(multicam_txt),
-                            "/settings_m",
                         ],
                     ],
                     [[f"{self.main.emojis['cross mark']} Close", "No"]],

@@ -890,7 +890,6 @@ class TelegramPlugin(
             image_not_connected=True,
             gif_not_connected=False,
             send_gif=False,
-            multicam=False,
             no_mistake=False,
             fileOrder=False,
             PreImgMethod="None",
@@ -2213,10 +2212,7 @@ class TelegramPlugin(
         # Fallback to Multicam plugin
         if not webcam_profiles:
             try:
-                multicam_enabled = self._plugin_manager.get_plugin(
-                    "multicam", True
-                ) and self._settings.get(["multicam"])
-                if multicam_enabled:
+                if self._plugin_manager.get_plugin("multicam", True):
                     self._logger.debug("Multicam detected")
 
                     multicam_profiles = (
