@@ -616,14 +616,14 @@ class TelegramListener(threading.Thread):
         self.do_stop = True
 
     def set_status(self, status, ok=False):
-        if status != self.main.connection_state_str:
-            if self.do_stop:
-                self._logger.debug(f"Would set status but do_stop is True: {status}")
-                return
-            if ok:
-                self._logger.debug(f"Setting status: {status}")
-            else:
-                self._logger.error(f"Setting status: {status}")
+        if self.main.connection_state_str == status:
+            return
+
+        if self.do_stop:
+            self._logger.debug(f"Would set status but do_stop is True: {status}")
+            return
+
+        self._logger.debug(f"Setting status: {status}")
         self.connection_ok = ok
         self.main.connection_state_str = status
 
