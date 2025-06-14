@@ -412,8 +412,7 @@ class TMSG:
                     f"{self.main.gEmo('warning')} ERROR: I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
-            self._logger.debug(f"Sending Notification: {message}")
-            self._logger.debug(kwargs)
+            self._logger.debug(f"Sending Notification with kwargs {kwargs}: {message}")
             # Do we want to send with Markup?
             kwargs["markup"] = self.main._settings.get(
                 ["messages", kwargs["event"], "markup"]

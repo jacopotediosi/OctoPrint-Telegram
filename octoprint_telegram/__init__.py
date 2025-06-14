@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -22,6 +23,7 @@ import requests
 import urllib3
 from flask_login import current_user
 from octoprint.access.permissions import Permissions
+from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
 from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -633,11 +635,12 @@ class TelegramListener(threading.Thread):
 
 class TelegramPluginLoggingFilter(logging.Filter):
     def filter(self, record):
-        for match in re.findall(r"[0-9]+:[a-zA-Z0-9_\-]+", record.msg):
-            new = re.sub(
-                "[0-9]", "1", re.sub("[a-z]", "a", re.sub("[A-Z]", "A", match))
-            )
-            record.msg = record.msg.replace(match, new)
+        # Redact Telegram bot tokens from logs
+        pattern = r"[0-9]{8,10}:[a-zA-Z0-9_-]{35}"
+        msg = str(record.msg) if not isinstance(record.msg, str) else record.msg
+
+        for match in re.findall(pattern, msg):
+            record.msg = msg.replace(match, "REDACTED")
         return True
 
 
@@ -662,6 +665,7 @@ class TelegramPlugin(
 ):
     def __init__(self):
         # For more init stuff see on_after_startup()
+        self._logger = logging.getLogger("octoprint.plugins.telegram")
         self.thread = None
         self.bot_url = None
         self.chats = {}
@@ -796,9 +800,32 @@ class TelegramPlugin(
     ### Startup/Shutdown API
     ##########
 
-    def on_after_startup(self):
-        self._logger.addFilter(TelegramPluginLoggingFilter())
+    def on_startup(self, host, port):
+        # Logging formatter
+        logging_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
 
+        # File logging handler
+        file_handler = CleaningTimedRotatingFileHandler(
+            self._settings.get_plugin_logfile_path(),
+            when="D",
+            backupCount=3,
+        )
+        file_handler.setFormatter(logging_formatter)
+        file_handler.addFilter(TelegramPluginLoggingFilter())
+        self._logger.addHandler(file_handler)
+
+        # Console logging handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logging_formatter)
+        self._logger.addHandler(console_handler)
+
+        # Don't propagate logging
+        self._logger.propagate = False
+
+    def on_after_startup(self):
+        self.utils = Utils(self)
         self.tcmd = TCMD(self)
         self.triggered = False
 
