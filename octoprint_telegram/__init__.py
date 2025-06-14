@@ -18,7 +18,6 @@ from urllib.parse import urljoin
 
 import octoprint.filemanager
 import octoprint.plugin
-import octoprint.util
 import requests
 import urllib3
 from flask_login import current_user
@@ -54,6 +53,7 @@ class TelegramListener(threading.Thread):
         self.update_offset = 0
         self.first_contact = True
         self.main = main
+        self.utils = Utils(main)
         self.do_stop = False
         self.username = "UNKNOWN"
         self._logger = main._logger.getChild("listener")
@@ -538,80 +538,58 @@ class TelegramListener(threading.Thread):
 
     def get_updates(self):
         self._logger.debug(
-            f"listener: sending request with offset {self.update_offset}..."
+            f"Listener: sending request with offset {self.update_offset}..."
         )
-        req = None
 
-        # Try to check for incoming messages. Wait 120sek and repeat on failure.
+        # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
+            # If it is the first contact, drain the updates backlog
             if self.update_offset == 0 and self.first_contact:
-                res = ["0", "0"]
-                while len(res) > 0:
-                    req = requests.get(
+                while True:
+                    json_data = self.utils.send_telegram_request(
                         f"{self.main.bot_url}/getUpdates",
+                        "get",
                         params={"offset": self.update_offset, "timeout": 0},
-                        allow_redirects=False,
-                        timeout=10,
-                        proxies=self.get_proxies(),
                     )
-                    json = req.json()
-                    if not json["ok"]:
-                        self.set_status(
-                            f"Response didn't include 'ok:true'. Waiting 2 minutes before trying again. Response was: {json}"
-                        )
-                        time.sleep(120)
-                        raise ExitThisLoopException()
-                    if len(json["result"]) > 0 and "update_id" in json["result"][0]:
-                        self.set_update_offset(json["result"][0]["update_id"])
-                    res = json["result"]
-                    if len(res) < 1:
+
+                    results = json_data.get("result", [])
+
+                    if results and "update_id" in results[0]:
+                        self.set_update_offset(results[0]["update_id"])
+
+                    if not results:
                         self._logger.debug(
-                            "Ignoring message because first_contact is True."
+                            "Ignored all messages until now because first_contact was True."
                         )
+                        break
+
                 if self.update_offset == 0:
                     self.set_update_offset(0)
+
+            # Else, get the updates
             else:
-                req = requests.get(
+                json_data = self.utils.send_telegram_request(
                     f"{self.main.bot_url}/getUpdates",
+                    "get",
                     params={"offset": self.update_offset, "timeout": 30},
-                    allow_redirects=False,
-                    timeout=40,
-                    proxies=self.get_proxies(),
                 )
-        except requests.exceptions.Timeout:
-            # Just start the next loop
-            raise ExitThisLoopException()
-        except Exception:
-            self.set_status(
-                "Got an exception trying to connect to telegram API.\n"
-                "Waiting 2 minutes before trying again.\n"
-                f"Stacktrace: {traceback.format_exc()}"
-            )
-            time.sleep(120)
-            raise ExitThisLoopException()
-        if req.status_code != 200:
-            self.set_status(
-                f"Telegram API responded with code {req.status_code}. Waiting 2 minutes before trying again."
-            )
-            time.sleep(120)
-            raise ExitThisLoopException()
-        if req.headers["content-type"] != "application/json":
-            self.set_status(
-                f"Unexpected Content-Type. Expected: application/json. Was: {req.headers['content-type']}. Waiting 2 minutes before trying again."
-            )
-            time.sleep(120)
-            raise ExitThisLoopException()
-        json = req.json()
-        if not json["ok"]:
-            self.set_status(
-                f"Response didn't include 'ok:true'. Waiting 2 minutes before trying again. Response was: {json}"
-            )
-            time.sleep(120)
-            raise ExitThisLoopException()
-        if "result" in json and len(json["result"]) > 0:
-            for entry in json["result"]:
+
+            # Update update_offset
+            results = json_data.get("result", [])
+            for entry in results:
                 self.set_update_offset(entry["update_id"])
-        return json
+
+            # Return the response
+            return json_data
+
+        except Exception as e:
+            error_message = f"Caught exception in get_updates: {e}. Waiting 2 minutes before trying again."
+
+            self._logger.error(error_message)
+            self.set_status(error_message)
+
+            time.sleep(120)
+            raise ExitThisLoopException()
 
     # Stop the listener
     def stop(self):
@@ -629,11 +607,6 @@ class TelegramListener(threading.Thread):
         self.connection_ok = ok
         self.main.connection_state_str = status
 
-    def get_proxies(self):
-        http_proxy = self.main._settings.get(["http_proxy"])
-        https_proxy = self.main._settings.get(["https_proxy"])
-        return {"http": http_proxy, "https": https_proxy}
-
 
 class TelegramPluginLoggingFilter(logging.Filter):
     def filter(self, record):
@@ -648,6 +621,93 @@ class TelegramPluginLoggingFilter(logging.Filter):
 
 class ExitThisLoopException(Exception):
     pass
+
+
+class Utils:
+    def __init__(self, main):
+        self.main = main
+        self._logger = main._logger.getChild("utils")
+
+    def get_proxies(self):
+        http_proxy = self.main._settings.get(["http_proxy"])
+        https_proxy = self.main._settings.get(["https_proxy"])
+        return {"http": http_proxy, "https": https_proxy}
+
+    def send_telegram_request(self, url, method, **kwargs):
+        """
+        Sends a request to the Telegram Bot API and returns the parsed JSON response.
+
+        This method handles request execution, error checking, and JSON decoding.
+        It raises an exception if the HTTP request fails, returns an unexpected status,
+        an invalid content type, or if the Telegram API indicates an error.
+
+        Args:
+            url (str): The full Telegram API URL to call.
+            method (str): The HTTP method to use ("get" or "post").
+            **kwargs: Additional arguments passed to the underlying requests library
+                    (e.g., 'data', 'params', 'files').
+
+        Returns:
+            dict: The JSON-decoded response from Telegram, guaranteed to contain 'ok': True.
+
+        Raises:
+            ValueError: If the HTTP method is not "get" or "post".
+            Exception: If the request fails, the response is invalid, or the Telegram API returns an error.
+        """
+        method = method.lower()
+        if method not in {"get", "post"}:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+        default_kwargs = {
+            "allow_redirects": False,
+            "timeout": 60,
+            "proxies": self.get_proxies(),
+        }
+        request_kwargs = {**default_kwargs, **kwargs}
+
+        loggable_kwargs = {
+            k: ("<binary data>" if k == "files" else v)
+            for k, v in request_kwargs.items()
+        }
+        self._logger.debug(
+            f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}"
+        )
+
+        try:
+            response = requests.request(method, url, **request_kwargs)
+        except Exception:
+            raise Exception(
+                "Caught an exception sending telegram request. "
+                f"Traceback: {traceback.format_exc()}."
+            )
+
+        if not response.ok:
+            raise Exception(
+                f"Telegram request responded with code {response.status_code}. "
+                f"Response was: {response.text}."
+            )
+
+        content_type = response.headers.get("content-type", "")
+        if content_type != "application/json":
+            raise Exception(
+                "Unexpected Content-Type. Expected: application/json. "
+                f"It was: {content_type}."
+            )
+
+        try:
+            json_data = response.json()
+
+            if not json_data.get("ok", False):
+                raise Exception(
+                    f"Response didn't include 'ok:true'. Response was: {json_data}. "
+                )
+
+            return json_data
+        except Exception:
+            raise Exception(
+                "Failed to parse telegram response to json. "
+                f"Response was: {response.text}."
+            )
 
 
 ########################################
@@ -677,6 +737,7 @@ class TelegramPlugin(
         self.updateMessageID = {}
         self.shut_up = {}
         self.send_messages = True
+        self.utils = None
         self.tcmd = None
         self.tmsg = None
         self.sending_okay_minute = None
@@ -983,7 +1044,7 @@ class TelegramPlugin(
                     r = requests.post(
                         f"{self.bot_url}/sendMessage",
                         data=message,
-                        proxies=self.get_proxies(),
+                        proxies=self.utils.get_proxies(),
                     )
                     r.raise_for_status()
                     if r.headers["content-type"] != "application/json":
@@ -1532,7 +1593,9 @@ class TelegramPlugin(
                 data["reply_markup"] = json.dumps(keyboard)
             self._logger.debug(f"SENDING UPDATE: {data}")
             req = requests.post(
-                f"{self.bot_url}/editMessageText", data=data, proxies=self.get_proxies()
+                f"{self.bot_url}/editMessageText",
+                data=data,
+                proxies=self.utils.get_proxies(),
             )
             if req.headers["content-type"] != "application/json":
                 self._logger.warning(
@@ -1613,7 +1676,7 @@ class TelegramPlugin(
 
                     url = f"http://localhost:{self.tcmd.port}/{kwargs.get('thumbnail', '')}"
 
-                    tlg_response = requests.get(url, proxies=self.get_proxies())
+                    tlg_response = requests.get(url, proxies=self.utils.get_proxies())
                     tlg_response.raise_for_status()
 
                     images_to_send.append(tlg_response.content)
@@ -1718,12 +1781,8 @@ class TelegramPlugin(
                             f"{self.bot_url}/sendMediaGroup",
                             data=message_data,
                             files=files,
-                            proxies=self.get_proxies(),
+                            proxies=self.utils.get_proxies(),
                         )
-                        if not tlg_response.ok:
-                            self._logger.error(
-                                f"Failed with status {tlg_response.status_code}: {tlg_response.text}"
-                            )
                     except Exception:
                         self._logger.exception("Exception caught in _send_msg()")
 
@@ -1738,12 +1797,8 @@ class TelegramPlugin(
                         tlg_response = requests.post(
                             f"{self.bot_url}/sendMessage",
                             data=message_data,
-                            proxies=self.get_proxies(),
+                            proxies=self.utils.get_proxies(),
                         )
-                        if not tlg_response.ok:
-                            self._logger.error(
-                                f"Failed with status {tlg_response.status_code}: {tlg_response.text}"
-                            )
                     except Exception:
                         self._logger.exception("Exception caught in _send_msg()")
 
@@ -1752,7 +1807,7 @@ class TelegramPlugin(
                 self._logger.debug("Message sent successfully")
             else:
                 self._logger.error(
-                    f"Message sent, but received bad status code: {tlg_response.status_code}. Full response was: {tlg_response.text}."
+                    f"Message sent, but received bad status code: {tlg_response.status_code}. Response was: {tlg_response.text}."
                 )
                 tlg_response.raise_for_status()
 
@@ -1773,7 +1828,7 @@ class TelegramPlugin(
                     "chat_id": chatID,
                     "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
                 },
-                proxies=self.get_proxies(),
+                proxies=self.utils.get_proxies(),
             )
             self.set_status("Exception sending a message")
 
@@ -1808,7 +1863,7 @@ class TelegramPlugin(
                         f"{self.bot_url}/sendDocument",
                         files={"document": document},
                         data={"chat_id": chat_id, "caption": text},
-                        proxies=self.get_proxies(),
+                        proxies=self.utils.get_proxies(),
                     )
                     if not r.ok:
                         self._logger.error(
@@ -1825,7 +1880,7 @@ class TelegramPlugin(
         r = requests.get(
             f"{self.bot_url}/getFile",
             data={"file_id": file_id},
-            proxies=self.get_proxies(),
+            proxies=self.utils.get_proxies(),
         )
         r.raise_for_status()
         data = r.json()
@@ -1835,7 +1890,7 @@ class TelegramPlugin(
             )
         url = f"{self.bot_file_url}/{data['result']['file_path']}"
         self._logger.debug(f"Downloading file: {url}")
-        r = requests.get(url, proxies=self.get_proxies())
+        r = requests.get(url, proxies=self.utils.get_proxies())
         r.raise_for_status()
         return r.content
 
@@ -1851,11 +1906,10 @@ class TelegramPlugin(
                         f"Not able to load group photos. Chat_id: {chat_id}. EXIT"
                     )
                     return
-                self._logger.debug(f"requests.get({self.bot_url}/getUserProfilePhotos")
                 r = requests.get(
                     f"{self.bot_url}/getUserProfilePhotos",
                     params={"limit": 1, "user_id": chat_id},
-                    proxies=self.get_proxies(),
+                    proxies=self.utils.get_proxies(),
                 )
                 r.raise_for_status()
                 data = r.json()
@@ -1897,7 +1951,7 @@ class TelegramPlugin(
                     requests.get(
                         f"{self.bot_url}/sendChatAction",
                         params={"chat_id": chat_id, "action": action},
-                        proxies=self.get_proxies(),
+                        proxies=self.utils.get_proxies(),
                         timeout=5,
                     )
                     time.sleep(4.5)  # Telegram action expires after ~5s
@@ -1920,7 +1974,8 @@ class TelegramPlugin(
         if token is None:
             token = self._settings.get(["token"])
         response = requests.get(
-            f"https://api.telegram.org/bot{token}/getMe", proxies=self.get_proxies()
+            f"https://api.telegram.org/bot{token}/getMe",
+            proxies=self.utils.get_proxies(),
         )
         self._logger.debug(f"getMe returned: {response.json()}")
         self._logger.debug(f"getMe status code: {response.status_code}")
@@ -1939,147 +1994,101 @@ class TelegramPlugin(
             if not force:
                 # Check if a list of commands was already set
                 resp = requests.get(
-                    f"{self.bot_url}/getMyCommands", proxies=self.get_proxies()
+                    f"{self.bot_url}/getMyCommands", proxies=self.utils.get_proxies()
                 ).json()
                 self._logger.debug(f"getMyCommands returned {resp}")
                 shallRun = len(resp["result"]) == 0
             if shallRun:
-                commands = []
-                commands.append(
+                commands = [
                     {
                         "command": "status",
                         "description": "Displays the current status including a capture from the camera",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "togglepause",
                         "description": "Pauses/Resumes current print",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "home",
                         "description": "Home the printer print head",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "files",
                         "description": "Lists all the files available for printing",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "print",
                         "description": "Lets you start a print (confirmation required)",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "tune",
                         "description": "Sets feed and flow rate, control temperatures",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "ctrl",
                         "description": "Activates self defined controls from Octoprint",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "con",
                         "description": "Connects or disconnects the printer",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "sys",
                         "description": "Executes Octoprint system commands",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "abort",
                         "description": "Aborts the currently running print (confirmation required)",
-                    }
-                )
-                commands.append(
-                    {"command": "off", "description": "Turn off the printer"}
-                )
-                commands.append({"command": "on", "description": "Turn on the printer"})
-                commands.append(
+                    },
+                    {"command": "off", "description": "Turn off the printer"},
+                    {"command": "on", "description": "Turn on the printer"},
                     {
                         "command": "settings",
                         "description": "Displays notification settings and lets change them",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "upload",
                         "description": "Stores a file into the Octoprint library",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "filament",
                         "description": "Shows filament spools and lets you change it (requires Filament Manager Plugin)",
-                    }
-                )
-                commands.append({"command": "user", "description": "Gets user info"})
-                commands.append(
+                    },
+                    {"command": "user", "description": "Gets user info"},
                     {
                         "command": "gcode",
                         "description": "Call gCode commande with /gcode_XXX where XXX is the gcode command",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "gif",
                         "description": "Sends a gif from the current video",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "supergif",
                         "description": "Sends a bigger gif from the current video",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "photo",
                         "description": "Sends photo from webcams",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "shutup",
                         "description": "Disables automatic notifications until the next print ends",
-                    }
-                )
-                commands.append(
+                    },
                     {
                         "command": "dontshutup",
                         "description": "Makes the bot talk again (opposite of `/shutup`)",
-                    }
-                )
-                commands.append(
-                    {"command": "help", "description": "Shows this help message"}
-                )
+                    },
+                    {"command": "help", "description": "Shows this help message"},
+                ]
                 resp = requests.post(
                     f"{self.bot_url}/setMyCommands",
                     data={"commands": json.dumps(commands)},
-                    proxies=self.get_proxies(),
+                    proxies=self.utils.get_proxies(),
                 ).json()
                 self._logger.debug(f"setMyCommands returned {resp}")
         except Exception:
             pass
-
-    def get_proxies(self):
-        http_proxy = self._settings.get(["http_proxy"])
-        https_proxy = self._settings.get(["https_proxy"])
-        return {"http": http_proxy, "https": https_proxy}
 
     ##########
     ### Helper methods
@@ -2314,7 +2323,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, proxies=self.get_proxies())
+        r = requests.get(snapshot_url, timeout=10, proxies=self.utils.get_proxies())
         r.raise_for_status()
 
         image_content = r.content
@@ -2490,7 +2499,7 @@ class TelegramPlugin(
                     f"http://localhost:{int(self.tcmd.port)}/plugin/DisplayLayerProgress/values",
                     headers=headers,
                     timeout=3,
-                    proxies=self.get_proxies(),
+                    proxies=self.utils.get_proxies(),
                 )
                 self._logger.debug(f"get_current_layers : r={r}")
                 if r.status_code >= 300:
