@@ -454,42 +454,41 @@
        <nobr><h4><i class="icon-info-sign icon-large" style="color:blue"></i>&nbsp;&nbsp;{{_('Emojis') }}</h4></nobr>
     </div>
     <div class="modal-body">
-    	<p>Add <code>&#123;emo:&lt;emoName&gt;&#125;</code> to your message text to use emojis. The <code>emoName</code> has to be set according to the 'Description' column on <a href="http://apps.timwhitlock.info/emoji/tables/unicode" target ="_blank">this Website</a>. No emoji will be send, if 'Send emojis' is deactivated.</p>
+    	<p>Add <code>&#123;emo:&lt;emoName&gt;&#125;</code> to your message text to use emojis. The <code>emoName</code> has to be set according to the 'Description' column on <a href="https://www.unicode.org/emoji/charts/full-emoji-list.html" target ="_blank">this Website</a>. Please note that no emoji will be sent if 'Send Emojis' setting is deactivated.</p>
 
-    	<p><b>Example:</b><br>If you want to use <img id="1f62d" class="teleEmojiImg"> in yor message you have to type <code>&#123;emo:loudly crying face&#125;</code>.
+    	<p><b>Example:</b><br>If you want to use {{ "loudly crying face" | telegram_emoji }} in your message, you have to type <code>&#123;emo:loudly crying face&#125;</code>.
 
     	<p><br><span style="font-size:1.25em;">There are a few shortcuts available:</span>
 			<table class="table table-condensed table-striped" style="table-layout: auto">
-			    <thead>
-				    <tr>
-				        <th style="border-right:1px dashed #ddd;text-align:center;">{{_('Emoji') }}</th>
-				        <th style="border-right:1px solid #ddd">{{ _('emoName') }}</th>
-				        <th style="border-right:1px dashed #ddd;text-align:center;">{{_('Emoji') }}</th>
-				        <th>{{ _('emoName') }}</th>
-				    </tr>
-			    </thead>
-			    <tbody >
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f419" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">octo</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f616" class="teleEmojiImg"></td><td>mistake</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f514" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">notify</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f515" class="teleEmojiImg"></td><td>noNotify</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f4a4" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">shutdown</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f64a" class="teleEmojiImg"></td><td>shutup</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f62c" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">notallowed</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f680" class="teleEmojiImg"></td><td>rocket</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f4be" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">save</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="2764" class="teleEmojiImg"></td><td>heart</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="2139" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">info</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f4dd" class="teleEmojiImg"></td><td>settings</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="23f0" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">clock</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="2b06" class="teleEmojiImg"></td><td>height</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="2753" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">question</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="26a0" class="teleEmojiImg"></td><td>warning</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="270f" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">enter</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f4e5" class="teleEmojiImg"></td><td>upload</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f3a6" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">cam</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f3ac" class="teleEmojiImg"></td><td>movie</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="25b6" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">play</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="25fc" class="teleEmojiImg"></td><td>stop</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f3c1" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">finish</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f389" class="teleEmojiImg"></td><td>hooray</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="26d4" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">error</td><td style="border-right:1px dashed #ddd;text-align:center;"><img id="1f4a1" class="teleEmojiImg"></td><td>lamp</td></tr>
-				    <tr><td style="border-right:1px dashed #ddd;text-align:center;"><img id="2705" class="teleEmojiImg"></td><td style="border-right:1px solid #ddd">check</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+				<thead>
+					<tr>
+						<th style="border-right:1px dashed #ddd;text-align:center;">{{_('Emoji') }}</th>
+						<th style="border-right:1px solid #ddd">{{ _('emoName') }}</th>
+						<th style="border-right:1px dashed #ddd;text-align:center;">{{_('Emoji') }}</th>
+						<th>{{ _('emoName') }}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% set items = plugin_telegram_custom_emoji_map.items()|list %}
+					{% for i in range(0, items|length, 2) %}
+					<tr>
+					{% for j in [0, 1] %}
+						{% if i + j < items|length %}
+						{% set key, _ = items[i + j] %}
+						<td style="border-right:1px dashed #ddd; text-align:center;">{{ key | telegram_emoji }}</td>
+						<td style="border-right:1px solid #ddd">{{ key }}</td>
+						{% else %}
+						<td>&nbsp;</td><td>&nbsp;</td>
+						{% endif %}
+					{% endfor %}
+					</tr>
+					{% endfor %}
 			    </tbody>
 			</table>
 
     	<p>
 	    	<span class="muted"><small>
-	    		Data for internal icon list taken from: <a href="https://github.com/github/gemoji" target="_blank">github/gemoji</a><br>
-	    		These emoji images are taken from Github's <a href="https://github.com/github/gemoji" target="_blank">gemoji project</a>. The icons are copyright of Apple Inc. See the <a href="https://github.com/github/gemoji/blob/master/LICENSE" target="_blank">license</a> for details.
+	    		Data for internal icon list taken from: <a href="https://github.com/muan/unicode-emoji-json" target="_blank">muan/unicode-emoji-json</a>.
 			</small></span>
     	</p>
       </p>

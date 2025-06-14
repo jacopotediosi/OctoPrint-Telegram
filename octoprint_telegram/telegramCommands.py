@@ -9,6 +9,10 @@ import requests
 import sarge
 from octoprint.printer import UnknownScript
 
+from .emoji.emoji import Emoji
+
+get_emoji = Emoji.get_emoji
+
 
 #################################################################################################################################
 # This class handles received commands/messages (commands in the following). commandDict{} holds the commands and their behavior.
@@ -18,7 +22,6 @@ from octoprint.printer import UnknownScript
 class TCMD:
     def __init__(self, main):
         self.main = main
-        self.gEmo = self.main.gEmo
         self._logger = main._logger.getChild("TCMD")
         self.SettingsTemp = []
         self.tuneTemp = [100, 100]
@@ -82,11 +85,11 @@ class TCMD:
     ############################################################################################
     def cmdTest(self, chat_id, from_id, cmd, parameter, user=""):
         self.main.send_msg(
-            f"{self.gEmo('question')} Is this a test?\n\n",
+            f"{get_emoji('question')} Is this a test?\n\n",
             responses=[
                 [
-                    [f"{self.main.emojis['check']} Yes", "Yes"],
-                    [f"{self.main.emojis['cross mark']} No", "No"],
+                    [f"{get_emoji('check')} Yes", "Yes"],
+                    [f"{get_emoji('cross mark')} No", "No"],
                 ]
             ],
             chatID=chat_id,
@@ -97,7 +100,7 @@ class TCMD:
         if not self.main._printer.is_operational():
             with_image = self.main._settings.get_boolean(["image_not_connected"])
             self.main.send_msg(
-                f"{self.gEmo('warning')} Not connected to a printer. Use /con to connect.",
+                f"{get_emoji('warning')} Not connected to a printer. Use /con to connect.",
                 chatID=chat_id,
                 inline=False,
                 with_image=with_image,
@@ -113,7 +116,7 @@ class TCMD:
             self.main.send_msg("Here are your GIF(s)", chatID=chat_id, with_gif=True)
         else:
             self.main.send_msg(
-                f"{self.gEmo('dizzy face')} Sending GIFs is disabled in plugin settings",
+                f"{get_emoji('dizzy face')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
             )
 
@@ -125,7 +128,7 @@ class TCMD:
             )
         else:
             self.main.send_msg(
-                f"{self.gEmo('dizzy face')} Sending GIFs is disabled in plugin settings",
+                f"{get_emoji('dizzy face')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
             )
 
@@ -152,7 +155,7 @@ class TCMD:
                         return
                     if self.SettingsTemp[0] < 0:
                         self.SettingsTemp[0] = 0
-                msg = f"{self.gEmo('height')} Set new height.\nCurrent:  *{self.SettingsTemp[0]:.2f}mm*"
+                msg = f"{get_emoji('height')} Set new height.\nCurrent:  *{self.SettingsTemp[0]:.2f}mm*"
                 keys = [
                     [
                         ["+10", "/settings_h_+"],
@@ -167,9 +170,9 @@ class TCMD:
                         ["-.01", "/settings_h_----"],
                     ],
                     [
-                        [f"{self.main.emojis['save']} Save", "/settings_h_s"],
+                        [f"{get_emoji('save')} Save", "/settings_h_s"],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/settings_back",
                         ],
                     ],
@@ -196,14 +199,14 @@ class TCMD:
                         return
                     if self.SettingsTemp[1] < 0:
                         self.SettingsTemp[1] = 0
-                msg = f"{self.gEmo('clock')} Set new time.\nCurrent: *{self.SettingsTemp[1]}min*"
+                msg = f"{get_emoji('clock')} Set new time.\nCurrent: *{self.SettingsTemp[1]}min*"
                 keys = [
                     [["+10", "/settings_t_+"], ["+1", "/settings_t_++"]],
                     [["-10", "/settings_t_-"], ["-1", "/settings_t_--"]],
                     [
-                        [f"{self.main.emojis['save']} Save", "/settings_t_s"],
+                        [f"{get_emoji('save')} Save", "/settings_t_s"],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/settings_back",
                         ],
                     ],
@@ -226,20 +229,20 @@ class TCMD:
         else:
             if self.main._settings.get_boolean(["send_gif"]):
                 gif_txt = "Deactivate gif"
-                gif_emo = self.gEmo("check")
+                gif_emo = get_emoji("check")
             else:
                 gif_txt = "Activate gif"
-                gif_emo = self.gEmo("error")
+                gif_emo = get_emoji("error")
 
             self.SettingsTemp = [
                 self.main._settings.get_float(["notification_height"]),
                 self.main._settings.get_float(["notification_time"]),
             ]
             msg = (
-                f"{self.gEmo('settings')} *Current notification settings are:*\n\n"
-                f"{self.gEmo('height')} Height: {self.main._settings.get_float(['notification_height']):.2f}mm\n\n"
-                f"{self.gEmo('clock')} Time: {self.main._settings.get_int(['notification_time']):d}min\n\n"
-                f"{self.gEmo('film frame')} Gif is activate: {gif_emo}"
+                f"{get_emoji('settings')} *Current notification settings are:*\n\n"
+                f"{get_emoji('height')} Height: {self.main._settings.get_float(['notification_height']):.2f}mm\n\n"
+                f"{get_emoji('clock')} Time: {self.main._settings.get_int(['notification_time']):d}min\n\n"
+                f"{get_emoji('film frame')} Gif is activate: {gif_emo}"
             )
 
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
@@ -248,19 +251,19 @@ class TCMD:
                 responses=[
                     [
                         [
-                            f"{self.main.emojis['height']} Set height",
+                            f"{get_emoji('height')} Set height",
                             "/settings_h",
                         ],
                         [
-                            f"{self.main.emojis['clock']} Set time",
+                            f"{get_emoji('clock')} Set time",
                             "/settings_t",
                         ],
                         [
-                            self.main.emojis["film frame"] + str(gif_txt),
+                            get_emoji("film frame") + str(gif_txt),
                             "/settings_g",
                         ],
                     ],
-                    [[f"{self.main.emojis['cross mark']} Close", "No"]],
+                    [[f"{get_emoji('cross mark')} Close", "No"]],
                 ],
                 chatID=chat_id,
                 msg_id=msg_id,
@@ -272,28 +275,28 @@ class TCMD:
         if parameter and parameter == "stop":
             self.main._printer.cancel_print(user=user)
             self.main.send_msg(
-                f"{self.gEmo('info')} Aborting the print.",
+                f"{get_emoji('info')} Aborting the print.",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
         else:
             if self.main._printer.is_printing():
                 self.main.send_msg(
-                    f"{self.gEmo('question')} Really abort the currently running print?",
+                    f"{get_emoji('question')} Really abort the currently running print?",
                     responses=[
                         [
                             [
-                                f"{self.main.emojis['check']} Stop print",
+                                f"{get_emoji('check')} Stop print",
                                 "/abort_stop",
                             ],
-                            [f"{self.main.emojis['cross mark']} Close", "No"],
+                            [f"{get_emoji('cross mark')} Close", "No"],
                         ]
                     ],
                     chatID=chat_id,
                 )
             else:
                 self.main.send_msg(
-                    f"{self.gEmo('info')} Currently I'm not printing, so there is nothing to stop.",
+                    f"{get_emoji('info')} Currently I'm not printing, so there is nothing to stop.",
                     chatID=chat_id,
                     inline=False,
                 )
@@ -302,10 +305,10 @@ class TCMD:
     def cmdTogglePause(self, chat_id, from_id, cmd, parameter, user=""):
         msg = ""
         if self.main._printer.is_printing():
-            msg = f"{self.gEmo('hourglass')} Pausing the print."
+            msg = f"{get_emoji('hourglass')} Pausing the print."
             self.main._printer.toggle_pause_print(user=user)
         elif self.main._printer.is_paused():
-            msg = f"{self.gEmo('black right-pointing triangle')} Resuming the print."
+            msg = f"{get_emoji('black right-pointing triangle')} Resuming the print."
             self.main._printer.toggle_pause_print(user=user)
         else:
             msg = "  Currently I'm not printing, so there is nothing to pause/resume."
@@ -314,10 +317,10 @@ class TCMD:
     ############################################################################################
     def cmdHome(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._printer.is_ready():
-            msg = f"{self.gEmo('house with garden')} Homing."
+            msg = f"{get_emoji('house with garden')} Homing."
             self.main._printer.home(["x", "y", "z"])
         else:
-            msg = f"{self.gEmo('warning')} I can't go home now."
+            msg = f"{get_emoji('warning')} I can't go home now."
         self.main.send_msg(msg, chatID=chat_id, inline=False)
 
     ############################################################################################
@@ -331,8 +334,8 @@ class TCMD:
             )
             self.main.shutdown()
         self.main.send_msg(
-            f"{self.gEmo('noNotify')} Okay, shutting up until the next print is finished."
-            f"{self.gEmo('shutup')} Use /dontshutup to let me talk again before that.",
+            f"{get_emoji('noNotify')} Okay, shutting up until the next print is finished."
+            f"{get_emoji('shutup')} Use /dontshutup to let me talk again before that.",
             chatID=chat_id,
             inline=False,
         )
@@ -342,7 +345,7 @@ class TCMD:
         if chat_id in self.main.shut_up:
             self.main.shut_up[chat_id] = 0
         self.main.send_msg(
-            f"{self.gEmo('notify')} Yay, I can talk again.",
+            f"{get_emoji('notify')} Yay, I can talk again.",
             chatID=chat_id,
             inline=False,
         )
@@ -354,26 +357,26 @@ class TCMD:
                 data = self.main._printer.get_current_data()
                 if data["job"]["file"]["name"] is None:
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Uh oh... No file is selected for printing. Did you select one using /list?",
+                        f"{get_emoji('warning')} Uh oh... No file is selected for printing. Did you select one using /list?",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif not self.main._printer.is_operational():
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Can't start printing: I'm not connected to a printer.",
+                        f"{get_emoji('warning')} Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 elif self.main._printer.is_printing():
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
+                        f"{get_emoji('warning')} A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 else:
                     self.main._printer.start_print(user=user)
                     self.main.send_msg(
-                        f"{self.gEmo('rocket')} Started the print job.",
+                        f"{get_emoji('rocket')} Started the print job.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -388,7 +391,7 @@ class TCMD:
                 self._logger.debug("Looking for hash: %s", parameter)
                 destination, file, f = self.find_file_by_hash(parameter)
                 if file is None:
-                    msg = f"{self.gEmo('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?"
+                    msg = f"{get_emoji('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
@@ -407,8 +410,8 @@ class TCMD:
                 data = self.main._printer.get_current_data()
                 if data["job"]["file"]["name"] is not None:
                     msg = (
-                        f"{self.gEmo('info')} Okay. The file {data['job']['file']['name']} is loaded.\n\n"
-                        f"{self.gEmo('question')} Do you want me to start printing it now?"
+                        f"{get_emoji('info')} Okay. The file {data['job']['file']['name']} is loaded.\n\n"
+                        f"{get_emoji('question')} Do you want me to start printing it now?"
                     )
                     self.main.send_msg(
                         msg,
@@ -417,11 +420,11 @@ class TCMD:
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['check']}Print",
+                                    f"{get_emoji('check')}Print",
                                     "/print_s",
                                 ],
                                 [
-                                    f"{self.main.emojis['cross mark']} Cancel",
+                                    f"{get_emoji('cross mark')} Cancel",
                                     "/print_x",
                                 ],
                             ]
@@ -430,13 +433,13 @@ class TCMD:
                     )
                 elif not self.main._printer.is_operational():
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Can't start printing: I'm not connected to a printer.",
+                        f"{get_emoji('warning')} Can't start printing: I'm not connected to a printer.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 else:
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Uh oh... Problems on loading the file for print.",
+                        f"{get_emoji('warning')} Uh oh... Problems on loading the file for print.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -481,14 +484,14 @@ class TCMD:
                     keys.extend(
                         [([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)]
                     )
-                    keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+                    keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
                     msg_id = (
                         self.main.get_update_msg_id(chat_id)
                         if parameter == "back"
                         else ""
                     )
                     self.main.send_msg(
-                        f"{self.gEmo('save')} *Select Storage*",
+                        f"{get_emoji('save')} *Select Storage*",
                         chatID=chat_id,
                         markup="Markdown",
                         responses=keys,
@@ -497,7 +500,7 @@ class TCMD:
         except Exception:
             self._logger.exception("Command failed")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed, please check log files",
+                f"{get_emoji('warning')} Command failed, please check log files",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
@@ -505,7 +508,7 @@ class TCMD:
     ############################################################################################
     def cmdUpload(self, chat_id, from_id, cmd, parameter, user=""):
         self.main.send_msg(
-            f"{self.gEmo('info')} To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
+            f"{get_emoji('info')} To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
             chatID=chat_id,
         )
 
@@ -516,19 +519,18 @@ class TCMD:
             if params[0] == "sys":
                 if params[1] != "do":
                     self.main.send_msg(
-                        self.gEmo("question")
+                        get_emoji("question")
                         + " *"
                         + params[1]
                         + "*\nExecute system command?",
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['check']} Execute",
+                                    f"{get_emoji('check')} Execute",
                                     f"/sys_sys_do_{params[1]}",
                                 ],
                                 [
-                                    self.main.emojis["leftwards arrow with hook"]
-                                    + " Back",
+                                    get_emoji("leftwards arrow with hook") + " Back",
                                     "/sys_back",
                                 ],
                             ]
@@ -564,20 +566,20 @@ class TCMD:
                             % (returncode, stderr_text)
                         )
                         self.main.send_msg(
-                            f"{self.gEmo('warning')} Command failed with return code {returncode}: {stderr_text}",
+                            f"{get_emoji('warning')} Command failed with return code {returncode}: {stderr_text}",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
-                        f"{self.gEmo('check')} System Command executed.",
+                        f"{get_emoji('check')} System Command executed.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files",
+                        f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -598,18 +600,17 @@ class TCMD:
             if command:
                 if "confirm" in command and params[0] != "do":
                     self.main.send_msg(
-                        self.gEmo("question")
+                        get_emoji("question")
                         + str(command["name"])
                         + "\nExecute system command?",
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['check']} Execute",
+                                    f"{get_emoji('check')} Execute",
                                     f"/sys_do_{str(parameter)}",
                                 ],
                                 [
-                                    self.main.emojis["leftwards arrow with hook"]
-                                    + " Back",
+                                    get_emoji("leftwards arrow with hook") + " Back",
                                     "/sys_back",
                                 ],
                             ]
@@ -640,7 +641,7 @@ class TCMD:
                                     % (returncode, stderr_text)
                                 )
                                 self.main.send_msg(
-                                    self.gEmo("warning")
+                                    get_emoji("warning")
                                     + " Command failed with return code %i: %s"
                                     % (returncode, stderr_text),
                                     chatID=chat_id,
@@ -648,7 +649,7 @@ class TCMD:
                                 )
                                 return
                         self.main.send_msg(
-                            self.gEmo("check")
+                            get_emoji("check")
                             + " System Command "
                             + command["name"]
                             + " executed.",
@@ -658,14 +659,14 @@ class TCMD:
                     except Exception:
                         self._logger.exception("Command failed")
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + " Command failed, please check log files",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
             else:
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Sorry, i don't know this System Command.",
+                    f"{get_emoji('warning')} Sorry, i don't know this System Command.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
@@ -747,9 +748,9 @@ class TCMD:
             except Exception:
                 self._logger.exception("Exception retrieving IP address")
 
-            message = self.gEmo("info") + message_text
+            message = get_emoji("info") + message_text
 
-            keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+            keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
@@ -757,7 +758,7 @@ class TCMD:
     def cmdCtrl(self, chat_id, from_id, cmd, parameter, user=""):
         if not self.main._printer.is_operational():
             self.main.send_msg(
-                self.gEmo("warning")
+                get_emoji("warning")
                 + " Printer not connected. You can't send any command.",
                 chatID=chat_id,
             )
@@ -773,18 +774,17 @@ class TCMD:
             if command:
                 if "confirm" in command and params[0] != "do":
                     self.main.send_msg(
-                        self.gEmo("question")
+                        get_emoji("question")
                         + str(command["name"])
                         + "\nExecute control command?",
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['check']}Execute",
+                                    f"{get_emoji('check')}Execute",
                                     f"/ctrl_do_{str(parameter)}",
                                 ],
                                 [
-                                    self.main.emojis["leftwards arrow with hook"]
-                                    + " Back",
+                                    get_emoji("leftwards arrow with hook") + " Back",
                                     "/ctrl_back",
                                 ],
                             ]
@@ -799,7 +799,7 @@ class TCMD:
                             self.main._printer.script(command["command"])
                         except UnknownScript:
                             self.main.send_msg(
-                                self.gEmo("warning")
+                                get_emoji("warning")
                                 + " Unknown script: "
                                 + command["command"],
                                 chatID=chat_id,
@@ -811,7 +811,7 @@ class TCMD:
                     else:
                         self.main._printer.commands(command["command"])
                     self.main.send_msg(
-                        self.gEmo("check")
+                        get_emoji("check")
                         + " Control Command "
                         + command["name"]
                         + " executed.",
@@ -820,12 +820,12 @@ class TCMD:
                     )
             else:
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Control Command not found.",
+                    f"{get_emoji('warning')} Control Command not found.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
         else:
-            message = f"{self.gEmo('info')} The following Printer Controls are known."
+            message = f"{get_emoji('info')} The following Printer Controls are known."
             empty = True
             keys = []
             tmpKeys = []
@@ -845,12 +845,12 @@ class TCMD:
                         self._logger.exception("An Exception in get action")
                 if len(tmpKeys) > 0:
                     keys.append(tmpKeys)
-                keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+                keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
             except Exception:
                 self._logger.exception("An Exception in get list action")
             if empty:
                 message += (
-                    f"\n\n{self.gEmo('warning')} No Printer Control Command found..."
+                    f"\n\n{get_emoji('warning')} No Printer Control Command found..."
                 )
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
@@ -875,7 +875,7 @@ class TCMD:
                         f"Call response (POST API octoprint): {str(answer)}"
                     )
                     self.main.send_msg(
-                        self.gEmo("warning")
+                        get_emoji("warning")
                         + "Something wrong, power on command failed.",
                         chatID=chat_id,
                     )
@@ -884,7 +884,7 @@ class TCMD:
                         "isPSUOn"
                     ]:  # I know it's overcoding, but it's clearer.
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Printer has already been turned on.",
                             chatID=chat_id,
                         )
@@ -892,16 +892,16 @@ class TCMD:
             except Exception:
                 self._logger.exception("Failed to connect to call api")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Command failed, please check log files",
+                    f"{get_emoji('warning')} Command failed, please check log files",
                     chatID=chat_id,
                 )
 
             self.main.send_msg(
-                f"{self.gEmo('question')} Turn on the Printer?\n\n",
+                f"{get_emoji('question')} Turn on the Printer?\n\n",
                 responses=[
                     [
-                        [f"{self.main.emojis['check']} Yes", "SwitchOn"],
-                        [f"{self.main.emojis['cross mark']} No", "No"],
+                        [f"{get_emoji('check')} Yes", "SwitchOn"],
+                        [f"{get_emoji('cross mark')} No", "No"],
                     ]
                 ],
                 chatID=chat_id,
@@ -929,7 +929,7 @@ class TCMD:
 
                     if CurrentStatus == "on":
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Plug "
                             + pluglabel
                             + " has already been turned on.",
@@ -939,11 +939,11 @@ class TCMD:
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files",
+                        f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
                     )
 
-                # self.main.send_msg(self.gEmo('question') + " Turn on the Plug "+pluglabel+"?\n\n", responses=[[[self.main.emojis['check']+" Yes","SwitchOn",pluglabel], [self.main.emojis['cross mark']+" No","No"]]],chatID=chat_id)
+                # self.main.send_msg(Emoji.get('question') + " Turn on the Plug "+pluglabel+"?\n\n", responses=[[[Emoji.get('check')+" Yes","SwitchOn",pluglabel], [Emoji.get('cross mark')+" No","No"]]],chatID=chat_id)
                 self._logger.info("Attempting to turn on the printer with API")
                 try:
                     headers = {
@@ -975,21 +975,21 @@ class TCMD:
                             f"Call response (POST API octoprint): {str(answer)}"
                         )
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Something wrong, Power on attempt failed.",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
-                        f"{self.gEmo('check')} Command executed.",
+                        f"{get_emoji('check')} Command executed.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files",
+                        f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -1045,7 +1045,7 @@ class TCMD:
                         except Exception:
                             self._logger.exception("getting settings failed")
                             self.main.send_msg(
-                                self.gEmo("warning")
+                                get_emoji("warning")
                                 + "Something wrong, power on command failed, please check log files.",
                                 chatID=chat_id,
                             )
@@ -1112,15 +1112,15 @@ class TCMD:
 
                         if len(json_data) == 1:
                             self.main.send_msg(
-                                f"{self.gEmo('question')} Turn on the Printer?\n\n",
+                                f"{get_emoji('question')} Turn on the Printer?\n\n",
                                 responses=[
                                     [
                                         [
-                                            f"{self.main.emojis['check']} Yes",
+                                            f"{get_emoji('check')} Yes",
                                             f"SwitchOn_{firstplug}",
                                         ],
                                         [
-                                            f"{self.main.emojis['cross mark']} No",
+                                            f"{get_emoji('cross mark')} No",
                                             "No",
                                         ],
                                     ]
@@ -1132,7 +1132,7 @@ class TCMD:
                             keys.append(
                                 [
                                     [
-                                        f"{self.main.emojis['cross mark']} Close",
+                                        f"{get_emoji('cross mark')} Close",
                                         "No",
                                     ]
                                 ]
@@ -1149,14 +1149,14 @@ class TCMD:
                 except Exception:
                     self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files",
+                        f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
         else:
             self.main.send_msg(
-                self.gEmo("warning")
+                get_emoji("warning")
                 + " PSU Control plugin not found. Command can not be executed.",
                 chatID=chat_id,
             )
@@ -1179,13 +1179,13 @@ class TCMD:
                         f"Call response (POST API octoprint): {str(answer)}"
                     )
                     self.main.send_msg(
-                        f"{self.gEmo('warning')}Something wrong, shutdown failed.",
+                        f"{get_emoji('warning')}Something wrong, shutdown failed.",
                         chatID=chat_id,
                     )
                 else:
                     if not answer.json()["isPSUOn"]:
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Printer has already been turned off.",
                             chatID=chat_id,
                         )
@@ -1193,16 +1193,16 @@ class TCMD:
             except Exception:
                 self._logger.exception("Failed to connect to call api")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Command failed, please check log files",
+                    f"{get_emoji('warning')} Command failed, please check log files",
                     chatID=chat_id,
                 )
 
             self.main.send_msg(
-                f"{self.gEmo('question')} Turn off the Printer?\n\n",
+                f"{get_emoji('question')} Turn off the Printer?\n\n",
                 responses=[
                     [
-                        [f"{self.main.emojis['check']} Yes", "SwitchOff"],
-                        [f"{self.main.emojis['cross mark']} No", "No"],
+                        [f"{get_emoji('check')} Yes", "SwitchOff"],
+                        [f"{get_emoji('cross mark')} No", "No"],
                     ]
                 ],
                 chatID=chat_id,
@@ -1230,7 +1230,7 @@ class TCMD:
 
                     if CurrentStatus == "off":
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Plug "
                             + pluglabel
                             + " has already been turned off.",
@@ -1240,11 +1240,11 @@ class TCMD:
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files!",
+                        f"{get_emoji('warning')} Command failed, please check log files!",
                         chatID=chat_id,
                     )
 
-                # self.main.send_msg(self.gEmo('question') + " Turn on the Plug "+pluglabel+"?\n\n", responses=[[[self.main.emojis['check']+" Yes","SwitchOn",pluglabel], [self.main.emojis['cross mark']+" No","No"]]],chatID=chat_id)
+                # self.main.send_msg(Emoji.get('question') + " Turn on the Plug "+pluglabel+"?\n\n", responses=[[[Emoji.get('check')+" Yes","SwitchOn",pluglabel], [Emoji.get('cross mark')+" No","No"]]],chatID=chat_id)
                 self._logger.info("Attempting to turn off the printer with API")
                 try:
                     headers = {
@@ -1276,21 +1276,21 @@ class TCMD:
                             f"Call response (POST API octoprint): {str(answer)}"
                         )
                         self.main.send_msg(
-                            self.gEmo("warning")
+                            get_emoji("warning")
                             + "Something wrong, Power off attempt failed.",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
                         return
                     self.main.send_msg(
-                        f"{self.gEmo('check')} Command executed.",
+                        f"{get_emoji('check')} Command executed.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                 except Exception:
                     self._logger.exception("Failed to connect to call api")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check log files",
+                        f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -1346,7 +1346,7 @@ class TCMD:
                         except Exception:
                             self._logger.exception("getting settings failed")
                             self.main.send_msg(
-                                self.gEmo("warning")
+                                get_emoji("warning")
                                 + "Something wrong, power on command failed.",
                                 chatID=chat_id,
                             )
@@ -1413,15 +1413,15 @@ class TCMD:
 
                         if len(json_data) == 1:
                             self.main.send_msg(
-                                f"{self.gEmo('question')} Turn off the Printer?\n\n",
+                                f"{get_emoji('question')} Turn off the Printer?\n\n",
                                 responses=[
                                     [
                                         [
-                                            f"{self.main.emojis['check']} Yes",
+                                            f"{get_emoji('check')} Yes",
                                             f"SwitchOff_{firstplug}",
                                         ],
                                         [
-                                            f"{self.main.emojis['cross mark']} No",
+                                            f"{get_emoji('cross mark')} No",
                                             "No",
                                         ],
                                     ]
@@ -1433,7 +1433,7 @@ class TCMD:
                             keys.append(
                                 [
                                     [
-                                        f"{self.main.emojis['cross mark']} Close",
+                                        f"{get_emoji('cross mark')} Close",
                                         "No",
                                     ]
                                 ]
@@ -1450,14 +1450,14 @@ class TCMD:
                 except Exception:
                     self._logger.exception("Command failed")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Command failed, please check logs",
+                        f"{get_emoji('warning')} Command failed, please check logs",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
         else:
             self.main.send_msg(
-                self.gEmo("warning")
+                get_emoji("warning")
                 + " PSU Control plugin not found. Command can not be executed.",
                 chatID=chat_id,
             )
@@ -1520,14 +1520,14 @@ class TCMD:
                     except Exception:
                         self._logger.exception("Failed to connect to call api")
                         self.main.send_msg(
-                            self.gEmo("warning") + " Command failed, please check logs",
+                            get_emoji("warning") + " Command failed, please check logs",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
                 else:
                     self._logger.debug("should had parameters but not")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')}Something wrong, shutdown failed.",
+                        f"{get_emoji('warning')}Something wrong, shutdown failed.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -1535,20 +1535,20 @@ class TCMD:
             if answer.status_code >= 300:
                 self._logger.debug(f"Call response (POST API octoprint): {str(answer)}")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')}Something wrong, shutdown failed.",
+                    f"{get_emoji('warning')}Something wrong, shutdown failed.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 return
             self.main.send_msg(
-                f"{self.gEmo('check')} Shutdown Command executed.",
+                f"{get_emoji('check')} Shutdown Command executed.",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
         except Exception:
             self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed, please check logs",
+                f"{get_emoji('warning')} Command failed, please check logs",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
@@ -1627,14 +1627,14 @@ class TCMD:
                     except Exception:
                         self._logger.exception("Failed to connect to call api")
                         self.main.send_msg(
-                            self.gEmo("warning") + " Command failed, please check logs",
+                            get_emoji("warning") + " Command failed, please check logs",
                             chatID=chat_id,
                             msg_id=self.main.get_update_msg_id(chat_id),
                         )
                 else:
                     self._logger.debug("should had parameters but not")
                     self.main.send_msg(
-                        f"{self.gEmo('warning')}Something wrong, shutdown failed.",
+                        f"{get_emoji('warning')}Something wrong, shutdown failed.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
@@ -1643,20 +1643,20 @@ class TCMD:
             if answer.status_code >= 300:
                 self._logger.debug(f"Call response (POST API octoprint): {str(answer)}")
                 self.main.send_msg(
-                    f"{self.gEmo('warning')}Something wrong, Power on attempt failed.",
+                    f"{get_emoji('warning')}Something wrong, Power on attempt failed.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
                 return
             self.main.send_msg(
-                f"{self.gEmo('check')} Command executed.",
+                f"{get_emoji('check')} Command executed.",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
         except Exception:
             self._logger.exception("Failed to connect to call api")
             self.main.send_msg(
-                f"{self.gEmo('warning')} Command failed, please check logs",
+                f"{get_emoji('warning')} Command failed, please check logs",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
@@ -1664,7 +1664,7 @@ class TCMD:
 
     ############################################################################################
     def cmdUser(self, chat_id, from_id, cmd, parameter, user=""):
-        msg = f"{self.gEmo('info')} *Your user settings:*\n\n"
+        msg = f"{get_emoji('info')} *Your user settings:*\n\n"
         msg += f"*ID:* {str(chat_id)}\n"
         msg += f"*Name:* {self.main.chats[chat_id]['title']}\n"
         if self.main.chats[chat_id]["private"]:
@@ -1722,7 +1722,7 @@ class TCMD:
             con = self.main._printer.get_current_connection()
             con2 = octoprint.printer.get_connection_options()
             msg = (
-                f"{self.gEmo('info')} Connection informations\n\n"
+                f"{get_emoji('info')} Connection informations\n\n"
                 f"*Status*: {str(con[0])}\n\n"
                 f"*Port*: {str(con[1])}\n"
                 f"*Baud*: {'AUTO' if str(con[2]) == '0' else con[2]}\n"
@@ -1734,16 +1734,16 @@ class TCMD:
                 if self.main._printer.is_printing() or self.main._printer.is_paused():
                     self.main.send_msg(
                         msg
-                        + self.gEmo("warning")
+                        + get_emoji("warning")
                         + " You can't disconnect while printing.",
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['settings']} Defaults",
+                                    f"{get_emoji('settings')} Defaults",
                                     "/con_s",
                                 ],
                                 [
-                                    f"{self.main.emojis['cross mark']} Close",
+                                    f"{get_emoji('cross mark')} Close",
                                     "No",
                                 ],
                             ]
@@ -1758,15 +1758,15 @@ class TCMD:
                         responses=[
                             [
                                 [
-                                    f"{self.main.emojis['error']} Disconnect",
+                                    f"{get_emoji('error')} Disconnect",
                                     "/con_d",
                                 ],
                                 [
-                                    f"{self.main.emojis['settings']} Defaults",
+                                    f"{get_emoji('settings')} Defaults",
                                     "/con_s",
                                 ],
                                 [
-                                    f"{self.main.emojis['cross mark']} Close",
+                                    f"{get_emoji('cross mark')} Close",
                                     "No",
                                 ],
                             ]
@@ -1781,14 +1781,14 @@ class TCMD:
                     responses=[
                         [
                             [
-                                f"{self.main.emojis['electric plug']} Connect",
+                                f"{get_emoji('electric plug')} Connect",
                                 "/con_c",
                             ],
                             [
-                                f"{self.main.emojis['settings']} Defaults",
+                                f"{get_emoji('settings')} Defaults",
                                 "/con_s",
                             ],
-                            [f"{self.main.emojis['cross mark']} Close", "No"],
+                            [f"{get_emoji('cross mark')} Close", "No"],
                         ]
                     ],
                     chatID=chat_id,
@@ -1817,7 +1817,7 @@ class TCMD:
                         self.tuneTemp[0] = 50
                     elif self.tuneTemp[0] > 200:
                         self.tuneTemp[0] = 200
-                msg = f"{self.gEmo('black right-pointing double triangle')} Set feedrate.\nCurrent:  *{self.tuneTemp[0]}%*"
+                msg = f"{get_emoji('black right-pointing double triangle')} Set feedrate.\nCurrent:  *{self.tuneTemp[0]}%*"
                 keys = [
                     [
                         ["+25", "/tune_feed_+*"],
@@ -1828,9 +1828,9 @@ class TCMD:
                         ["-25", "/tune_feed_-*"],
                     ],
                     [
-                        [f"{self.main.emojis['check']} Set", "/tune_feed_s"],
+                        [f"{get_emoji('check')} Set", "/tune_feed_s"],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/tune_back",
                         ],
                     ],
@@ -1857,7 +1857,7 @@ class TCMD:
                         return
                     if self.tuneTemp[1] < 50 or self.tuneTemp[1] > 200:
                         self.tuneTemp[1] = 200
-                msg = f"{self.gEmo('black down-pointing double triangle')} Set flowrate.\nCurrent: *{self.tuneTemp[1]}%*"
+                msg = f"{get_emoji('black down-pointing double triangle')} Set flowrate.\nCurrent: *{self.tuneTemp[1]}%*"
                 keys = [
                     [
                         ["+25", "/tune_flow_+*"],
@@ -1868,9 +1868,9 @@ class TCMD:
                         ["-25", "/tune_flow_-*"],
                     ],
                     [
-                        [f"{self.main.emojis['check']} Set", "/tune_flow_s"],
+                        [f"{get_emoji('check')} Set", "/tune_flow_s"],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/tune_back",
                         ],
                     ],
@@ -1907,7 +1907,7 @@ class TCMD:
                     if self.tempTemp[toolNo] < 0:
                         self.tempTemp[toolNo] = 0
                 msg = (
-                    f"{self.gEmo('fire')} Set temperature for tool {params[1]}.\n"
+                    f"{get_emoji('fire')} Set temperature for tool {params[1]}.\n"
                     f"Current: {temps[f'tool{params[1]}']['actual']:.02f}/*{self.tempTemp[toolNo]}\u00b0C*"
                 )
                 keys = [
@@ -1927,15 +1927,15 @@ class TCMD:
                     ],
                     [
                         [
-                            f"{self.main.emojis['check']} Set",
+                            f"{get_emoji('check')} Set",
                             f"/tune_e_{params[1]}_s",
                         ],
                         [
-                            f"{self.main.emojis['snowflake']} Off",
+                            f"{get_emoji('snowflake')} Off",
                             f"/tune_e_{params[1]}_off",
                         ],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/tune_back",
                         ],
                     ],
@@ -1972,7 +1972,7 @@ class TCMD:
                 self._logger.debug(f"BED TEMPS: {str(temps)}")
                 self._logger.debug(f"BED self.TEMPS: {str(self.tempTemp)}")
                 msg = (
-                    f"{self.gEmo('hot springs')} Set temperature for bed.\n"
+                    f"{get_emoji('hot springs')} Set temperature for bed.\n"
                     f"Current: {temps['bed']['actual']:.02f}/*{self.tempTemp[toolNo]}\u00b0C*"
                 )
                 keys = [
@@ -1991,10 +1991,10 @@ class TCMD:
                         ["-1", "/tune_b_---"],
                     ],
                     [
-                        [f"{self.main.emojis['check']} Set", "/tune_b_s"],
-                        [f"{self.main.emojis['snowflake']} Off", "/tune_b_off"],
+                        [f"{get_emoji('check')} Set", "/tune_b_s"],
+                        [f"{get_emoji('snowflake')} Off", "/tune_b_off"],
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/tune_back",
                         ],
                     ],
@@ -2007,7 +2007,7 @@ class TCMD:
                     markup="Markdown",
                 )
         else:
-            msg = f"{self.gEmo('settings')} *Tune print settings*"
+            msg = f"{get_emoji('settings')} *Tune print settings*"
             profile = self.main._printer_profile_manager.get_current()
             temps = self.main._printer.get_current_temperatures()
             self.tempTemp = []
@@ -2015,13 +2015,11 @@ class TCMD:
             keys = [
                 [
                     [
-                        self.main.emojis["black right-pointing double triangle"]
-                        + " Feedrate",
+                        get_emoji("black right-pointing double triangle") + " Feedrate",
                         "/tune_feed",
                     ],
                     [
-                        self.main.emojis["black down-pointing double triangle"]
-                        + " Flowrate",
+                        get_emoji("black down-pointing double triangle") + " Flowrate",
                         "/tune_flow",
                     ],
                 ]
@@ -2031,18 +2029,16 @@ class TCMD:
                 for i in range(0, profile["extruder"]["count"]):
                     tmpKeys.append(
                         [
-                            f"{self.main.emojis['wrench']} Tool {str(i)}",
+                            f"{get_emoji('wrench')} Tool {str(i)}",
                             f"/tune_e_{str(i)}",
                         ]
                     )
                     self.tempTemp.append(int(temps[f"tool{str(i)}"]["target"]))
                 if profile["heatedBed"]:
-                    tmpKeys.append(
-                        [f"{self.main.emojis['hot springs']} Bed", "/tune_b"]
-                    )
+                    tmpKeys.append([f"{get_emoji('hot springs')} Bed", "/tune_b"])
                     self.tempTemp.append(int(temps["bed"]["target"]))
                 keys.append(tmpKeys)
-            keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+            keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
             self.main.send_msg(
                 msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="Markdown"
             )
@@ -2075,7 +2071,7 @@ class TCMD:
                         resp2 = resp2.json()
                         self._logger.info(f"Spools: {resp['spools']}")
                         message = (
-                            f"{self.gEmo('info')} Available filament spools are:\n"
+                            f"{get_emoji('info')} Available filament spools are:\n"
                         )
                         for spool in resp["spools"]:
                             weight = spool["weight"]
@@ -2107,7 +2103,7 @@ class TCMD:
                         )
                     except ValueError:
                         message = (
-                            self.gEmo("mistake")
+                            get_emoji("mistake")
                             + " Error getting spools. Are you sure, you have installed the Filament Manager Plugin?"
                         )
                         if errorText != "":
@@ -2138,7 +2134,7 @@ class TCMD:
                             self._logger.info(f"Response: {resp}")
                             resp = resp.json()
                             message = (
-                                self.gEmo("check")
+                                get_emoji("check")
                                 + " Selected spool is now: "
                                 + str(resp["selection"]["spool"]["profile"]["vendor"])
                                 + " "
@@ -2151,7 +2147,7 @@ class TCMD:
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
                         except ValueError:
-                            message = f"{self.gEmo('mistake')} Error changing spool"
+                            message = f"{get_emoji('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
                             msg_id = self.main.get_update_msg_id(chat_id)
@@ -2171,7 +2167,7 @@ class TCMD:
                                 errorText = resp.text
                             resp = resp.json()
                             message = (
-                                self.gEmo("question")
+                                get_emoji("question")
                                 + " which filament spool do you want to select?"
                             )
                             keys = []
@@ -2198,7 +2194,7 @@ class TCMD:
                             keys.append(
                                 [
                                     [
-                                        f"{self.main.emojis['cross mark']} Close",
+                                        f"{get_emoji('cross mark')} Close",
                                         "No",
                                     ]
                                 ]
@@ -2209,7 +2205,7 @@ class TCMD:
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
                             )
                         except ValueError:
-                            message = f"{self.gEmo('mistake')} Error changing spool"
+                            message = f"{get_emoji('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
                             msg_id = self.main.get_update_msg_id(chat_id)
@@ -2218,13 +2214,13 @@ class TCMD:
                             )
             else:
                 message = (
-                    self.gEmo("info")
+                    get_emoji("info")
                     + " The following Filament Manager commands are known."
                 )
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
-                keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+                keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
                 msg_id = (
                     self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 )
@@ -2259,7 +2255,7 @@ class TCMD:
                         # resp = resp.json()
                         # resp2 = resp2.json()
                         # self._logger.info("Spools: %s" % resp["spools"])
-                        # message = self.gEmo('info') + " Available filament spools are:\n"
+                        # message = Emoji.get('info') + " Available filament spools are:\n"
                         # for spool in resp["spools"]:
                         # 	weight = spool["weight"]
                         # 	used = spool["used"]
@@ -2274,7 +2270,7 @@ class TCMD:
                         )
                     except ValueError:
                         message = (
-                            self.gEmo("mistake")
+                            get_emoji("mistake")
                             + " Error getting spools. Are you sure, you have installed the Spool Manager Plugin?"
                         )
                         if errorText != "":
@@ -2305,7 +2301,7 @@ class TCMD:
                             self._logger.info(f"Response: {resp}")
                             resp = resp.json()
                             message = (
-                                self.gEmo("check")
+                                get_emoji("check")
                                 + " Selected spool is now: "
                                 + str(resp["selection"]["spool"]["profile"]["vendor"])
                                 + " "
@@ -2318,7 +2314,7 @@ class TCMD:
                                 message, chatID=chat_id, msg_id=msg_id, inline=False
                             )
                         except ValueError:
-                            message = f"{self.gEmo('mistake')} Error changing spool"
+                            message = f"{get_emoji('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
                             msg_id = self.main.get_update_msg_id(chat_id)
@@ -2338,7 +2334,7 @@ class TCMD:
                                 errorText = resp.text
                             resp = resp.json()
                             message = (
-                                self.gEmo("question")
+                                get_emoji("question")
                                 + " which filament spool do you want to select?"
                             )
                             keys = []
@@ -2365,7 +2361,7 @@ class TCMD:
                             keys.append(
                                 [
                                     [
-                                        f"{self.main.emojis['cross mark']} Close",
+                                        f"{get_emoji('cross mark')} Close",
                                         "No",
                                     ]
                                 ]
@@ -2376,7 +2372,7 @@ class TCMD:
                                 message, chatID=chat_id, responses=keys, msg_id=msg_id
                             )
                         except ValueError:
-                            message = f"{self.gEmo('mistake')} Error changing spool"
+                            message = f"{get_emoji('mistake')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {str(errorText)}"
                             msg_id = self.main.get_update_msg_id(chat_id)
@@ -2385,13 +2381,13 @@ class TCMD:
                             )
             else:
                 message = (
-                    self.gEmo("info")
+                    get_emoji("info")
                     + " The following Filament Manager commands are known."
                 )
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
-                keys.append([[f"{self.main.emojis['cross mark']} Close", "No"]])
+                keys.append([[f"{get_emoji('cross mark')} Close", "No"]])
                 msg_id = (
                     self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 )
@@ -2399,7 +2395,7 @@ class TCMD:
                     message, chatID=chat_id, responses=keys, msg_id=msg_id
                 )
         else:
-            message = f"{self.gEmo('warning')} No filament manager plugin installed."
+            message = f"{get_emoji('warning')} No filament manager plugin installed."
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, msg_id=msg_id)
 
@@ -2410,7 +2406,7 @@ class TCMD:
             self.main._printer.commands(params[0])
         else:
             message = (
-                self.gEmo("info")
+                get_emoji("info")
                 + " call gCode commande with /gcode_XXX where XXX is the gcode command"
             )
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
@@ -2426,12 +2422,12 @@ class TCMD:
             switch_command = ""
         self.main.send_msg(
             (
-                f"{self.gEmo('info')} *The following commands are known:*\n\n"
+                f"{get_emoji('info')} *The following commands are known:*\n\n"
                 "/abort - Aborts the currently running print. A confirmation is required.\n"
                 "/shutup - Disables automatic notifications till the next print ends.\n"
                 "/dontshutup - The opposite of /shutup - Makes the bot talk again.\n"
                 "/status - Sends the current status including a current photo.\n"
-                f"/gif - Sends a gif from the current video. {self.gEmo('warning')}\n"
+                f"/gif - Sends a gif from the current video. {get_emoji('warning')}\n"
                 "/supergif - Sends a bigger gif from the current video.\n"
                 "/photo - Sends a photo from webcams.\n"
                 "/settings - Displays the current notification settings and allows you to change them.\n"
@@ -2475,7 +2471,7 @@ class TCMD:
             for key in M:
                 arrayD.append(
                     [
-                        f"{self.main.emojis['open file folder']} {key}",
+                        f"{get_emoji('open file folder')} {key}",
                         cmd
                         + "_"
                         + pathHash
@@ -2498,34 +2494,32 @@ class TCMD:
                             HistList.sort(key=lambda x: x["timestamp"], reverse=True)
                             try:
                                 if HistList[0]["success"]:
-                                    # vfilename = self.main.emojis['party face']+" "+('.').join(key.split('.')[:-1])
                                     vfilename = (
-                                        self.main.emojis["party popper"]
+                                        get_emoji("party popper")
                                         + " "
                                         + (".").join(key.split(".")[:-1])
                                     )
                                 else:
-                                    # vfilename = self.main.emojis['disappointed but relieved face']+" "+('.').join(key.split('.')[:-1])
                                     vfilename = (
-                                        self.main.emojis["warning sign"]
+                                        get_emoji("warning sign")
                                         + " "
                                         + (".").join(key.split(".")[:-1])
                                     )
                             except Exception:
                                 vfilename = (
-                                    self.main.emojis["page facing up"]
+                                    get_emoji("page facing up")
                                     + " "
                                     + (".").join(key.split(".")[:-1])
                                 )
                         else:
                             vfilename = (
-                                self.main.emojis["squared new"]
+                                get_emoji("squared new")
                                 + " "
                                 + (".").join(key.split(".")[:-1])
                             )
                     except Exception:
                         vfilename = (
-                            self.main.emojis["squared new"]
+                            get_emoji("squared new")
                             + " "
                             + (".").join(key.split(".")[:-1])
                         )
@@ -2569,39 +2563,39 @@ class TCMD:
             backBut = (
                 [
                     [
-                        self.main.emojis["settings"],
+                        get_emoji("settings"),
                         f"{cmd}_{pathHash}|{str(page)}|0|s",
                     ],
-                    [f"{self.main.emojis['cross mark']} Close", "No"],
+                    [f"{get_emoji('cross mark')} Close", "No"],
                 ]
                 if len(fullPath.split("/")) < 3
                 else [
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         cmd
                         + "_"
                         + self.hashMe("/".join(fullPath.split("/")[:-2]) + "/", 8)
                         + "|0",
                     ],
                     [
-                        self.main.emojis["settings"],
+                        get_emoji("settings"),
                         f"{cmd}_{pathHash}|{str(page)}|0|s",
                     ],
-                    [f"{self.main.emojis['cross mark']} Close", "No"],
+                    [f"{get_emoji('cross mark')} Close", "No"],
                 ]
             )
             if pageDown != pageUp:
                 if pageDown != page:
                     tmpKeys.append(
                         [
-                            self.main.emojis["black left-pointing triangle"],
+                            get_emoji("black left-pointing triangle"),
                             f"{cmd}_{pathHash}|{str(pageDown)}",
                         ]
                     )
                 if pageUp != page:
                     tmpKeys.append(
                         [
-                            self.main.emojis["black right-pointing triangle"],
+                            get_emoji("black right-pointing triangle"),
                             f"{cmd}_{pathHash}|{str(pageUp)}",
                         ]
                     )
@@ -2617,7 +2611,7 @@ class TCMD:
             )
             self._logger.debug("fileList before send msg ")
             self.main.send_msg(
-                f"{self.gEmo('save')} Files in */{pathWoDest[:-1]}*    \\[{pageStr}]",
+                f"{get_emoji('save')} Files in */{pathWoDest[:-1]}*    \\[{pageStr}]",
                 chatID=chat_id,
                 markup="Markdown",
                 responses=keys,
@@ -2632,12 +2626,12 @@ class TCMD:
         dest, path, file = self.find_file_by_hash(fileHash)
         self.tmpFileHash = ""
         meta = self.main._file_manager.get_metadata(dest, path)
-        msg = f"{self.gEmo('info')} <b>File Informations</b>\n\n"
-        msg += f"<b>{self.main.emojis['name badge']}Name:</b> {path}"
+        msg = f"{get_emoji('info')} <b>File Informations</b>\n\n"
+        msg += f"<b>{get_emoji('name badge')}Name:</b> {path}"
         try:
             msg += (
                 "\n<b>"
-                + self.main.emojis["clock face twelve oclock"]
+                + get_emoji("clock face twelve oclock")
                 + "Uploaded:</b> "
                 + datetime.datetime.fromtimestamp(file["date"]).strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -2654,36 +2648,36 @@ class TCMD:
                 HistList.sort(key=lambda x: x["timestamp"], reverse=True)
                 try:
                     if HistList[0]["success"]:
-                        # vfilename = self.main.emojis['party face']+" "+('.').join(key.split('.')[:-1])
+                        # vfilename = Emoji.get('party face')+" "+('.').join(key.split('.')[:-1])
                         msg += (
                             "\n<b>"
-                            + self.main.emojis["party popper"]
+                            + get_emoji("party popper")
                             + "Number of Print:</b> "
                             + str(len(file["history"]))
                         )
                     else:
-                        # vfilename = self.main.emojis['disappointed but relieved face']+" "+('.').join(key.split('.')[:-1])
+                        # vfilename = Emoji.get('disappointed but relieved face')+" "+('.').join(key.split('.')[:-1])
                         msg += (
                             "\n<b>"
-                            + self.main.emojis["warning sign"]
+                            + get_emoji("warning sign")
                             + "Number of Print:</b> "
                             + str(len(file["history"]))
                         )
                 except Exception:
                     msg += (
                         "\n<b>"
-                        + self.main.emojis["page facing up"]
+                        + get_emoji("page facing up")
                         + "Number of Print:</b> "
                         + str(len(file["history"]))
                     )
             else:
-                msg += f"\n<b>{self.main.emojis['squared new']}Number of Print:</b> 0"
+                msg += f"\n<b>{get_emoji('squared new')}Number of Print:</b> 0"
         except Exception:
-            msg += f"\n<b>{self.main.emojis['squared new']}Number of Print:</b> 0"
+            msg += f"\n<b>{get_emoji('squared new')}Number of Print:</b> 0"
 
         msg += (
             "\n<b>"
-            + self.main.emojis["flexed biceps"]
+            + get_emoji("flexed biceps")
             + "Size:</b> "
             + self.formatSize(file["size"])
         )
@@ -2691,7 +2685,7 @@ class TCMD:
         printTime = 0
         if "analysis" in meta:
             if "filament" in meta["analysis"]:
-                msg += f"\n<b>{self.main.emojis['straight ruler']}Filament:</b> "
+                msg += f"\n<b>{get_emoji('straight ruler')}Filament:</b> "
                 filament = meta["analysis"]["filament"]
                 if len(filament) == 1 and "length" in filament["tool0"]:
                     msg += self.formatFilament(filament["tool0"])
@@ -2709,7 +2703,7 @@ class TCMD:
             if "estimatedPrintTime" in meta["analysis"]:
                 msg += (
                     "\n<b>"
-                    + self.main.emojis["hourglass with flowing sand"]
+                    + get_emoji("hourglass with flowing sand")
                     + "Print Time:</b> "
                     + self.formatFuzzyPrintTime(meta["analysis"]["estimatedPrintTime"])
                 )
@@ -2718,7 +2712,7 @@ class TCMD:
             time_finish = self.main.calculate_ETA(printTime)
             msg += (
                 "\n<b>"
-                + self.main.emojis["chequered flag"]
+                + get_emoji("chequered flag")
                 + "Completed Time:</b> "
                 + time_finish
             )
@@ -2740,7 +2734,7 @@ class TCMD:
                         curr = curr
                         msg += (
                             "\n<b>"
-                            + self.main.emojis["money bag"]
+                            + get_emoji("money bag")
                             + "Cost:</b> "
                             + curr
                             + f"{filaLen / 1000 * cpM + printTime / 3600 * cpH:.02f} "
@@ -2749,14 +2743,14 @@ class TCMD:
                         self._logger.exception(
                             "Caught an Exception the cost function in decode"
                         )
-                        msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                        msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
                 except Exception:
                     self._logger.exception(
                         "Caught an Exception the cost function on get"
                     )
-                    msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                    msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
             else:
-                msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
 
         # will try to get the image from the thumbnail
         # will have to upload to somewhere to get internet url
@@ -2793,29 +2787,29 @@ class TCMD:
         except Exception:
             self._logger.exception("Caught an Exception getting the thumbnail")
 
-        keyPrint = [f"{self.main.emojis['rocket']} Print", f"/print_{fileHash}"]
+        keyPrint = [f"{get_emoji('rocket')} Print", f"/print_{fileHash}"]
         keyDetails = [
-            f"{self.main.emojis['left-pointing magnifying glass']} Details",
+            f"{get_emoji('left-pointing magnifying glass')} Details",
             f"{cmd}_{pathHash}|{str(page)}|{fileHash}|inf",
         ]
         keyDownload = [
-            f"{self.main.emojis['save']} Download",
+            f"{get_emoji('save')} Download",
             f"{cmd}_{pathHash}|{str(page)}|{fileHash}|dl",
         ]
         keyMove = [
-            f"{self.main.emojis['black scissors']} Move",
+            f"{get_emoji('black scissors')} Move",
             f"{cmd}_{pathHash}|{str(page)}|{fileHash}|m",
         ]
         keyCopy = [
-            f"{self.main.emojis['clipboard']} Copy",
+            f"{get_emoji('clipboard')} Copy",
             f"{cmd}_{pathHash}|{str(page)}|{fileHash}|c",
         ]
         keyDelete = [
-            f"{self.main.emojis['error']} Delete",
+            f"{get_emoji('error')} Delete",
             f"{cmd}_{pathHash}|{str(page)}|{fileHash}|d",
         ]
         keyBack = [
-            f"{self.main.emojis['leftwards arrow with hook']} Back",
+            f"{get_emoji('leftwards arrow with hook')} Back",
             f"{cmd}_{pathHash}|{str(page)}",
         ]
         keysRow = []
@@ -2853,17 +2847,17 @@ class TCMD:
             dest, path, file = self.find_file_by_hash(hash)
             meta = self.main._file_manager.get_metadata(dest, path)
         if opt.startswith("inf"):
-            msg = f"{self.gEmo('info')} <b>Detailed File Informations</b>\n\n"
-            msg += f"<b>{self.main.emojis['name badge']}Name:</b> {path}"
+            msg = f"{get_emoji('info')} <b>Detailed File Informations</b>\n\n"
+            msg += f"<b>{get_emoji('name badge')}Name:</b> {path}"
             msg += (
                 "\n<b>"
-                + self.main.emojis["flexed biceps"]
+                + get_emoji("flexed biceps")
                 + "Size:</b> "
                 + self.formatSize(file["size"])
             )
             msg += (
                 "\n<b>"
-                + self.main.emojis["clock face twelve oclock"]
+                + get_emoji("clock face twelve oclock")
                 + "Uploaded:</b> "
                 + datetime.datetime.fromtimestamp(file["date"]).strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -2873,7 +2867,7 @@ class TCMD:
             printTime = 0
             if "analysis" in meta:
                 if "filament" in meta["analysis"]:
-                    msg += f"\n<b>{self.main.emojis['straight ruler']}Filament:</b> "
+                    msg += f"\n<b>{get_emoji('straight ruler')}Filament:</b> "
                     filament = meta["analysis"]["filament"]
                     if len(filament) == 1 and "length" in filament["tool0"]:
                         msg += self.formatFilament(filament["tool0"])
@@ -2891,7 +2885,7 @@ class TCMD:
                 if "estimatedPrintTime" in meta["analysis"]:
                     msg += (
                         "\n<b>"
-                        + self.main.emojis["hourglass with flowing sand"]
+                        + get_emoji("hourglass with flowing sand")
                         + "Print Time:</b> "
                         + self.formatFuzzyPrintTime(
                             meta["analysis"]["estimatedPrintTime"]
@@ -2902,7 +2896,7 @@ class TCMD:
                 time_finish = self.main.calculate_ETA(printTime)
                 msg += (
                     "\n<b>"
-                    + self.main.emojis["chequered flag"]
+                    + get_emoji("chequered flag")
                     + "Completed Time:</b> "
                     + time_finish
                 )
@@ -2924,7 +2918,7 @@ class TCMD:
                             curr = curr
                             msg += (
                                 "\n<b>"
-                                + self.main.emojis["money bag"]
+                                + get_emoji("money bag")
                                 + "Cost:</b> "
                                 + curr
                                 + "%.02f "
@@ -2934,15 +2928,15 @@ class TCMD:
                             self._logger.exception(
                                 "An Exception the cost function in decode"
                             )
-                            msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                            msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
                         self._logger.debug("AF TRY")
                     except Exception:
                         self._logger.exception(
                             "Caught an Exception the cost function on get"
                         )
-                        msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                        msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
                 else:
-                    msg += f"\n<b>{self.main.emojis['money bag']}Cost:</b> -"
+                    msg += f"\n<b>{get_emoji('money bag')}Cost:</b> -"
             if "statistics" in meta:
                 if "averagePrintTime" in meta["statistics"]:
                     msg += "\n<b>Average Print Time:</b>"
@@ -3000,7 +2994,7 @@ class TCMD:
                 responses=[
                     [
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             f"{cmd}_{loc}|{str(page)}|{hash}",
                         ]
                     ]
@@ -3012,7 +3006,7 @@ class TCMD:
             mb = float(file["size"]) / 1024 / 1024
             if mb > 50:
                 self.main.send_msg(
-                    f"{self.gEmo('warning') + path} ist to big to download (>50MB)!",
+                    f"{get_emoji('warning') + path} ist to big to download (>50MB)!",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
@@ -3032,14 +3026,14 @@ class TCMD:
                 self._logger.debug(f"OUT MOVE: {cpRes}")
                 if cpRes == "GOOD":
                     self.main.send_msg(
-                        f"{self.gEmo('info')} File {pathM} moved",
+                        f"{get_emoji('info')} File {pathM} moved",
                         chatID=chat_id,
                         msg_id=msg_id,
                     )
                     self.fileList(loc, page, cmd, chat_id, wait=3)
                 else:
                     self.main.send_msg(
-                        self.gEmo("warning")
+                        get_emoji("warning")
                         + "FAILED: Move file "
                         + pathM
                         + "\nReason: "
@@ -3054,7 +3048,7 @@ class TCMD:
                 keys = [
                     [
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             f"{cmd}_{loc}|{str(page)}|{hash}",
                         ]
                     ]
@@ -3066,7 +3060,7 @@ class TCMD:
                     keys.append(
                         [
                             [
-                                self.main.emojis["open file folder"]
+                                get_emoji("open file folder")
                                 + " "
                                 + self.dirHashDict[key],
                                 f"{cmd}_{loc}|{str(page)}|{key}|m_m",
@@ -3074,7 +3068,7 @@ class TCMD:
                         ]
                     )
                 self.main.send_msg(
-                    f"{self.gEmo('question')} *Choose destination to move file*",
+                    f"{get_emoji('question')} *Choose destination to move file*",
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
@@ -3091,14 +3085,14 @@ class TCMD:
                 )
                 if cpRes == "GOOD":
                     self.main.send_msg(
-                        f"{self.gEmo('info')} File {pathM} copied",
+                        f"{get_emoji('info')} File {pathM} copied",
                         chatID=chat_id,
                         msg_id=msg_id,
                     )
                     self.fileList(loc, page, cmd, chat_id, wait=3)
                 else:
                     self.main.send_msg(
-                        self.gEmo("warning")
+                        get_emoji("warning")
                         + "FAILED: Copy file "
                         + pathM
                         + "\nReason: "
@@ -3113,7 +3107,7 @@ class TCMD:
                 keys = [
                     [
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             f"{cmd}_{loc}|{str(page)}|{hash}",
                         ]
                     ]
@@ -3125,7 +3119,7 @@ class TCMD:
                     keys.append(
                         [
                             [
-                                self.main.emojis["open file folder"]
+                                get_emoji("open file folder")
                                 + " "
                                 + self.dirHashDict[key],
                                 f"{cmd}_{loc}|{str(page)}|{key}|c_c",
@@ -3133,7 +3127,7 @@ class TCMD:
                         ]
                     )
                 self.main.send_msg(
-                    f"{self.gEmo('question')} *Choose destination to copy file*",
+                    f"{get_emoji('question')} *Choose destination to copy file*",
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
@@ -3146,14 +3140,14 @@ class TCMD:
                 delRes = self.fileDelete(dest, path)
                 if delRes == "GOOD":
                     self.main.send_msg(
-                        f"{self.gEmo('info')} File {path} deleted",
+                        f"{get_emoji('info')} File {path} deleted",
                         chatID=chat_id,
                         msg_id=msg_id,
                     )
                     self.fileList(loc, page, cmd, chat_id, wait=3)
                 else:
                     self.main.send_msg(
-                        self.gEmo("warning")
+                        get_emoji("warning")
                         + "FAILED: Delete file "
                         + path
                         + "\nReason: "
@@ -3166,17 +3160,17 @@ class TCMD:
                 keys = [
                     [
                         [
-                            f"{self.main.emojis['check']} Yes",
+                            f"{get_emoji('check')} Yes",
                             f"{cmd}_{loc}|{str(page)}|{hash}|d_d",
                         ],
                         [
-                            f"{self.main.emojis['cross mark']} No",
+                            f"{get_emoji('cross mark')} No",
                             f"{cmd}_{loc}|{str(page)}|{hash}",
                         ],
                     ]
                 ]
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Delete {path} ?",
+                    f"{get_emoji('warning')} Delete {path} ?",
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
@@ -3192,24 +3186,23 @@ class TCMD:
                 keys = [
                     [
                         [
-                            self.main.emojis["input symbol for latin letters"]
-                            + " By name",
+                            get_emoji("input symbol for latin letters") + " By name",
                             f"{cmd}_{loc}|{str(page)}|{hash}|s_n",
                         ],
                         [
-                            f"{self.main.emojis['tear-off calendar']} By date",
+                            f"{get_emoji('tear-off calendar')} By date",
                             f"{cmd}_{loc}|{str(page)}|{hash}|s_d",
                         ],
                     ],
                     [
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             f"{cmd}_{loc}|{str(page)}",
                         ]
                     ],
                 ]
                 self.main.send_msg(
-                    f"{self.gEmo('question')} *Choose sorting order of files*",
+                    f"{get_emoji('question')} *Choose sorting order of files*",
                     chatID=chat_id,
                     markup="Markdown",
                     responses=keys,
@@ -3431,7 +3424,7 @@ class TCMD:
         else:
             con = octoprint.printer.get_connection_options()
             profile = self.main._printer_profile_manager.get_default()
-            msg = f"{self.gEmo('settings')} Default connection settings \n\n"
+            msg = f"{get_emoji('settings')} Default connection settings \n\n"
             msg += f"*Port:* {str(con['portPreference'])}"
             msg += "\n*Baud:* " + (
                 str(con["baudratePreference"]) if con["baudratePreference"] else "AUTO"
@@ -3442,17 +3435,17 @@ class TCMD:
                 msg,
                 responses=[
                     [
-                        [f"{self.main.emojis['electric plug']} Port", "/con_s|p"],
-                        [f"{self.main.emojis['high voltage sign']} Baud", "/con_s|b"],
+                        [f"{get_emoji('electric plug')} Port", "/con_s|p"],
+                        [f"{get_emoji('high voltage sign')} Baud", "/con_s|b"],
                         [
-                            f"{self.main.emojis['bust in silhouette']} Profile",
+                            f"{get_emoji('bust in silhouette')} Profile",
                             "/con_s|pr",
                         ],
-                        [f"{self.main.emojis['lamp']} Auto", "/con_s|a"],
+                        [f"{get_emoji('lamp')} Auto", "/con_s|a"],
                     ],
                     [
                         [
-                            f"{self.main.emojis['leftwards arrow with hook']} Back",
+                            f"{get_emoji('leftwards arrow with hook')} Back",
                             "/con_back",
                         ]
                     ],
@@ -3472,12 +3465,12 @@ class TCMD:
         else:
             con = octoprint.printer.get_connection_options()
             keys = []
-            tmpKeys = [[f"{self.main.emojis['lamp']} AUTO", f"/con_{parent}|p|AUTO"]]
+            tmpKeys = [[f"{get_emoji('lamp')} AUTO", f"/con_{parent}|p|AUTO"]]
             i = 2
             for k in con["ports"]:
                 tmpKeys.append(
                     [
-                        f"{self.main.emojis['electric plug']} {k}",
+                        f"{get_emoji('electric plug')} {k}",
                         f"/con_{parent}|p|{k}",
                     ]
                 )
@@ -3490,13 +3483,13 @@ class TCMD:
             keys.append(
                 [
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         f"/con_{parent}",
                     ]
                 ]
             )
             self.main.send_msg(
-                self.gEmo("question")
+                get_emoji("question")
                 + " Select default port.\nCurrent setting: "
                 + (str(con["portPreference"]) if con["portPreference"] else "AUTO"),
                 responses=keys,
@@ -3516,12 +3509,12 @@ class TCMD:
         else:
             con = octoprint.printer.get_connection_options()
             keys = []
-            tmpKeys = [[f"{self.main.emojis['lamp']} AUTO", f"/con_{parent}|b|0"]]
+            tmpKeys = [[f"{get_emoji('lamp')} AUTO", f"/con_{parent}|b|0"]]
             i = 2
             for k in con["baudrates"]:
                 tmpKeys.append(
                     [
-                        f"{self.main.emojis['high voltage sign']} {str(k)}",
+                        f"{get_emoji('high voltage sign')} {str(k)}",
                         f"/con_{parent}|b|{str(k)}",
                     ]
                 )
@@ -3534,13 +3527,13 @@ class TCMD:
             keys.append(
                 [
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         f"/con_{parent}",
                     ]
                 ]
             )
             self.main.send_msg(
-                self.gEmo("question")
+                get_emoji("question")
                 + " Select default baudrate.\nCurrent setting: "
                 + (
                     str(con["baudratePreference"])
@@ -3570,9 +3563,7 @@ class TCMD:
             for k in con:
                 tmpKeys.append(
                     [
-                        self.main.emojis["bust in silhouette"]
-                        + " "
-                        + str(con[k]["name"]),
+                        get_emoji("bust in silhouette") + " " + str(con[k]["name"]),
                         f"/con_{parent}|pr|{str(con[k]['id'])}",
                     ]
                 )
@@ -3585,13 +3576,13 @@ class TCMD:
             keys.append(
                 [
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         f"/con_{parent}",
                     ]
                 ]
             )
             self.main.send_msg(
-                self.gEmo("question")
+                get_emoji("question")
                 + " Select default profile.\nCurrent setting: "
                 + con2["name"],
                 responses=keys,
@@ -3612,18 +3603,18 @@ class TCMD:
             con = octoprint.printer.get_connection_options()
             keys = [
                 [
-                    [f"{self.main.emojis['check']} ON", "/con_s|a|true"],
-                    [f"{self.main.emojis['error']} OFF", "/con_s|a|false"],
+                    [f"{get_emoji('check')} ON", "/con_s|a|true"],
+                    [f"{get_emoji('error')} OFF", "/con_s|a|false"],
                 ],
                 [
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         "/con_s",
                     ]
                 ],
             ]
             self.main.send_msg(
-                self.gEmo("question")
+                get_emoji("question")
                 + " AutoConnect on startup.\nCurrent setting: "
                 + str(con["autoconnect"]),
                 responses=keys,
@@ -3658,7 +3649,7 @@ class TCMD:
             elif parameter[0] == "pr":
                 self.conSettingsTemp.append(parameter[1])
             self.main.send_msg(
-                f"{self.gEmo('info')} Connecting...",
+                f"{get_emoji('info')} Connecting...",
                 chatID=chat_id,
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
@@ -3684,32 +3675,32 @@ class TCMD:
 
             if con[0] == "Operational":
                 self.main.send_msg(
-                    f"{self.gEmo('check')} Connection established.",
+                    f"{get_emoji('check')} Connection established.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
             else:
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} Failed to start connection.\n\n{con[0]}",
+                    f"{get_emoji('warning')} Failed to start connection.\n\n{con[0]}",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
         else:
             keys = [
                 [
-                    [f"{self.main.emojis['lamp']} AUTO", "/con_c|a"],
-                    [f"{self.main.emojis['high voltage sign']} Default", "/con_c|d"],
+                    [f"{get_emoji('lamp')} AUTO", "/con_c|a"],
+                    [f"{get_emoji('high voltage sign')} Default", "/con_c|d"],
                 ],
                 [
-                    [f"{self.main.emojis['settings']} Manual", "/con_c|p"],
+                    [f"{get_emoji('settings')} Manual", "/con_c|p"],
                     [
-                        f"{self.main.emojis['leftwards arrow with hook']} Back",
+                        f"{get_emoji('leftwards arrow with hook')} Back",
                         "/con_back",
                     ],
                 ],
             ]
             self.main.send_msg(
-                f"{self.gEmo('question')} Select connection option.",
+                f"{get_emoji('question')} Select connection option.",
                 chatID=chat_id,
                 responses=keys,
                 msg_id=self.main.get_update_msg_id(chat_id),
@@ -3719,7 +3710,7 @@ class TCMD:
     def ConDisconnect(self, chat_id):
         self.main._printer.disconnect()
         self.main.send_msg(
-            f"{self.gEmo('info')} Printer disconnected.",
+            f"{get_emoji('info')} Printer disconnected.",
             chatID=chat_id,
             msg_id=self.main.get_update_msg_id(chat_id),
         )

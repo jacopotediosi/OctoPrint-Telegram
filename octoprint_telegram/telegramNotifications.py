@@ -3,6 +3,10 @@ import time
 
 import octoprint.util
 
+from .emoji.emoji import Emoji
+
+get_emoji = Emoji.get_emoji
+
 ##########################################################################################################################
 # Here you find the known notification messages and their handles.
 # The only way to start a messageHandle should be via on_event() in __init__.py
@@ -150,9 +154,7 @@ class EmojiFormatter:
 
     def __format__(self, format):
         self.main._logger.debug(f"Formatting emoticon: '{format}'")
-        if format in self.main.emojis:
-            return self.main.gEmo(format)
-        return ""
+        return get_emoji(format)
 
 
 class TMSG:
@@ -409,7 +411,7 @@ class TMSG:
             except Exception:
                 self._logger.exception("Exception on formatting message")
                 message = (
-                    f"{self.main.gEmo('warning')} ERROR: I was not able to format the Notification for the event '{event}' properly.\n"
+                    f"{get_emoji('warning')} ERROR: I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
             self._logger.debug(f"Sending Notification with kwargs {kwargs}: {message}")

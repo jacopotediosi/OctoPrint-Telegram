@@ -495,9 +495,6 @@ $(function () {
       self.emoInfoDialog = $('#settings-telegramDialogEmoInfo')
       self.mupInfoDialog = $('#settings-telegramDialogMupInfo')
       self.timeInfoDialog = $('#settings-telegramDialogTimeInfo')
-      $('.teleEmojiImg').each(function () {
-        $(this).attr('src', '/plugin/telegram/static/img/' + $(this).attr('id') + '.png')
-      })
     }
 
     self.isNumber = function (number) {

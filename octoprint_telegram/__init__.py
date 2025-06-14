@@ -24,16 +24,19 @@ import urllib3
 from flask_login import current_user
 from octoprint.access.permissions import Permissions
 from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
+from octoprint.server import app
 from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
 from werkzeug.utils import secure_filename
 
-from .emojiDict import telegramEmojiDict  # Dict of known emojis
+from .emoji.emoji import Emoji
 from .telegramCommands import TCMD
 from .telegramNotifications import (
     TMSG,
     telegramMsgDict,
 )  # Dict of known notification messages
+
+get_emoji = Emoji.get_emoji
 
 bytes_reader_class = io.BytesIO
 
@@ -54,7 +57,6 @@ class TelegramListener(threading.Thread):
         self.do_stop = False
         self.username = "UNKNOWN"
         self._logger = main._logger.getChild("listener")
-        self.gEmo = self.main.gEmo
 
     def run(self):
         self._logger.debug("Try first connect.")
@@ -228,7 +230,7 @@ class TelegramListener(threading.Thread):
                     f"Received file {uploaded_file_filename} from an unauthorized user"
                 )
                 self.main.send_msg(
-                    f"{self.gEmo('warning')} You are not authorized to upload files",
+                    f"{get_emoji('warning')} You are not authorized to upload files",
                     chatID=chat_id,
                 )
                 return
@@ -245,14 +247,14 @@ class TelegramListener(threading.Thread):
                         f"Received file {uploaded_file_filename} with invalid extension"
                     )
                     self.main.send_msg(
-                        f"{self.gEmo('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
+                        f"{get_emoji('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
                         chatID=chat_id,
                     )
                     return
 
             # Download the uploaded file
             self.main.send_msg(
-                f"{self.gEmo('save')} Saving file {uploaded_file_filename}...",
+                f"{get_emoji('save')} Saving file {uploaded_file_filename}...",
                 chatID=chat_id,
             )
             uploaded_file_content = self.main.get_file(
@@ -337,9 +339,9 @@ class TelegramListener(threading.Thread):
 
             # Prepare the response message
             if added_files_relative_paths:
-                response_message = f"{self.gEmo('upload')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
+                response_message = f"{get_emoji('upload')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
             else:
-                response_message = f"{self.gEmo('warning')} No files were added. Did you upload an empty zip?"
+                response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
 
             # If there are multiple files or the "select file after upload" settings is off
             if len(added_files_relative_paths) != 1 or not self.main._settings.get(
@@ -388,7 +390,7 @@ class TelegramListener(threading.Thread):
                 # Ask the user whether to print the loaded file
                 response_message += (
                     " and it is loaded.\n\n"
-                    f"{self.gEmo('question')} Do you want me to start printing it now?"
+                    f"{get_emoji('question')} Do you want me to start printing it now?"
                 )
                 self.main.send_msg(
                     response_message,
@@ -397,11 +399,11 @@ class TelegramListener(threading.Thread):
                     responses=[
                         [
                             [
-                                f"{self.main.emojis['check']} Print",
+                                f"{get_emoji('check')} Print",
                                 "/print_s",
                             ],
                             [
-                                f"{self.main.emojis['cross mark']} Cancel",
+                                f"{get_emoji('cross mark')} Cancel",
                                 "/print_x",
                             ],
                         ]
@@ -412,8 +414,8 @@ class TelegramListener(threading.Thread):
             self._logger.exception("Exception caught processing a file")
             self.main.send_msg(
                 (
-                    f"{self.gEmo('warning')} Something went wrong during processing of your file.\n"
-                    f"{self.gEmo('mistake')} Sorry. More details are in octoprint.log."
+                    f"{get_emoji('warning')} Something went wrong during processing of your file.\n"
+                    f"{get_emoji('mistake')} Sorry. More details are in octoprint.log."
                 ),
                 chatID=chat_id,
             )
@@ -449,7 +451,7 @@ class TelegramListener(threading.Thread):
             self._logger.warning("Previous command was an unknown command.")
             if not self.main._settings.get(["no_mistake"]):
                 self.main.send_msg(
-                    f"I do not understand you! {self.gEmo('mistake')}", chatID=chat_id
+                    f"I do not understand you! {get_emoji('mistake')}", chatID=chat_id
                 )
             raise ExitThisLoopException()
         # Check if user is allowed to execute the command
@@ -467,7 +469,7 @@ class TelegramListener(threading.Thread):
             # User was not alloed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.main.send_msg(
-                f"You are not allowed to do this! {self.gEmo('notallowed')}",
+                f"You are not allowed to do this! {get_emoji('notallowed')}",
                 chatID=chat_id,
             )
 
@@ -514,7 +516,7 @@ class TelegramListener(threading.Thread):
                 ):
                     self._logger.warning("Previous command was from an unknown user.")
                     self.main.send_msg(
-                        f"I don't know you! Certainly you are a nice Person {self.gEmo('heart')}",
+                        f"I don't know you! Certainly you are a nice Person {get_emoji('heart')}",
                         chatID=chat_id,
                     )
                     raise ExitThisLoopException()
@@ -523,7 +525,7 @@ class TelegramListener(threading.Thread):
         if chat_id not in self.main.chats:
             self.main.chats[chat_id] = data
             self.main.send_msg(
-                f"{self.gEmo('info')} Now I know you. Before you can do anything, go to OctoPrint Settings and edit some rights.",
+                f"{get_emoji('info')} Now I know you. Before you can do anything, go to OctoPrint Settings and edit some rights.",
                 chatID=chat_id,
             )
             kwargs = {"chat_id": int(chat_id)}
@@ -682,44 +684,6 @@ class TelegramPlugin(
         # Initial settings for new chat. See on_after_startup()
         # !!! sync with newUsrDict in on_settings_migrate() !!!
         self.newChat = {}
-        # Use of emojis see below at method gEmo()
-        self.emojis = {
-            "octo": "\U0001f419",  # Octopus
-            "mistake": "\U0001f616",
-            "notify": "\U0001f514",
-            "shutdown": "\U0001f4a4",
-            "shutup": "\U0001f64a",
-            "noNotify": "\U0001f515",
-            "notallowed": "\U0001f62c",
-            "rocket": "\U0001f680",
-            "save": "\U0001f4be",
-            "heart": "\U00002764",
-            "info": "\U00002139",
-            "settings": "\U0001f4dd",
-            "clock": "\U000023f0",
-            "height": "\U00002b06",
-            "question": "\U00002753",
-            "warning": "\U000026a0",
-            "enter": "\U0000270f",
-            "upload": "\U0001f4e5",
-            "check": "\U00002705",
-            "lamp": "\U0001f4a1",
-            "movie": "\U0001f3ac",
-            "finish": "\U0001f3c1",
-            "cam": "\U0001f3a6",
-            "hooray": "\U0001f389",
-            "error": "\U000026d4",
-            "play": "\U000025b6",
-            "stop": "\U000025fc",
-        }
-        self.emojis.update(telegramEmojiDict)
-
-    # All emojis will be get via this method to disable them globaly by the corrosponding setting.
-    # So if you want to use emojis anywhere use gEmo("...") instead of emojis["..."].
-    def gEmo(self, key):
-        if self._settings.get(["send_icon"]):
-            return self.emojis.get(key, "")
-        return ""
 
     # Starts the telegram listener thread
     def start_listening(self):
@@ -782,6 +746,9 @@ class TelegramPlugin(
     def get_template_configs(self):
         return [dict(type="settings", name="Telegram", custom_bindings=True)]
 
+    def get_template_vars(self):
+        return {"custom_emoji_map": Emoji.get_custom_emoji_map()}
+
     ##########
     ### Wizard API
     ##########
@@ -825,6 +792,9 @@ class TelegramPlugin(
         self._logger.propagate = False
 
     def on_after_startup(self):
+        Emoji.init(self._settings)
+        app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
+
         self.utils = Utils(self)
         self.tcmd = TCMD(self)
         self.triggered = False
