@@ -555,7 +555,7 @@ class TelegramPlugin:
         print(str(self.chats))
 
     # all emojis will be get via this method to disable them globaly by the corrosponding setting
-    # so if you want to use emojis anywhere use gEmo("...") istead of emojis["..."]
+    # so if you want to use emojis anywhere use gEmo("...") instead of emojis["..."]
     def gEmo(self, key):
         return self.emojis[key]
 

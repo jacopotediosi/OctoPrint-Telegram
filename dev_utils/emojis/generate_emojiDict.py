@@ -1,43 +1,59 @@
 import codecs
-import json
-import os
-import sys
+from pathlib import Path
 
-if len(sys.argv) < 2:
-    sys.exit(f"Usage: {sys.argv[0]} <path to JSON file>")
+import requests
 
-if not os.path.exists(sys.argv[1]):
-    sys.exit(f"ERROR: JSOn file {sys.argv[1]} was not found!")
+script_path = Path(__file__).resolve()
 
-with open(sys.argv[1]) as data_file:
-    data = json.load(data_file)
+SOURCE_URL = "https://raw.githubusercontent.com/github/gemoji/master/db/emoji.json"
+OUTPUT_PATH = script_path.parent.parent.parent / "octoprint_telegram" / "emojiDict.py"
 
-myDict = {}
-cntE = 0
-cntPass = 0
-for d in data:
-    cntE += 1
-    if "description" in d and "emoji" in d:
-        if d["description"] not in myDict:
-            myDict[d["description"]] = d["emoji"]
-            cntPass += 1
+# Download emoji data
+response = requests.get(SOURCE_URL)
+response.raise_for_status()
+emoji_data = response.json()
+
+# Create emoji_dict
+emoji_dict = {}
+total_entries = 0
+unique_entries = 0
+
+for entry in emoji_data:
+    total_entries += 1
+
+    description = entry.get("description")
+    emoji = entry.get("emoji")
+
+    if description and emoji:
+        if description not in emoji_dict:
+            emoji_dict[description] = emoji
+            unique_entries += 1
         else:
-            print(f"Double entry for: {str(d)}")
+            print(f"Duplicate description: {description}")
     else:
-        print(f"No description or emoji found for: {str(d)}")
+        print(f"Missing description or emoji in entry: {entry}")
 
-fileName = "emojiDict.py"
 print(
-    f"\n\nAdded {cntPass} of {cntE} emojis in {sys.argv[1]}.\nSaving now to {fileName}"
+    f"Processed {unique_entries} of {total_entries} emoji entries from {SOURCE_URL}.\n"
+    f"Writing dictionary to {OUTPUT_PATH}..."
 )
 
-f = codecs.open(fileName, encoding="utf-8", mode="w+")
-f.write(
-    "# Generated with Data from:\n# https://github.com/github/gemoji\n\n# Overview can be found here (description in table on the page used as key in this dict):\n# http://apps.timwhitlock.info/emoji/tables/unicode\n\n\ntelegramEmojiDict = {\n"
-)  # python will convert \n to os.linesep
-for d in myDict:
-    f.write(f"'{d}': u'{myDict[d].encode('unicode_escape')}',\n")
-f.write("}")
-f.close()  # you can omit in most cases as the destructor will call it
+# Save emoji_dict to file
+with codecs.open(OUTPUT_PATH, encoding="utf-8", mode="w") as file:
+    file.write(
+        "# pylint: disable=line-too-long\n"
+        "# Generated with data from:\n"
+        f"# {SOURCE_URL}\n"
+        "# \n"
+        "# Overview available here (the table descriptions on this page serve as keys in this dictionary):\n"
+        "# https://www.unicode.org/emoji/charts/full-emoji-list.html\n\n"
+        "telegramEmojiDict = {\n"
+    )
+
+    for description, emoji in emoji_dict.items():
+        escaped_emoji = emoji.encode("unicode_escape").decode("ascii")
+        file.write(f"    '{description}': u'{escaped_emoji}',\n")
+
+    file.write("}")
 
 print("DONE")
