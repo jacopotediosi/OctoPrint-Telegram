@@ -1,27 +1,29 @@
-name: CI
+# TODO: align this workflow to .pre-commit-config.yaml (currently conflicting) and re-enable it
 
-on:
-  push:
-    branches: [ "**" ]
-  pull_request:
-    branches: [ master ]
+# name: CI
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# on:
+#   push:
+#     branches: [ "**" ]
+#   pull_request:
+#     branches: [ master ]
 
-    steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get install gcc
-        pip install wheel pylint
-        pip install octoprint
-        pip install .
+#     steps:
+#     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+#     - uses: actions/checkout@v2
 
-    - name: PyLint Errors
-      run: |
-        export PATH=$HOME/.local/bin:$PATH
-        pylint --disable=R,C,W **/*.py
+#     - name: Install dependencies
+#       run: |
+#         sudo apt-get install gcc
+#         pip install wheel pylint
+#         pip install octoprint
+#         pip install .
+
+#     - name: PyLint Errors
+#       run: |
+#         export PATH=$HOME/.local/bin:$PATH
+#         pylint --disable=R,C,W **/*.py
