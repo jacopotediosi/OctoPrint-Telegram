@@ -13,7 +13,7 @@ import time
 import traceback
 import zipfile
 from contextlib import contextmanager
-from typing import List
+from typing import List, Optional
 from urllib.parse import urljoin
 
 import octoprint.filemanager
@@ -621,6 +621,31 @@ class TelegramPluginLoggingFilter(logging.Filter):
 
 class ExitThisLoopException(Exception):
     pass
+
+
+class WebcamProfile:
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        snapshot: Optional[str] = None,
+        stream: Optional[str] = None,
+        flipH: bool = False,
+        flipV: bool = False,
+        rotate90: bool = False,
+    ):
+        self.name = name
+        self.snapshot = snapshot
+        self.stream = stream
+        self.flipH = flipH
+        self.flipV = flipV
+        self.rotate90 = rotate90
+
+    def __repr__(self):
+        return (
+            f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
+            f"stream={self.stream!r} flipH={self.flipH} "
+            f"flipV={self.flipV} rotate90={self.rotate90}>"
+        )
 
 
 class Utils:
@@ -2179,36 +2204,19 @@ class TelegramPlugin(
         else:
             self._logger.warning(f"Unknown post_image method: {method}")
 
-    def get_webcam_profiles(self):
-        webcam_profiles = []
-
-        webcam_config_defaults = {
-            "name": None,
-            "snapshot": None,
-            "stream": None,
-            "flipH": False,
-            "flipV": False,
-            "rotate90": False,
-        }
+    def get_webcam_profiles(self) -> List[WebcamProfile]:
+        webcam_profiles: List[WebcamProfile] = []
 
         # New webcam integration (OctoPrint >= 1.9.0)
         try:
             if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
-                self._logger.exception(
+                self._logger.debug(
                     "Getting webcam profiles from new webcam integration"
                 )
 
                 webcam_providers = self._plugin_manager.get_implementations(
                     octoprint.plugin.types.WebcamProviderPlugin
                 )
-
-                def extract_wc_field(wc, compat, field):
-                    # Snapshot and stream are within compact
-                    if field in ("snapshot", "stream"):
-                        return getattr(compat, field, webcam_config_defaults[field])
-
-                    # Other fields are within wc
-                    return getattr(wc, field, webcam_config_defaults[field])
 
                 for provider in webcam_providers:
                     webcam_configurations = provider.get_webcam_configurations()
@@ -2220,12 +2228,16 @@ class TelegramPlugin(
                             )
                             continue
 
-                        profile = {
-                            key: extract_wc_field(wc, compat, key)
-                            for key in webcam_config_defaults
-                        }
+                        webcam_profile = WebcamProfile(
+                            name=getattr(wc, "name", None),
+                            snapshot=getattr(compat, "snapshot", None),
+                            stream=getattr(compat, "stream", None),
+                            flipH=bool(getattr(wc, "flipH", False)),
+                            flipV=bool(getattr(wc, "flipV", False)),
+                            rotate90=bool(getattr(wc, "rotate90", False)),
+                        )
 
-                        webcam_profiles.append(profile)
+                        webcam_profiles.append(webcam_profile)
         except Exception:
             self._logger.exception(
                 "Caught exception getting new webcam integration profiles"
@@ -2243,28 +2255,18 @@ class TelegramPlugin(
                         )
                         or []
                     )
-                    self._logger.debug(f"Multicam profiles raw: {multicam_profiles}")
+                    self._logger.debug(f"Multicam profiles: {multicam_profiles}")
 
-                    # Convert multicam_profiles to webcam_profiles, because multicam names some keys differently
-                    # Map format: webcam_config_key: multicam_key
-                    key_map = {
-                        "name": "name",
-                        "snapshot": "snapshot",
-                        "stream": "URL",
-                        "flipH": "flipH",
-                        "flipV": "flipV",
-                        "rotate90": "rotate90",
-                    }
-
-                    webcam_profiles = [
-                        {
-                            key: profile.get(key_map[key], webcam_config_defaults[key])
-                            for key in webcam_config_defaults
-                        }
-                        for profile in multicam_profiles
-                    ]
-
-                    self._logger.debug(f"Multicam profiles parsed: {webcam_profiles}")
+                    for multicam_profile in multicam_profiles:
+                        webcam_profile = WebcamProfile(
+                            name=multicam_profile.get("name"),
+                            snapshot=multicam_profile.get("snapshot"),
+                            stream=multicam_profile.get("URL"),
+                            flipH=bool(multicam_profile.get("flipH", False)),
+                            flipV=bool(multicam_profile.get("flipV", False)),
+                            rotate90=bool(multicam_profile.get("rotate90", False)),
+                        )
+                        webcam_profiles.append(webcam_profile)
             except Exception:
                 self._logger.exception("Caught exception getting multicam profiles")
 
@@ -2275,23 +2277,25 @@ class TelegramPlugin(
                     "Getting webcam profiles from legacy webcam settings"
                 )
 
-                webcam_profiles = [
-                    {
-                        key: self._settings.global_get(["webcam", key])
-                        or webcam_config_defaults[key]
-                        for key in webcam_config_defaults
-                    }
-                ]
+                webcam_profile = WebcamProfile(
+                    name=self._settings.global_get(["webcam", "name"]),
+                    snapshot=self._settings.global_get(["webcam", "snapshot"]),
+                    stream=self._settings.global_get(["webcam", "stream"]),
+                    flipH=bool(self._settings.global_get(["webcam", "flipH"])),
+                    flipV=bool(self._settings.global_get(["webcam", "flipV"])),
+                    rotate90=bool(self._settings.global_get(["webcam", "rotate90"])),
+                )
+                webcam_profiles.append(webcam_profile)
             except Exception:
                 self._logger.exception(
                     "Caught exception getting legacy webcam settings"
                 )
 
-        # Return webcam profiles
-        return [
-            {key: profile.get(key) for key in webcam_config_defaults}
-            for profile in webcam_profiles
-        ]
+        self._logger.debug(
+            f"Final webcam profiles: {[p.__dict__ for p in webcam_profiles]}"
+        )
+
+        return webcam_profiles
 
     def take_all_images(self) -> List[bytes]:
         taken_images_contents = []
@@ -2299,18 +2303,17 @@ class TelegramPlugin(
         self._logger.debug("Taking all images")
 
         webcam_profiles = self.get_webcam_profiles()
-        for profile in webcam_profiles:
+        for webcam_profile in webcam_profiles:
             try:
-                snapshot_url = profile.get("snapshot")
-                if not snapshot_url:
+                if not webcam_profile.snapshot:
                     self._logger.debug("Skipped a webcam without snapshot url")
                     continue
 
                 taken_image_content = self.take_image(
-                    snapshot_url,
-                    profile.get("flipH", False),
-                    profile.get("flipV", False),
-                    profile.get("rotate90", False),
+                    webcam_profile.snapshot,
+                    webcam_profile.flipH,
+                    webcam_profile.flipV,
+                    webcam_profile.rotate90,
                 )
                 taken_images_contents.append(taken_image_content)
             except Exception:
@@ -2352,23 +2355,22 @@ class TelegramPlugin(
         self._logger.debug("Taking all gifs")
 
         webcam_profiles = self.get_webcam_profiles()
-        for profile in webcam_profiles:
+        for webcam_profile in webcam_profiles:
             try:
-                stream_url = profile.get("stream")
-                if not stream_url:
+                if not webcam_profile.stream:
                     self._logger.debug("Skipped a webcam without stream url")
                     continue
 
-                profile_name = profile.get("name", "default")
+                profile_name = webcam_profile.name or "default"
                 gif_filename = secure_filename(f"gif_{profile_name}.mp4")
 
                 taken_gif_path = self.take_gif(
-                    stream_url,
+                    webcam_profile.stream,
                     duration,
                     gif_filename,
-                    profile.get("flipH", False),
-                    profile.get("flipV", False),
-                    profile.get("rotate90", False),
+                    webcam_profile.flipH,
+                    webcam_profile.flipV,
+                    webcam_profile.rotate90,
                 )
                 taken_gif_paths.append(taken_gif_path)
             except Exception:
