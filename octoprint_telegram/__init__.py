@@ -339,7 +339,7 @@ class TelegramListener(threading.Thread):
 
             # Prepare the response message
             if added_files_relative_paths:
-                response_message = f"{get_emoji('upload')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
+                response_message = f"{get_emoji('download')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
             else:
                 response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
 
@@ -403,7 +403,7 @@ class TelegramListener(threading.Thread):
                                 "/print_s",
                             ],
                             [
-                                f"{get_emoji('cross mark')} Cancel",
+                                f"{get_emoji('cancel')} Cancel",
                                 "/print_x",
                             ],
                         ]
@@ -414,8 +414,8 @@ class TelegramListener(threading.Thread):
             self._logger.exception("Exception caught processing a file")
             self.main.send_msg(
                 (
-                    f"{get_emoji('warning')} Something went wrong during processing of your file.\n"
-                    f"{get_emoji('mistake')} Sorry. More details are in octoprint.log."
+                    f"{get_emoji('attention')} Something went wrong during processing of your file.\n"
+                    f"Sorry. More details are in octoprint.log."
                 ),
                 chatID=chat_id,
             )
@@ -451,7 +451,8 @@ class TelegramListener(threading.Thread):
             self._logger.warning("Previous command was an unknown command.")
             if not self.main._settings.get(["no_mistake"]):
                 self.main.send_msg(
-                    f"I do not understand you! {get_emoji('mistake')}", chatID=chat_id
+                    f"{get_emoji('notallowed')} I do not understand you!",
+                    chatID=chat_id,
                 )
             raise ExitThisLoopException()
         # Check if user is allowed to execute the command
@@ -459,7 +460,7 @@ class TelegramListener(threading.Thread):
             # Identify user
             try:
                 user = f"{message['message']['chat']['first_name']} {message['message']['chat']['last_name']}"
-            except:  # noqa: E722
+            except Exception:
                 user = ""
             # Execute command
             self.main.tcmd.commandDict[command]["cmd"](
@@ -516,7 +517,7 @@ class TelegramListener(threading.Thread):
                 ):
                     self._logger.warning("Previous command was from an unknown user.")
                     self.main.send_msg(
-                        f"I don't know you! Certainly you are a nice Person {get_emoji('heart')}",
+                        f"{get_emoji('notallowed')} I don't know you!",
                         chatID=chat_id,
                     )
                     raise ExitThisLoopException()

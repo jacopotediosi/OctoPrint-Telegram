@@ -454,11 +454,16 @@
        <nobr><h4><i class="icon-info-sign icon-large" style="color:blue"></i>&nbsp;&nbsp;{{_('Emojis') }}</h4></nobr>
     </div>
     <div class="modal-body">
-    	<p>Add <code>&#123;emo:&lt;emoName&gt;&#125;</code> to your message text to use emojis. The <code>emoName</code> has to be set according to the 'Description' column on <a href="https://www.unicode.org/emoji/charts/full-emoji-list.html" target ="_blank">this Website</a>. Please note that no emoji will be sent if 'Send Emojis' setting is deactivated.</p>
+    	<p>Add <code>&#123;emo:&lt;emoName&gt;&#125;</code> to your message text to use emojis. The <code>emoName</code> has to be set according to the 'Description' column on <a href="https://www.unicode.org/emoji/charts/full-emoji-list.html" target ="_blank">this website</a>. Please note that no emoji will be sent if 'Send Emojis' setting is deactivated.</p>
 
-    	<p><b>Example:</b><br>If you want to use {{ "loudly crying face" | telegram_emoji }} in your message, you have to type <code>&#123;emo:loudly crying face&#125;</code>.
+    	<p>
+			<b>Example:</b><br>
+			If you want to use {{ "loudly crying face" | telegram_emoji }} in your message, you have to type <code>&#123;emo:loudly crying face&#125;</code>.
+		</p>
 
-    	<p><br><span style="font-size:1.25em;">There are a few shortcuts available:</span>
+		<br>
+
+    	<p><span style="font-size:1.25em;">There are a few shortcuts available:</span>
 			<table class="table table-condensed table-striped" style="table-layout: auto">
 				<thead>
 					<tr>
@@ -485,11 +490,14 @@
 					{% endfor %}
 			    </tbody>
 			</table>
+		</p>
 
     	<p>
-	    	<span class="muted"><small>
-	    		Data for internal icon list taken from: <a href="https://github.com/muan/unicode-emoji-json" target="_blank">muan/unicode-emoji-json</a>.
-			</small></span>
+	    	<span class="muted">
+				<small>
+	    			Data for internal icon list taken from: <a href="https://github.com/muan/unicode-emoji-json" target="_blank">muan/unicode-emoji-json</a>.
+				</small>
+			</span>
     	</p>
       </p>
     </div>
