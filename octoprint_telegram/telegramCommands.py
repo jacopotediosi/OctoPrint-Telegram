@@ -2843,7 +2843,7 @@ class TCMD:
 
     ############################################################################################
     def fileOption(self, loc, page, cmd, hash, opt, chat_id, from_id):
-        if opt != "m_m" and opt != "c_c":
+        if opt != "m_m" and opt != "c_c" and not opt.startswith("s"):
             dest, path, file = self.find_file_by_hash(hash)
             meta = self.main._file_manager.get_metadata(dest, path)
         if opt.startswith("inf"):
