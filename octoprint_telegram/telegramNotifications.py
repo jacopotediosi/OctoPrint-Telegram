@@ -199,9 +199,9 @@ class TMSG:
 
     def msgZChange(self, payload, **kwargs):
         status = self.main._printer.get_current_data()
-        if not status["state"]["flags"][
-            "printing"
-        ] or not self.is_notification_necessary(payload["new"], payload["old"]):
+        if not status["state"]["flags"]["printing"] or not self.is_notification_necessary(
+            payload["new"], payload["old"]
+        ):
             return
         self.z = payload["new"]
         self._logger.debug(
@@ -251,9 +251,7 @@ class TMSG:
     def msgPauseForUserEventNotify(self, payload, **kwargs):
         if payload is None:
             payload = {}
-        if (
-            not self.is_usernotification_necessary()
-        ):  # 18/11/2019 try to not send this message too much
+        if not self.is_usernotification_necessary():  # 18/11/2019 try to not send this message too much
             return
         self._sendNotification(payload, **kwargs)
 
@@ -278,31 +276,21 @@ class TMSG:
             event = kwargs["event"]
             self._logger.debug(f"event: {event}")
             try:
-                kwargs["event"] = (
-                    telegramMsgDict[event]["bind_msg"]
-                    if "bind_msg" in telegramMsgDict[event]
-                    else event
-                )
+                kwargs["event"] = telegramMsgDict[event]["bind_msg"] if "bind_msg" in telegramMsgDict[event] else event
             except Exception:
                 self._logger.exception("Exception on get bind_msg")
                 kwargs["event"] = event
 
-            kwargs["with_image"] = self.main._settings.get(
-                ["messages", str(kwargs["event"]), "image"]
-            )
+            kwargs["with_image"] = self.main._settings.get(["messages", str(kwargs["event"]), "image"])
             self._logger.debug(
                 f"send_gif = {self.main._settings.get(['send_gif'])} "
                 f"and this message would send gif = {self.main._settings.get(['messages', str(kwargs['event']), 'gif'])}"
             )
             if self.main._settings.get(["send_gif"]):
-                kwargs["with_gif"] = self.main._settings.get(
-                    ["messages", str(kwargs["event"]), "gif"]
-                )
+                kwargs["with_gif"] = self.main._settings.get(["messages", str(kwargs["event"]), "gif"])
             else:
                 kwargs["with_gif"] = False
-            kwargs["silent"] = self.main._settings.get(
-                ["messages", str(kwargs["event"]), "silent"]
-            )
+            kwargs["silent"] = self.main._settings.get(["messages", str(kwargs["event"]), "silent"])
 
             self._logger.debug(f"Printer Status: {status}")
             # define locals for string formatting
@@ -337,9 +325,7 @@ class TMSG:
                 time_finish = "[Unknown]"
             else:
                 time_left = octoprint.util.get_formatted_timedelta(
-                    datetime.timedelta(
-                        seconds=(status["progress"]["printTimeLeft"] or 0)
-                    )
+                    datetime.timedelta(seconds=(status["progress"]["printTimeLeft"] or 0))
                 )
                 try:
                     time_finish = self.main.calculate_ETA(time_left)
@@ -358,9 +344,7 @@ class TMSG:
                 if event == "PrintStarted":
                     # get additional metadata and thumbnail
                     self._logger.debug(f"get thumbnail url for path={path}")
-                    meta = self.main._file_manager.get_metadata(
-                        octoprint.filemanager.FileDestinations.LOCAL, path
-                    )
+                    meta = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
                     if meta is not None and "thumbnail" in meta:
                         kwargs["thumbnail"] = meta["thumbnail"]
                     else:
@@ -405,9 +389,7 @@ class TMSG:
             emo = EmojiFormatter(self.main)
             try:
                 # TODO: escape html/markdown entities from the formatted variables
-                message = self.main._settings.get(
-                    ["messages", kwargs["event"], "text"]
-                ).format(emo, **locals())
+                message = self.main._settings.get(["messages", kwargs["event"], "text"]).format(emo, **locals())
             except Exception:
                 self._logger.exception("Exception on formatting message")
                 message = (
@@ -416,9 +398,7 @@ class TMSG:
                 )
             self._logger.debug(f"Sending Notification with kwargs {kwargs}: {message}")
             # Do we want to send with Markup?
-            kwargs["markup"] = self.main._settings.get(
-                ["messages", kwargs["event"], "markup"]
-            )
+            kwargs["markup"] = self.main._settings.get(["messages", kwargs["event"], "markup"])
             # Finally send MSG
             kwargs["inline"] = False
             self.main.send_msg(message, **kwargs)

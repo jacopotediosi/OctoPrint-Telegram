@@ -119,9 +119,7 @@ class TelegramListener(threading.Thread):
 
     def set_update_offset(self, new_value):
         if new_value >= self.update_offset:
-            self._logger.debug(
-                f"Updating update_offset from {self.update_offset} to {1 + new_value}"
-            )
+            self._logger.debug(f"Updating update_offset from {self.update_offset} to {1 + new_value}")
             self.update_offset = 1 + new_value
         else:
             self._logger.debug(
@@ -159,15 +157,11 @@ class TelegramListener(threading.Thread):
                 self.handle_left_chat_member_message(message)
             # At this point we don't know what message type it is, so we do nothing
             else:
-                self._logger.warning(
-                    f"Got an unknown message. Doing nothing. Data: {message}"
-                )
+                self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
         elif "callback_query" in message:
             self.handle_callback_query(message)
         else:
-            self._logger.warning(
-                "Response is missing .message or .message.chat or callback_query. Skipping it."
-            )
+            self._logger.warning("Response is missing .message or .message.chat or callback_query. Skipping it.")
             raise ExitThisLoopException()
 
     def handle_callback_query(self, message):
@@ -220,15 +214,11 @@ class TelegramListener(threading.Thread):
             chat_id = str(message["message"]["chat"]["id"])
             from_id = str(message["message"]["from"]["id"])
 
-            uploaded_file_filename = os.path.basename(
-                message["message"]["document"]["file_name"]
-            )
+            uploaded_file_filename = os.path.basename(message["message"]["document"]["file_name"])
 
             # Check if upload command is allowed
             if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
-                self._logger.warning(
-                    f"Received file {uploaded_file_filename} from an unauthorized user"
-                )
+                self._logger.warning(f"Received file {uploaded_file_filename} from an unauthorized user")
                 self.main.send_msg(
                     f"{get_emoji('warning')} You are not authorized to upload files",
                     chatID=chat_id,
@@ -237,15 +227,11 @@ class TelegramListener(threading.Thread):
 
             # Check the file extension
             is_zip_file = False
-            if not octoprint.filemanager.valid_file_type(
-                uploaded_file_filename, "machinecode"
-            ):
+            if not octoprint.filemanager.valid_file_type(uploaded_file_filename, "machinecode"):
                 if uploaded_file_filename.lower().endswith(".zip"):
                     is_zip_file = True
                 else:
-                    self._logger.warning(
-                        f"Received file {uploaded_file_filename} with invalid extension"
-                    )
+                    self._logger.warning(f"Received file {uploaded_file_filename} with invalid extension")
                     self.main.send_msg(
                         f"{get_emoji('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
                         chatID=chat_id,
@@ -257,9 +243,7 @@ class TelegramListener(threading.Thread):
                 f"{get_emoji('save')} Saving file {uploaded_file_filename}...",
                 chatID=chat_id,
             )
-            uploaded_file_content = self.main.get_file(
-                message["message"]["document"]["file_id"]
-            )
+            uploaded_file_content = self.main.get_file(message["message"]["document"]["file_id"])
 
             # Prepare the destination folder
             destination_folder = self.main._file_manager.add_folder(
@@ -285,18 +269,14 @@ class TelegramListener(threading.Thread):
                                 continue
 
                             # Don't extract file with invalid extensions
-                            if not octoprint.filemanager.valid_file_type(
-                                member_filename, "machinecode"
-                            ):
+                            if not octoprint.filemanager.valid_file_type(member_filename, "machinecode"):
                                 self._logger.debug(
                                     f"Ignoring file {member_filename} while extracting a zip because it has an invalid extension"
                                 )
                                 continue
 
                             member_content = zf.read(member)
-                            destination_file_relative_path = os.path.join(
-                                destination_folder, member_filename
-                            )
+                            destination_file_relative_path = os.path.join(destination_folder, member_filename)
                             stream_wrapper = octoprint.filemanager.util.StreamWrapper(
                                 destination_file_relative_path,
                                 io.BytesIO(member_content),
@@ -308,21 +288,15 @@ class TelegramListener(threading.Thread):
                                 stream_wrapper,
                                 allow_overwrite=True,
                             )
-                            self._logger.info(
-                                f"Added file to {added_file_relative_path}"
-                            )
+                            self._logger.info(f"Added file to {added_file_relative_path}")
 
-                            added_files_relative_paths.append(
-                                destination_file_relative_path
-                            )
+                            added_files_relative_paths.append(destination_file_relative_path)
                         except Exception:
                             self._logger.exception(
                                 f"Exception while extracting file {member_filename} contained in the zip"
                             )
             else:
-                destination_file_relative_path = os.path.join(
-                    destination_folder, uploaded_file_filename
-                )
+                destination_file_relative_path = os.path.join(destination_folder, uploaded_file_filename)
                 stream_wrapper = octoprint.filemanager.util.StreamWrapper(
                     destination_file_relative_path, io.BytesIO(uploaded_file_content)
                 )
@@ -344,9 +318,7 @@ class TelegramListener(threading.Thread):
                 response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
 
             # If there are multiple files or the "select file after upload" settings is off
-            if len(added_files_relative_paths) != 1 or not self.main._settings.get(
-                ["selectFileUpload"]
-            ):
+            if len(added_files_relative_paths) != 1 or not self.main._settings.get(["selectFileUpload"]):
                 # Just send the message
                 self.main.send_msg(
                     response_message,
@@ -358,9 +330,7 @@ class TelegramListener(threading.Thread):
             else:
                 # Check if printer is ready
                 if not self.main._printer.is_ready():
-                    response_message += (
-                        " but I can't load it because the printer is not ready"
-                    )
+                    response_message += " but I can't load it because the printer is not ready"
                     self.main.send_msg(
                         response_message,
                         chatID=chat_id,
@@ -375,9 +345,7 @@ class TelegramListener(threading.Thread):
                         added_files_relative_paths[0],
                     )
                     self._logger.debug(f"Selecting file: {file_to_select_abs_path}")
-                    self.main._printer.select_file(
-                        file_to_select_abs_path, sd=False, printAfterSelect=False
-                    )
+                    self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
                 except Exception:
                     response_message += " but I wasn't able to load the file"
                     self.main.send_msg(
@@ -389,8 +357,7 @@ class TelegramListener(threading.Thread):
 
                 # Ask the user whether to print the loaded file
                 response_message += (
-                    " and it is loaded.\n\n"
-                    f"{get_emoji('question')} Do you want me to start printing it now?"
+                    f" and it is loaded.\n\n{get_emoji('question')} Do you want me to start printing it now?"
                 )
                 self.main.send_msg(
                     response_message,
@@ -435,11 +402,7 @@ class TelegramListener(threading.Thread):
         # command = message['message']['text']
         # parameter = message['message']['reply_to_message']['text']
         # if command is with parameter, get the parameter
-        if any(
-            (f"{k}_") in command
-            for k, v in self.main.tcmd.commandDict.items()
-            if "param" in v
-        ):
+        if any((f"{k}_") in command for k, v in self.main.tcmd.commandDict.items() if "param" in v):
             parameter = "_".join(command.split("_")[1:])
             command = command.split("_")[0]
         self._logger.info(
@@ -463,9 +426,7 @@ class TelegramListener(threading.Thread):
             except Exception:
                 user = ""
             # Execute command
-            self.main.tcmd.commandDict[command]["cmd"](
-                chat_id, from_id, command, parameter, user
-            )
+            self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
         else:
             # User was not alloed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
@@ -538,9 +499,7 @@ class TelegramListener(threading.Thread):
         return (chat_id, from_id)
 
     def get_updates(self):
-        self._logger.debug(
-            f"Listener: sending request with offset {self.update_offset}..."
-        )
+        self._logger.debug(f"Listener: sending request with offset {self.update_offset}...")
 
         # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
@@ -559,9 +518,7 @@ class TelegramListener(threading.Thread):
                         self.set_update_offset(results[0]["update_id"])
 
                     if not results:
-                        self._logger.debug(
-                            "Ignored all messages until now because first_contact was True."
-                        )
+                        self._logger.debug("Ignored all messages until now because first_contact was True.")
                         break
 
                 if self.update_offset == 0:
@@ -691,49 +648,32 @@ class Utils:
         }
         request_kwargs = {**default_kwargs, **kwargs}
 
-        loggable_kwargs = {
-            k: ("<binary data>" if k == "files" else v)
-            for k, v in request_kwargs.items()
-        }
-        self._logger.debug(
-            f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}"
-        )
+        loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
+        self._logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}")
 
         try:
             response = requests.request(method, url, **request_kwargs)
         except Exception:
-            raise Exception(
-                "Caught an exception sending telegram request. "
-                f"Traceback: {traceback.format_exc()}."
-            )
+            raise Exception(f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}.")
 
         if not response.ok:
             raise Exception(
-                f"Telegram request responded with code {response.status_code}. "
-                f"Response was: {response.text}."
+                f"Telegram request responded with code {response.status_code}. Response was: {response.text}."
             )
 
         content_type = response.headers.get("content-type", "")
         if content_type != "application/json":
-            raise Exception(
-                "Unexpected Content-Type. Expected: application/json. "
-                f"It was: {content_type}."
-            )
+            raise Exception(f"Unexpected Content-Type. Expected: application/json. It was: {content_type}.")
 
         try:
             json_data = response.json()
 
             if not json_data.get("ok", False):
-                raise Exception(
-                    f"Response didn't include 'ok:true'. Response was: {json_data}. "
-                )
+                raise Exception(f"Response didn't include 'ok:true'. Response was: {json_data}. ")
 
             return json_data
         except Exception:
-            raise Exception(
-                "Failed to parse telegram response to json. "
-                f"Response was: {response.text}."
-            )
+            raise Exception(f"Failed to parse telegram response to json. Response was: {response.text}.")
 
 
 ########################################
@@ -776,12 +716,8 @@ class TelegramPlugin(
     def start_listening(self):
         if self._settings.get(["token"]) != "" and self.thread is None:
             self._logger.debug("Starting listener.")
-            self.bot_url = (
-                f"https://api.telegram.org/bot{self._settings.get(['token'])}"
-            )
-            self.bot_file_url = (
-                f"https://api.telegram.org/file/bot{self._settings.get(['token'])}"
-            )
+            self.bot_url = f"https://api.telegram.org/bot{self._settings.get(['token'])}"
+            self.bot_file_url = f"https://api.telegram.org/file/bot{self._settings.get(['token'])}"
             self.thread = TelegramListener(self)
             self.thread.daemon = True
             self.thread.start()
@@ -802,9 +738,7 @@ class TelegramPlugin(
         # If the count ever goeas above 10, we stop doing everything else and just return False.
         # So if this is ever reached, it will stay this way.
         if self.sending_okay_count > 10:
-            self._logger.warning(
-                "Sent more than 10 messages in the last minute. Shutting down..."
-            )
+            self._logger.warning("Sent more than 10 messages in the last minute. Shutting down...")
             self.shutdown()
             return False
 
@@ -856,9 +790,7 @@ class TelegramPlugin(
 
     def on_startup(self, host, port):
         # Logging formatter
-        logging_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        logging_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         # File logging handler
         file_handler = CleaningTimedRotatingFileHandler(
@@ -923,9 +855,7 @@ class TelegramPlugin(
                     try:
                         os.remove(file_path)
                     except OSError:
-                        self._logger.exception(
-                            f"Exception caught removing file {file_path}"
-                        )
+                        self._logger.exception(f"Exception caught removing file {file_path}")
 
         # Update user profile photos
         for key in self.chats:
@@ -1021,11 +951,7 @@ class TelegramPlugin(
         ##########
         ### Migrate from old plugin Versions < 1.3 (old versions had no settings version check)
         ##########
-        chats = {
-            k: v
-            for k, v in self._settings.get(["chats"]).items()
-            if k != "zBOTTOMOFCHATS"
-        }
+        chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
         self._logger.debug(f"LOADED CHATS: {chats}")
         self._settings.set(["chats"], {})
         if current is None or current < 1:
@@ -1037,14 +963,10 @@ class TelegramPlugin(
                     if setting not in chats[chat]:
                         if setting == "commands":
                             chats[chat]["commands"] = {
-                                k: False
-                                for k, v in tcmd.commandDict.items()
-                                if "bind_none" not in v
+                                k: False for k, v in tcmd.commandDict.items() if "bind_none" not in v
                             }
                         elif setting == "notifications":
-                            chats[chat]["notifications"] = {
-                                k: False for k, v in telegramMsgDict.items()
-                            }
+                            chats[chat]["notifications"] = {k: False for k, v in telegramMsgDict.items()}
                         else:
                             chats[chat][setting] = False
             ########## Is there a chat from old single user plugin version?
@@ -1095,9 +1017,7 @@ class TelegramPlugin(
                         data["title"] = " - ".join(title_parts)
 
                 except Exception:
-                    self._logger.exception(
-                        "ERROR migrating chat. Done with defaults private=true,title=[UNKNOWN]"
-                    )
+                    self._logger.exception("ERROR migrating chat. Done with defaults private=true,title=[UNKNOWN]")
                 # Place the migrated chat in chats
                 chats.update({str(chat["id"]): data})
             self._logger.debug(f"MIGRATED Chats: {chats}")
@@ -1140,24 +1060,15 @@ class TelegramPlugin(
             for chat in chats:
                 # Handle renamed commands
                 if "/list" in chats[chat]["commands"]:
-                    chats[chat]["commands"].update(
-                        {"/files": chats[chat]["commands"]["/list"]}
-                    )
+                    chats[chat]["commands"].update({"/files": chats[chat]["commands"]["/list"]})
                 if "/imsorrydontshutup" in chats[chat]["commands"]:
-                    chats[chat]["commands"].update(
-                        {"/dontshutup": chats[chat]["commands"]["/imsorrydontshutup"]}
-                    )
+                    chats[chat]["commands"].update({"/dontshutup": chats[chat]["commands"]["/imsorrydontshutup"]})
                 if "type" not in chats[chat]:
-                    chats[chat].update(
-                        {"type": "PRIVATE" if chats[chat]["private"] else "GROUP"}
-                    )
+                    chats[chat].update({"type": "PRIVATE" if chats[chat]["private"] else "GROUP"})
                 delCmd = []
                 # Collect remove 'bind_none' commands
                 for cmd in tcmd.commandDict:
-                    if (
-                        cmd in chats[chat]["commands"]
-                        and "bind_none" in tcmd.commandDict[cmd]
-                    ):
+                    if cmd in chats[chat]["commands"] and "bind_none" in tcmd.commandDict[cmd]:
                         delCmd.append(cmd)
                 # Collect Delete commands from settings if they don't belong to commandDict anymore
                 for cmd in chats[chat]["commands"]:
@@ -1236,9 +1147,7 @@ class TelegramPlugin(
         if "token" in data:
             data["token"] = data["token"].strip()
             if not re.match(r"^[0-9]+:[a-zA-Z0-9_\-]+$", data["token"]):
-                self._logger.error(
-                    "Not saving token because it doesn't seem to have the right format."
-                )
+                self._logger.error("Not saving token because it doesn't seem to have the right format.")
                 self.connection_state_str = "The previously entered token doesn't seem to have the correct format. It should look like this: 12345678:AbCdEfGhIjKlMnOpZhGtDsrgkjkZTCHJKkzvjhb"
                 data["token"] = ""
         old_token = self._settings.get(["token"])
@@ -1260,11 +1169,7 @@ class TelegramPlugin(
         # Only return our restricted settings to admin users - this is only needed for OctoPrint <= 1.2.16
         restricted = (("token", None), ("chats", dict()))
         for r, v in restricted:
-            if r in data and (
-                current_user is None
-                or current_user.is_anonymous()
-                or not current_user.is_admin()
-            ):
+            if r in data and (current_user is None or current_user.is_anonymous() or not current_user.is_admin()):
                 data[r] = v
 
         return data
@@ -1302,9 +1207,7 @@ class TelegramPlugin(
 
             # If we know the event, start handler
             if event in self.tmsg.msgCmdDict:
-                self._logger.debug(
-                    f"Received a known event: {event} - Payload: {payload}"
-                )
+                self._logger.debug(f"Received a known event: {event} - Payload: {payload}")
                 self.tmsg.startEvent(event, payload, **kwargs)
         except Exception:
             self._logger.exception("Caught exception handling an event")
@@ -1339,26 +1242,14 @@ class TelegramPlugin(
                     bind_text[telegramMsgDict[key]["bind_msg"]] = [key]
             return json.dumps(
                 {
-                    "bind_cmd": [
-                        k
-                        for k, v in self.tcmd.commandDict.items()
-                        if "bind_none" not in v
-                    ],
-                    "bind_msg": [
-                        k for k, v in telegramMsgDict.items() if "bind_msg" not in v
-                    ],
+                    "bind_cmd": [k for k, v in self.tcmd.commandDict.items() if "bind_none" not in v],
+                    "bind_msg": [k for k, v in telegramMsgDict.items() if "bind_msg" not in v],
                     "bind_text": bind_text,
-                    "no_setting": [
-                        k for k, v in telegramMsgDict.items() if "no_setting" in v
-                    ],
+                    "no_setting": [k for k, v in telegramMsgDict.items() if "no_setting" in v],
                 }
             )
         else:
-            retChats = {
-                k: v
-                for k, v in self.chats.items()
-                if "delMe" not in v and k != "zBOTTOMOFCHATS"
-            }
+            retChats = {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"}
             for chat in retChats:
                 if os.path.isfile(
                     os.path.join(
@@ -1433,9 +1324,7 @@ class TelegramPlugin(
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
 
-            self._logger.info(
-                f"Received delChat command to delete chat with id {chat_id}"
-            )
+            self._logger.info(f"Received delChat command to delete chat with id {chat_id}")
 
             if chat_id not in self.chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
@@ -1445,11 +1334,7 @@ class TelegramPlugin(
 
             return json.dumps(
                 {
-                    "chats": {
-                        k: v
-                        for k, v in self.chats.items()
-                        if "delMe" not in v and k != "zBOTTOMOFCHATS"
-                    },
+                    "chats": {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"},
                     "connection_state_str": self.connection_state_str,
                     "connection_ok": self.connection_ok,
                 }
@@ -1478,9 +1363,7 @@ class TelegramPlugin(
                     }
                 )
             except Exception as e:
-                self._logger.exception(
-                    "Caught an exception setting default bot commands"
-                )
+                self._logger.exception("Caught an exception setting default bot commands")
                 return json.dumps(
                     {
                         "ok": False,
@@ -1503,13 +1386,9 @@ class TelegramPlugin(
             settings_keys = ("accept_commands", "send_notifications", "allow_users")
 
             # Check that settings_keys are boolean
-            invalid_keys = [
-                k for k in settings_keys if not isinstance(data.get(k), bool)
-            ]
+            invalid_keys = [k for k in settings_keys if not isinstance(data.get(k), bool)]
             if invalid_keys:
-                self._logger.warning(
-                    f"Received args {', '.join(invalid_keys)} are not boolean"
-                )
+                self._logger.warning(f"Received args {', '.join(invalid_keys)} are not boolean")
                 return f"Invalid values: {', '.join(invalid_keys)} must be boolean", 400
 
             # Update user
@@ -1535,40 +1414,28 @@ class TelegramPlugin(
         try:
             # If it's a regular event notification
             if "chatID" not in kwargs and "event" in kwargs:
-                self._logger.debug(
-                    f"Send_msg() found event: {kwargs['event']} | chats list={self.chats}"
-                )
+                self._logger.debug(f"Send_msg() found event: {kwargs['event']} | chats list={self.chats}")
                 for key in self.chats:
                     self._logger.debug(f"send_msg loop key = {key}")
                     if key != "zBOTTOMOFCHATS":
                         try:
-                            self._logger.debug(
-                                f"self.chats[key]['notifications'] = {self.chats[key]['notifications']}"
-                            )
+                            self._logger.debug(f"self.chats[key]['notifications'] = {self.chats[key]['notifications']}")
                             if (
                                 self.chats[key]["notifications"][kwargs["event"]]
                                 and (key not in self.shut_up or self.shut_up[key] == 0)
                                 and self.chats[key]["send_notifications"]
                             ):
                                 kwargs["chatID"] = key
-                                threading.Thread(
-                                    target=self._send_msg, kwargs=kwargs
-                                ).run()
+                                threading.Thread(target=self._send_msg, kwargs=kwargs).run()
                         except Exception:
-                            self._logger.exception(
-                                f"Exception caught in loop chatId for key: {key}"
-                            )
+                            self._logger.exception(f"Exception caught in loop chatId for key: {key}")
             # Seems to be a broadcast
             elif "chatID" not in kwargs:
                 for key in self.chats:
                     kwargs["chatID"] = key
                     threading.Thread(target=self._send_msg, kwargs=kwargs).run()
             # This is a 'editMessageText' message
-            elif (
-                "msg_id" in kwargs
-                and kwargs["msg_id"] != ""
-                and kwargs["msg_id"] is not None
-            ):
+            elif "msg_id" in kwargs and kwargs["msg_id"] != "" and kwargs["msg_id"] is not None:
                 threading.Thread(target=self._send_edit_msg, kwargs=kwargs).run()
             # Direct message or event notification to a chat_id
             else:
@@ -1679,9 +1546,7 @@ class TelegramPlugin(
             if responses:
                 inline_keyboard_buttons = []
                 for k in responses:
-                    inline_keyboard_buttons.append(
-                        [{"text": x[0], "callback_data": x[1]} for x in k]
-                    )
+                    inline_keyboard_buttons.append([{"text": x[0], "callback_data": x[1]} for x in k])
                 inline_keyboard = {"inline_keyboard": inline_keyboard_buttons}
                 message_data["reply_markup"] = json.dumps(inline_keyboard)
 
@@ -1725,10 +1590,7 @@ class TelegramPlugin(
                 with self.telegram_action_context(chatID, "record_video"):
                     try:
                         # If the event already generated a gif
-                        if (
-                            kwargs.get("event") == "plugin_octolapse_movie_done"
-                            or kwargs.get("event") == "MovieDone"
-                        ):
+                        if kwargs.get("event") == "plugin_octolapse_movie_done" or kwargs.get("event") == "MovieDone":
                             gifs_to_send.append(kwargs.get("movie", ""))
                         # Otherwise, take gifs from webcams
                         else:
@@ -1843,9 +1705,7 @@ class TelegramPlugin(
                 if not tlg_response_json["ok"]:
                     raise NameError("ReqErr")
                 if "message_id" in tlg_response_json["result"]:
-                    self.updateMessageID[chatID] = tlg_response_json["result"][
-                        "message_id"
-                    ]
+                    self.updateMessageID[chatID] = tlg_response_json["result"]["message_id"]
         except Exception:
             self._logger.exception("Exception caught in _send_msg()")
             tlg_response = requests.post(
@@ -1892,9 +1752,7 @@ class TelegramPlugin(
                         proxies=self.utils.get_proxies(),
                     )
                     if not r.ok:
-                        self._logger.error(
-                            f"Failed with status {r.status_code}: {r.text}"
-                        )
+                        self._logger.error(f"Failed with status {r.status_code}: {r.text}")
             except Exception:
                 self._logger.exception("Exception caught in send_file()")
 
@@ -1911,9 +1769,7 @@ class TelegramPlugin(
         r.raise_for_status()
         data = r.json()
         if "ok" not in data:
-            raise Exception(
-                f"Telegram didn't respond well to getFile. The response was: {r.text}"
-            )
+            raise Exception(f"Telegram didn't respond well to getFile. The response was: {r.text}")
         url = f"{self.bot_file_url}/{data['result']['file_path']}"
         self._logger.debug(f"Downloading file: {url}")
         r = requests.get(url, proxies=self.utils.get_proxies())
@@ -1928,9 +1784,7 @@ class TelegramPlugin(
         try:
             if file_id == "":
                 if int(chat_id) < 0:
-                    self._logger.debug(
-                        f"Not able to load group photos. Chat_id: {chat_id}. EXIT"
-                    )
+                    self._logger.debug(f"Not able to load group photos. Chat_id: {chat_id}. EXIT")
                     return
                 r = requests.get(
                     f"{self.bot_url}/getUserProfilePhotos",
@@ -2019,9 +1873,7 @@ class TelegramPlugin(
             shallRun = force
             if not force:
                 # Check if a list of commands was already set
-                resp = requests.get(
-                    f"{self.bot_url}/getMyCommands", proxies=self.utils.get_proxies()
-                ).json()
+                resp = requests.get(f"{self.bot_url}/getMyCommands", proxies=self.utils.get_proxies()).json()
                 self._logger.debug(f"getMyCommands returned {resp}")
                 shallRun = len(resp["result"]) == 0
             if shallRun:
@@ -2186,9 +2038,7 @@ class TelegramPlugin(
         method = self._settings.get(["PostImgMethod"])
         command = self._settings.get(["PostImgCommand"])
 
-        self._logger.debug(
-            f"Starting post_image. Method: {method}. Command: {command}."
-        )
+        self._logger.debug(f"Starting post_image. Method: {method}. Command: {command}.")
 
         if method == "None":
             return
@@ -2211,22 +2061,16 @@ class TelegramPlugin(
         # New webcam integration (OctoPrint >= 1.9.0)
         try:
             if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
-                self._logger.debug(
-                    "Getting webcam profiles from new webcam integration"
-                )
+                self._logger.debug("Getting webcam profiles from new webcam integration")
 
-                webcam_providers = self._plugin_manager.get_implementations(
-                    octoprint.plugin.types.WebcamProviderPlugin
-                )
+                webcam_providers = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
 
                 for provider in webcam_providers:
                     webcam_configurations = provider.get_webcam_configurations()
                     for wc in webcam_configurations:
                         compat = getattr(wc, "compat", None)
                         if not compat:
-                            self._logger.debug(
-                                "Skipped a webcam configuration without compatibility layer"
-                            )
+                            self._logger.debug("Skipped a webcam configuration without compatibility layer")
                             continue
 
                         webcam_profile = WebcamProfile(
@@ -2240,9 +2084,7 @@ class TelegramPlugin(
 
                         webcam_profiles.append(webcam_profile)
         except Exception:
-            self._logger.exception(
-                "Caught exception getting new webcam integration profiles"
-            )
+            self._logger.exception("Caught exception getting new webcam integration profiles")
 
         # Fallback to Multicam plugin
         if not webcam_profiles:
@@ -2250,12 +2092,7 @@ class TelegramPlugin(
                 if self._plugin_manager.get_plugin("multicam", True):
                     self._logger.debug("Getting webcam profiles from multicam")
 
-                    multicam_profiles = (
-                        self._settings.global_get(
-                            ["plugins", "multicam", "multicam_profiles"]
-                        )
-                        or []
-                    )
+                    multicam_profiles = self._settings.global_get(["plugins", "multicam", "multicam_profiles"]) or []
                     self._logger.debug(f"Multicam profiles: {multicam_profiles}")
 
                     for multicam_profile in multicam_profiles:
@@ -2274,9 +2111,7 @@ class TelegramPlugin(
         # Fallback to legacy webcam settings
         if not webcam_profiles:
             try:
-                self._logger.debug(
-                    "Getting webcam profiles from legacy webcam settings"
-                )
+                self._logger.debug("Getting webcam profiles from legacy webcam settings")
 
                 webcam_profile = WebcamProfile(
                     name=self._settings.global_get(["webcam", "name"]),
@@ -2288,13 +2123,9 @@ class TelegramPlugin(
                 )
                 webcam_profiles.append(webcam_profile)
             except Exception:
-                self._logger.exception(
-                    "Caught exception getting legacy webcam settings"
-                )
+                self._logger.exception("Caught exception getting legacy webcam settings")
 
-        self._logger.debug(
-            f"Final webcam profiles: {[p.__dict__ for p in webcam_profiles]}"
-        )
+        self._logger.debug(f"Final webcam profiles: {[p.__dict__ for p in webcam_profiles]}")
 
         return webcam_profiles
 
@@ -2333,9 +2164,7 @@ class TelegramPlugin(
         image_content = r.content
 
         if flipH or flipV or rotate:
-            self._logger.debug(
-                f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]"
-            )
+            self._logger.debug(f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]")
             image = Image.open(bytes_reader_class(image_content))
             if flipH:
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
@@ -2425,13 +2254,9 @@ class TelegramPlugin(
             if nb_cpu > 1:
                 used_cpu = nb_cpu // 2
                 limit_cpu = 65 * used_cpu
-            self._logger.debug(
-                f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}"
-            )
+            self._logger.debug(f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}")
         except Exception:
-            self._logger.exception(
-                "Exception caught getting number of cpu. Using defaults..."
-            )
+            self._logger.exception("Exception caught getting number of cpu. Using defaults...")
 
         cmd = []
         if shutil.which("nice"):
@@ -2491,9 +2316,7 @@ class TelegramPlugin(
     def get_current_layers(self):
         layers = None
         try:
-            self._logger.debug(
-                f"get_current_layers api key={self._settings.global_get(['api', 'key'])}"
-            )
+            self._logger.debug(f"get_current_layers api key={self._settings.global_get(['api', 'key'])}")
             if self._plugin_manager.get_plugin("DisplayLayerProgress", True):
                 headers = {
                     "X-Api-Key": self._settings.global_get(["api", "key"]),
@@ -2512,9 +2335,7 @@ class TelegramPlugin(
             else:
                 return None
         except Exception:
-            self._logger.exception(
-                "An Exception in get layers from DisplayLayerProgress"
-            )
+            self._logger.exception("An Exception in get layers from DisplayLayerProgress")
         return layers
 
     def calculate_ETA(self, printTime=0):
@@ -2530,14 +2351,9 @@ class TelegramPlugin(
                 except Exception:
                     return ""
             else:
-                finish_time = current_time + datetime.timedelta(
-                    0, currentData["progress"]["printTimeLeft"]
-                )
+                finish_time = current_time + datetime.timedelta(0, currentData["progress"]["printTimeLeft"])
 
-            if (
-                finish_time.day > current_time.day
-                and finish_time > current_time + datetime.timedelta(days=7)
-            ):
+            if finish_time.day > current_time.day and finish_time > current_time + datetime.timedelta(days=7):
                 # Longer than a week ahead
                 format = self._settings.get(["WeekTimeFormat"])  # "%d.%m.%Y %H:%M:%S"
             elif finish_time.day > current_time.day:
@@ -2561,9 +2377,7 @@ class TelegramPlugin(
             access_validation_factory,
         )
 
-        os.makedirs(
-            os.path.join(self.get_plugin_data_folder(), "img", "user"), exist_ok=True
-        )
+        os.makedirs(os.path.join(self.get_plugin_data_folder(), "img", "user"), exist_ok=True)
 
         return [
             (
@@ -2590,9 +2404,7 @@ class TelegramPlugin(
         ]
 
     # Function to be able to do action on gcode
-    def hook_gcode_sent(
-        self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs
-    ):
+    def hook_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode and cmd[:4] == "M600":
             self._logger.info("M600 registered")
             try:

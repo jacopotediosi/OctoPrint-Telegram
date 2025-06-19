@@ -158,9 +158,7 @@ class TCMD:
                     elif params[1].startswith("-"):
                         self.SettingsTemp[0] -= float(100) / (10 ** len(params[1]))
                     else:
-                        self.main._settings.set_float(
-                            ["notification_height"], self.SettingsTemp[0], force=True
-                        )
+                        self.main._settings.set_float(["notification_height"], self.SettingsTemp[0], force=True)
                         self.main._settings.save()
                         self.cmdSettings(chat_id, from_id, cmd, "back", user)
                         return
@@ -202,9 +200,7 @@ class TCMD:
                     elif params[1].startswith("-"):
                         self.SettingsTemp[1] -= 100 / (10 ** len(params[1]))
                     else:
-                        self.main._settings.set_int(
-                            ["notification_time"], self.SettingsTemp[1], force=True
-                        )
+                        self.main._settings.set_int(["notification_time"], self.SettingsTemp[1], force=True)
                         self.main._settings.save()
                         self.cmdSettings(chat_id, from_id, cmd, "back", user)
                         return
@@ -340,9 +336,7 @@ class TCMD:
             self.main.shut_up[chat_id] = 0
         self.main.shut_up[chat_id] += 1
         if self.main.shut_up[chat_id] >= 5:
-            self._logger.warning(
-                f"shut_up value is {self.main.shut_up[chat_id]}. Shutting down."
-            )
+            self._logger.warning(f"shut_up value is {self.main.shut_up[chat_id]}. Shutting down.")
             self.main.shutdown()
         self.main.send_msg(
             f"{get_emoji('nonotify')} Okay, shutting up until the next print is finished.\n"
@@ -413,9 +407,7 @@ class TCMD:
                 if destination == octoprint.filemanager.FileDestinations.SDCARD:
                     self.main._printer.select_file(file, True, printAfterSelect=False)
                 else:
-                    file = self.main._file_manager.path_on_disk(
-                        octoprint.filemanager.FileDestinations.LOCAL, file
-                    )
+                    file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
                     self._logger.debug(f"Using full path: {file}")
                     self.main._printer.select_file(file, False, printAfterSelect=False)
                 data = self.main._printer.get_current_data()
@@ -474,9 +466,7 @@ class TCMD:
                     if opt.startswith("dir"):
                         self.fileList(fileHash, 0, cmd, chat_id)
                     else:
-                        self.fileOption(
-                            pathHash, page, cmd, fileHash, opt, chat_id, from_id
-                        )
+                        self.fileOption(pathHash, page, cmd, fileHash, opt, chat_id, from_id)
             else:
                 storages = self.main._file_manager.list_files(recursive=False)
                 if len(list(storages.keys())) < 2:
@@ -492,15 +482,9 @@ class TCMD:
                 else:
                     self.generate_dir_hash_dict()
                     keys = []
-                    keys.extend(
-                        [([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)]
-                    )
+                    keys.extend([([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)])
                     keys.append([[f"{get_emoji('cancel')} Close", "No"]])
-                    msg_id = (
-                        self.main.get_update_msg_id(chat_id)
-                        if parameter == "back"
-                        else ""
-                    )
+                    msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                     self.main.send_msg(
                         f"{get_emoji('save')} *Select Storage*",
                         chatID=chat_id,
@@ -550,28 +534,18 @@ class TCMD:
                     return
                 try:
                     if params[2] == "Restart OctoPrint":
-                        myCmd = self.main._settings.global_get(
-                            ["server", "commands", "serverRestartCommand"]
-                        )
+                        myCmd = self.main._settings.global_get(["server", "commands", "serverRestartCommand"])
                     elif params[2] == "Reboot System":
-                        myCmd = self.main._settings.global_get(
-                            ["server", "commands", "systemRestartCommand"]
-                        )
+                        myCmd = self.main._settings.global_get(["server", "commands", "systemRestartCommand"])
                     elif params[2] == "Shutdown System":
-                        myCmd = self.main._settings.global_get(
-                            ["server", "commands", "systemShutdownCommand"]
-                        )
+                        myCmd = self.main._settings.global_get(["server", "commands", "systemShutdownCommand"])
 
-                    p = sarge.run(
-                        myCmd, stderr=sarge.Capture(), shell=True, async_=False
-                    )
+                    p = sarge.run(myCmd, stderr=sarge.Capture(), shell=True, async_=False)
 
                     if p.returncode != 0:
                         returncode = p.returncode
                         stderr_text = p.stderr.text
-                        self._logger.warning(
-                            f"Command failed with return code {returncode}: {stderr_text}"
-                        )
+                        self._logger.warning(f"Command failed with return code {returncode}: {stderr_text}")
                         self.main.send_msg(
                             f"{get_emoji('warning')} Command failed with return code {returncode}: {stderr_text}",
                             chatID=chat_id,
@@ -597,11 +571,7 @@ class TCMD:
                 parameter = params[0]
             actions = self.main._settings.global_get(["system", "actions"])
             command = next(
-                (
-                    d
-                    for d in actions
-                    if "action" in d and self.hashMe(d["action"]) == parameter
-                ),
+                (d for d in actions if "action" in d and self.hashMe(d["action"]) == parameter),
                 False,
             )
             if command:
@@ -641,9 +611,7 @@ class TCMD:
                             if p.returncode != 0:
                                 returncode = p.returncode
                                 stderr_text = p.stderr.text
-                                self._logger.warning(
-                                    f"Command failed with return code {returncode}: {stderr_text}"
-                                )
+                                self._logger.warning(f"Command failed with return code {returncode}: {stderr_text}")
                                 self.main.send_msg(
                                     f"{get_emoji('warning')} Command failed with return code {returncode}: {stderr_text}",
                                     chatID=chat_id,
@@ -675,9 +643,7 @@ class TCMD:
             i = 1
             for action in self.main._settings.global_get(["system", "actions"]):
                 if action["action"] != "divider":
-                    tmpKeys.append(
-                        [f"{action['name']}", f"/sys_{self.hashMe(action['action'])}"]
-                    )
+                    tmpKeys.append([f"{action['name']}", f"/sys_{self.hashMe(action['action'])}"])
                     if i % 2 == 0:
                         keys.append(tmpKeys)
                         tmpKeys = []
@@ -699,9 +665,7 @@ class TCMD:
                 ],
             }
             for index in serverCommands:
-                commandText = self.main._settings.global_get(
-                    ["server", "commands", index]
-                )
+                commandText = self.main._settings.global_get(["server", "commands", index])
                 if commandText is not None:
                     tmpKeys.append(serverCommands[index])
                     if i % 2 == 0:
@@ -724,12 +688,8 @@ class TCMD:
                     (
                         s.connect(
                             (
-                                self.main._settings.global_get(
-                                    ["server", "onlineCheck", "host"]
-                                ),
-                                self.main._settings.global_get(
-                                    ["server", "onlineCheck", "port"]
-                                ),
+                                self.main._settings.global_get(["server", "onlineCheck", "host"]),
+                                self.main._settings.global_get(["server", "onlineCheck", "port"]),
                             )
                         ),
                         s.getsockname()[0],
@@ -834,9 +794,7 @@ class TCMD:
             except Exception:
                 self._logger.exception("An Exception in get list action")
             if empty:
-                message += (
-                    f"\n\n{get_emoji('warning')} No Printer Control Command found..."
-                )
+                message += f"\n\n{get_emoji('warning')} No Printer Control Command found..."
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
@@ -853,18 +811,14 @@ class TCMD:
                     json={"command": "getPSUState"},
                     headers=headers,
                 )
-                if (
-                    answer.status_code >= 300
-                ):  # It's not true that it's right. But so be it.
+                if answer.status_code >= 300:  # It's not true that it's right. But so be it.
                     self._logger.debug(f"Call response (POST API octoprint): {answer}")
                     self.main.send_msg(
                         f"{get_emoji('warning')} Something wrong, power on command failed.",
                         chatID=chat_id,
                     )
                 else:
-                    if answer.json()[
-                        "isPSUOn"
-                    ]:  # I know it's overcoding, but it's clearer.
+                    if answer.json()["isPSUOn"]:  # I know it's overcoding, but it's clearer.
                         self.main.send_msg(
                             f"{get_emoji('warning')} Printer has already been turned on.",
                             chatID=chat_id,
@@ -940,9 +894,7 @@ class TCMD:
                         data=data,
                     )
                     if answer.status_code >= 300:
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         self.main.send_msg(
                             f"{get_emoji('warning')} Something wrong, Power on attempt failed.",
                             chatID=chat_id,
@@ -978,26 +930,18 @@ class TCMD:
                     elif plugpluginname == "tplinksmartplug":
                         data = '{ "command":"getListPlug"}'
                         optionname = "arrSmartplugs"
-                    self._logger.debug(
-                        f"http://localhost:{self.port}/api/plugin/{plugpluginname} | data={data}"
-                    )
+                    self._logger.debug(f"http://localhost:{self.port}/api/plugin/{plugpluginname} | data={data}")
                     answer = requests.post(
                         f"http://localhost:{self.port}/api/plugin/{plugpluginname}",
                         headers=headers,
                         data=data,
                     )
                     force = True
-                    if (
-                        answer.status_code >= 300 or force
-                    ):  # It's not true that it's right. But so be it.
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                    if answer.status_code >= 300 or force:  # It's not true that it's right. But so be it.
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         # will try to get the list of plug from config
                         try:
-                            curr = self.main._settings.global_get(
-                                ["plugins", plugpluginname, optionname]
-                            )
+                            curr = self.main._settings.global_get(["plugins", plugpluginname, optionname])
                             if curr is not None:
                                 json_data = curr
                             else:
@@ -1010,9 +954,7 @@ class TCMD:
                             )
                             return
                     else:
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         json_data = answer.json()
                     keys = []
                     tmpKeys = []
@@ -1039,9 +981,7 @@ class TCMD:
                                         ]
                                     )
                                     if firstplug == "":
-                                        firstplug = (
-                                            f"{label['topic']}_{label['relayN']}"
-                                        )
+                                        firstplug = f"{label['topic']}_{label['relayN']}"
                                 elif plugpluginname == "tplinksmartplug":
                                     tmpKeys.append(
                                         [
@@ -1081,14 +1021,8 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = (
-                                self.main.get_update_msg_id(chat_id)
-                                if parameter == "back"
-                                else ""
-                            )
-                            self.main.send_msg(
-                                message, chatID=chat_id, responses=keys, msg_id=msg_id
-                            )
+                            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
+                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
                         return
                 except Exception:
                     self._logger.exception("Command failed")
@@ -1200,9 +1134,7 @@ class TCMD:
                         data=data,
                     )
                     if answer.status_code >= 300:
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         self.main.send_msg(
                             f"{get_emoji('warning')} Something wrong, Power off attempt failed.",
                             chatID=chat_id,
@@ -1238,26 +1170,18 @@ class TCMD:
                     elif plugpluginname == "tplinksmartplug":
                         data = '{ "command":"getListPlug"}'
                         optionname = "arrSmartplugs"
-                    self._logger.debug(
-                        f"http://localhost:{self.port}/api/plugin/{plugpluginname} | data={data}"
-                    )
+                    self._logger.debug(f"http://localhost:{self.port}/api/plugin/{plugpluginname} | data={data}")
                     answer = requests.post(
                         f"http://localhost:{self.port}/api/plugin/{plugpluginname}",
                         headers=headers,
                         data=data,
                     )
                     force = True
-                    if (
-                        answer.status_code >= 300 or force
-                    ):  # It's not true that it's right. But so be it.
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                    if answer.status_code >= 300 or force:  # It's not true that it's right. But so be it.
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         # will try to get the list of plug from config
                         try:
-                            curr = self.main._settings.global_get(
-                                ["plugins", plugpluginname, optionname]
-                            )
+                            curr = self.main._settings.global_get(["plugins", plugpluginname, optionname])
                             if curr is not None:
                                 json_data = curr
                             else:
@@ -1270,9 +1194,7 @@ class TCMD:
                             )
                             return
                     else:
-                        self._logger.debug(
-                            f"Call response (POST API octoprint): {answer}"
-                        )
+                        self._logger.debug(f"Call response (POST API octoprint): {answer}")
                         json_data = answer.json()
 
                     keys = []
@@ -1299,9 +1221,7 @@ class TCMD:
                                         ]
                                     )
                                     if firstplug == "":
-                                        firstplug = (
-                                            f"{label['topic']}_{label['relayN']}"
-                                        )
+                                        firstplug = f"{label['topic']}_{label['relayN']}"
                                 elif plugpluginname == "tplinksmartplug":
                                     tmpKeys.append(
                                         [
@@ -1341,14 +1261,8 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = (
-                                self.main.get_update_msg_id(chat_id)
-                                if parameter == "back"
-                                else ""
-                            )
-                            self.main.send_msg(
-                                message, chatID=chat_id, responses=keys, msg_id=msg_id
-                            )
+                            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
+                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
                         return
                 except Exception:
                     self._logger.exception("Command failed")
@@ -1766,9 +1680,7 @@ class TCMD:
                     elif params[2].startswith("-"):
                         self.tempTemp[toolNo] -= base / (10 ** len(params[2]))
                     elif params[2].startswith("s"):
-                        self.main._printer.set_temperature(
-                            f"tool{toolNo}", self.tempTemp[toolNo]
-                        )
+                        self.main._printer.set_temperature(f"tool{toolNo}", self.tempTemp[toolNo])
                         self.cmdTune(chat_id, from_id, cmd, "back", user)
                         return
                     else:
@@ -1911,9 +1823,7 @@ class TCMD:
                     self.tempTemp.append(int(temps["bed"]["target"]))
                 keys.append(tmpKeys)
             keys.append([[f"{get_emoji('cancel')} Close", "No"]])
-            self.main.send_msg(
-                msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="Markdown"
-            )
+            self.main.send_msg(msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="Markdown")
 
     ############################################################################################
     def cmdFilament(self, chat_id, from_id, cmd, parameter, user=""):
@@ -1936,9 +1846,7 @@ class TCMD:
                         resp = resp.json()
                         resp2 = resp2.json()
                         self._logger.info(f"Spools: {resp['spools']}")
-                        message = (
-                            f"{get_emoji('info')} Available filament spools are:\n"
-                        )
+                        message = f"{get_emoji('info')} Available filament spools are:\n"
                         for spool in resp["spools"]:
                             weight = spool["weight"]
                             used = spool["used"]
@@ -1953,25 +1861,19 @@ class TCMD:
                                     f"{selection['spool']['profile']['material']}"
                                 )
                         msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(
-                            message, chatID=chat_id, msg_id=msg_id, inline=False
-                        )
+                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                     except ValueError:
                         message = f"{get_emoji('attention')} Error getting spools. Are you sure, you have installed the Filament Manager Plugin?"
                         if errorText != "":
                             message += f"\nError text: {errorText}"
                         msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(
-                            message, chatID=chat_id, msg_id=msg_id, inline=False
-                        )
+                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                 if params[0] == "changeSpool":
                     self._logger.info(f"Command to change spool: {params}")
                     if len(params) > 1:
                         self._logger.info(f"Changing to spool: {params[1]}")
                         try:
-                            payload = {
-                                "selection": {"spool": {"id": params[1]}, "tool": 0}
-                            }
+                            payload = {"selection": {"spool": {"id": params[1]}, "tool": 0}}
                             self._logger.info(f"Payload: {payload}")
                             resp = requests.patch(
                                 f"http://localhost:{self.port}/plugin/filamentmanager/selections/0?apikey={apikey}",
@@ -1989,17 +1891,13 @@ class TCMD:
                                 f"{resp['selection']['spool']['profile']['material']}"
                             )
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                     else:
                         self._logger.info("Asking for spool")
                         try:
@@ -2037,29 +1935,21 @@ class TCMD:
                             )
                             msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
-                            self.main.send_msg(
-                                message, chatID=chat_id, responses=keys, msg_id=msg_id
-                            )
+                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
             else:
                 message = f"{get_emoji('info')} The following Filament Manager commands are known."
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{get_emoji('cancel')} Close", "No"]])
-                msg_id = (
-                    self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-                )
-                self.main.send_msg(
-                    message, chatID=chat_id, responses=keys, msg_id=msg_id
-                )
+                msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
+                self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
         elif self.main._plugin_manager.get_plugin("SpoolManager", True):
             if parameter and parameter != "back":
                 self._logger.info(f"Parameter received for filament: {parameter}")
@@ -2069,12 +1959,12 @@ class TCMD:
                 if params[0] == "spools":
                     try:
                         if self._spoolManagerPluginImplementation is None:
-                            self._spoolManagerPluginImplementation = (
-                                self.main._plugin_manager.get_plugin(
-                                    "SpoolManager", True
-                                )
+                            self._spoolManagerPluginImplementation = self.main._plugin_manager.get_plugin(
+                                "SpoolManager", True
                             )
-                        message = f"SpoolManager: {self._spoolManagerPluginImplementation.SpoolManagerAPI.load_allSpools()}"
+                        message = (
+                            f"SpoolManager: {self._spoolManagerPluginImplementation.SpoolManagerAPI.load_allSpools()}"
+                        )
                         # selectedSpool = self._spoolManagerPluginImplementation.filamentManager.loadSelectedSpool()
                         # allSpool = self._spoolManagerPluginImplementation.filamentManager.load_allSpools
                         # message = f"selectedSpool={selectedSpool}\nallSpool={allSpool}"
@@ -2096,25 +1986,19 @@ class TCMD:
                         # 	if selection["tool"] == 0:
                         # 		message += "\n\nCurrently selected: " + str(selection["spool"]["profile"]["vendor"]) + " " + str(selection["spool"]["name"]) + " " + str(selection["spool"]["profile"]["material"])
                         msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(
-                            message, chatID=chat_id, msg_id=msg_id, inline=False
-                        )
+                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                     except ValueError:
                         message = f"{get_emoji('attention')} Error getting spools. Are you sure you have installed the Spool Manager Plugin?"
                         if errorText != "":
                             message += f"\nError text: {errorText}"
                         msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(
-                            message, chatID=chat_id, msg_id=msg_id, inline=False
-                        )
+                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                 if params[0] == "changeSpool":
                     self._logger.info(f"Command to change spool: {params}")
                     if len(params) > 1:
                         self._logger.info(f"Changing to spool: {params[1]}")
                         try:
-                            payload = {
-                                "selection": {"spool": {"id": params[1]}, "tool": 0}
-                            }
+                            payload = {"selection": {"spool": {"id": params[1]}, "tool": 0}}
                             self._logger.info(f"Payload: {payload}")
                             resp = requests.patch(
                                 f"http://localhost:{self.port}/plugin/filamentmanager/selections/0?apikey={apikey}",
@@ -2132,17 +2016,13 @@ class TCMD:
                                 f"{resp['selection']['spool']['profile']['material']}"
                             )
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
                     else:
                         self._logger.info("Asking for spool")
                         try:
@@ -2180,29 +2060,21 @@ class TCMD:
                             )
                             msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
-                            self.main.send_msg(
-                                message, chatID=chat_id, responses=keys, msg_id=msg_id
-                            )
+                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
                             msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(
-                                message, chatID=chat_id, msg_id=msg_id, inline=False
-                            )
+                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
             else:
                 message = f"{get_emoji('info')} The following Filament Manager commands are known."
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{get_emoji('cancel')} Close", "No"]])
-                msg_id = (
-                    self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-                )
-                self.main.send_msg(
-                    message, chatID=chat_id, responses=keys, msg_id=msg_id
-                )
+                msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
+                self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
         else:
             message = f"{get_emoji('warning')} No filament manager plugin installed."
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
@@ -2221,9 +2093,7 @@ class TCMD:
     ############################################################################################
     def cmdHelp(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._plugin_manager.get_plugin("psucontrol", True):
-            switch_command = (
-                "/off - Switch off the Printer.\n/on - Switch on the Printer.\n"
-            )
+            switch_command = "/off - Switch off the Printer.\n/on - Switch on the Printer.\n"
         else:
             switch_command = ""
         self.main.send_msg(
@@ -2262,11 +2132,7 @@ class TCMD:
         try:
             fullPath = self.dirHashDict[pathHash]
             dest = fullPath.split("/")[0]
-            pathWoDest = (
-                "/".join(fullPath.split("/")[1:])
-                if len(fullPath.split("/")) > 1
-                else fullPath
-            )
+            pathWoDest = "/".join(fullPath.split("/")[1:]) if len(fullPath.split("/")) > 1 else fullPath
             path = "/".join(fullPath.split("/")[1:])
             self._logger.debug(f"fileList path : {path}")
             fileList = self.main._file_manager.list_files(path=path, recursive=False)
@@ -2284,9 +2150,7 @@ class TCMD:
             array = []
             self._logger.debug("fileList before loop files items")
             L = {k: v for k, v in files.items() if v["type"] == "machinecode"}
-            for key, val in sorted(
-                iter(L.items()), key=lambda x: x[1]["date"], reverse=True
-            ):
+            for key, val in sorted(iter(L.items()), key=lambda x: x[1]["date"], reverse=True):
                 try:
                     self._logger.debug("should get info on item ")
                     try:
@@ -2301,16 +2165,10 @@ class TCMD:
                             except Exception:
                                 vfilename = f"{get_emoji('file')} {'.'.join(key.split('.')[:-1])}"
                         else:
-                            vfilename = (
-                                f"{get_emoji('new')} {'.'.join(key.split('.')[:-1])}"
-                            )
+                            vfilename = f"{get_emoji('new')} {'.'.join(key.split('.')[:-1])}"
                     except Exception:
-                        self._logger.exception(
-                            "Caught an exception in fileList loop file items"
-                        )
-                        vfilename = (
-                            f"{get_emoji('file')} {'.'.join(key.split('.')[:-1])}"
-                        )
+                        self._logger.exception("Caught an exception in fileList loop file items")
+                        vfilename = f"{get_emoji('file')} {'.'.join(key.split('.')[:-1])}"
 
                     self._logger.debug(f"vfilename : {vfilename}")
                     vhash = self.hashMe(pathWoDest + key)
@@ -2320,9 +2178,7 @@ class TCMD:
                         self._logger.debug(f"cmd : {cmd}")
                         array.append([vfilename, vcmd])
                 except Exception:
-                    self._logger.exception(
-                        "Caught an exception in fileList loop file items"
-                    )
+                    self._logger.exception("Caught an exception in fileList loop file items")
                     self._logger.error(f"files[key]{files[key]}")
             arrayD = sorted(arrayD)
             if not self.main._settings.get_boolean(["fileOrder"]):
@@ -2389,9 +2245,7 @@ class TCMD:
             else:
                 tmpKeys.extend(backBut)
             keys.append(tmpKeys)
-            pageStr = (
-                f"{page + 1}/{len(files) / 10 + (1 if len(files) % 10 > 0 else 0)}"
-            )
+            pageStr = f"{page + 1}/{len(files) / 10 + (1 if len(files) % 10 > 0 else 0)}"
             self._logger.debug("fileList before send msg ")
             self.main.send_msg(
                 f"{get_emoji('save')} Files in */{pathWoDest[:-1]}*    \\[{pageStr}]",
@@ -2412,12 +2266,9 @@ class TCMD:
         msg = f"{get_emoji('info')} <b>File Informations</b>\n\n"
         msg += f"{get_emoji('name')} <b>Name:</b> {path}"
         try:
-            msg += (
-                f"\n{get_emoji('calendar')} <b>Uploaded:</b> "
-                + datetime.datetime.fromtimestamp(file["date"]).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-            )
+            msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> " + datetime.datetime.fromtimestamp(
+                file["date"]
+            ).strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             self._logger.exception("Caught an exception in get upload time")
 
@@ -2452,14 +2303,11 @@ class TCMD:
                 else:
                     for key in sorted(filament):
                         if "length" in filament[key]:
-                            msg += (
-                                f"\n      {key}: {self.formatFilament(filament[key])}"
-                            )
+                            msg += f"\n      {key}: {self.formatFilament(filament[key])}"
                             filaLen += float(filament[key]["length"])
             if "estimatedPrintTime" in meta["analysis"]:
-                msg += (
-                    f"\n{get_emoji('stopwatch')} <b>Print Time:</b> "
-                    + self.formatFuzzyPrintTime(meta["analysis"]["estimatedPrintTime"])
+                msg += f"\n{get_emoji('stopwatch')} <b>Print Time:</b> " + self.formatFuzzyPrintTime(
+                    meta["analysis"]["estimatedPrintTime"]
                 )
                 printTime = meta["analysis"]["estimatedPrintTime"]
         try:
@@ -2470,15 +2318,9 @@ class TCMD:
         if self.main._plugin_manager.get_plugin("cost", True):
             if printTime != 0 and filaLen != 0:
                 try:
-                    cpH = self.main._settings.global_get_float(
-                        ["plugins", "cost", "cost_per_time"]
-                    )
-                    cpM = self.main._settings.global_get_float(
-                        ["plugins", "cost", "cost_per_length"]
-                    )
-                    curr = self.main._settings.global_get(
-                        ["plugins", "cost", "currency"]
-                    )
+                    cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+                    cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+                    curr = self.main._settings.global_get(["plugins", "cost", "currency"])
                     try:
                         curr = curr
                         msg += (
@@ -2486,14 +2328,10 @@ class TCMD:
                             + f"{filaLen / 1000 * cpM + printTime / 3600 * cpH:.02f} "
                         )
                     except Exception:
-                        self._logger.exception(
-                            "Caught an exception the cost function in decode"
-                        )
+                        self._logger.exception("Caught an exception the cost function in decode")
                         msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
                 except Exception:
-                    self._logger.exception(
-                        "Caught an exception the cost function on get"
-                    )
+                    self._logger.exception("Caught an exception the cost function on get")
                     msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
             else:
                 msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
@@ -2503,9 +2341,7 @@ class TCMD:
         try:
             api_key = self.main._settings.get(["imgbbApiKey"])
             self._logger.info(f"get thumbnail url for path={path}")
-            meta = self.main._file_manager.get_metadata(
-                octoprint.filemanager.FileDestinations.LOCAL, path
-            )
+            meta = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
 
             if "thumbnail" in meta:
                 imgUrl = meta["thumbnail"]
@@ -2571,10 +2407,7 @@ class TCMD:
             keysRow.append(keyDelete)
             keys.append(keysRow)
             keysRow = []
-            if (
-                self.dirHashDict[pathHash].split("/")[0]
-                == octoprint.filemanager.FileDestinations.LOCAL
-            ):
+            if self.dirHashDict[pathHash].split("/")[0] == octoprint.filemanager.FileDestinations.LOCAL:
                 keysRow.append(keyDownload)
         keysRow.append(keyBack)
         keys.append(keysRow)
@@ -2596,12 +2429,9 @@ class TCMD:
             msg = f"{get_emoji('info')} <b>Detailed File Informations</b>\n\n"
             msg += f"{get_emoji('name')} <b>Name:</b> {path}"
             msg += f"\n {get_emoji('filesize')} <b>Size:</b> {self.formatSize(file['size'])}"
-            msg += (
-                f"\n {get_emoji('calendar')} <b>Uploaded:</b> "
-                + datetime.datetime.fromtimestamp(file["date"]).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-            )
+            msg += f"\n {get_emoji('calendar')} <b>Uploaded:</b> " + datetime.datetime.fromtimestamp(
+                file["date"]
+            ).strftime("%Y-%m-%d %H:%M:%S")
             filaLen = 0
             printTime = 0
             if "analysis" in meta:
@@ -2617,11 +2447,8 @@ class TCMD:
                                 msg += f"\n      {key}: {self.formatFilament(filament[key])}"
                                 filaLen += float(filament[key]["length"])
                 if "estimatedPrintTime" in meta["analysis"]:
-                    msg += (
-                        f"\n {get_emoji('stopwatch')} <b>Print Time:</b> "
-                        + self.formatFuzzyPrintTime(
-                            meta["analysis"]["estimatedPrintTime"]
-                        )
+                    msg += f"\n {get_emoji('stopwatch')} <b>Print Time:</b> " + self.formatFuzzyPrintTime(
+                        meta["analysis"]["estimatedPrintTime"]
                     )
                     printTime = float(meta["analysis"]["estimatedPrintTime"])
             try:
@@ -2632,15 +2459,9 @@ class TCMD:
             if self.main._plugin_manager.get_plugin("cost", True):
                 if printTime != 0 and filaLen != 0:
                     try:
-                        cpH = self.main._settings.global_get_float(
-                            ["plugins", "cost", "cost_per_time"]
-                        )
-                        cpM = self.main._settings.global_get_float(
-                            ["plugins", "cost", "cost_per_length"]
-                        )
-                        curr = self.main._settings.global_get(
-                            ["plugins", "cost", "currency"]
-                        )
+                        cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+                        cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+                        curr = self.main._settings.global_get(["plugins", "cost", "currency"])
                         try:
                             curr = curr
                             msg += (
@@ -2648,15 +2469,11 @@ class TCMD:
                                 f"{curr}{((filaLen / 1000) * cpM + (printTime / 3600) * cpH):.2f} "
                             )
                         except Exception:
-                            self._logger.exception(
-                                "An Exception the cost function in decode"
-                            )
+                            self._logger.exception("An Exception the cost function in decode")
                             msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
                         self._logger.debug("AF TRY")
                     except Exception:
-                        self._logger.exception(
-                            "Caught an exception the cost function on get"
-                        )
+                        self._logger.exception("Caught an exception the cost function on get")
                         msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
                 else:
                     msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
@@ -2677,29 +2494,20 @@ class TCMD:
                             "\n      "
                             + prof["name"]
                             + ": "
-                            + self.formatDuration(
-                                meta["statistics"]["lastPrintTime"][avg]
-                            )
+                            + self.formatDuration(meta["statistics"]["lastPrintTime"][avg])
                         )
             if "history" in meta:
                 if len(meta["history"]) > 0:
                     msg += "\n\n<b>Print History:</b> "
                     for hist in meta["history"]:
                         if "timestamp" in hist:
-                            msg += (
-                                "\n      Timestamp: "
-                                + datetime.datetime.fromtimestamp(
-                                    hist["timestamp"]
-                                ).strftime("%Y-%m-%d %H:%M:%S")
+                            msg += "\n      Timestamp: " + datetime.datetime.fromtimestamp(hist["timestamp"]).strftime(
+                                "%Y-%m-%d %H:%M:%S"
                             )
                         if "printTime" in hist:
-                            msg += "\n      Print Time: " + self.formatDuration(
-                                hist["printTime"]
-                            )
+                            msg += "\n      Print Time: " + self.formatDuration(hist["printTime"])
                         if "printerProfile" in hist:
-                            prof = self.main._printer_profile_manager.get(
-                                hist["printerProfile"]
-                            )
+                            prof = self.main._printer_profile_manager.get(hist["printerProfile"])
                             msg += f"\n      Printer Profile: {prof['name']}"
                         if "success" in hist:
                             if hist["success"]:
@@ -2731,17 +2539,13 @@ class TCMD:
                 )
                 self.fileDetails(loc, page, cmd, hash, chat_id, from_id, wait=3)
             else:
-                self.main.send_file(
-                    chat_id, self.main._file_manager.path_on_disk(dest, path), ""
-                )
+                self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path), "")
         elif opt.startswith("m"):
             msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "m_m":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
-                cpRes = self.fileCopyMove(
-                    destM, "move", pathM, "/".join(targetPath.split("/")[1:])
-                )
+                cpRes = self.fileCopyMove(destM, "move", pathM, "/".join(targetPath.split("/")[1:]))
                 self._logger.debug(f"OUT MOVE: {cpRes}")
                 if cpRes == "GOOD":
                     self.main.send_msg(
@@ -2756,9 +2560,7 @@ class TCMD:
                         chatID=chat_id,
                         msg_id=msg_id,
                     )
-                    self.fileDetails(
-                        loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3
-                    )
+                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3)
             else:
                 keys = [
                     [
@@ -2769,9 +2571,7 @@ class TCMD:
                     ]
                 ]
                 self.tmpFileHash = hash
-                for key, val in sorted(
-                    list(self.dirHashDict.items()), key=operator.itemgetter(1)
-                ):
+                for key, val in sorted(list(self.dirHashDict.items()), key=operator.itemgetter(1)):
                     keys.append(
                         [
                             [
@@ -2793,9 +2593,7 @@ class TCMD:
             if opt == "c_c":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
-                cpRes = self.fileCopyMove(
-                    destM, "copy", pathM, "/".join(targetPath.split("/")[1:])
-                )
+                cpRes = self.fileCopyMove(destM, "copy", pathM, "/".join(targetPath.split("/")[1:]))
                 if cpRes == "GOOD":
                     self.main.send_msg(
                         f"{get_emoji('info')} File {pathM} copied",
@@ -2809,9 +2607,7 @@ class TCMD:
                         chatID=chat_id,
                         msg_id=msg_id,
                     )
-                    self.fileDetails(
-                        loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3
-                    )
+                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3)
             else:
                 keys = [
                     [
@@ -2822,9 +2618,7 @@ class TCMD:
                     ]
                 ]
                 self.tmpFileHash = hash
-                for key, val in sorted(
-                    list(self.dirHashDict.items()), key=operator.itemgetter(1)
-                ):
+                for key, val in sorted(list(self.dirHashDict.items()), key=operator.itemgetter(1)):
                     keys.append(
                         [
                             [
@@ -2917,18 +2711,14 @@ class TCMD:
     def fileCopyMove(self, target, command, source, destination):
         from octoprint.server.api.files import _verifyFileExists, _verifyFolderExists
 
-        if not _verifyFileExists(target, source) and not _verifyFolderExists(
-            target, source
-        ):
+        if not _verifyFileExists(target, source) and not _verifyFolderExists(target, source):
             return "Source does not exist"
 
         if _verifyFolderExists(target, destination):
             path, name = self.main._file_manager.split_path(target, source)
             destination = self.main._file_manager.join_path(target, destination, name)
 
-        if _verifyFileExists(target, destination) or _verifyFolderExists(
-            target, destination
-        ):
+        if _verifyFileExists(target, destination) or _verifyFolderExists(target, destination):
             return "Destination does not exist"
 
         if command == "copy":
@@ -3008,9 +2798,7 @@ class TCMD:
             tree = self.main._file_manager.list_files(recursive=True)
             for key in tree:
                 self.dirHashDict.update({str(self.hashMe(f"{key}/", 8)): f"{key}/"})
-                self.dirHashDict.update(
-                    self.generate_dir_hash_dict_recursively(tree[key], f"{key}/")
-                )
+                self.dirHashDict.update(self.generate_dir_hash_dict_recursively(tree[key], f"{key}/"))
             self._logger.debug(f"{self.dirHashDict}")
         except Exception:
             self._logger.exception("Caught an exception in generate_dir_hash_dict")
@@ -3023,14 +2811,10 @@ class TCMD:
                 if tree[key]["type"] == "folder":
                     myDict.update({self.hashMe(f"{loc + key}/", 8): f"{loc + key}/"})
                     self.dirHashDict.update(
-                        self.generate_dir_hash_dict_recursively(
-                            tree[key]["children"], f"{loc + key}/"
-                        )
+                        self.generate_dir_hash_dict_recursively(tree[key]["children"], f"{loc + key}/")
                     )
         except Exception:
-            self._logger.exception(
-                "Caught an exception in generate_dir_hash_dict_recursively"
-            )
+            self._logger.exception("Caught an exception in generate_dir_hash_dict_recursively")
         return myDict
 
     ############################################################################################
@@ -3049,9 +2833,7 @@ class TCMD:
     def find_file_by_hash_recursively(self, tree, hash, base=""):
         for key in tree:
             if tree[key]["type"] == "folder":
-                result, file = self.find_file_by_hash_recursively(
-                    tree[key]["children"], hash, base=f"{base + key}/"
-                )
+                result, file = self.find_file_by_hash_recursively(tree[key]["children"], hash, base=f"{base + key}/")
                 if result is not None:
                     return result, file
                 continue
@@ -3073,11 +2855,7 @@ class TCMD:
                     if base == "":
                         first = f" {keyName}"
                     if "children" in key:
-                        array.extend(
-                            self.get_controls_recursively(
-                                key["children"], f"{base} {keyName}", first
-                            )
-                        )
+                        array.extend(self.get_controls_recursively(key["children"], f"{base} {keyName}", first))
                     elif (
                         ("commands" in key or "command" in key or "script" in key)
                         and "regex" not in key
@@ -3088,9 +2866,7 @@ class TCMD:
                             newKey["script"] = True
                             command = key["script"]
                         else:
-                            command = (
-                                key["command"] if "command" in key else key["commands"]
-                            )
+                            command = key["command"] if "command" in key else key["commands"]
                         newKey["name"] = f"{base.replace(first, '')} {keyName}"
                         newKey["hash"] = self.hashMe(f"{base} {keyName}{command}", 6)
                         newKey["command"] = command
@@ -3198,9 +2974,7 @@ class TCMD:
     def ConBaud(self, chat_id, parameter, parent):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set_int(
-                ["serial", "baudrate"], parameter[0], force=True
-            )
+            self.main._settings.global_set_int(["serial", "baudrate"], parameter[0], force=True)
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
@@ -3240,9 +3014,7 @@ class TCMD:
     def ConProfile(self, chat_id, parameter, parent):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set(
-                ["printerProfiles", "default"], parameter[0], force=True
-            )
+            self.main._settings.global_set(["printerProfiles", "default"], parameter[0], force=True)
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
@@ -3283,9 +3055,7 @@ class TCMD:
     def ConAuto(self, chat_id, parameter):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set_boolean(
-                ["serial", "autoconnect"], parameter[0], force=True
-            )
+            self.main._settings.global_set_boolean(["serial", "autoconnect"], parameter[0], force=True)
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
