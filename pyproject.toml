@@ -43,3 +43,10 @@ include = [
     "octoprint_telegram",
     "octoprint_telegram.*",
 ]
+
+[tool.ruff]
+line-length = 120
+fix = true
+
+[tool.ruff.lint]
+extend-select = ["I"]

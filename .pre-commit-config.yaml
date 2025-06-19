@@ -11,7 +11,6 @@ repos:
     rev: v0.11.13
     hooks:
       - id: ruff-check
-        args: ["--fix", "--line-length=120", "--extend-select=I"]
       - id: ruff-format
 
   - repo: https://github.com/standard/standard

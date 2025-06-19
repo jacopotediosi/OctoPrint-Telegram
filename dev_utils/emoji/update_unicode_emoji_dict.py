@@ -6,9 +6,7 @@ import requests
 script_path = Path(__file__).resolve()
 
 # Get latest release tag
-response = requests.get(
-    "https://api.github.com/repos/muan/unicode-emoji-json/releases/latest"
-)
+response = requests.get("https://api.github.com/repos/muan/unicode-emoji-json/releases/latest")
 response.raise_for_status()
 latest_release = response.json()
 tag_name = latest_release["tag_name"]
@@ -16,12 +14,7 @@ print(f"Latest release tag: {tag_name}")
 
 # Calculate SOURCE_URL and OUTPUT_PATH
 SOURCE_URL = f"https://raw.githubusercontent.com/muan/unicode-emoji-json/{tag_name}/data-by-emoji.json"
-OUTPUT_PATH = (
-    script_path.parent.parent.parent
-    / "octoprint_telegram"
-    / "emoji"
-    / "unicode_emoji_dict.py"
-)
+OUTPUT_PATH = script_path.parent.parent.parent / "octoprint_telegram" / "emoji" / "unicode_emoji_dict.py"
 
 # Download emoji data
 print(f"Downloading emoji data from: {SOURCE_URL}")
