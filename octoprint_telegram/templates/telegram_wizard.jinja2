@@ -1,26 +1,45 @@
 <form class="form-horizontal" id="wizard_plugin_telegram">
-	<p><strong>	You need to setup a bot token to run the Telegram plugin. If you need help to get a token and setup your bot, please have a look at <a href="https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/README.md" target="_blank">the documentation on github</a>.</strong>
-	<br>
-	After you have input the token, hit the test button. If everything is fine, the plugin will automatically start listening for messages.
-	<br>
-	If you don't want to setup the bot token now, then it's ok. You can do this at any time in the plugin settings via the settings dialog.
-	</p>
-	<hr>
-	<div class="control-group">
-		<label class="control-label">{{ _('Telegram Bot Token') }}</label>
-		<div class="controls">
-			<input type="text" class="input-block-level" id="settings_plugin_telegram_token" data-bind="value: settings.settings.plugins.telegram.token" />
-		</div>
-	</div>
-	<div class="control-group">
-		<label class="control-label">{{ _('Test Token') }}</label>
-		<div class="controls">
-			<button class="btn" data-bind="click: testToken, disable:isloading()" title="Test the token"><i class="icon-key"></i>&nbsp;Test this token</button>
-			<span class="help-inline" class="muted"> <small>Click to test token and start listener.</small></span>
-			<p><span class="help-block" data-bind="if: token_state_str || isloading()">Token status is:
-				<strong id="teleErrored2" data-bind="text: token_state_str, visible: ! isloading()"></strong>
-				<strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
-			</span></p>
-		</div>
-	</div>
+    <p>
+        <strong>
+            You need to setup a bot token to run the Telegram plugin.
+            If you need help to get a token and setup your bot, please have a look at
+            <a href="https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/README.md"
+               target="_blank">the documentation on github</a>.
+        </strong>
+        <br>
+        After you input the token, click the Test button. If everything is correct, the plugin will automatically start listening for messages.
+        <br>
+        If you don’t want to set up the bot token now, that’s okay. You can do it anytime in the plugin settings.
+    </p>
+    <hr>
+    <div class="control-group">
+        <label class="control-label">{{ _("Telegram Bot Token") }}</label>
+        <div class="controls">
+            <input type="text"
+                   class="input-block-level"
+                   id="settings_plugin_telegram_token"
+                   data-bind="value: settings.settings.plugins.telegram.token" />
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _("Test Token") }}</label>
+        <div class="controls">
+            <button class="btn"
+                    data-bind="click: testToken, disable:isloading()"
+                    title="Test the token">
+                <i class="icon-key"></i> Test this token
+            </button>
+            <span class="help-inline muted">
+                <small>Click to test the token and start the listener.</small>
+            </span>
+            <p>
+                <span class="help-block" data-bind="if: token_state_str || isloading()">
+                    Token status is:
+                    <strong id="teleErrored2"
+                            data-bind="text: token_state_str, visible: ! isloading()"></strong>
+                    <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
+                </span>
+            </p>
+        </div>
+    </div>
 </form>
