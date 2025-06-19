@@ -203,7 +203,7 @@ class TelegramListener(threading.Thread):
                 "chat_id": int(message["message"]["chat"]["id"]),
                 "file_id": message["message"]["new_chat_photo"][0]["file_id"],
             }
-            t = threading.Thread(target=self.main.get_usrPic, kwargs=kwargs)
+            t = threading.Thread(target=self.main.save_chat_picture, kwargs=kwargs)
             t.daemon = True
             t.run()
 
@@ -491,7 +491,7 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
             kwargs = {"chat_id": int(chat_id)}
-            t = threading.Thread(target=self.main.get_usrPic, kwargs=kwargs)
+            t = threading.Thread(target=self.main.save_chat_picture, kwargs=kwargs)
             t.daemon = True
             t.run()
             self._logger.debug("Got new User")
@@ -615,6 +615,10 @@ class Utils:
         http_proxy = self.main._settings.get(["http_proxy"])
         https_proxy = self.main._settings.get(["https_proxy"])
         return {"http": http_proxy, "https": https_proxy}
+
+    @staticmethod
+    def is_group_or_channel(chat_id):
+        return int(chat_id) < 0
 
     def send_telegram_request(self, url, method, **kwargs):
         """
@@ -863,7 +867,7 @@ class TelegramPlugin(
                 if key != "zBOTTOMOFCHATS":
                     kwargs = {}
                     kwargs["chat_id"] = int(key)
-                    t = threading.Thread(target=self.get_usrPic, kwargs=kwargs)
+                    t = threading.Thread(target=self.save_chat_picture, kwargs=kwargs)
                     t.daemon = True
                     t.run()
             except Exception:
@@ -1776,46 +1780,50 @@ class TelegramPlugin(
         r.raise_for_status()
         return r.content
 
-    def get_usrPic(self, chat_id, file_id=""):
+    def save_chat_picture(self, chat_id, file_id=None):
         if not self.send_messages:
             return
 
-        self._logger.debug(f"Requesting Profile Photo for chat_id: {chat_id}")
+        self._logger.debug(f"Requesting chat picture for chat_id: {chat_id}")
+
         try:
-            if file_id == "":
-                if int(chat_id) < 0:
-                    self._logger.debug(f"Not able to load group photos. Chat_id: {chat_id}. EXIT")
-                    return
-                r = requests.get(
-                    f"{self.bot_url}/getUserProfilePhotos",
-                    params={"limit": 1, "user_id": chat_id},
-                    proxies=self.utils.get_proxies(),
-                )
-                r.raise_for_status()
-                data = r.json()
-                if "ok" not in data:
-                    raise Exception(
-                        f"Telegram didn't respond well to getUserProfilePhoto. Chat id: {chat_id}. The response was: {r.text}."
+            if not file_id:
+                if Utils.is_group_or_channel(chat_id):
+                    json_data = self.utils.send_telegram_request(
+                        f"{self.bot_url}/getChat",
+                        "get",
+                        params={"chat_id": chat_id},
                     )
-                if data["result"]["total_count"] < 1:
-                    self._logger.debug(f"NO PHOTOS. CHAT ID: {chat_id}. EXIT.")
-                    return
-                r = self.get_file(data["result"]["photos"][0][0]["file_id"])
-            else:
-                r = self.get_file(file_id)
-            file_name = os.path.join(
+                    file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
+                else:
+                    json_data = self.utils.send_telegram_request(
+                        f"{self.bot_url}/getUserProfilePhotos",
+                        "get",
+                        params={"limit": 1, "user_id": chat_id},
+                    )
+                    file_id = json_data.get("result", {}).get("photos", [])
+                    file_id = file_id[0][0].get("file_id") if file_id and file_id[0] else None
+
+            if not file_id:
+                self._logger.debug(f"Chat id {chat_id} has no photo.")
+                return
+
+            img_bytes = self.get_file(file_id)
+
+            output_filename = os.path.join(
                 self.get_plugin_data_folder(),
                 "img",
                 "user",
                 os.path.basename(f"pic{chat_id}.jpg"),
             )
-            img = Image.open(bytes_reader_class(r))
-            img = img.resize((40, 40), Image.LANCZOS)
-            img.save(file_name, format="JPEG")
-            self._logger.info(f"Saved Photo. Chat id: {chat_id}")
 
+            img = Image.open(bytes_reader_class(img_bytes))
+            img = img.resize((40, 40), Image.LANCZOS)
+            img.save(output_filename, format="JPEG")
+
+            self._logger.info(f"Saved chat picture for chat id: {chat_id}")
         except Exception:
-            self._logger.exception("Can't load UserImage")
+            self._logger.exception(f"Caught exception in save_chat_picture for chat id: {chat_id}")
 
     @contextmanager
     def telegram_action_context(self, chat_id, action):
