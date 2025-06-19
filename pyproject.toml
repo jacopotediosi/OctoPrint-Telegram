@@ -50,3 +50,7 @@ fix = true
 
 [tool.ruff.lint]
 extend-select = ["I"]
+
+[tool.djlint]
+no_set_formatting=true
+ignore="H008,H021"
