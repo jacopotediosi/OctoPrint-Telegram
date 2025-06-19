@@ -30,7 +30,7 @@ class TCMD:
         self.dirHashDict = {}
         self.tmpFileHash = ""
         self._spoolManagerPluginImplementation = None
-        self.port = self.main._settings.global_get(["server", "port"])
+        self.port = self.main.port
         self.commandDict = {
             "Yes": {"cmd": self.cmdYes, "bind_none": True},
             "No": {"cmd": self.cmdNo, "bind_none": True},
@@ -2539,7 +2539,16 @@ class TCMD:
                 )
                 self.fileDetails(loc, page, cmd, hash, chat_id, from_id, wait=3)
             else:
-                self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path), "")
+                try:
+                    self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path), "")
+                except Exception:
+                    self._logger.exception(f"Caught an exception sending a file to {chat_id}")
+                    self.main.send_msg(
+                        f"{get_emoji('warning')} An error occurred sending your file. Please check logs.",
+                        chatID=chat_id,
+                        msg_id=self.main.get_update_msg_id(chat_id),
+                    )
+
         elif opt.startswith("m"):
             msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "m_m":

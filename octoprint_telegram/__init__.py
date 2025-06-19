@@ -63,44 +63,51 @@ class TelegramListener(threading.Thread):
         self.try_first_contact()
         # Repeat fetching and processing messages until thread stopped
         self._logger.debug("Listener is running.")
-        try:
-            while not self.do_stop:
-                try:
-                    self.loop()
-                except ExitThisLoopException:
-                    pass  # Do nothing, just go to the next loop
-        except Exception:
-            self._logger.exception("An Exception crashed the Listener.\n")
+
+        while not self.do_stop:
+            try:
+                self.loop()
+            except Exception:
+                self._logger.exception("Caught and exception running the listener loop.")
 
         self._logger.debug("Listener exits NOW.")
 
     # Try to get first contact. Repeat every 120sek if no success or stop if task stopped.
     def try_first_contact(self):
-        gotContact = False
-        while not self.do_stop and not gotContact:
+        got_contact = False
+        while not self.do_stop and not got_contact:
             try:
                 self.username = self.main.test_token()
-                gotContact = True
+                got_contact = True
                 self.set_status(f"Connected as {self.username}", ok=True)
-            except Exception:
-                self.set_status(
-                    "Got an exception while initially trying to connect to telegram.\n"
-                    "Waiting 2 minutes before trying again.\n"
-                    f"Traceback: {traceback.format_exc()}"
+            except Exception as e:
+                error_message = (
+                    f"Caught an exception connecting to telegram: {e}. Waiting 2 minutes before trying again."
                 )
+
+                self._logger.exception(error_message)
+                self.set_status(error_message)
+
                 time.sleep(120)
 
     def loop(self):
-        json = self.get_updates()
+        # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
-            # Seems like we got a message, so lets process it
-            for message in json["result"]:
+            updates = self.get_updates()
+        except Exception as e:
+            error_message = f"Caught an exception getting updates: {e}. Waiting 2 minutes before trying again."
+
+            self._logger.exception(error_message)
+            self.set_status(error_message)
+
+            time.sleep(120)
+            return
+
+        for message in updates:
+            try:
                 self.process_message(message)
-        except ExitThisLoopException:
-            raise
-        # Can't handle the message
-        except Exception:
-            self._logger.exception("Exception caught!")
+            except Exception:
+                self._logger.exception("Caught an exception processing a message")
 
         try:
             if self.main._settings.get(["ForceLoopMessage"]):
@@ -127,15 +134,70 @@ class TelegramListener(threading.Thread):
             )
 
     def process_message(self, message):
-        self._logger.debug(f"MESSAGE: {message}")
-        # Get the update_id to only request newer Messages the next time
-        self.set_update_offset(message["update_id"])
-        # No message no cookies
-        if "message" in message and message["message"].get("chat"):
-            chat_id, from_id = self.parse_user_data(message)
+        self._logger.debug(f"Processing message: {message}")
 
-            # If we come here without a continue (discard message) we have a message from a known and not new user
-            # so let's check what he send us.
+        self.set_update_offset(message["update_id"])
+
+        if "message" in message and message["message"].get("chat"):
+            self.main.chats = self.main._settings.get(["chats"])
+
+            chat_id = self.get_chat_id(message)
+            from_id = self.get_from_id(message)
+
+            is_known_chat = chat_id in self.main.chats
+            is_known_user = from_id in self.main.chats
+
+            chat = message["message"]["chat"]
+
+            data = self.main.chats.get(chat_id, dict(self.main.new_chat))
+
+            data["type"] = chat["type"]
+
+            if chat["type"] in ("group", "supergroup"):
+                data["private"] = False
+                data["title"] = chat["title"]
+            elif chat["type"] == "private":
+                data["private"] = True
+                title_parts = []
+                if "first_name" in chat:
+                    title_parts.append(chat["first_name"])
+                if "last_name" in chat:
+                    title_parts.append(chat["last_name"])
+                if "username" in chat:
+                    title_parts.append(f"@{chat['username']}")
+                data["title"] = " - ".join(title_parts)
+
+            allow_users = data["allow_users"]
+            accept_commands = data["accept_commands"]
+
+            if not data["private"] and is_known_chat:
+                if allow_users and not is_known_user and not accept_commands:
+                    self._logger.warning("Previous command was from an unknown user.")
+                    self.main.send_msg(
+                        f"{get_emoji('notallowed')} I don't know you!",
+                        chatID=chat_id,
+                    )
+                    return
+
+            if not is_known_chat:
+                self.main.chats[chat_id] = data
+
+                self._logger.info(f"Got new chat: {chat_id}")
+
+                self.main.send_msg(
+                    f"{get_emoji('info')} Now I know you. "
+                    "Before you can do anything, go to plugin settings and edit your permissions.",
+                    chatID=chat_id,
+                )
+
+                try:
+                    t = threading.Thread(target=self.main.save_chat_picture, kwargs={"chat_id": chat_id})
+                    t.daemon = True
+                    t.run()
+                except Exception:
+                    self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
+
+                return
 
             # If message is a text message, we probably got a command.
             # When the command is not known, the following handler will discard it.
@@ -159,14 +221,16 @@ class TelegramListener(threading.Thread):
             else:
                 self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
         elif "callback_query" in message:
-            self.handle_callback_query(message)
+            chat_id = self.get_chat_id(message)
+            from_id = self.get_from_id(message)
+            self.handle_callback_query(message, chat_id, from_id)
         else:
-            self._logger.warning("Response is missing .message or .message.chat or callback_query. Skipping it.")
-            raise ExitThisLoopException()
+            self._logger.warning(
+                "Message is missing .message or .message.chat or .message.callback_query. Skipping it."
+            )
 
-    def handle_callback_query(self, message):
+    def handle_callback_query(self, message, chat_id, from_id):
         message["callback_query"]["message"]["text"] = message["callback_query"]["data"]
-        chat_id, from_id = self.parse_user_data(message["callback_query"])
         self.handle_text_message(message["callback_query"], chat_id, from_id)
 
     def handle_left_chat_member_message(self, message):
@@ -180,12 +244,15 @@ class TelegramListener(threading.Thread):
             self._logger.debug("Chat deleted")
 
     def handle_delete_chat_photo_message(self, message):
-        self._logger.debug("Message Del_Chat_Photo")
+        chat_id = self.get_chat_id(message)
+
+        self._logger.info(f"Chat {chat_id} deleted picture, deleting it...")
+
         path_to_remove = os.path.join(
             self.main.get_plugin_data_folder(),
             "img",
             "user",
-            os.path.basename(f"pic{message['message']['chat']['id']}.jpg"),
+            os.path.basename(f"pic{chat_id}.jpg"),
         )
         self._logger.info(f"Removing file {path_to_remove}")
         try:
@@ -194,25 +261,25 @@ class TelegramListener(threading.Thread):
             self._logger.exception(f"Failed to remove file {path_to_remove}")
 
     def handle_new_chat_photo_message(self, message):
-        self._logger.debug("Message New_Chat_Photo")
-        chat_id = message["message"]["chat"]["id"]
+        chat_id = self.get_chat_id(message)
+
         # Only if we know the chat
-        if str(chat_id) in self.main.chats:
-            self._logger.debug(f"New_Chat_Photo Found User. Chat id: {chat_id}")
-            kwargs = {
-                "chat_id": int(message["message"]["chat"]["id"]),
-                "file_id": message["message"]["new_chat_photo"][0]["file_id"],
-            }
-            t = threading.Thread(target=self.main.save_chat_picture, kwargs=kwargs)
-            t.daemon = True
-            t.run()
+        if chat_id in self.main.chats:
+            self._logger.info(f"Chat {chat_id} changed picture, updating it...")
+
+            try:
+                t = threading.Thread(target=self.main.save_chat_picture, kwargs={"chat_id": chat_id})
+                t.daemon = True
+                t.run()
+            except Exception:
+                self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
 
     def handle_document_message(self, message):
         try:
             self._logger.debug("Handling document message")
 
-            chat_id = str(message["message"]["chat"]["id"])
-            from_id = str(message["message"]["from"]["id"])
+            chat_id = self.get_chat_id(message)
+            from_id = self.get_from_id(message)
 
             uploaded_file_filename = os.path.basename(message["message"]["document"]["file_name"])
 
@@ -378,11 +445,11 @@ class TelegramListener(threading.Thread):
                     chatID=chat_id,
                 )
         except Exception:
-            self._logger.exception("Exception caught processing a file")
+            self._logger.exception("Caught an exception processing a file")
             self.main.send_msg(
                 (
                     f"{get_emoji('attention')} Something went wrong during processing of your file.\n"
-                    f"Sorry. More details are in octoprint.log."
+                    f"Sorry. More details are in log files."
                 ),
                 chatID=chat_id,
             )
@@ -417,7 +484,8 @@ class TelegramListener(threading.Thread):
                     f"{get_emoji('notallowed')} I do not understand you!",
                     chatID=chat_id,
                 )
-            raise ExitThisLoopException()
+            return
+
         # Check if user is allowed to execute the command
         if self.main.is_command_allowed(chat_id, from_id, command):
             # Identify user
@@ -435,119 +503,65 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def parse_user_data(self, message):
-        self.main.chats = self.main._settings.get(["chats"])
-        chat = message["message"]["chat"]
-        chat_id = str(chat["id"])
-        data = self.main.newChat  # Data for new user
-        # If we know the user or chat, overwrite data with user data
-        if chat_id in self.main.chats:
-            data = self.main.chats[chat_id]
-        # Update data or get data for new user
-        data["type"] = chat["type"].upper()
-        if chat["type"] == "group" or chat["type"] == "supergroup":
-            data["private"] = False
-            data["title"] = chat["title"]
-        elif chat["type"] == "private":
-            data["private"] = True
+    def get_chat_id(self, message):
+        if "message" in message:
+            chat = message["message"]["chat"]
+        elif "callback_query" in message:
+            chat = message["callback_query"]["message"]["chat"]
+        else:
+            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
 
-            title_parts = []
-            if "first_name" in chat:
-                title_parts.append(chat["first_name"])
-            if "last_name" in chat:
-                title_parts.append(chat["last_name"])
-            if "username" in chat:
-                title_parts.append(f"@{chat['username']}")
-            data["title"] = " - ".join(title_parts)
+        chat_id = chat["id"]
 
-        from_id = chat_id
-        # If message is from a group, chat_id will be left as id of group
-        # and from_id is set to id of user who send the message
-        if not data["private"]:
-            if "from" in message:
-                from_id = str(message["from"]["id"])
-            else:
-                from_id = str(message["message"]["from"]["id"])
-            # If group accepts only commands from known users (allow_users = true, accept_commands=false)
-            # and user is not in known chats, then they are unknown and we dont want to listen to them
-            if chat_id in self.main.chats:
-                if (
-                    self.main.chats[chat_id]["allow_users"]
-                    and from_id not in self.main.chats
-                    and not self.main.chats[chat_id]["accept_commands"]
-                ):
-                    self._logger.warning("Previous command was from an unknown user.")
-                    self.main.send_msg(
-                        f"{get_emoji('notallowed')} I don't know you!",
-                        chatID=chat_id,
-                    )
-                    raise ExitThisLoopException()
-        # If we dont know the user or group, create new user.
-        # Send welcome message and skip message.
-        if chat_id not in self.main.chats:
-            self.main.chats[chat_id] = data
-            self.main.send_msg(
-                f"{get_emoji('info')} Now I know you. Before you can do anything, go to OctoPrint Settings and edit some rights.",
-                chatID=chat_id,
-            )
-            kwargs = {"chat_id": int(chat_id)}
-            t = threading.Thread(target=self.main.save_chat_picture, kwargs=kwargs)
-            t.daemon = True
-            t.run()
-            self._logger.debug("Got new User")
-            raise ExitThisLoopException()
-        return (chat_id, from_id)
+        return str(chat_id)
+
+    def get_from_id(self, message):
+        if "message" in message:
+            from_id = message["message"]["from"]["id"]
+        elif "callback_query" in message:
+            from_id = message["callback_query"]["from"]["id"]
+        else:
+            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
+
+        return str(from_id)
 
     def get_updates(self):
-        self._logger.debug(f"Listener: sending request with offset {self.update_offset}...")
-
-        # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
-        try:
-            # If it is the first contact, drain the updates backlog
-            if self.update_offset == 0 and self.first_contact:
-                while True:
-                    json_data = self.utils.send_telegram_request(
-                        f"{self.main.bot_url}/getUpdates",
-                        "get",
-                        params={"offset": self.update_offset, "timeout": 0},
-                    )
-
-                    results = json_data.get("result", [])
-
-                    if results and "update_id" in results[0]:
-                        self.set_update_offset(results[0]["update_id"])
-
-                    if not results:
-                        self._logger.debug("Ignored all messages until now because first_contact was True.")
-                        break
-
-                if self.update_offset == 0:
-                    self.set_update_offset(0)
-
-            # Else, get the updates
-            else:
+        # If it is the first contact, drain the updates backlog
+        if self.update_offset == 0 and self.first_contact:
+            while True:
                 json_data = self.utils.send_telegram_request(
                     f"{self.main.bot_url}/getUpdates",
                     "get",
-                    params={"offset": self.update_offset, "timeout": 30},
+                    params={"offset": self.update_offset, "timeout": 0},
                 )
 
-            # Update update_offset
-            results = json_data.get("result", [])
-            for entry in results:
-                self.set_update_offset(entry["update_id"])
+                results = json_data["result"]
 
-            # Return the response
-            return json_data
+                if results and "update_id" in results[0]:
+                    self.set_update_offset(results[0]["update_id"])
 
-        except Exception as e:
-            error_message = f"Caught exception in get_updates: {e}. Waiting 2 minutes before trying again."
+                if not results:
+                    self._logger.debug("Ignored all messages until now because first_contact was True.")
+                    break
 
-            self._logger.error(error_message)
-            self.set_status(error_message)
+            if self.update_offset == 0:
+                self.set_update_offset(0)
 
-            time.sleep(120)
-            raise ExitThisLoopException()
+        # Else, get the updates
+        else:
+            json_data = self.utils.send_telegram_request(
+                f"{self.main.bot_url}/getUpdates",
+                "get",
+                params={"offset": self.update_offset, "timeout": 30},
+            )
+
+        # Update update_offset
+        results = json_data["result"]
+        for entry in results:
+            self.set_update_offset(entry["update_id"])
+
+        # Return results
+        return results
 
     # Stop the listener
     def stop(self):
@@ -575,10 +589,6 @@ class TelegramPluginLoggingFilter(logging.Filter):
         for match in re.findall(pattern, msg):
             record.msg = msg.replace(match, "REDACTED")
         return True
-
-
-class ExitThisLoopException(Exception):
-    pass
 
 
 class WebcamProfile:
@@ -653,10 +663,11 @@ class Utils:
         request_kwargs = {**default_kwargs, **kwargs}
 
         loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
-        self._logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}")
+        self._logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}.")
 
         try:
             response = requests.request(method, url, **request_kwargs)
+            self._logger.debug(f"Received Telegram response: {response.text}.")
         except Exception:
             raise Exception(f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}.")
 
@@ -667,13 +678,15 @@ class Utils:
 
         content_type = response.headers.get("content-type", "")
         if content_type != "application/json":
-            raise Exception(f"Unexpected Content-Type. Expected: application/json. It was: {content_type}.")
+            raise Exception(
+                f"Unexpected Content-Type. Expected: application/json. It was: {content_type}. Response was: {response.text}."
+            )
 
         try:
             json_data = response.json()
 
             if not json_data.get("ok", False):
-                raise Exception(f"Response didn't include 'ok:true'. Response was: {json_data}. ")
+                raise Exception(f"Response didn't include 'ok:true'. Response was: {json_data}.")
 
             return json_data
         except Exception:
@@ -703,8 +716,8 @@ class TelegramPlugin(
         self.chats = {}
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
-        urllib3.disable_warnings()
-        self.updateMessageID = {}
+        self.port = 5000
+        self.update_message_id = {}
         self.shut_up = {}
         self.send_messages = True
         self.utils = None
@@ -713,8 +726,8 @@ class TelegramPlugin(
         self.sending_okay_minute = None
         self.sending_okay_count = 0
         # Initial settings for new chat. See on_after_startup()
-        # !!! sync with newUsrDict in on_settings_migrate() !!!
-        self.newChat = {}
+        # !!! sync with new_usr_dict in on_settings_migrate() !!!
+        self.new_chat = {}
 
     # Starts the telegram listener thread
     def start_listening(self):
@@ -814,6 +827,9 @@ class TelegramPlugin(
         # Don't propagate logging
         self._logger.propagate = False
 
+        # Set port
+        self.port = port
+
     def on_after_startup(self):
         Emoji.init(self._settings)
         app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
@@ -826,8 +842,8 @@ class TelegramPlugin(
         self.tmsg = TMSG(self)
 
         # Initial settings for new chat.
-        # !!! sync this dict with newUsrDict in on_settings_migrate() !!!
-        self.newChat = {
+        # !!! sync this dict with new_usr_dict in on_settings_migrate() !!!
+        self.new_chat = {
             "private": True,
             "title": "[UNKNOWN]",
             "accept_commands": False,
@@ -859,19 +875,17 @@ class TelegramPlugin(
                     try:
                         os.remove(file_path)
                     except OSError:
-                        self._logger.exception(f"Exception caught removing file {file_path}")
+                        self._logger.exception(f"Caught an exception removing file {file_path}")
 
         # Update user profile photos
-        for key in self.chats:
+        for chat_id in self.chats:
             try:
-                if key != "zBOTTOMOFCHATS":
-                    kwargs = {}
-                    kwargs["chat_id"] = int(key)
-                    t = threading.Thread(target=self.save_chat_picture, kwargs=kwargs)
+                if chat_id != "zBOTTOMOFCHATS":
+                    t = threading.Thread(target=self.save_chat_picture, kwargs={"chat_id": chat_id})
                     t.daemon = True
                     t.run()
             except Exception:
-                pass
+                self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
 
     def on_shutdown(self):
         self.on_event("PrinterShutdown", {})
@@ -939,8 +953,8 @@ class TelegramPlugin(
         self._logger.debug("MIGRATE DO")
         tcmd = TCMD(self)
         # Initial settings for new chat
-        # !!! sync this dict with newChat in on_after_startup() !!!
-        newUsrDict = {
+        # !!! sync this dict with self.new_chat in on_after_startup() !!!
+        new_usr_dict = {
             "private": True,
             "title": "[UNKNOWN]",
             "accept_commands": False,
@@ -963,7 +977,7 @@ class TelegramPlugin(
             # There shouldn't be any chats, but maybe someone had installed any test branch.
             # Then we have to check if all needed settings are populated.
             for chat in chats:
-                for setting in newUsrDict:
+                for setting in new_usr_dict:
                     if setting not in chats[chat]:
                         if setting == "commands":
                             chats[chat]["commands"] = {
@@ -979,38 +993,35 @@ class TelegramPlugin(
             if chat is not None:
                 self._settings.set(["chat"], None)
                 data = {}
-                data.update(newUsrDict)
+                data.update(new_usr_dict)
                 data["private"] = True
                 data["title"] = "[UNKNOWN]"
                 # Try to get infos from telegram by sending a "you are migrated" message
                 try:
-                    message = {}
-                    message["text"] = (
-                        f"The OctoPrint Plugin {self._plugin_name} has been updated to new Version {self._plugin_version}.\n\n"
-                        f"Please open your {self._plugin_name} settings in OctoPrint and set configurations for this chat.\n\n"
-                        "Until then you are not able to send or receive anything useful with this Bot.\n\n"
-                        "More information on: https://github.com/jacopotediosi/OctoPrint-Telegram"
-                    )
-                    message["chat_id"] = chat
-                    message["disable_web_page_preview"] = True
-                    r = requests.post(
-                        f"{self.bot_url}/sendMessage",
+                    message = {
+                        "text": (
+                            f"The OctoPrint Plugin {self._plugin_name} has been updated to new version {self._plugin_version}.\n\n"
+                            f"Please open your {self._plugin_name} settings in OctoPrint and configure this chat.\n\n"
+                            "Until then, you will not be able to send or receive anything useful with this Bot.\n\n"
+                            "More information on: https://github.com/jacopotediosi/OctoPrint-Telegram"
+                        ),
+                        "chat_id": chat,
+                        "disable_web_page_preview": True,
+                    }
+
+                    json_data = self.utils.send_telegram_request(
+                        f"{self.main.bot_url}/sendMessage",
+                        "post",
                         data=message,
-                        proxies=self.utils.get_proxies(),
                     )
-                    r.raise_for_status()
-                    if r.headers["content-type"] != "application/json":
-                        raise Exception("invalid content-type")
-                    json = r.json()
-                    if not json["ok"]:
-                        raise Exception("invalid request")
-                    chat = json["result"]["chat"]
+
+                    chat = json_data["result"]["chat"]
+
                     if chat["type"] == "group" or chat["type"] == "supergroup":
                         data["private"] = False
                         data["title"] = chat["title"]
                     elif chat["type"] == "private":
                         data["private"] = True
-
                         title_parts = []
                         if "first_name" in chat:
                             title_parts.append(chat["first_name"])
@@ -1022,12 +1033,15 @@ class TelegramPlugin(
 
                 except Exception:
                     self._logger.exception("ERROR migrating chat. Done with defaults private=true,title=[UNKNOWN]")
+
                 # Place the migrated chat in chats
                 chats.update({str(chat["id"]): data})
+
             self._logger.debug(f"MIGRATED Chats: {chats}")
+
             ########## Update messages. Old text will be taken to new structure.
             messages = self._settings.get(["messages"])
-            msgOut = {}
+            msg_out = {}
             for msg in messages:
                 if msg == "TelegramSendNotPrintingStatus":
                     msg2 = "StatusNotPrinting"
@@ -1036,12 +1050,12 @@ class TelegramPlugin(
                 else:
                     msg2 = msg
                 if type(messages[msg]) is not type({}):
-                    newMsg = telegramMsgDict[msg2].copy()
-                    newMsg["text"] = str(messages[msg])
-                    msgOut.update({msg2: newMsg})
+                    new_msg = telegramMsgDict[msg2].copy()
+                    new_msg["text"] = str(messages[msg])
+                    msg_out.update({msg2: new_msg})
                 else:
-                    msgOut.update({msg2: messages[msg]})
-            self._settings.set(["messages"], msgOut)
+                    msg_out.update({msg2: messages[msg]})
+            self._settings.set(["messages"], msg_out)
             ########## Delete old settings
             self._settings.set(["message_at_startup"], None)
             self._settings.set(["message_at_shutdown"], None)
@@ -1069,17 +1083,17 @@ class TelegramPlugin(
                     chats[chat]["commands"].update({"/dontshutup": chats[chat]["commands"]["/imsorrydontshutup"]})
                 if "type" not in chats[chat]:
                     chats[chat].update({"type": "PRIVATE" if chats[chat]["private"] else "GROUP"})
-                delCmd = []
+                del_cmd = []
                 # Collect remove 'bind_none' commands
                 for cmd in tcmd.commandDict:
                     if cmd in chats[chat]["commands"] and "bind_none" in tcmd.commandDict[cmd]:
-                        delCmd.append(cmd)
+                        del_cmd.append(cmd)
                 # Collect Delete commands from settings if they don't belong to commandDict anymore
                 for cmd in chats[chat]["commands"]:
                     if cmd not in tcmd.commandDict:
-                        delCmd.append(cmd)
+                        del_cmd.append(cmd)
                 # Finally delete commands
-                for cmd in delCmd:
+                for cmd in del_cmd:
                     del chats[chat]["commands"][cmd]
                 # If there are new commands in commandDict, add them to settings
                 for cmd in tcmd.commandDict:
@@ -1087,11 +1101,11 @@ class TelegramPlugin(
                         if "bind_none" not in tcmd.commandDict[cmd]:
                             chats[chat]["commands"].update({cmd: False})
                 # Delete notifications from settings if they don't belong to msgDict anymore
-                delMsg = []
+                del_msg = []
                 for msg in chats[chat]["notifications"]:
                     if msg not in telegramMsgDict:
-                        delMsg.append(msg)
-                for msg in delMsg:
+                        del_msg.append(msg)
+                for msg in del_msg:
                     del chats[chat]["notifications"][msg]
                 # If there are new notifications in msgDict, add them to settings
                 for msg in telegramMsgDict:
@@ -1103,11 +1117,11 @@ class TelegramPlugin(
             messages = self._settings.get(["messages"])
             # This for loop deletes items from messages settings
             # if they don't belong to telegramMsgDict anymore
-            delMsg = []
+            del_msg = []
             for msg in messages:
                 if msg not in telegramMsgDict:
-                    delMsg.append(msg)
-            for msg in delMsg:
+                    del_msg.append(msg)
+            for msg in del_msg:
                 del messages[msg]
             # This for loop adds new message settings from telegramMsgDict to settings
             for msg in telegramMsgDict:
@@ -1130,15 +1144,15 @@ class TelegramPlugin(
     def on_settings_save(self, data):
         # Remove 'new'-flag and apply bindings for all chats
         if data.get("chats"):
-            delList = []
+            del_list = []
             for key in data["chats"]:
                 if "new" in data["chats"][key]:
                     data["chats"][key]["new"] = False
                 # Look for deleted chats
                 if key not in self.chats and not key == "zBOTTOMOFCHATS":
-                    delList.append(key)
+                    del_list.append(key)
             # Delete chats finally
-            for key in delList:
+            for key in del_list:
                 del data["chats"][key]
         # Also remove 'new'-flag from self.chats so settingsUI is consistent
         # self.chats will only update to settings data on first received message after saving done
@@ -1253,25 +1267,25 @@ class TelegramPlugin(
                 }
             )
         else:
-            retChats = {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"}
-            for chat in retChats:
+            ret_chats = {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"}
+            for chat_id in ret_chats:
                 if os.path.isfile(
                     os.path.join(
                         self.get_plugin_data_folder(),
                         "img",
                         "user",
-                        os.path.basename(f"pic{chat}.jpg"),
+                        os.path.basename(f"pic{chat_id}.jpg"),
                     )
                 ):
-                    retChats[chat]["image"] = f"/plugin/telegram/img/user/pic{chat}.jpg"
-                elif int(chat) < 0:
-                    retChats[chat]["image"] = "/plugin/telegram/static/img/group.jpg"
+                    ret_chats[chat_id]["image"] = f"/plugin/telegram/img/user/pic{chat_id}.jpg"
+                elif Utils.is_group_or_channel(chat_id):
+                    ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/group.jpg"
                 else:
-                    retChats[chat]["image"] = "/plugin/telegram/static/img/default.jpg"
+                    ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
 
             return json.dumps(
                 {
-                    "chats": retChats,
+                    "chats": ret_chats,
                     "connection_state_str": self.connection_state_str,
                     "connection_ok": self.connection_ok,
                 }
@@ -1292,24 +1306,29 @@ class TelegramPlugin(
         )
 
     def on_api_command(self, command, data):
+        self._logger.info(f"Received API command {command} with data {data}")
+
         if not Permissions.SETTINGS.can():
+            self._logger.warning("API command was not allowed")
             return "Insufficient permissions", 403
 
         if command == "testToken":
             token = str(data.get("token"))
 
-            self._logger.info(f"Received testToken command to test token {token}")
-
             try:
                 username = self.test_token(token)
                 self._settings.set(["token"], token)
-                self.stop_listening()  # To start with new token if already running
+
+                self._logger.info("Token set via testToken API command")
+
+                # To start with new token if already running
+                self.stop_listening()
                 self.start_listening()
+
                 return json.dumps(
                     {
                         "ok": True,
-                        "connection_state_str": f"Token valid for {username}.",
-                        "error_msg": None,
+                        "connection_state_str": f"Token valid for {username}",
                         "username": username,
                     }
                 )
@@ -1320,21 +1339,19 @@ class TelegramPlugin(
                         "ok": False,
                         "connection_state_str": f"Error testing token: {e}",
                         "username": None,
-                        "error_msg": str(e),
                     }
                 )
 
-        # Delete a chat (will show up again on octorint restart)
+        # Delete a chat (will show up again on octoprint restart)
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
-
-            self._logger.info(f"Received delChat command to delete chat with id {chat_id}")
 
             if chat_id not in self.chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return "Unknown chat with given id", 404
 
             del self.chats[chat_id]
+            self._logger.info(f"Chat {chat_id} deleted")
 
             return json.dumps(
                 {
@@ -1346,41 +1363,35 @@ class TelegramPlugin(
 
         elif command == "testEvent":
             event = data.get("event")
-            self._logger.info(f"Received testEvent command to test event '{event}'")
             try:
                 self.on_event(event, {})
-                return json.dumps({"ok": True, "error_msg": None})
+                self._logger.info(f"Event {event} tested")
+                return json.dumps({"ok": True})
             except Exception as e:
-                self._logger.exception(f"Caught an exception testing event {event}")
-                return json.dumps({"ok": False, "error_msg": str(e)})
+                self._logger.exception(f"Caught an exception testing event {event}: {e}")
+                return json.dumps({"ok": False})
 
         elif command == "setCommandList":
             try:
-                self._logger.info("Received setCommandList command")
-                self.setMyCommands(True)
-                self._logger.info("Command list set")
+                self.set_bot_commands()
+                self._logger.info("Bot commands set")
                 return json.dumps(
                     {
                         "ok": True,
-                        "setMyCommands_state_str": "SetMyCommands done",
-                        "error_msg": None,
+                        "setMyCommands_state_str": "Commands set",
                     }
                 )
             except Exception as e:
-                self._logger.exception("Caught an exception setting default bot commands")
+                self._logger.exception("Caught an exception setting bot commands")
                 return json.dumps(
                     {
                         "ok": False,
-                        "setMyCommands_state_str": f"Error: {e}",
-                        "error_msg": str(e),
+                        "setMyCommands_state_str": f"Error setting commands: {e}",
                     }
                 )
 
         elif command == "editUser":
             chat_id = str(data.get("chat_id"))
-
-            # Log editUser attempt
-            self._logger.info(f"Received editUser command for chat id {chat_id}")
 
             # Check if chat_id is known
             if chat_id not in self.chats:
@@ -1432,7 +1443,7 @@ class TelegramPlugin(
                                 kwargs["chatID"] = key
                                 threading.Thread(target=self._send_msg, kwargs=kwargs).run()
                         except Exception:
-                            self._logger.exception(f"Exception caught in loop chatId for key: {key}")
+                            self._logger.exception(f"Caught an exception in loop chatId for key: {key}")
             # Seems to be a broadcast
             elif "chatID" not in kwargs:
                 for key in self.chats:
@@ -1445,11 +1456,11 @@ class TelegramPlugin(
             else:
                 threading.Thread(target=self._send_msg, kwargs=kwargs).run()
         except Exception:
-            self._logger.exception("Exception caught in send_msg()")
+            self._logger.exception("Caught an exception in send_msg()")
 
     # This method is used to update a message text of a sent message.
     # The sent message had to have no_markup = true when calling send_msg() (otherwise it would not work)
-    # by setting no_markup = true we got a messageg_id on sending the message which is saved in selfupdateMessageID.
+    # by setting no_markup = true we got a messageg_id on sending the message which is saved in self.update_message_id.
     # If this message_id is passed in msg_id to send_msg() then this method will be called.
     def _send_edit_msg(
         self,
@@ -1468,11 +1479,7 @@ class TelegramPlugin(
         if delay > 0:
             time.sleep(delay)
         try:
-            self._logger.debug(
-                "Sending a message UPDATE in chat {chatID}: {message}".format(
-                    message=message.replace("\n", "\\n"), chatID=chatID
-                )
-            )
+            self._logger.debug(f"Sending a message UPDATE in chat {chatID}: {message}")
             data = {}
             data["text"] = message
             data["message_id"] = msg_id
@@ -1483,28 +1490,33 @@ class TelegramPlugin(
                 else:
                     self._logger.warning(f"Invalid markup: {markup}")
             if responses and inline:
-                myArr = []
+                my_arr = []
                 for k in responses:
-                    myArr.append([{"text": x[0], "callback_data": x[1]} for x in k])
-                keyboard = {"inline_keyboard": myArr}
+                    my_arr.append([{"text": x[0], "callback_data": x[1]} for x in k])
+                keyboard = {"inline_keyboard": my_arr}
                 data["reply_markup"] = json.dumps(keyboard)
+
             self._logger.debug(f"SENDING UPDATE: {data}")
-            req = requests.post(
+            self.utils.send_telegram_request(
                 f"{self.bot_url}/editMessageText",
+                "post",
                 data=data,
-                proxies=self.utils.get_proxies(),
             )
-            if req.headers["content-type"] != "application/json":
-                self._logger.warning(
-                    f"Unexpected Content-Type. Expected: application/json. Was: {req.headers['content-type']}. Waiting 2 minutes before trying again."
-                )
-                return
-            myJson = req.json()
-            self._logger.debug(f"REQUEST RES: {myJson}")
+
             if inline:
-                self.updateMessageID[chatID] = msg_id
+                self.update_message_id[chatID] = msg_id
+
         except Exception:
-            self._logger.exception("Exception caught in _send_edit_msg()")
+            self._logger.exception("Caught an exception in _send_edit_msg()")
+            self.set_status("Exception sending a message")
+            self.utils.send_telegram_request(
+                f"{self.bot_url}/sendMessage",
+                "post",
+                data={
+                    "chat_id": chatID,
+                    "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
+                },
+            )
 
     def _send_msg(
         self,
@@ -1516,7 +1528,7 @@ class TelegramPlugin(
         inline=True,
         chatID="",
         markup="off",
-        showWeb=False,
+        show_web=False,
         silent=False,
         gif_duration=5,
         **kwargs,
@@ -1537,7 +1549,7 @@ class TelegramPlugin(
             # Preparing message data
             message_data = {}
 
-            message_data["disable_web_page_preview"] = not showWeb
+            message_data["disable_web_page_preview"] = not show_web
             message_data["chat_id"] = chatID
             message_data["disable_notification"] = silent
 
@@ -1559,7 +1571,7 @@ class TelegramPlugin(
                 try:
                     self.pre_image()
                 except Exception:
-                    self._logger.exception("Exception caught calling pre_image()")
+                    self._logger.exception("Caught an exception calling pre_image()")
 
             # Prepare images to send
             images_to_send = []
@@ -1569,14 +1581,14 @@ class TelegramPlugin(
                 try:
                     self._logger.debug(f"Get thumbnail: {kwargs.get('thumbnail')}")
 
-                    url = f"http://localhost:{self.tcmd.port}/{kwargs.get('thumbnail', '')}"
+                    url = f"http://localhost:{self.port}/{kwargs.get('thumbnail', '')}"
 
-                    tlg_response = requests.get(url, proxies=self.utils.get_proxies())
-                    tlg_response.raise_for_status()
+                    thumbnail_response = requests.get(url)
+                    thumbnail_response.raise_for_status()
 
-                    images_to_send.append(tlg_response.content)
+                    images_to_send.append(thumbnail_response.content)
                 except Exception:
-                    self._logger.exception("Exception caught getting thumbnail")
+                    self._logger.exception("Caught an exception getting thumbnail")
 
             # Add webcam images to images to send
             if with_image:
@@ -1584,7 +1596,7 @@ class TelegramPlugin(
                     try:
                         images_to_send += self.take_all_images()
                     except Exception:
-                        self._logger.exception("Exception caught taking all images")
+                        self._logger.exception("Caught an exception taking all images")
 
             # Prepare gifs to send
             gifs_to_send = []
@@ -1600,14 +1612,14 @@ class TelegramPlugin(
                         else:
                             gifs_to_send += self.take_all_gifs(gif_duration)
                     except Exception:
-                        self._logger.exception("Exception caught taking all gifs")
+                        self._logger.exception("Caught an exception taking all gifs")
 
             # Post image
             if with_image or with_gif:
                 try:
                     self.post_image()
                 except Exception:
-                    self._logger.exception("Exception caught calling post_image()")
+                    self._logger.exception("Caught an exception calling post_image()")
 
             # Initialize files and media
             files = {}
@@ -1655,7 +1667,7 @@ class TelegramPlugin(
 
                     media.append(input_media_video)
                 except Exception:
-                    self._logger.exception("Exception caught reading gif file")
+                    self._logger.exception("Caught an exception reading gif file")
 
             # If there are media, send a media-group message
             if media:
@@ -1666,61 +1678,44 @@ class TelegramPlugin(
                 else:
                     action = "upload_photo"
                 with self.telegram_action_context(chatID, action):
-                    try:
-                        message_data["media"] = json.dumps(media)
+                    message_data["media"] = json.dumps(media)
 
-                        tlg_response = requests.post(
-                            f"{self.bot_url}/sendMediaGroup",
-                            data=message_data,
-                            files=files,
-                            proxies=self.utils.get_proxies(),
-                        )
-                    except Exception:
-                        self._logger.exception("Exception caught in _send_msg()")
+                    tlg_response = self.utils.send_telegram_request(
+                        f"{self.bot_url}/sendMediaGroup",
+                        "post",
+                        data=message_data,
+                        files=files,
+                    )
 
             # If there aren't media, send a text-only message
             else:
                 self._logger.debug(f"Sending text-only message, chat id: {chatID}")
 
                 with self.telegram_action_context(chatID, "typing"):
-                    try:
-                        message_data["text"] = message
+                    message_data["text"] = message
 
-                        tlg_response = requests.post(
-                            f"{self.bot_url}/sendMessage",
-                            data=message_data,
-                            proxies=self.utils.get_proxies(),
-                        )
-                    except Exception:
-                        self._logger.exception("Exception caught in _send_msg()")
-
-            # Check the response
-            if tlg_response.status_code == 200:
-                self._logger.debug("Message sent successfully")
-            else:
-                self._logger.error(
-                    f"Message sent, but received bad status code: {tlg_response.status_code}. Response was: {tlg_response.text}."
-                )
-                tlg_response.raise_for_status()
+                    tlg_response = self.utils.send_telegram_request(
+                        f"{self.bot_url}/sendMessage",
+                        "post",
+                        data=message_data,
+                    )
 
             # Inline handling
             if inline:
-                tlg_response_json = tlg_response.json()
-                if not tlg_response_json["ok"]:
-                    raise NameError("ReqErr")
-                if "message_id" in tlg_response_json["result"]:
-                    self.updateMessageID[chatID] = tlg_response_json["result"]["message_id"]
+                if "message_id" in tlg_response["result"]:
+                    self.update_message_id[chatID] = tlg_response["result"]["message_id"]
+
         except Exception:
-            self._logger.exception("Exception caught in _send_msg()")
-            tlg_response = requests.post(
+            self._logger.exception("Caught an exception in _send_msg()")
+            self.set_status("Exception sending a message")
+            self.utils.send_telegram_request(
                 f"{self.bot_url}/sendMessage",
+                "post",
                 data={
                     "chat_id": chatID,
                     "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
                 },
-                proxies=self.utils.get_proxies(),
             )
-            self.set_status("Exception sending a message")
 
     def humanbytes(self, B):
         "Return the given bytes as a human friendly KB, MB, GB, or TB string"
@@ -1747,83 +1742,78 @@ class TelegramPlugin(
             return
 
         with self.telegram_action_context(chat_id, "upload_document"):
-            try:
-                with open(path, "rb") as document:
-                    r = requests.post(
-                        f"{self.bot_url}/sendDocument",
-                        files={"document": document},
-                        data={"chat_id": chat_id, "caption": text},
-                        proxies=self.utils.get_proxies(),
-                    )
-                    if not r.ok:
-                        self._logger.error(f"Failed with status {r.status_code}: {r.text}")
-            except Exception:
-                self._logger.exception("Exception caught in send_file()")
+            self._logger.info(f"Sending file {path} to chat {chat_id}")
+
+            with open(path, "rb") as document:
+                self.utils.send_telegram_request(
+                    f"{self.bot_url}/sendDocument",
+                    "post",
+                    files={"document": document},
+                    data={"chat_id": chat_id, "caption": text},
+                )
 
     def get_file(self, file_id):
         if not self.send_messages:
             return
 
         self._logger.debug(f"Requesting file with id {file_id}")
-        r = requests.get(
-            f"{self.bot_url}/getFile",
-            data={"file_id": file_id},
-            proxies=self.utils.get_proxies(),
-        )
-        r.raise_for_status()
-        data = r.json()
-        if "ok" not in data:
-            raise Exception(f"Telegram didn't respond well to getFile. The response was: {r.text}")
-        url = f"{self.bot_file_url}/{data['result']['file_path']}"
-        self._logger.debug(f"Downloading file: {url}")
-        r = requests.get(url, proxies=self.utils.get_proxies())
-        r.raise_for_status()
-        return r.content
 
-    def save_chat_picture(self, chat_id, file_id=None):
+        json_data = self.utils.send_telegram_request(
+            f"{self.bot_url}/getFile",
+            "get",
+            data={"file_id": file_id},
+        )
+
+        file_path = json_data["result"]["file_path"]
+        file_url = f"{self.bot_file_url}/{file_path}"
+
+        self._logger.info(f"Downloading file: {file_url}")
+
+        file_req = requests.get(file_url, proxies=self.utils.get_proxies())
+        file_req.raise_for_status()
+
+        return file_req.content
+
+    def save_chat_picture(self, chat_id):
         if not self.send_messages:
             return
 
-        self._logger.debug(f"Requesting chat picture for chat_id: {chat_id}")
+        self._logger.debug(f"Saving chat picture for chat_id {chat_id}")
 
-        try:
-            if not file_id:
-                if Utils.is_group_or_channel(chat_id):
-                    json_data = self.utils.send_telegram_request(
-                        f"{self.bot_url}/getChat",
-                        "get",
-                        params={"chat_id": chat_id},
-                    )
-                    file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
-                else:
-                    json_data = self.utils.send_telegram_request(
-                        f"{self.bot_url}/getUserProfilePhotos",
-                        "get",
-                        params={"limit": 1, "user_id": chat_id},
-                    )
-                    file_id = json_data.get("result", {}).get("photos", [])
-                    file_id = file_id[0][0].get("file_id") if file_id and file_id[0] else None
-
-            if not file_id:
-                self._logger.debug(f"Chat id {chat_id} has no photo.")
-                return
-
-            img_bytes = self.get_file(file_id)
-
-            output_filename = os.path.join(
-                self.get_plugin_data_folder(),
-                "img",
-                "user",
-                os.path.basename(f"pic{chat_id}.jpg"),
+        if Utils.is_group_or_channel(chat_id):
+            json_data = self.utils.send_telegram_request(
+                f"{self.bot_url}/getChat",
+                "get",
+                params={"chat_id": chat_id},
             )
+            file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
+        else:
+            json_data = self.utils.send_telegram_request(
+                f"{self.bot_url}/getUserProfilePhotos",
+                "get",
+                params={"limit": 1, "user_id": chat_id},
+            )
+            file_id = json_data.get("result", {}).get("photos", [])
+            file_id = file_id[0][0].get("file_id") if file_id and file_id[0] else None
 
-            img = Image.open(bytes_reader_class(img_bytes))
-            img = img.resize((40, 40), Image.LANCZOS)
-            img.save(output_filename, format="JPEG")
+        if not file_id:
+            self._logger.debug(f"Chat id {chat_id} has no photo.")
+            return
 
-            self._logger.info(f"Saved chat picture for chat id: {chat_id}")
-        except Exception:
-            self._logger.exception(f"Caught exception in save_chat_picture for chat id: {chat_id}")
+        img_bytes = self.get_file(file_id)
+
+        output_filename = os.path.join(
+            self.get_plugin_data_folder(),
+            "img",
+            "user",
+            os.path.basename(f"pic{chat_id}.jpg"),
+        )
+
+        img = Image.open(bytes_reader_class(img_bytes))
+        img = img.resize((40, 40), Image.LANCZOS)
+        img.save(output_filename, format="JPEG")
+
+        self._logger.info(f"Saved chat picture for chat id {chat_id}")
 
     @contextmanager
     def telegram_action_context(self, chat_id, action):
@@ -1836,10 +1826,10 @@ class TelegramPlugin(
         def _loop():
             try:
                 while not stop_event.is_set():
-                    requests.get(
+                    self.utils.send_telegram_request(
                         f"{self.bot_url}/sendChatAction",
+                        "get",
                         params={"chat_id": chat_id, "action": action},
-                        proxies=self.utils.get_proxies(),
                         timeout=5,
                     )
                     time.sleep(4.5)  # Telegram action expires after ~5s
@@ -1861,120 +1851,106 @@ class TelegramPlugin(
 
         if token is None:
             token = self._settings.get(["token"])
-        response = requests.get(
+
+        json_data = self.utils.send_telegram_request(
             f"https://api.telegram.org/bot{token}/getMe",
-            proxies=self.utils.get_proxies(),
+            "get",
         )
-        self._logger.debug(f"getMe returned: {response.json()}")
-        self._logger.debug(f"getMe status code: {response.status_code}")
-        json = response.json()
-        if not json.get("ok"):
-            raise Exception(f"Telegram API response was: {json}")
-        else:
-            return f"@{json['result']['username']}"
+        return f"@{json_data['result']['username']}"
 
     # Sets bot own list of commands
-    def setMyCommands(self, force=False):
+    def set_bot_commands(self):
         if not self.send_messages:
             return
-        try:
-            shallRun = force
-            if not force:
-                # Check if a list of commands was already set
-                resp = requests.get(f"{self.bot_url}/getMyCommands", proxies=self.utils.get_proxies()).json()
-                self._logger.debug(f"getMyCommands returned {resp}")
-                shallRun = len(resp["result"]) == 0
-            if shallRun:
-                commands = [
-                    {
-                        "command": "status",
-                        "description": "Displays the current status including a capture from the camera",
-                    },
-                    {
-                        "command": "togglepause",
-                        "description": "Pauses/Resumes current print",
-                    },
-                    {
-                        "command": "home",
-                        "description": "Home the printer print head",
-                    },
-                    {
-                        "command": "files",
-                        "description": "Lists all the files available for printing",
-                    },
-                    {
-                        "command": "print",
-                        "description": "Lets you start a print (confirmation required)",
-                    },
-                    {
-                        "command": "tune",
-                        "description": "Sets feed and flow rate, control temperatures",
-                    },
-                    {
-                        "command": "ctrl",
-                        "description": "Activates self defined controls from Octoprint",
-                    },
-                    {
-                        "command": "con",
-                        "description": "Connects or disconnects the printer",
-                    },
-                    {
-                        "command": "sys",
-                        "description": "Executes Octoprint system commands",
-                    },
-                    {
-                        "command": "abort",
-                        "description": "Aborts the currently running print (confirmation required)",
-                    },
-                    {"command": "off", "description": "Turn off the printer"},
-                    {"command": "on", "description": "Turn on the printer"},
-                    {
-                        "command": "settings",
-                        "description": "Displays notification settings and lets change them",
-                    },
-                    {
-                        "command": "upload",
-                        "description": "Stores a file into the Octoprint library",
-                    },
-                    {
-                        "command": "filament",
-                        "description": "Shows filament spools and lets you change it (requires Filament Manager Plugin)",
-                    },
-                    {"command": "user", "description": "Gets user info"},
-                    {
-                        "command": "gcode",
-                        "description": "Call gCode commande with /gcode_XXX where XXX is the gcode command",
-                    },
-                    {
-                        "command": "gif",
-                        "description": "Sends a gif from the current video",
-                    },
-                    {
-                        "command": "supergif",
-                        "description": "Sends a bigger gif from the current video",
-                    },
-                    {
-                        "command": "photo",
-                        "description": "Sends photo from webcams",
-                    },
-                    {
-                        "command": "shutup",
-                        "description": "Disables automatic notifications until the next print ends",
-                    },
-                    {
-                        "command": "dontshutup",
-                        "description": "Makes the bot talk again (opposite of `/shutup`)",
-                    },
-                    {"command": "help", "description": "Shows this help message"},
-                ]
-                resp = requests.post(
-                    f"{self.bot_url}/setMyCommands",
-                    data={"commands": json.dumps(commands)},
-                    proxies=self.utils.get_proxies(),
-                ).json()
-                self._logger.debug(f"setMyCommands returned {resp}")
-        except Exception:
-            pass
+
+        commands = [
+            {
+                "command": "status",
+                "description": "Displays the current status including a capture from the camera",
+            },
+            {
+                "command": "togglepause",
+                "description": "Pauses/Resumes current print",
+            },
+            {
+                "command": "home",
+                "description": "Home the printer print head",
+            },
+            {
+                "command": "files",
+                "description": "Lists all the files available for printing",
+            },
+            {
+                "command": "print",
+                "description": "Lets you start a print (confirmation required)",
+            },
+            {
+                "command": "tune",
+                "description": "Sets feed and flow rate, control temperatures",
+            },
+            {
+                "command": "ctrl",
+                "description": "Activates self defined controls from Octoprint",
+            },
+            {
+                "command": "con",
+                "description": "Connects or disconnects the printer",
+            },
+            {
+                "command": "sys",
+                "description": "Executes Octoprint system commands",
+            },
+            {
+                "command": "abort",
+                "description": "Aborts the currently running print (confirmation required)",
+            },
+            {"command": "off", "description": "Turn off the printer"},
+            {"command": "on", "description": "Turn on the printer"},
+            {
+                "command": "settings",
+                "description": "Displays notification settings and lets change them",
+            },
+            {
+                "command": "upload",
+                "description": "Stores a file into the Octoprint library",
+            },
+            {
+                "command": "filament",
+                "description": "Shows filament spools and lets you change it (requires Filament Manager Plugin)",
+            },
+            {"command": "user", "description": "Gets user info"},
+            {
+                "command": "gcode",
+                "description": "Call gCode commande with /gcode_XXX where XXX is the gcode command",
+            },
+            {
+                "command": "gif",
+                "description": "Sends a gif from the current video",
+            },
+            {
+                "command": "supergif",
+                "description": "Sends a bigger gif from the current video",
+            },
+            {
+                "command": "photo",
+                "description": "Sends photo from webcams",
+            },
+            {
+                "command": "shutup",
+                "description": "Disables automatic notifications until the next print ends",
+            },
+            {
+                "command": "dontshutup",
+                "description": "Makes the bot talk again (opposite of `/shutup`)",
+            },
+            {"command": "help", "description": "Shows this help message"},
+        ]
+
+        self.utils.send_telegram_request(
+            f"{self.bot_url}/setMyCommands",
+            "post",
+            data={"commands": json.dumps(commands)},
+        )
 
     ##########
     ### Helper methods
@@ -1986,7 +1962,7 @@ class TelegramPlugin(
         if not command:
             return False
 
-        is_group_chat = int(chat_id) < 0
+        is_group_or_channel = Utils.is_group_or_channel(chat_id)
 
         chat_settings = self.chats.get(chat_id, {})
         chat_accept_commands = chat_settings.get("accept_commands", False)
@@ -2006,7 +1982,7 @@ class TelegramPlugin(
             return True
 
         # User personal permissions within groups
-        if is_group_chat and chat_allow_commands_from_users:
+        if is_group_or_channel and chat_allow_commands_from_users:
             if from_accept_commands and from_accept_this_command:
                 return True
 
@@ -2015,11 +1991,11 @@ class TelegramPlugin(
     # Helper function to handle /editMessageText Telegram API commands
     # See main._send_edit_msg()
     def get_update_msg_id(self, id):
-        uMsgID = ""
-        if id in self.updateMessageID:
-            uMsgID = self.updateMessageID[id]
-            del self.updateMessageID[id]
-        return uMsgID
+        update_msg_id = ""
+        if id in self.update_message_id:
+            update_msg_id = self.update_message_id[id]
+            del self.update_message_id[id]
+        return update_msg_id
 
     def pre_image(self):
         method = self._settings.get(["PreImgMethod"])
@@ -2157,7 +2133,7 @@ class TelegramPlugin(
                 )
                 taken_images_contents.append(taken_image_content)
             except Exception:
-                self._logger.exception("Exception caught taking an image")
+                self._logger.exception("Caught an exception taking an image")
 
         return taken_images_contents
 
@@ -2212,7 +2188,7 @@ class TelegramPlugin(
                 )
                 taken_gif_paths.append(taken_gif_path)
             except Exception:
-                self._logger.exception("Exception caught taking a gif")
+                self._logger.exception("Caught an exception taking a gif")
 
         return taken_gif_paths
 
@@ -2264,7 +2240,7 @@ class TelegramPlugin(
                 limit_cpu = 65 * used_cpu
             self._logger.debug(f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}")
         except Exception:
-            self._logger.exception("Exception caught getting number of cpu. Using defaults...")
+            self._logger.exception("Caught an exception getting number of cpu. Using defaults...")
 
         cmd = []
         if shutil.which("nice"):
@@ -2330,10 +2306,9 @@ class TelegramPlugin(
                     "X-Api-Key": self._settings.global_get(["api", "key"]),
                 }
                 r = requests.get(
-                    f"http://localhost:{int(self.tcmd.port)}/plugin/DisplayLayerProgress/values",
+                    f"http://localhost:{self.port}/plugin/DisplayLayerProgress/values",
                     headers=headers,
                     timeout=3,
-                    proxies=self.utils.get_proxies(),
                 )
                 self._logger.debug(f"get_current_layers : r={r}")
                 if r.status_code >= 300:
@@ -2348,9 +2323,9 @@ class TelegramPlugin(
 
     def calculate_ETA(self, printTime=0):
         try:
-            currentData = self._printer.get_current_data()
+            current_data = self._printer.get_current_data()
             current_time = datetime.datetime.today()
-            if not currentData["progress"]["printTimeLeft"]:
+            if not current_data["progress"]["printTimeLeft"]:
                 if printTime == 0:
                     return ""  # Maybe put something like "nothing to print" in here
                 self._logger.debug(f"printTime={printTime}")
@@ -2359,7 +2334,7 @@ class TelegramPlugin(
                 except Exception:
                     return ""
             else:
-                finish_time = current_time + datetime.timedelta(0, currentData["progress"]["printTimeLeft"])
+                finish_time = current_time + datetime.timedelta(0, current_data["progress"]["printTimeLeft"])
 
             if finish_time.day > current_time.day and finish_time > current_time + datetime.timedelta(days=7):
                 # Longer than a week ahead
@@ -2372,7 +2347,7 @@ class TelegramPlugin(
                 format = self._settings.get(["TimeFormat"])  # "%H:%M:%S"
             return finish_time.strftime(format)
         except Exception:
-            self._logger.exception("Exception caught calculating ETA")
+            self._logger.exception("Caught an exception calculating ETA")
             return "There was a problem calculating the finishing time. Check the logs for more detail."
 
     def route_hook(self, server_routes, *args, **kwargs):
