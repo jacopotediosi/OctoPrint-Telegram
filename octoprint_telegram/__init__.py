@@ -43,7 +43,7 @@ bytes_reader_class = io.BytesIO
 ####################################################
 #        TelegramListener Thread Class
 # Connects to Telegram and will listen for messages.
-# On incomming message the listener will process it.
+# On incoming message the listener will process it.
 ####################################################
 
 
@@ -428,7 +428,7 @@ class TelegramListener(threading.Thread):
             # Execute command
             self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
         else:
-            # User was not alloed to execute this command
+            # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.main.send_msg(
                 f"You are not allowed to do this! {get_emoji('notallowed')}",
@@ -956,7 +956,7 @@ class TelegramPlugin(
         self._settings.set(["chats"], {})
         if current is None or current < 1:
             ########## Update Chats
-            # There shouldn't be any chats, but maybe somone had installed any test branch.
+            # There shouldn't be any chats, but maybe someone had installed any test branch.
             # Then we have to check if all needed settings are populated.
             for chat in chats:
                 for setting in newUsrDict:
@@ -985,7 +985,7 @@ class TelegramPlugin(
                         f"The OctoPrint Plugin {self._plugin_name} has been updated to new Version {self._plugin_version}.\n\n"
                         f"Please open your {self._plugin_name} settings in OctoPrint and set configurations for this chat.\n\n"
                         "Until then you are not able to send or receive anything useful with this Bot.\n\n"
-                        "More informations on: https://github.com/jacopotediosi/OctoPrint-Telegram"
+                        "More information on: https://github.com/jacopotediosi/OctoPrint-Telegram"
                     )
                     message["chat_id"] = chat
                     message["disable_web_page_preview"] = True
@@ -1098,7 +1098,7 @@ class TelegramPlugin(
             ########## If anything changed in telegramMsgDict, we also have to update settings for messages
             messages = self._settings.get(["messages"])
             # This for loop deletes items from messages settings
-            # if they dont't belong to telegramMsgDict anymore
+            # if they don't belong to telegramMsgDict anymore
             delMsg = []
             for msg in messages:
                 if msg not in telegramMsgDict:

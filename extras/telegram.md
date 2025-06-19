@@ -57,7 +57,7 @@ This plugin integrates Telegram Messenger into Octoprint.
 
 You can receive automatic notifications with webcam images before and after a print -
 and even during a print at customizable heights or after a certain time (e.g. after every
-5mm of height OR after 10 minutes - whatever happend first).
+5mm of height OR after 10 minutes - whatever happened first).
 
 You can also control Octoprint via messages. Send /status to receive the current status,
 /abort to abort the currently running print or /help to receive a list of available commands.

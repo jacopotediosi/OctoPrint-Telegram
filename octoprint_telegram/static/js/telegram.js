@@ -409,7 +409,7 @@ $(function () {
       const deletedChatIds = _.difference(formerChats, currentChats)
       if (newChats || (deletedChatIds && deletedChatIds.length)) {
         // Transfer the chats back to the server settings (because just hitting "save" on the Settings dialog
-        // won't transfer anything we haven't explicitely set).
+        // won't transfer anything we haven't explicitly set).
 
         // TODO: This whole workflow should be optimized!
         // Currently it takes two full server/client round trips to get the chats in sync, and just reusing
