@@ -54,3 +54,6 @@ extend-select = ["I"]
 [tool.djlint]
 no_set_formatting=true
 ignore="H008,H021"
+
+[tool.codespell]
+skip = "octoprint_telegram/emoji/unicode_emoji_dict.py"

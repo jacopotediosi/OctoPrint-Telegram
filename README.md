@@ -35,7 +35,7 @@ To set up Octoprint Telegram, you have to follow the following three steps.
 
 To allow the plugin to send messages via telegram, you need to register a telegram bot.
 
-If you already have a bot, you only need your bot token to proceed. GOTO `4.` (optional) or go dirctly over to [Plugin Setup](#plugin-setup).
+If you already have a bot, you only need your bot token to proceed. GOTO `4.` (optional) or go directly over to [Plugin Setup](#plugin-setup).
 
 1. Contact [@botfather](http://telegram.me/botfather) in Telegram Messenger. Either click the link or use the "new chat" / "search" feature of your telegram client to search for "@botfather".
 
@@ -80,7 +80,7 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 	photo - send photo from webcams
 	on - Turns on the printer power via the PSUControl plugin API. Requires PSU Control plugin installation.
 	off - Turns off the printer power via the PSUControl plugin API. Requires PSU Control plugin.
-	gcode_XXX - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for exemple)
+	gcode_XXX - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for example)
 	```
 	<img src="https://raw.githubusercontent.com/jacopotediosi/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
 
@@ -101,7 +101,7 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 5. Hit "Save" at the bottom of the settings dialog.
 
 6. If you want to create gif and receive them as notification we use ffmpeg like timelapse (if problem please check timelapse is configured).
-you'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
+you'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for example) and execute
 sudo apt-get install cpulimit
 
 Congratulations! Your printer is now connected to your Telegram bot.
@@ -159,7 +159,7 @@ There are users (private chat with single user) or groups you will see in the li
 
 2. By clicking on the *notification* icon, a dialog with a list of checkboxes for every known notification event will open. Checked notifications will be send to the user/group. When done, close the dialog. Don't forget to activate general notification in `3.`
 
-3. **IMPORTANT**<br>**a)** By clicking the *pencil* icon, you are able to enable/disable commands and notifications for the user/group in general. This will not affect the settings you made in `1.` and `2.`. It's an easy way to quickly activate/deactivate a user/group withot changing the settings. You will find the following options:
+3. **IMPORTANT**<br>**a)** By clicking the *pencil* icon, you are able to enable/disable commands and notifications for the user/group in general. This will not affect the settings you made in `1.` and `2.`. It's an easy way to quickly activate/deactivate a user/group without changing the settings. You will find the following options:
 	* For users:
 	  * *Allow to send commands*: This option will give the user the ability to send commands you defined in `1.`
 	* For groups:
@@ -192,7 +192,7 @@ In this section you can configure the content of the notification messages.
 
 **The paragraph numbers below correspond to the numbers in the picture!**
 
-1. These three buttons will open dialogs which provide you informations about using markup, variables and emojis in the messages.
+1. These three buttons will open dialogs which provide you information about using markup, variables and emojis in the messages.
 
 2. Enter the text you want to send when the specific event happens.
 
@@ -229,7 +229,7 @@ In this section you can configure the content of the notification messages.
 
 **`/settings`** - Displays the current notification settings (time and height) and allows you to change them.
 
-**`/files`** - Lists all the files available for printing in upload folder and allows you download and delete them. You also can view detailed informations of the file like print history.
+**`/files`** - Lists all the files available for printing in upload folder and allows you download and delete them. You also can view detailed information of the file like print history.
 
 **`/filament`** - Shows your filament spools and the percentage of usage. In addition you can change the filament spool with this command. Requires the [Filament Manager Plugin](https://plugins.octoprint.org/plugins/filamentmanager/)
 
@@ -249,14 +249,14 @@ In this section you can configure the content of the notification messages.
 
 **`/tune`** - Set feed- and flowrate. Also set temperature of extruder(s) and bed or switch them off.
 
-**`/user`** - Get user/group information. This will contain saved user/group data, allowed comamnds and the notifications send to the user/group.
+**`/user`** - Get user/group information. This will contain saved user/group data, allowed commands and the notifications send to the user/group.
 
 **`/help`** - Displays a help message with all accepted commands and a short description.
 
-**`/gif`** - Send a gif created from 20 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
+**`/gif`** - Send a gif created from 20 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for example) and execute
 sudo apt-get install cpulimit
 
-**`/supergif`** - Send a gif created from 60 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for exemple) and execute
+**`/supergif`** - Send a gif created from 60 images. You'll have to install CpuLimit to be able to create gif so please for raspberry connect to your raspberry with putty (for example) and execute
 sudo apt-get install cpulimit
 
 **`/photo`** - send photo from webcams.
@@ -268,7 +268,7 @@ sudo apt-get install cpulimit
                                              - the TuyaSmartplug plugin API. Requires the [TuyaSmartplug plugin](https://github.com/ziirish/OctoPrint-TuyaSmartplug/)
 											 sadly for now wait on accept the push request to get the list of plug
 
-**`/gcode`** - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for exemple)
+**`/gcode`** - Send the gcode to the printer where XXX is the gcode command (/gcode_M117 HelloWorld for example)
 
 <!-- omit in toc -->
 #### Notes:
@@ -276,7 +276,7 @@ sudo apt-get install cpulimit
 * the `/help` command is always allowed
 
 
-* `/files` and `/print` will basically show the same file dialog. If `/print` is disabled, no print button will be shown. If `/files` is disabled, no download and delete buttons will be shown. If both commands are enabled, all buttons will be shown regardles wether the user entered the dialog by `/files` or `/print`.
+* `/files` and `/print` will basically show the same file dialog. If `/print` is disabled, no print button will be shown. If `/files` is disabled, no download and delete buttons will be shown. If both commands are enabled, all buttons will be shown regardless whether the user entered the dialog by `/files` or `/print`.
 
 <br><br><br>
 

@@ -1,6 +1,6 @@
 ### README
 		- /sys also system commands. Not only self defined
-		- Latest Version incement
+		- Latest Version increment
 
 ### NOW
 		admin only settings
@@ -42,7 +42,7 @@
 
 	 	token test messages in settings (connection state not up to date)
 
-	  ! after print start wait for nozzel and bed heated befor starting print notification
+	  ! after print start wait for nozzel and bed heated before starting print notification
 	  		times are from octoprint so there has to be own counter??? :(
 
 	  	wrong image rotation

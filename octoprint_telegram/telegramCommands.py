@@ -1510,7 +1510,7 @@ class TCMD:
             con = self.main._printer.get_current_connection()
             con2 = octoprint.printer.get_connection_options()
             msg = (
-                f"{get_emoji('info')} Connection informations\n\n"
+                f"{get_emoji('info')} Connection information\n\n"
                 f"*Status*: {con[0]}\n\n"
                 f"*Port*: {con[1]}\n"
                 f"*Baud*: {'AUTO' if str(con[2]) == '0' else con[2]}\n"
@@ -2263,7 +2263,7 @@ class TCMD:
         dest, path, file = self.find_file_by_hash(fileHash)
         self.tmpFileHash = ""
         meta = self.main._file_manager.get_metadata(dest, path)
-        msg = f"{get_emoji('info')} <b>File Informations</b>\n\n"
+        msg = f"{get_emoji('info')} <b>File information</b>\n\n"
         msg += f"{get_emoji('name')} <b>Name:</b> {path}"
         try:
             msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> " + datetime.datetime.fromtimestamp(
@@ -2426,7 +2426,7 @@ class TCMD:
             dest, path, file = self.find_file_by_hash(hash)
             meta = self.main._file_manager.get_metadata(dest, path)
         if opt.startswith("inf"):
-            msg = f"{get_emoji('info')} <b>Detailed File Informations</b>\n\n"
+            msg = f"{get_emoji('info')} <b>Detailed File information</b>\n\n"
             msg += f"{get_emoji('name')} <b>Name:</b> {path}"
             msg += f"\n {get_emoji('filesize')} <b>Size:</b> {self.formatSize(file['size'])}"
             msg += f"\n {get_emoji('calendar')} <b>Uploaded:</b> " + datetime.datetime.fromtimestamp(
@@ -3176,7 +3176,7 @@ class TCMD:
     # FORMAT HELPERS
     ############################################################################################
     def formatSize(self, bytes):
-        # from octoprint/static/js/app/helpers.js transfered to python
+        # from octoprint/static/js/app/helpers.js transferred to python
         if not bytes:
             return "-"
         units = ["bytes", "KB", "MB", "GB"]
@@ -3188,7 +3188,7 @@ class TCMD:
 
     ############################################################################################
     def formatFilament(self, filament):
-        # from octoprint/static/js/app/helpers.js transfered to python
+        # from octoprint/static/js/app/helpers.js transferred to python
         if not filament or "length" not in filament:
             return "-"
         result = f"{float(filament['length']) / 1000:.02f} m"
@@ -3210,7 +3210,7 @@ class TCMD:
     ############################################################################################
     def formatFuzzyPrintTime(self, totalSeconds):
         ##
-        # from octoprint/static/js/app/helpers.js transfered to python
+        # from octoprint/static/js/app/helpers.js transferred to python
         #
         # Formats a print time estimate in a very fuzzy way.
         #
