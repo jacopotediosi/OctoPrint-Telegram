@@ -30,7 +30,7 @@ class TCMD:
         self.dirHashDict = {}
         self.tmpFileHash = ""
         self._spoolManagerPluginImplementation = None
-        self.port = self.main._settings.global_get(["server", "port"])
+        self.port = self.main.port
         self.commandDict = {
             "Yes": {"cmd": self.cmdYes, "bind_none": True},
             "No": {"cmd": self.cmdNo, "bind_none": True},

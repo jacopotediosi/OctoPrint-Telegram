@@ -703,6 +703,7 @@ class TelegramPlugin(
         self.chats = {}
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
+        self.port = 5000
         urllib3.disable_warnings()
         self.updateMessageID = {}
         self.shut_up = {}
@@ -813,6 +814,9 @@ class TelegramPlugin(
 
         # Don't propagate logging
         self._logger.propagate = False
+
+        # Set port
+        self.port = port
 
     def on_after_startup(self):
         Emoji.init(self._settings)
@@ -1569,7 +1573,7 @@ class TelegramPlugin(
                 try:
                     self._logger.debug(f"Get thumbnail: {kwargs.get('thumbnail')}")
 
-                    url = f"http://localhost:{self.tcmd.port}/{kwargs.get('thumbnail', '')}"
+                    url = f"http://localhost:{self.port}/{kwargs.get('thumbnail', '')}"
 
                     tlg_response = requests.get(url, proxies=self.utils.get_proxies())
                     tlg_response.raise_for_status()
@@ -2330,7 +2334,7 @@ class TelegramPlugin(
                     "X-Api-Key": self._settings.global_get(["api", "key"]),
                 }
                 r = requests.get(
-                    f"http://localhost:{int(self.tcmd.port)}/plugin/DisplayLayerProgress/values",
+                    f"http://localhost:{int(self.port)}/plugin/DisplayLayerProgress/values",
                     headers=headers,
                     timeout=3,
                     proxies=self.utils.get_proxies(),
