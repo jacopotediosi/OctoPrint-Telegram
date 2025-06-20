@@ -451,14 +451,14 @@ class TelegramListener(threading.Thread):
         elif chat["type"] == "private":
             data["private"] = True
 
-        title_parts = []
-        if "first_name" in chat:
-            title_parts.append(chat["first_name"])
-        if "last_name" in chat:
-            title_parts.append(chat["last_name"])
-        if "username" in chat:
-            title_parts.append(f"@{chat['username']}")
-        data["title"] = " - ".join(title_parts)
+            title_parts = []
+            if "first_name" in chat:
+                title_parts.append(chat["first_name"])
+            if "last_name" in chat:
+                title_parts.append(chat["last_name"])
+            if "username" in chat:
+                title_parts.append(f"@{chat['username']}")
+            data["title"] = " - ".join(title_parts)
 
         from_id = chat_id
         # If message is from a group, chat_id will be left as id of group
@@ -1005,7 +1005,7 @@ class TelegramPlugin(
                     if not json["ok"]:
                         raise Exception("invalid request")
                     chat = json["result"]["chat"]
-                    if chat["type"] == "group":
+                    if chat["type"] == "group" or chat["type"] == "supergroup":
                         data["private"] = False
                         data["title"] = chat["title"]
                     elif chat["type"] == "private":
