@@ -1343,7 +1343,7 @@ class TelegramPlugin(
                     }
                 )
 
-        # Delete a chat (will show up again on octoprint restart)
+        # Delete a chat
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
 
@@ -1351,7 +1351,9 @@ class TelegramPlugin(
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return "Unknown chat with given id", 404
 
-            del self.chats[chat_id]
+            self.chats.pop(chat_id)
+            self._settings.set(["chats"], self.chats)
+
             self._logger.info(f"Chat {chat_id} deleted")
 
             return json.dumps(
