@@ -35,8 +35,9 @@ from .telegramNotifications import (
     telegramMsgDict,
 )  # Dict of known notification messages
 
-get_emoji = Emoji.get_emoji
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+get_emoji = Emoji.get_emoji
 bytes_reader_class = io.BytesIO
 
 
@@ -2144,7 +2145,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, proxies=self.utils.get_proxies())
+        r = requests.get(snapshot_url, timeout=10, proxies=self.utils.get_proxies(), verify=False)
         r.raise_for_status()
 
         image_content = r.content
