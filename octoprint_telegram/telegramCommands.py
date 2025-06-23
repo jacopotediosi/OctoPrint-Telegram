@@ -1,6 +1,7 @@
 import base64
 import datetime
 import hashlib
+import html
 import operator
 import socket
 
@@ -164,7 +165,7 @@ class TCMD:
                         return
                     if self.SettingsTemp[0] < 0:
                         self.SettingsTemp[0] = 0
-                msg = f"{get_emoji('height')} Set new height.\nCurrent:  *{self.SettingsTemp[0]:.2f}mm*"
+                msg = f"{get_emoji('height')} Set new height.\nCurrent:  <b>{html.escape(str(self.SettingsTemp[0])):.2f}mm</b>"
                 keys = [
                     [
                         ["+10", "/settings_h_+"],
@@ -191,7 +192,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="Markdown",
+                    markup="HTML",
                 )
             elif params[0] == "t":
                 if len(params) > 1:
@@ -206,7 +207,7 @@ class TCMD:
                         return
                     if self.SettingsTemp[1] < 0:
                         self.SettingsTemp[1] = 0
-                msg = f"{get_emoji('alarmclock')} Set new time.\nCurrent: *{self.SettingsTemp[1]}min*"
+                msg = f"{get_emoji('alarmclock')} Set new time.\nCurrent: <b>{html.escape(str(self.SettingsTemp[1]))}min</b>"
                 keys = [
                     [["+10", "/settings_t_+"], ["+1", "/settings_t_++"]],
                     [["-10", "/settings_t_-"], ["-1", "/settings_t_--"]],
@@ -223,7 +224,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="Markdown",
+                    markup="HTML",
                 )
             elif params[0] == "g":
                 if self.main._settings.get_boolean(["send_gif"]):
@@ -246,9 +247,9 @@ class TCMD:
                 self.main._settings.get_float(["notification_time"]),
             ]
             msg = (
-                f"{get_emoji('settings')} *Current notification settings are:*\n\n"
-                f"{get_emoji('height')} Height: {self.main._settings.get_float(['notification_height']):.2f}mm\n\n"
-                f"{get_emoji('alarmclock')} Time: {self.main._settings.get_int(['notification_time']):d}min\n\n"
+                f"{get_emoji('settings')} <b>Current notification settings are:</b>\n\n"
+                f"{get_emoji('height')} Height: {html.escape(self.main._settings.get_float(['notification_height'])):.2f}mm\n\n"
+                f"{get_emoji('alarmclock')} Time: {html.escape(self.main._settings.get_int(['notification_time']))}min\n\n"
                 f"{get_emoji('video')} Gif is activate: {gif_emo}"
             )
 
@@ -274,7 +275,7 @@ class TCMD:
                 ],
                 chatID=chat_id,
                 msg_id=msg_id,
-                markup="Markdown",
+                markup="HTML",
             )
 
     ############################################################################################
@@ -486,9 +487,9 @@ class TCMD:
                     keys.append([[f"{get_emoji('cancel')} Close", "No"]])
                     msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                     self.main.send_msg(
-                        f"{get_emoji('save')} *Select Storage*",
+                        f"{get_emoji('save')} <b>Select Storage</b>",
                         chatID=chat_id,
-                        markup="Markdown",
+                        markup="HTML",
                         responses=keys,
                         msg_id=msg_id,
                     )
@@ -514,7 +515,7 @@ class TCMD:
             if params[0] == "sys":
                 if params[1] != "do":
                     self.main.send_msg(
-                        f"{get_emoji('question')} *{params[1]}*\nExecute system command?",
+                        f"{get_emoji('question')} <b>{html.escape(params[1])}</b>\nExecute system command?",
                         responses=[
                             [
                                 [
@@ -529,7 +530,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
-                        markup="Markdown",
+                        markup="HTML",
                     )
                     return
                 try:
@@ -1452,26 +1453,26 @@ class TCMD:
 
     ############################################################################################
     def cmdUser(self, chat_id, from_id, cmd, parameter, user=""):
-        msg = f"{get_emoji('info')} *Your user settings:*\n\n"
-        msg += f"*ID:* {chat_id}\n"
-        msg += f"*Name:* {self.main.chats[chat_id]['title']}\n"
+        msg = f"{get_emoji('info')} <b>Your user settings:</b>\n\n"
+        msg += f"<b>ID:</b> {html.escape(str(chat_id))}\n"
+        msg += f"<b>Name:</b> {html.escape(self.main.chats[chat_id]['title'])}\n"
         if self.main.chats[chat_id]["private"]:
-            msg += "*Type:* Private\n\n"
+            msg += "<b>Type:</b> Private\n\n"
         else:
-            msg += "*Type:* Group\n"
+            msg += "<b>Type:</b> Group\n"
             if self.main.chats[chat_id]["accept_commands"]:
-                msg += "*Accept-Commands:* All users\n\n"
+                msg += "<b>Accept-Commands:</b> All users\n\n"
             elif self.main.chats[chat_id]["allow_users"]:
-                msg += "*Accept-Commands:* Allowed users\n\n"
+                msg += "<b>Accept-Commands:</b> Allowed users\n\n"
             else:
-                msg += "*Accept-comands:* None\n\n"
+                msg += "<b>Accept-comands:</b> None\n\n"
 
-        msg += "*Allowed commands:*\n"
+        msg += "<b>Allowed commands:</b>\n"
         if self.main.chats[chat_id]["accept_commands"]:
             myTmp = 0
             for key in self.main.chats[chat_id]["commands"]:
                 if self.main.chats[chat_id]["commands"][key]:
-                    msg += f"{key}, "
+                    msg += f"{html.escape(key)}, "
                     myTmp += 1
             if myTmp < 1:
                 msg += "You are NOT allowed to send any command."
@@ -1481,12 +1482,12 @@ class TCMD:
         else:
             msg += "You are NOT allowed to send any command.\n\n"
 
-        msg += "*Get notification on:*\n"
+        msg += "<b>Get notification on:</b>\n"
         if self.main.chats[chat_id]["send_notifications"]:
             myTmp = 0
             for key in self.main.chats[chat_id]["notifications"]:
                 if self.main.chats[chat_id]["notifications"][key]:
-                    msg += f"{key}, "
+                    msg += f"{html.escape(key)}, "
                     myTmp += 1
             if myTmp < 1:
                 msg += "You will receive NO notifications."
@@ -1494,7 +1495,7 @@ class TCMD:
         else:
             msg += "You will receive NO notifications.\n\n"
 
-        self.main.send_msg(msg, chatID=chat_id, markup="Markdown")
+        self.main.send_msg(msg, chatID=chat_id, markup="HTML")
 
     ############################################################################################
     def cmdConnection(self, chat_id, from_id, cmd, parameter, user=""):
@@ -1511,11 +1512,11 @@ class TCMD:
             con2 = octoprint.printer.get_connection_options()
             msg = (
                 f"{get_emoji('info')} Connection information\n\n"
-                f"*Status*: {con[0]}\n\n"
-                f"*Port*: {con[1]}\n"
-                f"*Baud*: {'AUTO' if str(con[2]) == '0' else con[2]}\n"
-                f"*Profile*: {con[3] if con[3] is None else con[3]['name']}\n"
-                f"*AutoConnect*: {con2['autoconnect']}\n\n"
+                f"<b>Status</b>: {html.escape(con[0])}\n\n"
+                f"<b>Port</b>: {html.escape(con[1])}\n"
+                f"<b>Baud</b>: {'AUTO' if str(con[2]) == '0' else html.escape(con[2])}\n"
+                f"<b>Profile</b>: {html.escape(con[3]['name'] if con[3] is not None else 'None')}\n"
+                f"<b>AutoConnect</b>: {html.escape(con2['autoconnect'])}\n\n"
             )
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             if self.main._printer.is_operational():
@@ -1536,7 +1537,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=msg_id,
-                        markup="Markdown",
+                        markup="HTML",
                     )
                 else:
                     self.main.send_msg(
@@ -1559,7 +1560,7 @@ class TCMD:
                         ],
                         chatID=chat_id,
                         msg_id=msg_id,
-                        markup="Markdown",
+                        markup="HTML",
                     )
             else:
                 self.main.send_msg(
@@ -1579,7 +1580,7 @@ class TCMD:
                     ],
                     chatID=chat_id,
                     msg_id=msg_id,
-                    markup="Markdown",
+                    markup="HTML",
                 )
 
     ############################################################################################
@@ -1603,7 +1604,7 @@ class TCMD:
                         self.tuneTemp[0] = 50
                     elif self.tuneTemp[0] > 200:
                         self.tuneTemp[0] = 200
-                msg = f"{get_emoji('feedrate')} Set feedrate.\nCurrent:  *{self.tuneTemp[0]}%*"
+                msg = f"{get_emoji('feedrate')} Set feedrate.\nCurrent:  <b>{html.escape(self.tuneTemp[0])}%</b>"
                 keys = [
                     [
                         ["+25", "/tune_feed_+*"],
@@ -1626,7 +1627,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="Markdown",
+                    markup="HTML",
                 )
             elif params[0] == "flow":
                 if len(params) > 1:
@@ -1643,7 +1644,7 @@ class TCMD:
                         return
                     if self.tuneTemp[1] < 50 or self.tuneTemp[1] > 200:
                         self.tuneTemp[1] = 200
-                msg = f"{get_emoji('flowrate')} Set flowrate.\nCurrent: *{self.tuneTemp[1]}%*"
+                msg = f"{get_emoji('flowrate')} Set flowrate.\nCurrent: <b>{html.escape(self.tuneTemp[1])}%</b>"
                 keys = [
                     [
                         ["+25", "/tune_flow_+*"],
@@ -1666,7 +1667,7 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="Markdown",
+                    markup="HTML",
                 )
             elif params[0] == "e":
                 temps = self.main._printer.get_current_temperatures()
@@ -1757,7 +1758,7 @@ class TCMD:
                 self._logger.debug(f"BED self.TEMPS: {self.tempTemp}")
                 msg = (
                     f"{get_emoji('hotbed')} Set temperature for bed.\n"
-                    f"Current: {temps['bed']['actual']:.02f}/*{self.tempTemp[toolNo]}\u00b0C*"
+                    f"Current: {temps['bed']['actual']:.02f}/<b>{html.escape(self.tempTemp[toolNo])}\u00b0C</b>"
                 )
                 keys = [
                     [
@@ -1788,10 +1789,10 @@ class TCMD:
                     chatID=chat_id,
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
-                    markup="Markdown",
+                    markup="HTML",
                 )
         else:
-            msg = f"{get_emoji('settings')} *Tune print settings*"
+            msg = f"{get_emoji('settings')} <b>Tune print settings</b>"
             profile = self.main._printer_profile_manager.get_current()
             temps = self.main._printer.get_current_temperatures()
             self.tempTemp = []
@@ -1823,7 +1824,7 @@ class TCMD:
                     self.tempTemp.append(int(temps["bed"]["target"]))
                 keys.append(tmpKeys)
             keys.append([[f"{get_emoji('cancel')} Close", "No"]])
-            self.main.send_msg(msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="Markdown")
+            self.main.send_msg(msg, responses=keys, chatID=chat_id, msg_id=msg_id, markup="HTML")
 
     ############################################################################################
     def cmdFilament(self, chat_id, from_id, cmd, parameter, user=""):
@@ -2122,7 +2123,7 @@ class TCMD:
             + switch_command
             + "/help - Show this help message.",
             chatID=chat_id,
-            markup="Markdown",
+            markup="HTML",
         )
 
     ############################################################################################
@@ -2248,9 +2249,9 @@ class TCMD:
             pageStr = f"{page + 1}/{len(files) / 10 + (1 if len(files) % 10 > 0 else 0)}"
             self._logger.debug("fileList before send msg ")
             self.main.send_msg(
-                f"{get_emoji('save')} Files in */{pathWoDest[:-1]}*    \\[{pageStr}]",
+                f"{get_emoji('save')} Files in <b>/{html.escape(pathWoDest[:-1])}</b>    [{html.escape(pageStr)}]",
                 chatID=chat_id,
-                markup="Markdown",
+                markup="HTML",
                 responses=keys,
                 msg_id=self.main.get_update_msg_id(chat_id),
                 delay=wait,
@@ -2590,11 +2591,11 @@ class TCMD:
                         ]
                     )
                 self.main.send_msg(
-                    f"{get_emoji('question')} *Choose destination to move file*",
+                    f"{get_emoji('question')} <b>Choose destination to move file</b>",
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
-                    markup="Markdown",
+                    markup="HTML",
                 )
 
         elif opt.startswith("c"):
@@ -2637,11 +2638,11 @@ class TCMD:
                         ]
                     )
                 self.main.send_msg(
-                    f"{get_emoji('question')} *Choose destination to copy file*",
+                    f"{get_emoji('question')} <b>Choose destination to copy file</b>",
                     chatID=chat_id,
                     responses=keys,
                     msg_id=msg_id,
-                    markup="Markdown",
+                    markup="HTML",
                 )
 
         elif opt.startswith("d"):
@@ -2708,9 +2709,9 @@ class TCMD:
                     ],
                 ]
                 self.main.send_msg(
-                    f"{get_emoji('question')} *Choose sorting order of files*",
+                    f"{get_emoji('question')} <b>Choose sorting order of files</b>",
                     chatID=chat_id,
-                    markup="Markdown",
+                    markup="HTML",
                     responses=keys,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
