@@ -2251,36 +2251,32 @@ class TelegramPlugin(
 
         cmd += [
             cpulimiter_path,
-            "-l",
-            str(limit_cpu),
+            "-l", str(limit_cpu),
             "-f",
             "-z",
             "--",
             ffmpeg_path,
+            # Overwrite output file
             "-y",
-            "-threads",
-            str(used_cpu),
-            "-i",
-            str(stream_url),
-            "-t",
-            str(time_sec),
-            "-pix_fmt",
-            "yuv420p",
-        ]
-        # Work on android but seems to be a problem on some Iphone
-        # params.append('-c:v')
-        # params.append('mpeg4')
-        # params.append('-c:a' )
-        # params.append('mpeg4')
-        # Works on iphone but seems to be a problem on some android
-        # params.append('-b:v')
-        # params.append('0')
-        # params.append('-crf')
-        # params.append('25')
-        # params.append('-movflags')
-        # params.append('faststart')
+            # Limit threads
+            "-threads", str(used_cpu),
+            # Video source
+            "-i", str(stream_url),
+            # Duration
+            "-t", str(time_sec),
+            # Video encoding
+            "-color_range", "tv",
+            "-c:v", "libx264",
+            "-profile:v", "baseline",
+            # Audio encoding
+            "-c:a", "aac",
+            "-ac", "2",
+            # Enable fast start for streaming
+            "-movflags", "+faststart",
+        ]  # fmt: skip
 
-        filters = []
+        filters = ["format=yuv420p"]
+
         if flipV:
             filters.append("vflip")
         if flipH:
@@ -2288,9 +2284,8 @@ class TelegramPlugin(
         if rotate:
             filters.append("transpose=2")
 
-        if filters:
-            filter_str = ",".join(filters)
-            cmd += ["-vf", filter_str]
+        filter_str = ",".join(filters)
+        cmd += ["-vf", filter_str]
 
         cmd.append(gif_path)
 
