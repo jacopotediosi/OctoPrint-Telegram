@@ -1511,7 +1511,7 @@ class TelegramPlugin(
 
         except Exception:
             self._logger.exception("Caught an exception in _send_edit_msg()")
-            self.set_status("Exception sending a message")
+            self.thread.set_status("Exception sending a message")
             self.utils.send_telegram_request(
                 f"{self.bot_url}/sendMessage",
                 "post",
@@ -1710,7 +1710,7 @@ class TelegramPlugin(
 
         except Exception:
             self._logger.exception("Caught an exception in _send_msg()")
-            self.set_status("Exception sending a message")
+            self.thread.set_status("Exception sending a message")
             self.utils.send_telegram_request(
                 f"{self.bot_url}/sendMessage",
                 "post",
