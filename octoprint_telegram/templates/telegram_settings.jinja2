@@ -573,36 +573,65 @@
     </div>
     <div class="modal-body">
         Use Variables by adding <code>{&lt;varName&gt;}</code> to your message text (eg <code>{bed_temp}</code>). Usable Variables are:
+        {# djlint:off #}
         {% set variable_table = [
-        {
-        "var": "{file}",
-        "desc": "The currently printing file. <span class='muted'><small>Only useful while printing</small></span>"
-        },
-        {
-        "var": "{z}",
-        "desc": "The current z value."
-        },
-        {
-        "var": "{percent}",
-        "desc": "The current percentage of the print progress. <span class='muted'><small>Only useful for height change notifications</small></span>"
-        },
-        {
-        "var": "{time_done}<br>{time_left}<br>{time_finish}",
-        "desc": "Time done / left in the print / ETA. <span class='muted'><small>Only useful for height change events</small></span>"
-        },
-        {
-        "var": "{bed_temp},<br>{e1_temp},<br>{e2_temp}",
-        "desc": "Temperatures of bed, extruder 1 and extruder 2."
-        },
-        {
-        "var": "{bed_target},<br>{e1_target},<br>{e2_target}",
-        "desc": "Target temperatures of bed, extruder 1 and extruder 2."
-        },
-        {
-        "var": "{event}",
-        "desc": "The name of the event which caused the notification."
-        }
+            {
+                "var": "{file} {path}",
+                "desc": "File name and full path of the file currently being printed. <small class='muted'>Only useful while printing.</small>"
+            },
+            {
+                "var": "{status}",
+                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data'><code>get_current_data()</code></a> OctoPrint function. "
+                    "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{z}",
+                "desc": "The current z value."
+            },
+            {
+                "var": "{percent}",
+                "desc": "Current percentage of the print progress. <small class='muted'>Only useful for height change notifications.</small>"
+            },
+            {
+                "var": "{time_done} {time_left} {time_finish}",
+                "desc": "Elapsed / remaining / estimated finish time of the current print. <small class='muted'>Only useful for height change events.</small>"
+            },
+            {
+                "var": "{temps}",
+                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_temperatures'><code>get_current_temperatures()</code></a> OctoPrint function. "
+                    "It's a dictionary you can navigate like: <code>temps[bed][actual]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{bed_temp} {e1_temp} {e2_temp}",
+                "desc": "Current temperatures of bed / extruder 1 / extruder 2."
+            },
+            {
+                "var": "{bed_target} {e1_target} {e2_target}",
+                "desc": "Target temperatures of bed / extruder 1 / extruder 2."
+            },
+            {
+                "var": "{currentLayer} {totalLayer}",
+                "desc": "Current and total number of layers. <small class='muted'><a href='https://github.com/OllisGit/OctoPrint-DisplayLayerProgress'>DisplayLayerProgress</a> plugin required.</small>"
+            },
+            {
+                "var": "{owner} {user}",
+                "desc": "The name of the user who started the print / the name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)."
+            },
+            {
+                "var": "{event}",
+                "desc": "The name of the event which caused the notification."
+            },
+            {
+                "var": "{error_msg}",
+                "desc": "The error message string. <small class='muted'>Only useful for 'Error' event notifications.</small>"
+            },
+            {
+                "var": "{UserNotif_Text}",
+                "desc": "The text received via the serial message <code>echo:UserNotif TEXT</code>, which is triggered by printing a G-code like: <code>M118 E1 UserNotif TEXT</code>. "
+                    "<small class='muted'>Only useful for 'UserNotif' event notifications.</small>"
+            },
         ] %}
+        {# djlint:on #}
         <table class="table table-condensed table-striped"
                style="table-layout: auto">
             <thead>

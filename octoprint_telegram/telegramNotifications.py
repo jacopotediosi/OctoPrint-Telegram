@@ -325,7 +325,7 @@ class TMSG:
                     break
             path = status.get("job", {}).get("file", {}).get("path", "")
 
-            # For printer error ("Error" event)
+            # For "Error" event
             error_msg = payload.get("error", "")
 
             # Serial echo:UserNotif, e.g.: M118 E1 UserNotif XXXXX
