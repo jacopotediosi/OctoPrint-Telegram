@@ -1604,16 +1604,17 @@ class TelegramPlugin(
             # Prepare gifs to send
             gifs_to_send = []
 
+            # Add movie to gifs to send
+            movie = kwargs.get("movie")
+            if movie:
+                gifs_to_send.append(movie)
+
             # Add gifs to gifs to send
             if with_gif:
                 with self.telegram_action_context(chatID, "record_video"):
                     try:
                         # If the event already generated a gif
-                        if kwargs.get("event") == "plugin_octolapse_movie_done" or kwargs.get("event") == "MovieDone":
-                            gifs_to_send.append(kwargs.get("movie", ""))
-                        # Otherwise, take gifs from webcams
-                        else:
-                            gifs_to_send += self.take_all_gifs(gif_duration)
+                        gifs_to_send += self.take_all_gifs(gif_duration)
                     except Exception:
                         self._logger.exception("Caught an exception taking all gifs")
 

@@ -80,7 +80,6 @@ telegramMsgDict = {
         "no_setting": True,
     },
     "StatusPrinting": {"bind_msg": "ZChange", "no_setting": True},
-    "plugin_octolapse_movie_done": {"bind_msg": "MovieDone", "no_setting": True},
     "plugin_pause_for_user_event_notify": {
         "text": "{emo:warning} User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
@@ -102,11 +101,12 @@ telegramMsgDict = {
         "gif": False,
         "markup": "off",
     },
+    "plugin_octolapse_movie_done": {"bind_msg": "MovieDone", "no_setting": True},
     "MovieDone": {
         "text": "{emo:movie} Movie done.",
         "image": False,
         "silent": False,
-        "gif": True,
+        "gif": False,
         "markup": "off",
     },
     "Connected": {
