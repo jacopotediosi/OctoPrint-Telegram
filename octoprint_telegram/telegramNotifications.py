@@ -147,16 +147,6 @@ telegramMsgDict = {
 }
 
 
-# Class to handle emojis on notification message format
-class EmojiFormatter:
-    def __init__(self, main):
-        self.main = main
-
-    def __format__(self, format):
-        self.main._logger.debug(f"Formatting emoticon: '{format}'")
-        return get_emoji(format)
-
-
 class TMSG:
     def __init__(self, main):
         self.main = main
@@ -229,8 +219,6 @@ class TMSG:
         self._sendNotification(payload, **kwargs)
 
     def msgMovieDone(self, payload, **kwargs):
-        if kwargs["event"] == "plugin_octolapse_movie_done":
-            kwargs["event"] == "MovieDone"
         self._sendNotification(payload, **kwargs)
 
     def msgPrinterError(self, payload, **kwargs):
@@ -272,138 +260,175 @@ class TMSG:
 
     def _sendNotification(self, payload, **kwargs):
         try:
+            # --- Defines all formatted variables available for notification messages ---
+            # Remember to add new variables to allowed_vars when adding them
+
+            # Status
             status = self.main._printer.get_current_data()
-            event = kwargs["event"]
-            self._logger.debug(f"event: {event}")
-            try:
-                kwargs["event"] = telegramMsgDict[event]["bind_msg"] if "bind_msg" in telegramMsgDict[event] else event
-            except Exception:
-                self._logger.exception("Exception on get bind_msg")
-                kwargs["event"] = event
 
-            kwargs["with_image"] = self.main._settings.get(["messages", str(kwargs["event"]), "image"])
-            self._logger.debug(
-                f"send_gif = {self.main._settings.get(['send_gif'])} "
-                f"and this message would send gif = {self.main._settings.get(['messages', str(kwargs['event']), 'gif'])}"
-            )
-            if self.main._settings.get(["send_gif"]):
-                kwargs["with_gif"] = self.main._settings.get(["messages", str(kwargs["event"]), "gif"])
-            else:
-                kwargs["with_gif"] = False
-            kwargs["silent"] = self.main._settings.get(["messages", str(kwargs["event"]), "silent"])
+            # Event
+            event = str(kwargs.get("event"))
+            event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
+            if event_bind_msg:
+                event = event_bind_msg
 
-            self._logger.debug(f"Printer Status: {status}")
-            # define locals for string formatting
+            # Z
             z = self.z
+
+            # Temperatures
             temps = self.main._printer.get_current_temperatures()
-            self._logger.debug(f"TEMPS - {temps}")
             bed_temp = temps.get("bed", {}).get("actual", 0.0)
             bed_target = temps.get("bed", {}).get("target", 0.0)
             e1_temp = temps.get("tool0", {}).get("actual", 0.0)
             e1_target = temps.get("tool0", {}).get("target", 0.0)
             e2_temp = temps.get("tool1", {}).get("actual", 0.0)
             e2_target = temps.get("tool1", {}).get("target", 0.0)
-            percent = int(status["progress"]["completion"] or 0)
 
-            try:
-                Layers = self.main.get_current_layers()
-                self._logger.debug(f"Layers - {Layers}")
-                if Layers is not None:
-                    currentLayer = Layers["layer"]["current"]
-                    totalLayer = Layers["layer"]["total"]
-                else:
-                    currentLayer = "?"
-                    totalLayer = "?"
-            except Exception:
-                self._logger.exception("Exception on get_current_layers")
+            # Percent
+            progress = status.get("progress", {})
+            completion = progress.get("completion")
+            percent = int(completion if completion is not None else 0)
 
-            time_done = octoprint.util.get_formatted_timedelta(
-                datetime.timedelta(seconds=(status["progress"]["printTime"] or 0))
-            )
-            if status["progress"]["printTimeLeft"] is None:
-                time_left = "[Unknown]"
-                time_finish = "[Unknown]"
-            else:
-                time_left = octoprint.util.get_formatted_timedelta(
-                    datetime.timedelta(seconds=(status["progress"]["printTimeLeft"] or 0))
-                )
+            # Time done
+            print_time = progress.get("printTime") or 0
+            time_done = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
+
+            # Time left and ETA
+            time_left = "[Unknown]"
+            time_finish = "[Unknown]"
+            print_time_left = progress.get("printTimeLeft")
+            if print_time_left is not None:
+                time_left = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
                 try:
-                    time_finish = self.main.calculate_ETA(time_left)
-                except Exception as e:
-                    time_finish = str(e)
-                    self._logger.exception("Exception on formatting message")
-            file = status["job"]["file"]["name"]
-            path = status["job"]["file"]["path"]
-            owner = status["job"]["user"]
-            if owner is None:
-                owner = ""
-                if owner == "_api":
-                    owner = ""
+                    time_finish = self.main.calculate_ETA(print_time_left)
+                except Exception:
+                    self._logger.exception("Caught an exception calculating ETA")
 
+            # Layer data
+            layer_data = self.main.get_layer_progress_values() or {}
+            layer_info = layer_data.get("layer") or {}
+            currentLayer = layer_info.get("current", "?")
+            totalLayer = layer_info.get("total", "?")
+
+            # Who started the print
+            owner = status["job"].get("user") or ""
+
+            # Who performed the action causing the notification (e.g., pause, abort)
+            user = payload.get("user") or ""
+
+            # File and file path
+            file = status.get("job", {}).get("file", {}).get("name", "")
+            for key in ("filename", "gcode", "file"):
+                value = payload.get(key)
+                if value:
+                    file = value
+                    break
+            path = status.get("job", {}).get("file", {}).get("path", "")
+
+            # For printer error ("Error" event)
+            error_msg = payload.get("error", "")
+
+            # Serial echo:UserNotif, e.g.: M118 E1 UserNotif XXXXX
+            UserNotif_Text = payload.get("UserNotif", "")
+
+            # Variables allowed in the message formatting context
+            allowed_vars = dict(
+                status=status,
+                event=event,
+                z=z,
+                temps=temps,
+                bed_temp=bed_temp,
+                bed_target=bed_target,
+                e1_temp=e1_temp,
+                e1_target=e1_target,
+                e2_temp=e2_temp,
+                e2_target=e2_target,
+                percent=percent,
+                currentLayer=currentLayer,
+                totalLayer=totalLayer,
+                time_done=time_done,
+                time_left=time_left,
+                time_finish=time_finish,
+                owner=owner,
+                user=user,
+                file=file,
+                path=path,
+                error_msg=error_msg,
+                UserNotif_Text=UserNotif_Text,
+            )
+
+            # --- Set additional kwargs to send the message ---
+
+            thumbnail = None
             try:
                 if event == "PrintStarted":
-                    # get additional metadata and thumbnail
-                    self._logger.debug(f"get thumbnail url for path={path}")
-                    meta = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
-                    if meta is not None and "thumbnail" in meta:
-                        kwargs["thumbnail"] = meta["thumbnail"]
-                    else:
-                        kwargs["thumbnail"] = None
-                    self._logger.debug(f"thumbnail = {kwargs['thumbnail']}")
-                    self._logger.debug(f"meta = {meta}")
-                else:
-                    kwargs["thumbnail"] = None
+                    metadata = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
+                    if metadata:
+                        thumbnail = metadata.get("thumbnail")
             except Exception:
                 self._logger.exception("Exception on getting thumbnail")
+            kwargs["thumbnail"] = thumbnail
 
-            try:
-                if event == "plugin_octolapse_movie_done":
-                    event = "MovieDone"
-                if event == "MovieDone":
-                    if "movie" in payload:
-                        kwargs["movie"] = payload["movie"]
-            except Exception:
-                self._logger.exception("Exception on getting movie for MovieDone")
+            movie = payload.get("movie")
+            if movie:
+                kwargs["movie"] = movie
 
-            if "user" in payload:
-                user = payload["user"]
-                if user is None:
-                    user = ""
-                if user == "_api":
-                    user = "API"
-            else:
-                user = ""
+            kwargs["event"] = event
 
-            if "file" in payload:
-                file = payload["file"]
-            if "gcode" in payload:
-                file = payload["gcode"]
-            if "filename" in payload:
-                file = payload["filename"]
-            if "error" in payload:
-                error_msg = payload["error"]
-            if "UserNotif" in payload:
-                UserNotif_Text = payload["UserNotif"]
+            with_image = bool(self.main._settings.get(["messages", event, "image"]) or False)
+            kwargs["with_image"] = with_image
 
-            self._logger.debug(f"VARS - {locals()}")
-            emo = EmojiFormatter(self.main)
+            event_gif = bool(self.main._settings.get(["messages", event, "gif"]) or False)
+            send_gif_setting = bool(self.main._settings.get(["send_gif"]) or False)
+            kwargs["with_gif"] = send_gif_setting and event_gif
+
+            silent = bool(self.main._settings.get(["messages", event, "silent"]) or False)
+            kwargs["silent"] = silent
+
+            kwargs["markup"] = self.main._settings.get(["messages", event, "markup"])
+
+            kwargs["inline"] = False
+
+            # Log locals
+            self._logger.debug(f"_sendNotification locals: {locals()}")
+
+            # Format the message
             try:
                 # TODO: escape html/markdown entities from the formatted variables
-                message = self.main._settings.get(["messages", kwargs["event"], "text"]).format(emo, **locals())
+
+                class EmojiFormatter:
+                    def __format__(self, fmt):
+                        # Replace with corresponding emoji
+                        return get_emoji(fmt)
+
+                class AllowlistedContext(dict):
+                    def __init__(self, allowed_vars, emoji_formatter):
+                        self.allowed_vars = allowed_vars
+                        self.emoji_formatter = emoji_formatter
+
+                    def __getitem__(self, key):
+                        # Replace user-defined variable if it is allowed, else fallback to literal
+                        if key == "emo":
+                            return self.emoji_formatter
+                        return self.allowed_vars.get(key, "{" + key + "}")
+
+                emoji_formatter = EmojiFormatter()
+                context = AllowlistedContext(allowed_vars, emoji_formatter)
+
+                message_template = self.main._settings.get(["messages", event, "text"])
+                message = message_template.format_map(context)
             except Exception:
-                self._logger.exception("Exception on formatting message")
+                self._logger.exception("caught an exception while formatting the message")
                 message = (
-                    f"{get_emoji('warning')} ERROR: I was not able to format the Notification for the event '{event}' properly.\n"
+                    f"{get_emoji('attention')} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
-            self._logger.debug(f"Sending Notification with kwargs {kwargs}: {message}")
-            # Do we want to send with Markup?
-            kwargs["markup"] = self.main._settings.get(["messages", kwargs["event"], "markup"])
-            # Finally send MSG
-            kwargs["inline"] = False
+
+            # Send the message
+            self._logger.debug("Sending notification: %s | kwargs: %r", message, kwargs)
             self.main.send_msg(message, **kwargs)
         except Exception:
-            self._logger.exception("Exception on send notification")
+            self._logger.exception("Exception in _sendNotification")
 
     # Helper to determine if notification will be send on gcode ZChange event.
     # Depends on notification time and notification height.
