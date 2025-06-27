@@ -2292,7 +2292,6 @@ class TCMD:
 
         msg += f"\n{get_emoji('filesize')} <b>Size:</b> {self.formatSize(file['size'])}"
         filaLen = 0
-        printTime = 0
         if "analysis" in meta:
             if "filament" in meta["analysis"]:
                 msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
@@ -2310,31 +2309,33 @@ class TCMD:
                     meta["analysis"]["estimatedPrintTime"]
                 )
                 printTime = meta["analysis"]["estimatedPrintTime"]
-        try:
-            time_finish = self.main.calculate_ETA(printTime)
-            msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {time_finish}"
-        except Exception:
-            self._logger.info("Caught an exception in get final time")
-        if self.main._plugin_manager.get_plugin("cost", True):
-            if printTime != 0 and filaLen != 0:
+
                 try:
-                    cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
-                    cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
-                    curr = self.main._settings.global_get(["plugins", "cost", "currency"])
-                    try:
-                        curr = curr
-                        msg += (
-                            f"\n{get_emoji('cost')} <b>Cost:</b> {curr}"
-                            + f"{filaLen / 1000 * cpM + printTime / 3600 * cpH:.02f} "
-                        )
-                    except Exception:
-                        self._logger.exception("Caught an exception the cost function in decode")
-                        msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                    time_finish = self.main.calculate_ETA(printTime)
+                    msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {time_finish}"
                 except Exception:
-                    self._logger.exception("Caught an exception the cost function on get")
-                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
-            else:
-                msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                    self._logger.exception("Caught an exception calculating ETA")
+
+                if self.main._plugin_manager.get_plugin("cost", True):
+                    if printTime and filaLen != 0:
+                        try:
+                            cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+                            cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+                            curr = self.main._settings.global_get(["plugins", "cost", "currency"])
+                            try:
+                                curr = curr
+                                msg += (
+                                    f"\n{get_emoji('cost')} <b>Cost:</b> {curr}"
+                                    + f"{filaLen / 1000 * cpM + printTime / 3600 * cpH:.02f} "
+                                )
+                            except Exception:
+                                self._logger.exception("Caught an exception the cost function in decode")
+                                msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                        except Exception:
+                            self._logger.exception("Caught an exception the cost function on get")
+                            msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                    else:
+                        msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
 
         # will try to get the image from the thumbnail
         # will have to upload to somewhere to get internet url
@@ -2433,7 +2434,6 @@ class TCMD:
                 file["date"]
             ).strftime("%Y-%m-%d %H:%M:%S")
             filaLen = 0
-            printTime = 0
             if "analysis" in meta:
                 if "filament" in meta["analysis"]:
                     msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
@@ -2450,33 +2450,36 @@ class TCMD:
                     msg += f"\n {get_emoji('stopwatch')} <b>Print Time:</b> " + self.formatFuzzyPrintTime(
                         meta["analysis"]["estimatedPrintTime"]
                     )
-                    printTime = float(meta["analysis"]["estimatedPrintTime"])
-            try:
-                time_finish = self.main.calculate_ETA(printTime)
-                msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {time_finish}"
-            except Exception:
-                self._logger.exception("Caught an exception in get final time")
-            if self.main._plugin_manager.get_plugin("cost", True):
-                if printTime != 0 and filaLen != 0:
+                    printTime = meta["analysis"]["estimatedPrintTime"]
+
                     try:
-                        cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
-                        cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
-                        curr = self.main._settings.global_get(["plugins", "cost", "currency"])
-                        try:
-                            curr = curr
-                            msg += (
-                                f"\n{get_emoji('cost')} <b>Cost:</b> "
-                                f"{curr}{((filaLen / 1000) * cpM + (printTime / 3600) * cpH):.2f} "
-                            )
-                        except Exception:
-                            self._logger.exception("An Exception the cost function in decode")
-                            msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
-                        self._logger.debug("AF TRY")
+                        time_finish = self.main.calculate_ETA(printTime)
+                        msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {time_finish}"
                     except Exception:
-                        self._logger.exception("Caught an exception the cost function on get")
-                        msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
-                else:
-                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                        self._logger.exception("Caught an exception calculating ETA")
+
+                    if self.main._plugin_manager.get_plugin("cost", True):
+                        if printTime and filaLen != 0:
+                            try:
+                                cpH = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+                                cpM = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+                                curr = self.main._settings.global_get(["plugins", "cost", "currency"])
+                                try:
+                                    curr = curr
+                                    msg += (
+                                        f"\n{get_emoji('cost')} <b>Cost:</b> "
+                                        f"{curr}{((filaLen / 1000) * cpM + (printTime / 3600) * cpH):.2f} "
+                                    )
+                                except Exception:
+                                    self._logger.exception("An Exception the cost function in decode")
+                                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                                self._logger.debug("AF TRY")
+                            except Exception:
+                                self._logger.exception("Caught an exception the cost function on get")
+                                msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+                        else:
+                            msg += f"\n{get_emoji('cost')} <b>Cost:</b> -"
+
             if "statistics" in meta:
                 if "averagePrintTime" in meta["statistics"]:
                     msg += "\n<b>Average Print Time:</b>"
