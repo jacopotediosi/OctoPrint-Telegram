@@ -2340,34 +2340,21 @@ class TelegramPlugin(
             self._logger.exception("Caught an exception in get_layer_progress_values")
         return layers
 
-    def calculate_ETA(self, printTime=0):
-        try:
-            current_data = self._printer.get_current_data()
-            current_time = datetime.datetime.today()
-            if not current_data["progress"]["printTimeLeft"]:
-                if printTime == 0:
-                    return ""  # Maybe put something like "nothing to print" in here
-                self._logger.debug(f"printTime={printTime}")
-                try:
-                    finish_time = current_time + datetime.timedelta(0, printTime)
-                except Exception:
-                    return ""
-            else:
-                finish_time = current_time + datetime.timedelta(0, current_data["progress"]["printTimeLeft"])
+    def calculate_ETA(self, printTime):
+        current_time = datetime.datetime.now()
+        finish_time = current_time + datetime.timedelta(seconds=printTime)
 
-            if finish_time.day > current_time.day and finish_time > current_time + datetime.timedelta(days=7):
-                # Longer than a week ahead
-                format = self._settings.get(["WeekTimeFormat"])  # "%d.%m.%Y %H:%M:%S"
-            elif finish_time.day > current_time.day:
-                # Not today but within a week
-                format = self._settings.get(["DayTimeFormat"])  # "%a %H:%M:%S"
-            else:
-                # Today
-                format = self._settings.get(["TimeFormat"])  # "%H:%M:%S"
-            return finish_time.strftime(format)
-        except Exception:
-            self._logger.exception("Caught an exception calculating ETA")
-            return "There was a problem calculating the finishing time. Check the logs for more detail."
+        if finish_time.day > current_time.day and finish_time > current_time + datetime.timedelta(days=7):
+            # Longer than a week ahead
+            format = self._settings.get(["WeekTimeFormat"])  # "%d.%m.%Y %H:%M:%S"
+        elif finish_time.day > current_time.day:
+            # Not today but within a week
+            format = self._settings.get(["DayTimeFormat"])  # "%a %H:%M:%S"
+        else:
+            # Today
+            format = self._settings.get(["TimeFormat"])  # "%H:%M:%S"
+
+        return finish_time.strftime(format)
 
     def route_hook(self, server_routes, *args, **kwargs):
         from octoprint.server import app
