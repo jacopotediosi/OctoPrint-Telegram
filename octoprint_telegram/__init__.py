@@ -795,7 +795,10 @@ class TelegramPlugin(
     ##########
 
     def get_assets(self):
-        return dict(js=["js/telegram.js"])
+        return dict(
+            js=["js/telegram.js"],
+            css=["css/telegram.css"],
+        )
 
     def get_tmpgif_dir(self):
         return os.path.join(self.get_plugin_data_folder(), "tmpgif")
