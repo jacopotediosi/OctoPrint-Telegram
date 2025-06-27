@@ -490,10 +490,32 @@ class TelegramListener(threading.Thread):
         # Check if user is allowed to execute the command
         if self.main.is_command_allowed(chat_id, from_id, command):
             # Identify user
+            user = "Telegram - "
+
             try:
-                user = f"{message['message']['chat']['first_name']} {message['message']['chat']['last_name']}"
+                sender = (
+                    message.get("from")  # Callback query
+                    or message.get("message", {}).get("from")  # Other messages
+                    or {}
+                )
+
+                username = sender.get("username")
+
+                first_name = sender.get("first_name")
+                last_name = sender.get("last_name")
+                fullname = " ".join(part for part in [first_name, last_name] if part).strip()
+
+                parts = []
+
+                if username:
+                    parts.append(f"@{username}")
+                if fullname:
+                    parts.append(fullname)
+
+                user += " - ".join(parts) if parts else "unknown"
             except Exception:
-                user = ""
+                user += "unknown"
+
             # Execute command
             self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
         else:
@@ -1613,7 +1635,6 @@ class TelegramPlugin(
             if with_gif:
                 with self.telegram_action_context(chatID, "record_video"):
                     try:
-                        # If the event already generated a gif
                         gifs_to_send += self.take_all_gifs(gif_duration)
                     except Exception:
                         self._logger.exception("Caught an exception taking all gifs")
