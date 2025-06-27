@@ -511,7 +511,8 @@
         </div>
     </div>
 </form>
-<div id="settings-telegramDialogEditChat" class="modal hide fade">
+<div id="settings-telegramDialogEditChat"
+     class="modal modal-full hide fade">
     <div class="modal-header">
         <h4>
             <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit User: <span data-bind="text: currChatTitle"></span>
@@ -558,7 +559,8 @@
         </form>
     </div>
 </div>
-<div id="settings-telegramDialogVarInfo" class="modal hide fade">
+<div id="settings-telegramDialogVarInfo"
+     class="modal modal-full hide fade">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
             <i class="fas fa-times"></i>
@@ -621,7 +623,8 @@
         <b>Note:</b> On startup and a few moments after startup of OctoPrint the temperatures can't be retrieved from the printer and will be shown as '0.0'
     </div>
 </div>
-<div id="settings-telegramDialogEmoInfo" class="modal hide fade">
+<div id="settings-telegramDialogEmoInfo"
+     class="modal modal-full hide fade">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
             <i class="fas fa-times"></i>
@@ -686,7 +689,8 @@
         </p>
     </div>
 </div>
-<div id="settings-telegramDialogMupInfo" class="modal hide fade">
+<div id="settings-telegramDialogMupInfo"
+     class="modal modal-full hide fade">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
             <i class="fas fa-times"></i>
@@ -713,9 +717,9 @@
         "effect": "<em>italic</em>"
         },
         {
-        "md": "[linkText](url)",
-        "html": '&lt;a href="url"&gt;linkText&lt;/a&gt;',
-        "effect": '<a href="#">LinkText</a>'
+        "md": "[text](url)",
+        "html": '&lt;a href="url"&gt;text&lt;/a&gt;',
+        "effect": '<a href="#">text</a>'
         },
         {
         "md": "`inline code`",
@@ -746,7 +750,7 @@
                         <td style="vertical-align: middle;
                                    border-right:1px dashed #ddd;
                                    text-align:center">{{ row.html | safe }}</td>
-                        <td style="vertical-align: middle;">{{ row.effect | safe }}</td>
+                        <td style="vertical-align: middle; text-align:center">{{ row.effect | safe }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -761,7 +765,8 @@
             </span>
         </p>
     </div>
-    <div id="settings-telegramDialogTimeInfo" class="modal hide fade">
+    <div id="settings-telegramDialogTimeInfo"
+         class="modal modal-full hide fade">
         <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
                 <i class="fas fa-times"></i>

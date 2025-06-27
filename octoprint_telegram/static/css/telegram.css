@@ -1,1 +1,5 @@
-/* Have your plugin's CSS files generated to here. */
+/* Full width modals */
+.modal.modal-full {
+    width: 80%;
+    margin-left: -40%;
+}
