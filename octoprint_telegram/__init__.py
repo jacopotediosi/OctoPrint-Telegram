@@ -2317,10 +2317,9 @@ class TelegramPlugin(
 
         return gif_path
 
-    def get_current_layers(self):
+    def get_layer_progress_values(self):
         layers = None
         try:
-            self._logger.debug(f"get_current_layers api key={self._settings.global_get(['api', 'key'])}")
             if self._plugin_manager.get_plugin("DisplayLayerProgress", True):
                 headers = {
                     "X-Api-Key": self._settings.global_get(["api", "key"]),
@@ -2330,15 +2329,12 @@ class TelegramPlugin(
                     headers=headers,
                     timeout=3,
                 )
-                self._logger.debug(f"get_current_layers : r={r}")
-                if r.status_code >= 300:
-                    return None
-                else:
-                    return r.json()
+                r.raise_for_status
+                layers = r.json()
             else:
-                return None
+                self._logger.debug("DisplayLayerProgress plugin not installed or disabled")
         except Exception:
-            self._logger.exception("An Exception in get layers from DisplayLayerProgress")
+            self._logger.exception("Caught an exception in get_layer_progress_values")
         return layers
 
     def calculate_ETA(self, printTime=0):
