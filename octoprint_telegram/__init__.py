@@ -28,12 +28,12 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 
 from .emoji.emoji import Emoji
-from .telegram_utils import TelegramUtils, is_group_or_channel
-from .telegramCommands import TCMD
-from .telegramNotifications import (
+from .telegram_commands import TCMD
+from .telegram_notifications import (
     TMSG,
     telegramMsgDict,
 )  # Dict of known notification messages
+from .telegram_utils import TelegramUtils, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
