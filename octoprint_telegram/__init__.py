@@ -10,7 +10,6 @@ import subprocess
 import sys
 import threading
 import time
-import traceback
 import zipfile
 from contextlib import contextmanager
 from typing import List, Optional
@@ -29,6 +28,7 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 
 from .emoji.emoji import Emoji
+from .telegram_utils import TelegramUtils, is_group_or_channel
 from .telegramCommands import TCMD
 from .telegramNotifications import (
     TMSG,
@@ -54,10 +54,10 @@ class TelegramListener(threading.Thread):
         self.update_offset = 0
         self.first_contact = True
         self.main = main
-        self.utils = Utils(main)
+        self.utils = TelegramUtils(main)
         self.do_stop = False
         self.username = "UNKNOWN"
-        self._logger = main._logger.getChild("listener")
+        self._logger = main._logger.getChild("TelegramListener")
 
     def run(self):
         self._logger.debug("Try first connect.")
@@ -639,83 +639,6 @@ class WebcamProfile:
         )
 
 
-class Utils:
-    def __init__(self, main):
-        self.main = main
-        self._logger = main._logger.getChild("utils")
-
-    def get_proxies(self):
-        http_proxy = self.main._settings.get(["http_proxy"])
-        https_proxy = self.main._settings.get(["https_proxy"])
-        return {"http": http_proxy, "https": https_proxy}
-
-    @staticmethod
-    def is_group_or_channel(chat_id):
-        return int(chat_id) < 0
-
-    def send_telegram_request(self, url, method, **kwargs):
-        """
-        Sends a request to the Telegram Bot API and returns the parsed JSON response.
-
-        This method handles request execution, error checking, and JSON decoding.
-        It raises an exception if the HTTP request fails, returns an unexpected status,
-        an invalid content type, or if the Telegram API indicates an error.
-
-        Args:
-            url (str): The full Telegram API URL to call.
-            method (str): The HTTP method to use ("get" or "post").
-            **kwargs: Additional arguments passed to the underlying requests library
-                    (e.g., 'data', 'params', 'files').
-
-        Returns:
-            dict: The JSON-decoded response from Telegram, guaranteed to contain 'ok': True.
-
-        Raises:
-            ValueError: If the HTTP method is not "get" or "post".
-            Exception: If the request fails, the response is invalid, or the Telegram API returns an error.
-        """
-        method = method.lower()
-        if method not in {"get", "post"}:
-            raise ValueError(f"Unsupported HTTP method: {method}")
-
-        default_kwargs = {
-            "allow_redirects": False,
-            "timeout": 60,
-            "proxies": self.get_proxies(),
-        }
-        request_kwargs = {**default_kwargs, **kwargs}
-
-        loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
-        self._logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}.")
-
-        try:
-            response = requests.request(method, url, **request_kwargs)
-            self._logger.debug(f"Received Telegram response: {response.text}.")
-        except Exception:
-            raise Exception(f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}.")
-
-        if not response.ok:
-            raise Exception(
-                f"Telegram request responded with code {response.status_code}. Response was: {response.text}."
-            )
-
-        content_type = response.headers.get("content-type", "")
-        if content_type != "application/json":
-            raise Exception(
-                f"Unexpected Content-Type. Expected: application/json. It was: {content_type}. Response was: {response.text}."
-            )
-
-        try:
-            json_data = response.json()
-
-            if not json_data.get("ok", False):
-                raise Exception(f"Response didn't include 'ok:true'. Response was: {json_data}.")
-
-            return json_data
-        except Exception:
-            raise Exception(f"Failed to parse telegram response to json. Response was: {response.text}.")
-
-
 ########################################
 ########################################
 ############## THE PLUGIN ##############
@@ -860,7 +783,7 @@ class TelegramPlugin(
         Emoji.init(self._settings)
         app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
 
-        self.utils = Utils(self)
+        self.utils = TelegramUtils(self)
         self.tcmd = TCMD(self)
         self.triggered = False
 
@@ -1304,7 +1227,7 @@ class TelegramPlugin(
                     )
                 ):
                     ret_chats[chat_id]["image"] = f"/plugin/telegram/img/user/pic{chat_id}.jpg"
-                elif Utils.is_group_or_channel(chat_id):
+                elif is_group_or_channel(chat_id):
                     ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/group.jpg"
                 else:
                     ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
@@ -1808,7 +1731,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Saving chat picture for chat_id {chat_id}")
 
-        if Utils.is_group_or_channel(chat_id):
+        if is_group_or_channel(chat_id):
             json_data = self.utils.send_telegram_request(
                 f"{self.bot_url}/getChat",
                 "get",
@@ -1990,8 +1913,6 @@ class TelegramPlugin(
         if not command:
             return False
 
-        is_group_or_channel = Utils.is_group_or_channel(chat_id)
-
         chat_settings = self.chats.get(chat_id, {})
         chat_accept_commands = chat_settings.get("accept_commands", False)
         chat_accept_this_command = chat_settings.get("commands", {}).get(command, False)
@@ -2010,7 +1931,7 @@ class TelegramPlugin(
             return True
 
         # User personal permissions within groups
-        if is_group_or_channel and chat_allow_commands_from_users:
+        if is_group_or_channel(chat_id) and chat_allow_commands_from_users:
             if from_accept_commands and from_accept_this_command:
                 return True
 
