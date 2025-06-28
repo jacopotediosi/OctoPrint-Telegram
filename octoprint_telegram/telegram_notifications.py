@@ -1,9 +1,11 @@
 import datetime
+import html
 import time
 
 import octoprint.util
 
 from .emoji.emoji import Emoji
+from .telegram_utils import escape_markdown
 
 get_emoji = Emoji.get_emoji
 
@@ -385,7 +387,8 @@ class TMSG:
             silent = bool(self.main._settings.get(["messages", event, "silent"]) or False)
             kwargs["silent"] = silent
 
-            kwargs["markup"] = self.main._settings.get(["messages", event, "markup"])
+            markup = self.main._settings.get(["messages", event, "markup"]) or "off"
+            kwargs["markup"] = markup
 
             kwargs["inline"] = False
 
@@ -394,7 +397,6 @@ class TMSG:
 
             # Format the message
             try:
-                # TODO: escape html/markdown entities from the formatted variables
 
                 class EmojiFormatter:
                     def __format__(self, fmt):
@@ -402,18 +404,35 @@ class TMSG:
                         return get_emoji(fmt)
 
                 class AllowlistedContext(dict):
-                    def __init__(self, allowed_vars, emoji_formatter):
+                    def __init__(self, allowed_vars, emoji_formatter, markup):
                         self.allowed_vars = allowed_vars
                         self.emoji_formatter = emoji_formatter
+                        self.markup = markup
 
                     def __getitem__(self, key):
-                        # Replace user-defined variable if it is allowed, else fallback to literal
+                        # If it is an emoji, format it with emoji_formatter
                         if key == "emo":
                             return self.emoji_formatter
-                        return self.allowed_vars.get(key, "{" + key + "}")
+
+                        # If variable is not in allowed_vars, return it as a literal
+                        value = self.allowed_vars.get(key)
+                        if value is None:
+                            return "{" + key + "}"
+
+                        value = str(value)
+
+                        if self.markup == "HTML":
+                            value = html.escape(value)
+                        elif self.markup == "Markdown":
+                            value = escape_markdown(value, 1)
+                        elif self.markup == "MarkdownV2":
+                            value = escape_markdown(value, 2)
+
+                        # Return value
+                        return value
 
                 emoji_formatter = EmojiFormatter()
-                context = AllowlistedContext(allowed_vars, emoji_formatter)
+                context = AllowlistedContext(allowed_vars, emoji_formatter, markup)
 
                 message_template = self.main._settings.get(["messages", event, "text"])
                 message = message_template.format_map(context)
