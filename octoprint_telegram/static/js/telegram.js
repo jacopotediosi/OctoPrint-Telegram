@@ -100,16 +100,15 @@ $(function () {
       for (const id in keys) {
         let bind_text = ''
         if (keys[id] in self.bind.bind_text) {
-          bind_text = '<span class="muted"><br /><small>Also for:'
           const ks = self.bind.bind_text[keys[id]].sort()
-          for (const k in ks) { bind_text += '<br>' + ks[k] }
-          bind_text += '</small></span>'
+          const aliasList = ks.join(', ')
+          bind_text = `<span class="muted"><br /><small>Also for: ${aliasList}</small></span>`
         }
 
         const btnImg = `
           <div class="switch-container" style="margin: 5px 0;">
             <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-              <span>&#x1F4F7; Send with image</span>
+              <span>Send camera photos &#x1F4F7;</span>
               <input
                 type="checkbox"
                 style="display:none"
@@ -127,17 +126,17 @@ $(function () {
               class="switch-label"
               style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;"
               data-bind="attr: {
-                title: !settings.settings.plugins.telegram.send_gif() ? 'Enable \\'Send gif\\' globally to use this option' : null
+                title: !settings.settings.plugins.telegram.send_gif() ? 'Check \\'Enable gifs\\' setting to use this option' : null
               }"
             >
-              <span>&#x1F3A5; Send with gif</span>
+              <span>Send camera gifs &#x1F3A5;</span>
               <input
                 type="checkbox"
                 style="display:none"
                 class="switch-input"
                 data-bind="
                   checked: settings.settings.plugins.telegram.messages.${keys[id]}.gif,
-                  enable: settings.settings.plugins.telegram.send_gif,
+                  enable: settings.settings.plugins.telegram.send_gif
                 "
               />
               <span class="switch-slider"></span>
@@ -148,7 +147,7 @@ $(function () {
         const btnSilent = `
           <div class="switch-container" style="margin: 5px 0;">
             <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-              <span>&#128263; Send silently</span>
+              <span>Send silently &#128263;</span>
               <input
                 type="checkbox"
                 style="display:none"
@@ -192,11 +191,6 @@ $(function () {
         `
 
         const msgEdt = `
-          <div class="control-group">
-            <div class="controls">
-              <hr style="margin:0px 0px 0px -90px;">
-            </div>
-          </div>
           <div id="telegramMsgText${self.msgCnt}" style="margin-bottom: 20px;">
             <label for="textarea${self.msgCnt}" style="display: block; font-weight: bold; margin-bottom: 6px;">
               ${keys[id]}${bind_text}
@@ -207,10 +201,16 @@ $(function () {
               style="width: 100%; box-sizing: border-box; margin-bottom: 10px;"
               data-bind="value: settings.settings.plugins.telegram.messages.${keys[id]}.text"
             ></textarea>
+
+            <div style="display: flex; justify-content: space-around; margin-bottom: 10px;">
+              ${btnImg}${btnGif}${btnSilent}
+            </div>
+
             <div style="text-align: center;">
-              ${btnImg}${btnGif}${btnSilent}${btnMarkupGrp}
+              ${btnMarkupGrp}
             </div>
           </div>
+          <hr style="margin:20px">
         `
 
         $('#telegram_msg_list').append(msgEdt)
@@ -330,32 +330,91 @@ $(function () {
     }
 
     self.showEditChatDialog = function (data) {
-      if (data === undefined) return
-
-      // ko.cleanNode($("#telegram-acccmd-chkbox-box")[0]);
-      $('#telegram-acccmd-chkbox').empty()
-      $('#telegram-acccmd-chkbox').append('<input id="telegram-acccmd-chkbox-box" type="checkbox" data-bind="checked: settings.settings.plugins.telegram.chats[\'' + data.id + '\'][\'accept_commands\']"> Allow to send commands <span class="help-block"><small id="telegram-groupNotify-hint"></small></span>')
-      ko.applyBindings(self, $('#telegram-acccmd-chkbox-box')[0])
-
-      // ko.cleanNode($("#telegram-notify-chkbox-box")[0]);
-      $('#telegram-notify-chkbox').empty()
-      $('#telegram-notify-chkbox').append('<input id="telegram-notify-chkbox-box" type="checkbox" data-bind="checked: settings.settings.plugins.telegram.chats[\'' + data.id + '\'][\'send_notifications\']"> Send notifications<span class="help-block"><small>After enabling this option, the enabled notifications will be received. You have to enable individual notifications by clicking the blue notify button in the list after closing this dialog.</small></span>')
-      ko.applyBindings(self, $('#telegram-notify-chkbox-box')[0])
+      if (!data) return
 
       self.currChatTitle(data.title)
       self.currChatID = data.id
 
-      $('#telegram-groupNotify-hint').empty()
+      $('#telegram-acccmd-chkbox').empty()
+      $('#telegram-notify-chkbox').empty()
       $('#telegram-user-allowed-chkbox').empty()
+
       if (!data.private) {
-        $('#telegram-groupNotify-hint').append("After enabling this option, EVERY user of this group is allowed to send enabled commands. You have to set permissions for individual commands by clicking the blue command icon in the list after closing this dialog. If 'Allow user commands' is enabled, these users still use their private settings in addition to the group settings.")
-        $('#telegram-user-allowed-chkbox').append("<div class=\"control-group\"><div class=\"controls\"><label class=\"checkbox\"><input id=\"telegram-user-allowed-chkbox-box\" type=\"checkbox\" data-bind=\"checked: settings.settings.plugins.telegram.chats['" + data.id + "']['allow_users']\"> Allow user commands <span class=\"help-block\"><small>When this is enabled, users with command access are allowed to send their individual enabled commands from this group. No other user in this group is allowed to send commands.</small></span></label></div></div>")
+        $('#telegram-acccmd-chkbox').append(`
+          <input
+            id="telegram-acccmd-chkbox-box"
+            type="checkbox"
+            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
+          >
+          Allow all group members to send enabled commands
+          <span class="help-block">
+            <small>
+              When enabled, <b>every user</b> in this group can send commands that have been enabled for the entire group chat. You must manually activate permissions for each command by clicking the blue command icon in the chat list. If 'Allow individual user command permissions' is also enabled, users can send commands enabled in their personal settings in addition to those enabled for the group.
+            </small>
+          </span>
+        `)
+        ko.applyBindings(self, $('#telegram-acccmd-chkbox-box')[0])
+
+        $('#telegram-user-allowed-chkbox').append(`
+          <div class="control-group">
+            <div class="controls">
+              <label class="checkbox">
+                <input
+                  id="telegram-user-allowed-chkbox-box"
+                  type="checkbox"
+                  data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['allow_users']"
+                >
+                Allow individual user command permissions
+                <span class="help-block">
+                  <small>
+                    When enabled, users with command access can send only the commands they have individually enabled in their personal settings.
+                  </small>
+                </span>
+              </label>
+            </div>
+          </div>
+        `)
         ko.applyBindings(self, $('#telegram-user-allowed-chkbox-box')[0])
       } else {
-        $('#telegram-groupNotify-hint').append('After enabling this option, you have to set permissions for individual commands by clicking the blue command icon in the list after closing this dialog.')
-        $('#telegram-user-allowed-chkbox').append("<input id=\"telegram-user-allowed-chkbox-box\" style=\"display:none\" type=\"checkbox\" data-bind=\"checked: settings.settings.plugins.telegram.chats['" + data.id + "']['allow_users']\"> ")
+        $('#telegram-acccmd-chkbox').append(`
+          <input
+            id="telegram-acccmd-chkbox-box"
+            type="checkbox"
+            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
+          >
+          Allow to send commands
+          <span class="help-block">
+            <small>
+              After enabling this option, enable or disable permissions for each command by clicking the blue command icon in the list once this dialog is closed.
+            </small>
+          </span>
+        `)
+        ko.applyBindings(self, $('#telegram-acccmd-chkbox-box')[0])
+
+        $('#telegram-user-allowed-chkbox').append(`
+          <input
+            id="telegram-user-allowed-chkbox-box"
+            style="display:none"
+            type="checkbox"
+            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['allow_users']"
+          >
+        `)
         ko.applyBindings(self, $('#telegram-user-allowed-chkbox-box')[0])
       }
+
+      $('#telegram-notify-chkbox').append(`
+        <input
+          id="telegram-notify-chkbox-box"
+          type="checkbox"
+          data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['send_notifications']"
+        > Send notifications
+        <span class="help-block">
+          <small>
+            After enabling this option, enable or disable individual notifications by clicking the blue "Notify" button in the chat list once this dialog is closed.
+          </small>
+        </span>
+      `)
+      ko.applyBindings(self, $('#telegram-notify-chkbox-box')[0])
 
       self.editChatDialog.modal('show')
     }

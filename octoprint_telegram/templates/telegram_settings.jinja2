@@ -1,5 +1,9 @@
 <form class="form-horizontal" id="settings_plugin_telegram">
-    <h3>Telegram plugin settings</h3>
+    <!-- HEADER (COMMON TO ALL TABS) -->
+    <h3>
+        Telegram plugin settings
+        <small>Version: {{ plugin_telegram_plugin_version }}</small>
+    </h3>
     <p>
         <strong>
             If you need help on setting up this plugin, please have a look at
@@ -7,519 +11,544 @@
                target="_blank">the documentation on github</a>.
         </strong>
     </p>
-    <hr>
-    <p>
-        The current connection status is: <strong data-bind="text: connection_state_str"></strong>
-    </p>
-    <div class="control-group">
-        <label class="control-label">{{ _("Telegram Bot Token") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_token"
-                   data-bind="value: settings.settings.plugins.telegram.token" />
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Test Token") }}</label>
-        <div class="controls">
-            <button class="btn"
-                    data-bind="click: testToken, disable:isloading()"
-                    title="Test the token">
-                <i class="icon-key"></i> Test this token
-            </button>
-            <span class="help-inline muted">
-                <small>Click to test the token and start the listener.</small>
-            </span>
-            <p>
-                <span class="help-block" data-bind="if: token_state_str || isloading()">Token status is:
-                    <strong id="teleErrored"
-                            data-bind="text: token_state_str, visible: ! isloading()"></strong>
-                    <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
-                </span>
-            </p>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Telegram Bot Command List") }}</label>
-        <div class="controls">
-            <button class="btn"
-                    id="btnSetCommandList"
-                    data-bind="click: setCommandList"
-                    title="Set default command list">
-                <i class="fas fa-terminal"></i> Set default command list
-            </button>
-            <p>
-                <strong id="CmdteleErrored"
-                        data-bind="text: setCommandList_state_str, visible: ! isloading()"></strong>
-            </p>
-        </div>
-    </div>
-    <br>
-    <hr>
-    <h4>Known Chats</h4>
-    <div style="float:left;
-                padding:0px 0px 0px 0px;
-                margin:0px;
-                position:relative">
-        <div style="position:absolute;
-                    left:0px;
-                    top:0px;
-                    z-index:1010;
-                    padding:0px;
-                    width:100%;
-                    height:100%;
-                    background-color:white"
-             data-bind="visible: isloading()">
-            <span style="position:absolute;
-                         left:50%;
-                         top:50%;
-                         z-index:1011"
-                  class="icon-spinner icon-spin icon-large"
-                  title="{{ _('Request in progress...') }}"></span>
-        </div>
-        <table class="table table-condensed table-hover table-striped">
-            <thead>
-                <tr>
-                    <th class="settings_users_name" style="border-right:1px dashed #ddd">Chat</th>
-                    <th class="settings_users_active"
-                        style="width:70px;
-                               border-right:1px dashed #ddd">Command</th>
-                    <th class="settings_users_active"
-                        style="width:70px;
-                               border-right:1px dashed #ddd">Notify</th>
-                    <th class="settings_users_actions" style="width:70px;">{{ _("Action") }}</th>
-                </tr>
-            </thead>
-            <tbody data-bind="foreach: chatListHelper.paginatedItems">
-                <tr>
-                    <td class="settings_users_name" style="border-right:1px dashed #ddd">
-                        <div style="float:left;
-                                    padding:0px 5px 0px 0px;
-                                    margin:0px;
-                                    position:relative">
-                            <span style="font-size:1.2em;" data-bind="visible: newUsr">
-                                <div style="float:left;
-                                            position:absolute;
-                                            left:-4px;
-                                            top:-4px;
-                                            z-index:1001;
-                                            padding:0px">
-                                    <i style="color:orangered;" class="icon-star" title="New User"></i>
-                                </div>
-                                <div style="float:left;
-                                            position:absolute;
-                                            left:-3px;
-                                            top:-3px;
-                                            z-index:1000;
-                                            padding:0px">
-                                    <i style="color:gainsboro;" class="icon-star"></i>
-                                </div>
+    <div class="tabbable">
+        <!-- TAB NAVIGATION BUTTONS -->
+        <ul class="nav nav-tabs">
+            <li class="active">
+                <a href="#tabConnection" data-toggle="tab">Connection</a>
+            </li>
+            <li>
+                <a href="#tabSettings" data-toggle="tab">General settings</a>
+            </li>
+            <li>
+                <a href="#tabPermissions" data-toggle="tab">Permissions</a>
+            </li>
+            <li>
+                <a href="#tabMessages" data-toggle="tab">Notification messages</a>
+            </li>
+        </ul>
+        <!-- TAB CONTENT -->
+        <div class="tab-content">
+            <!-- TAB CONNECTION -->
+            <div class="tab-pane active" id="tabConnection">
+                <legend>Bot connection</legend>
+                <div class="control-group">
+                    <label class="control-label">Connection status:</label>
+                    <div class="controls">
+                        <p style="margin-bottom:0px; padding-top:5px;">
+                            <strong data-bind="text: connection_state_str"></strong>
+                        </p>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Telegram bot token</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_token"
+                               data-bind="value: settings.settings.plugins.telegram.token" />
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Test token</label>
+                    <div class="controls">
+                        <button class="btn"
+                                data-bind="click: testToken, disable:isloading()"
+                                title="Test the token">
+                            <i class="icon-key"></i> Test above token
+                        </button>
+                        <span class="help-inline">
+                            <small>Click to test the token and (re)start the listener</small>
+                        </span>
+                        <p>
+                            <span class="help-block" data-bind="if: token_state_str || isloading()">Token status is:
+                                <strong id="teleErrored"
+                                        data-bind="text: token_state_str, visible: ! isloading()"></strong>
+                                <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
                             </span>
-                            <img data-bind="attr: {src: image}"
-                                 width="40px"
-                                 height="40px"
-                                 class="img-circle teleUsrPic"
-                                 alt="User Profile Photo"
-                                 title="User Profile Photo">
-                        </div>
-                        <div>
-                            <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;
-                            <span data-bind="text: title"></span>
-                            <span class="muted" data-bind="visible: true">
-                                <br>
-                                <small>ID: <span data-bind="text: id"></span> | <span data-bind="text: type">GROUP</span></small>
-                            </span>
-                        </div>
-                    </td>
-                    <!-- ko if: !newUsr -->
-                    <td class="settings_users_active"
-                        style="width:70px;
-                               vertical-align: middle;
-                               border-right:1px dashed #ddd">
-                        <span data-bind="visible: !newUsr">
-                            <a href="#"
-                               data-bind="visible: accept_commands , click: function() {$root.showEditCmdDialog($data,'commands');}"
-                               style="text-decoration:none"
-                               title="Edit command rights">
-                                <i class="icon-off icon-large"></i>
-                            </a>
-                            <span data-bind="visible: !accept_commands && !allow_users"><i class="icon-remove icon-large"></i></span>
-                            <span data-bind="visible: !accept_commands && allow_users"><i class="icon-off icon-large"></i></span>
-                        </span>
-                    </td>
-                    <td class="settings_users_admin"
-                        style="width:70px;
-                               vertical-align: middle;
-                               border-right:1px dashed #ddd">
-                        <span data-bind="visible: !newUsr">
-                            <a href="#"
-                               data-bind="visible: send_notifications , click: function() {$root.showEditCmdDialog($data,'notifications');}"
-                               style="text-decoration:none"
-                               title="Edit notification settings">
-                                <i class="icon-comment icon-large"></i>
-                            </a>
-                            <span data-bind="visible: !send_notifications"><i class="icon-remove icon-large"></i></span>
-                        </span>
-                    </td>
-                    <!-- /ko -->
-                    <td class="settings_users_actions"
-                        style="width:70px;
-                               vertical-align: middle"
-                        data-bind="attr: {colspan: newUsr == true ? 3 : null }">
-                        <span data-bind="visible: !newUsr">
-                            <a href="#"
-                               class="icon-pencil icon-large"
-                               title="{{ _('Update User') }}"
-                               data-bind="click: function() { $root.showEditChatDialog($data);}"></a>&nbsp;&nbsp;|&nbsp;
-                        </span>
-                        <span data-bind="visible: newUsr">
-                            <span class="muted"><small>Save first or&nbsp;&nbsp;</small></span>
-                        </span>
-                        <a href="#"
-                           class="icon-trash icon-large"
-                           title="{{ _('Delete user') }}"
-                           data-bind="click:  function() { $root.delChat($data);}"></a>
-                        <span data-bind="visible: newUsr">
-                            <span class="muted"><small>(click)</small></span>
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="control-group">
-            <label class="control-label">{{ _("Refresh Chat List") }}</label>
-            <div class="controls">
-                <div style="float:left;">
+                        </p>
+                    </div>
+                </div>
+                <legend>Bot command list</legend>
+                <div class="control-group">
                     <button class="btn"
-                            data-bind="click: function (){ $root.requestData(true); }"
-                            title="Reload list">
-                        <i class="icon-refresh"></i> {{ _("Reload") }}
+                            id="btnSetCommandList"
+                            data-bind="click: setCommandList"
+                            title="Set default command list">
+                        <i class="fas fa-terminal"></i> Set default command list
                     </button>
-                    &nbsp;&nbsp;&nbsp;
-                </div>
-                <div class="controls">
-                    <label class="checkbox">
-                        <input type="checkbox"
-                               data-bind="checked: reloadUsr"
-                               title="Check to enable auto Refresh" />
-                        <span>Enable auto refresh (20 sec.)</span>
-                    </label>
-                </div>
-                <div style="float:left;">
-                    <span class="help-block"><small>Press this button or enable auto refresh after you send an initial random message to the bot.
-                        <br>
-                    Your chat will then appear in the list. Before you're able to edit notifications and available commands for new users, you have to save the settings first!</small></span>
+                    <p>
+                        <strong id="CmdteleErrored"
+                                data-bind="text: setCommandList_state_str, visible: ! isloading()"></strong>
+                    </p>
                 </div>
             </div>
-        </div>
-    </div>
-    <br>
-    <br>
-    <br>
-    <hr>
-    <h4>Notification settings</h4>
-    <div class="control-group">
-        <label class="control-label">{{ _("Send notification every") }}</label>
-        <div class="controls">
-            <div class="input-append">
-                <input type="number"
-                       step="any"
-                       min="0.0"
-                       class="input-mini text-right"
-                       data-bind="value: settings.settings.plugins.telegram.notification_height" />
-                <span class="add-on">mm</span>
+            <!-- TAB GENERAL SETTINGS -->
+            <div class="tab-pane" id="tabSettings">
+                <legend>Notification settings</legend>
+                <div class="control-group">
+                    <label class="control-label">Send notification every</label>
+                    <div class="controls">
+                        <div class="input-append">
+                            <input type="number"
+                                   step="any"
+                                   min="0.0"
+                                   class="input-mini text-right"
+                                   data-bind="value: settings.settings.plugins.telegram.notification_height" />
+                            <span class="add-on">mm</span>
+                        </div>
+                        &nbsp;or&nbsp;
+                        <div class="input-append">
+                            <input type="number"
+                                   step="1"
+                                   min="0"
+                                   class="input-mini text-right"
+                                   data-bind="value: settings.settings.plugins.telegram.notification_time" />
+                            <span class="add-on">min</span>
+                        </div>
+                        <span class="help-block">
+                            <small>
+                                Sends a message when either the layer height has increased by this value or this many minutes have passed since the last notification. Set to 0 to disable.
+                            </small>
+                        </span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Delay for finished prints notification</label>
+                    <div class="controls">
+                        <div class="input-append">
+                            <input type="number"
+                                   step="any"
+                                   min="0.0"
+                                   class="input-mini text-right"
+                                   data-bind="value: settings.settings.plugins.telegram.message_at_print_done_delay" />
+                            <span class="add-on">s</span>
+                        </div>
+                        <span class="help-block"><small>Wait this many seconds after a print finishes before sending a notification. Useful to allow the print head and bed to reach their final positions. Set to 0 to disable.</small></span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Enable emojis</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.send_icon" />
+                            <span class="help-inline"><small>Check to enable emojis in notification messages and command responses.</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Enable gifs</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.send_gif" />
+                            <span class="help-inline">
+                                <small>
+                                    Check to enable gif generation.
+                                    <span class="text-warning">
+                                        Warning, enabling this feature might affect your prints and make octoprint unresponsive: use at your own risk.
+                                    </span>
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Disable "I do not understand you" messages</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.no_mistake" />
+                            <span class="help-inline"><small>Check to disable "I do not understand you" messages.</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Message on a loop</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.ForceLoopMessage" />
+                            <span class="help-inline"><small>Check to call the printing event on loop if we never get an event (like for SD printing).</small></span>
+                        </label>
+                    </div>
+                </div>
+                <legend>Pre / post image actions</legend>
+                <div class="control-group">
+                    <label class="control-label">Pre Image Action</label>
+                    <div class="controls">
+                        <select id="settings_plugin_telegram_PreImgMethod"
+                                data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
+                            <option value="None">No Action</option>
+                            <option value="GCODE">G-Code Command</option>
+                            <option value="SYSTEM">System Command</option>
+                        </select>
+                        <span class="help-block"><small>Action pre image could be none, a gcode or a system command (script name with full path)</small></span>
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_PreImgCommand"
+                               data-bind="value: settings.settings.plugins.telegram.PreImgCommand" />
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Post Image Action</label>
+                    <div class="controls">
+                        <select id="settings_plugin_telegram_PostImgMethod"
+                                data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
+                            <option value="None">No Action</option>
+                            <option value="GCODE">G-Code Command</option>
+                            <option value="SYSTEM">System Command</option>
+                        </select>
+                        <span class="help-block"><small>Action post image could be none, a gcode or a system command (script name with full path)</small></span>
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_PostImgCommand"
+                               data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
+                    </div>
+                </div>
+                <legend>IMGBB</legend>
+                <div class="control-group">
+                    <label class="control-label">API key imgbb</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_imgbbApiKey"
+                               data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
+                        <span class="help-block"><small>We can show the thumbnail on files selection but we need an internet link so we upload the file to your account on imgbb (you can set the account to be private and the files to be deleted after 5 minutes).</small></span>
+                    </div>
+                </div>
+                <legend>Proxies</legend>
+                <div class="control-group">
+                    <label class="control-label">Proxy http</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_http_proxy"
+                               data-bind="value: settings.settings.plugins.telegram.http_proxy" />
+                        <span class="help-block">
+                            <small>
+                                Example: socks5h://0.0.0.0:0000.
+                                <br>
+                                Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.
+                            </small>
+                        </span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Proxy https</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_https_proxy"
+                               data-bind="value: settings.settings.plugins.telegram.https_proxy" />
+                        <span class="help-block"><small>Example: socks5h://0.0.0.0:0000.
+                            <br>
+                        Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.</small></span>
+                    </div>
+                </div>
+                <legend style="display: flex;
+                               justify-content: space-between;
+                               align-items: center">
+                    Time formats
+                    <button title="Click to open information dialog"
+                            class="btn btn-info btn-small"
+                            data-bind="click: function() {$root.timeInfoDialog.modal('show');}">
+                        <i class="icon-info-sign"></i> TimeFormat
+                    </button>
+                </legend>
+                <div class="control-group">
+                    <label class="control-label">Time Format</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_TimeFormat"
+                               data-bind="value: settings.settings.plugins.telegram.TimeFormat" />
+                        <span class="help-block"><small>Time format for finishing within the day.</small>
+                        </span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Day Time Format</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_DayTimeFormat"
+                               data-bind="value: settings.settings.plugins.telegram.DayTimeFormat" />
+                        <span class="help-block"><small>Time format for finishing within the week.</small></span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Week Time Format</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               id="settings_plugin_telegram_WeekTimeFormat"
+                               data-bind="value: settings.settings.plugins.telegram.WeekTimeFormat" />
+                        <span class="help-block"><small>Time format for more than one week.</small></span>
+                    </div>
+                </div>
+                <legend>File stuff</legend>
+                <div class="control-group">
+                    <label class="control-label">Select file on upload</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.selectFileUpload" />
+                            <span class="help-inline"><small>Check to select the file directly after upload.</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Sort files by upload date</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.fileOrder" />
+                            <span class="help-inline">
+                                <small>
+                                    If enabled, files will be listed by upload time (newest first) when using the /files command in Telegram.
+                                    Otherwise, they will be listed alphabetically by name.
+                                    This setting can also be changed within the Telegram file dialog.
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="input-append">
-                <input type="number"
-                       step="1"
-                       min="0"
-                       class="input-mini text-right"
-                       data-bind="value: settings.settings.plugins.telegram.notification_time" />
-                <span class="add-on">min</span>
+            <!-- TAB PERMISSIONS -->
+            <div class="tab-pane" id="tabPermissions">
+                <legend>Known chats</legend>
+                <div style="float:left;
+                            padding:0px 0px 0px 0px;
+                            margin:0px;
+                            position:relative">
+                    <div style="position:absolute;
+                                left:0px;
+                                top:0px;
+                                z-index:1010;
+                                padding:0px;
+                                width:100%;
+                                height:100%;
+                                background-color:white"
+                         data-bind="visible: isloading()">
+                        <span style="position:absolute;
+                                     left:50%;
+                                     top:50%;
+                                     z-index:1011"
+                              class="icon-spinner icon-spin icon-large"
+                              title="Request in progress..."></span>
+                    </div>
+                    <table class="table table-condensed table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th class="settings_users_name" style="border-right:1px dashed #ddd">Chat</th>
+                                <th class="settings_users_active"
+                                    style="width:40px;
+                                           border-right:1px dashed #ddd">Command</th>
+                                <th class="settings_users_active"
+                                    style="width:40px;
+                                           border-right:1px dashed #ddd">Notify</th>
+                                <th class="settings_users_actions" style="width:40px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody data-bind="foreach: chatListHelper.paginatedItems">
+                            <tr>
+                                <td class="settings_users_name" style="border-right:1px dashed #ddd">
+                                    <div style="float:left;
+                                                padding:0px 5px 0px 0px;
+                                                margin:0px;
+                                                position:relative">
+                                        <span style="font-size:1.2em;" data-bind="visible: newUsr">
+                                            <div style="float:left;
+                                                        position:absolute;
+                                                        left:-4px;
+                                                        top:-4px;
+                                                        z-index:1001;
+                                                        padding:0px">
+                                                <i style="color:orangered;" class="icon-star" title="New User"></i>
+                                            </div>
+                                            <div style="float:left;
+                                                        position:absolute;
+                                                        left:-3px;
+                                                        top:-3px;
+                                                        z-index:1000;
+                                                        padding:0px">
+                                                <i style="color:gainsboro;" class="icon-star"></i>
+                                            </div>
+                                        </span>
+                                        <img data-bind="attr: {src: image}"
+                                             width="40px"
+                                             height="40px"
+                                             class="img-circle teleUsrPic"
+                                             alt="User Profile Photo"
+                                             title="User Profile Photo">
+                                    </div>
+                                    <div>
+                                        <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;
+                                        <span data-bind="text: title"></span>
+                                        <span class="muted" data-bind="visible: true">
+                                            <br>
+                                            <small style="text-transform: uppercase;">
+                                                ID: <span data-bind="text: id"></span> | <span data-bind="text: type">UNKNOWN</span>
+                                            </small>
+                                        </span>
+                                    </div>
+                                </td>
+                                <!-- ko if: !newUsr -->
+                                <td class="settings_users_active"
+                                    style="width:40px;
+                                           vertical-align: middle;
+                                           border-right:1px dashed #ddd;
+                                           text-align: center">
+                                    <span data-bind="visible: !newUsr">
+                                        <a href="#"
+                                           data-bind="visible: accept_commands , click: function() {$root.showEditCmdDialog($data,'commands');}"
+                                           style="text-decoration:none"
+                                           title="Edit command rights">
+                                            <i class="icon-off icon-large"></i>
+                                        </a>
+                                        <span data-bind="visible: !accept_commands && !allow_users"><i class="icon-remove icon-large"></i></span>
+                                        <span data-bind="visible: !accept_commands && allow_users"><i class="icon-off icon-large"></i></span>
+                                    </span>
+                                </td>
+                                <td class="settings_users_admin"
+                                    style="width:40px;
+                                           vertical-align: middle;
+                                           border-right:1px dashed #ddd;
+                                           text-align: center">
+                                    <span data-bind="visible: !newUsr">
+                                        <a href="#"
+                                           data-bind="visible: send_notifications , click: function() {$root.showEditCmdDialog($data,'notifications');}"
+                                           style="text-decoration:none"
+                                           title="Edit notification settings">
+                                            <i class="icon-comment icon-large"></i>
+                                        </a>
+                                        <span data-bind="visible: !send_notifications"><i class="icon-remove icon-large"></i></span>
+                                    </span>
+                                </td>
+                                <!-- /ko -->
+                                <td class="settings_users_actions"
+                                    style="width:40px;
+                                           vertical-align: middle;
+                                           text-align: center"
+                                    data-bind="attr: {colspan: newUsr == true ? 3 : null }">
+                                    <span data-bind="visible: !newUsr">
+                                        <a href="#"
+                                           class="icon-pencil icon-large"
+                                           title="Update user settings"
+                                           data-bind="click: function() { $root.showEditChatDialog($data);}"></a>&nbsp;&nbsp;|&nbsp;
+                                    </span>
+                                    <span data-bind="visible: newUsr">
+                                        <span class="muted"><small>Save first or&nbsp;&nbsp;</small></span>
+                                    </span>
+                                    <a href="#"
+                                       class="icon-trash icon-large"
+                                       title="Delete user"
+                                       data-bind="click:  function() { $root.delChat($data);}"></a>
+                                    <span data-bind="visible: newUsr">
+                                        <span class="muted"><small>(click)</small></span>
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="control-group">
+                        <div style="display: flex;
+                                    justify-content: space-between;
+                                    align-items: center">
+                            <button class="btn"
+                                    data-bind="click: function (){ $root.requestData(true); }">
+                                <i class="icon-refresh"></i> Refresh
+                            </button>
+                            <div class="switch-container">
+                                <label class="switch-label"
+                                       style="display: inline-flex;
+                                              align-items: center;
+                                              gap: 8px;
+                                              cursor: pointer">
+                                    <span>Enable auto refresh (20 sec.)</span>
+                                    <input type="checkbox"
+                                           style="display:none"
+                                           class="switch-input"
+                                           data-bind="checked: reloadUsr" />
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <span class="help-block"><small>Sends a message after layer height changed by this height or this many minutes passed since the last notification. Set to 0 to disable.</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Delay for finished prints notification") }}</label>
-        <div class="controls">
-            <div class="input-append">
-                <input type="number"
-                       step="any"
-                       min="0.0"
-                       class="input-mini text-right"
-                       data-bind="value: settings.settings.plugins.telegram.message_at_print_done_delay" />
-                <span class="add-on">s</span>
+            <!-- TAB NOTIFICATION MESSAGES -->
+            <div class="tab-pane" id="tabMessages">
+                <legend style="display: flex;
+                               justify-content: space-between;
+                               align-items: center">
+                    Messages at...
+                    <div class="btn-group">
+                        <button class="btn btn-info btn-small"
+                                data-bind="click: function() {$root.mupInfoDialog.modal('show');}">
+                            <i class="icon-info-sign"></i> Markups
+                        </button>
+                        <button class="btn btn-info btn-small"
+                                data-bind="click: function() {$root.varInfoDialog.modal('show');}">
+                            <i class="icon-info-sign"></i> Variables
+                        </button>
+                        <button class="btn btn-info btn-small"
+                                data-bind="click: function() {$root.emoInfoDialog.modal('show');}">
+                            <i class="icon-info-sign"></i> Emojis
+                        </button>
+                    </div>
+                </legend>
+                <div id="telegram_msg_list">
+                    <!-- Message settings get listed here -->
+                </div>
+                <label style="display: block; font-weight: bold; margin-bottom: 6px;">"Not connected" status</label>
+                <div style="display: flex;
+                            justify-content: space-around;
+                            margin-bottom: 10px">
+                    <div class="switch-container">
+                        <label class="switch-label"
+                               style="display: inline-flex;
+                                      align-items: center;
+                                      gap: 8px;
+                                      cursor: pointer">
+                            <span>Send camera photos &#x1F4F7;</span>
+                            <input type="checkbox"
+                                   style="display:none"
+                                   class="switch-input"
+                                   data-bind="checked: settings.settings.plugins.telegram.image_not_connected" />
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-container">
+                        <label class="switch-label"
+                               style="display: inline-flex;
+                                      align-items: center;
+                                      gap: 8px;
+                                      cursor: pointer"
+                               data-bind="css: { 'disabled': !settings.settings.plugins.telegram.send_gif() }, attr: { title: !settings.settings.plugins.telegram.send_gif() ? 'Check \'Enable gifs\' setting to use this option' : null }">
+                            <span>Send camera gifs &#x1F3A5;</span>
+                            <input id="gifNotConnectedCheckbox"
+                                   type="checkbox"
+                                   style="display:none"
+                                   class="switch-input"
+                                   data-bind="checked: settings.settings.plugins.telegram.gif_not_connected, enable: settings.settings.plugins.telegram.send_gif" />
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <span class="help-block"><small>Wait this many seconds after a print has finished before sending a notification. This can be useful to wait
-            for the head and bed to reach their final positions. Set to 0 to disable.</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("\"Not connected\"-status") }}</label>
-        <div class="controls">
-            <div class="switch-container">
-                <label class="switch-label"
-                       style="display: inline-flex;
-                              align-items: center;
-                              gap: 8px;
-                              cursor: pointer">
-                    <span>Send with image</span>
-                    <input type="checkbox"
-                           style="display:none"
-                           class="switch-input"
-                           data-bind="checked: settings.settings.plugins.telegram.image_not_connected" />
-                    <span class="switch-slider"></span>
-                </label>
-            </div>
-            <span class="help-block"><small>Send image with "Not connected" status message?</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("\"Not connected\"-status") }}</label>
-        <div class="controls">
-            <div class="switch-container">
-                <label class="switch-label"
-                       style="display: inline-flex;
-                              align-items: center;
-                              gap: 8px;
-                              cursor: pointer">
-                    <span>Send with gif</span>
-                    <input type="checkbox"
-                           style="display:none"
-                           class="switch-input"
-                           data-bind="checked: settings.settings.plugins.telegram.gif_not_connected" />
-                    <span class="switch-slider"></span>
-                </label>
-            </div>
-            <span class="help-block"><small>Send Gif with "Not connected" status message?</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Send Emojis") }}</label>
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.send_icon" />
-            </label>
-            <span class="help-block"><small>Check to enable emojis in notifications and command dialogs.</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Send gif") }}</label>
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.send_gif" />
-            </label>
-            <span class="help-block">
-                <small>
-                    Check to enable sending of gifs.
-                    <span class="text-warning">Warning, enabling this feature might affect your prints and make octoprint unresponsive: use at your own risk</span>
-                </small>
-            </span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Message bot do not understand you") }}</label>
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.no_mistake" />
-            </label>
-            <span class="help-block"><small>Check to disable the "I do not understand you!" message from the bot</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Pre Image Action") }}</label>
-        <div class="controls">
-            <select id="settings_plugin_telegram_PreImgMethod"
-                    data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
-                <option value="None">No Action</option>
-                <option value="GCODE">G-Code Command</option>
-                <option value="SYSTEM">System Command</option>
-            </select>
-            <span class="help-block"><small>Action pre image could be none, a gcode or a system command (script name with full path)</small></span>
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_PreImgCommand"
-                   data-bind="value: settings.settings.plugins.telegram.PreImgCommand" />
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Post  Image Action") }}</label>
-        <div class="controls">
-            <select id="settings_plugin_telegram_PostImgMethod"
-                    data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
-                <option value="None">No Action</option>
-                <option value="GCODE">G-Code Command</option>
-                <option value="SYSTEM">System Command</option>
-            </select>
-            <span class="help-block"><small>Action post image could be none, a gcode or a system command (script name with full path)</small></span>
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_PostImgCommand"
-                   data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("api key imgbb") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_imgbbApiKey"
-                   data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
-            <span class="help-block"><small>We can show the thumbnail on files selection but we need an internet link so we upload the file to your private account on imgbb (you can set the account to be private and the file to be deleted after 5 minutes.</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Proxy http") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_http_proxy"
-                   data-bind="value: settings.settings.plugins.telegram.http_proxy" />
-            <div style="float:left;">
-                <span class="help-block">
-                    <small>
-                        Example: socks5h://0.0.0.0:0000.
-                        <br>
-                        Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.
-                    </small>
-                </span>
-            </div>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Proxy https") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_https_proxy"
-                   data-bind="value: settings.settings.plugins.telegram.https_proxy" />
-            <div style="float:left;">
-                <span class="help-block"><small>Example: socks5h://0.0.0.0:0000.
-                    <br>
-                Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.</small></span>
-            </div>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Select file on upload") }}</label>
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.selectFileUpload" />
-            </label>
-            <span class="help-block"><small>Check to select the file directly after upload</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Message on a loop") }}</label>
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.ForceLoopMessage" />
-            </label>
-            <span class="help-block"><small>Check to call the printing event on loop if we never get an event (like for SD printing)</small></span>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Time Format ") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_TimeFormat"
-                   data-bind="value: settings.settings.plugins.telegram.TimeFormat" />
-            <div style="float:left;">
-                <span class="help-block"><small>Time format for finishing within the day.</small>
-                    <br>
-                </span>
-            </div>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Day Time Format") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_DayTimeFormat"
-                   data-bind="value: settings.settings.plugins.telegram.DayTimeFormat" />
-            <div style="float:left;">
-                <span class="help-block"><small>Time format for finishing within the week.</small></span>
-            </div>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _("Week Time Format") }}</label>
-        <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_WeekTimeFormat"
-                   data-bind="value: settings.settings.plugins.telegram.WeekTimeFormat" />
-            <div style="float:left;">
-                <span class="help-block"><small>Time format for more than one week.</small></span>
-            </div>
-            <button title="Click to open information dialog"
-                    class="btn btn-info btn-small"
-                    data-bind="click: function() {$root.timeInfoDialog.modal('show');}">
-                <i class="icon-info-sign"></i> {{ _("TimeFormat") }}
-            </button>
-        </div>
-    </div>
-    <br>
-    <br>
-    <hr>
-    <div class="control-group">
-        <label class="control-label">
-            <h4>Messages at...</h4>
-        </label>
-        <div class="controls form-inline" style="text-align:center;">
-            {{ _("Message formatting information:") }}
-            <br>
-            <label class="btn-group">
-                <button title="Click to open information dialog"
-                        class="btn btn-info btn-small"
-                        data-bind="click: function() {$root.mupInfoDialog.modal('show');}">
-                    <i class="icon-info-sign"></i> {{ _("Markup") }}
-                </button>
-                <button title="Click to open information dialog"
-                        class="btn btn-info btn-small"
-                        data-bind="click: function() {$root.varInfoDialog.modal('show');}">
-                    <i class="icon-info-sign"></i> {{ _("Variables") }}
-                </button>
-                <button title="Click to open information dialog"
-                        class="btn btn-info btn-small"
-                        data-bind="click: function() {$root.emoInfoDialog.modal('show');}">
-                    <i class="icon-info-sign"></i> {{ _("Emojis") }}
-                </button>
-            </label>
-        </div>
-    </div>
-    <div id="telegram_msg_list">
-        <!-- message settings get listed here -->
-    </div>
-    <br>
-    <br>
-    <hr>
-    <h4>Stuff</h4>
-    <div class="control-group">
-        <div class="controls">
-            <label class="checkbox">
-                <input type="checkbox"
-                       data-bind="checked: settings.settings.plugins.telegram.fileOrder" />
-                Sort files by time of upload
-            </label>
-            <span class="help-block"><small>If this is checked, the files will be listed in order of their upload time (youngest first) when using /files command in Telegram messenger. Otherwise they will be listed by name. You can also change this option in Telegram file dialog.</small></span>
         </div>
     </div>
 </form>
+<!-- DIALOGS -->
+<!-- EDIT CHAT DIALOG -->
 <div id="settings-telegramDialogEditChat"
      class="modal modal-full hide fade">
     <div class="modal-header">
         <h4>
-            <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit User: <span data-bind="text: currChatTitle"></span>
+            <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit user: <span data-bind="text: currChatTitle"></span>
         </h4>
     </div>
     <div class="modal-body">
@@ -542,9 +571,10 @@
         </form>
     </div>
     <div class="modal-footer">
-        <button class="btn btn-primary" data-bind="click: updateChat">{{ _("Close") }}</button>
+        <button class="btn btn-primary" data-bind="click: updateChat">Close</button>
     </div>
 </div>
+<!-- EDIT COMMANDS / NOTIFICATIONS DIALOG -->
 <div id="settings-telegramDialogEditCommands" class="modal hide fade">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
@@ -563,6 +593,7 @@
         </form>
     </div>
 </div>
+<!-- VARIABLES DIALOG -->
 <div id="settings-telegramDialogVarInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
@@ -571,12 +602,12 @@
         </button>
         <nobr>
             <h4>
-                <i class="icon-info-sign icon-large" style="color:blue"></i> {{ _("Variables") }}
+                <i class="icon-info-sign icon-large" style="color:blue"></i> Variables
             </h4>
         </nobr>
     </div>
     <div class="modal-body">
-        Use Variables by adding <code>{&lt;varName&gt;}</code> to your message text (eg <code>{bed_temp}</code>). Usable Variables are:
+        Use Variables by adding <code>{&lt;varName&gt;}</code> to your message text (e.g., <code>{bed_temp}</code>). Usable Variables are:
         {# djlint:off #}
         {% set variable_table = [
             {
@@ -640,8 +671,8 @@
                style="table-layout: auto">
             <thead>
                 <tr>
-                    <th style="border-right:1px dashed #ddd">{{ _("Variable") }}</th>
-                    <th>{{ _("Description") }}</th>
+                    <th style="border-right:1px dashed #ddd">Variable</th>
+                    <th>Description</th>
                 </tr>
             </thead>
             <tbody>
@@ -656,6 +687,7 @@
         <b>Note:</b> On startup and a few moments after startup of OctoPrint the temperatures can't be retrieved from the printer and will be shown as '0.0'
     </div>
 </div>
+<!-- EMOJIS DIALOG -->
 <div id="settings-telegramDialogEmoInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
@@ -664,7 +696,7 @@
         </button>
         <nobr>
             <h4>
-                <i class="icon-info-sign icon-large" style="color:blue"></i> {{ _("Emojis") }}
+                <i class="icon-info-sign icon-large" style="color:blue"></i> Emojis
             </h4>
         </nobr>
     </div>
@@ -674,7 +706,7 @@
             The <code>emoName</code> has to be set according to the 'Description' column on
             <a href="https://www.unicode.org/emoji/charts/full-emoji-list.html"
                target="_blank">this website</a>.
-            Please note that no emoji will be sent if 'Send Emojis' setting is deactivated.
+            Please note that no emoji will be sent if 'Enable Emojis' setting is disabled.
         </p>
         <p>
             <b>Example:</b>
@@ -683,15 +715,15 @@
         </p>
         <br>
         <p>
-            <span style="font-size:1.25em;">There are a few shortcuts available:</span>
+            <span style="font-size:1.25em;">There are a few additional shortcuts available:</span>
             <table class="table table-condensed table-striped"
                    style="table-layout: auto">
                 <thead>
                     <tr>
-                        <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("Emoji") }}</th>
-                        <th style="border-right:1px solid #ddd">{{ _("emoName") }}</th>
-                        <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("Emoji") }}</th>
-                        <th>{{ _("emoName") }}</th>
+                        <th style="border-right:1px dashed #ddd;text-align:center;">Emoji</th>
+                        <th style="border-right:1px solid #ddd">emoName</th>
+                        <th style="border-right:1px dashed #ddd;text-align:center;">Emoji</th>
+                        <th>emoName</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -722,6 +754,7 @@
         </p>
     </div>
 </div>
+<!-- MARKUPS DIALOG -->
 <div id="settings-telegramDialogMupInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
@@ -730,13 +763,13 @@
         </button>
         <nobr>
             <h4>
-                <i class="icon-info-sign icon-large" style="color:blue"></i> {{ _("Markup") }}
+                <i class="icon-info-sign icon-large" style="color:blue"></i> Markups
             </h4>
         </nobr>
     </div>
     <div class="modal-body">
         <p>
-            You can use simple markup in messages. Markup for messages is activated by the markup options besides the message text fields. You can choose using HTML markup or the markdown variants. The list below shows the different markups you are able to use.
+            You can use simple markup in messages. Markup for messages is activated by the markup options below the message text fields. You can choose using HTML markup or the markdown variants. The list below shows the different markups you can use.
         </p>
         {% set markdown_table = [
         {
@@ -769,9 +802,9 @@
                style="table-layout: auto">
             <thead>
                 <tr>
-                    <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("Markdown") }}</th>
-                    <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("HTML") }}</th>
-                    <th style="text-align:center">{{ _("Effect") }}</th>
+                    <th style="border-right:1px dashed #ddd;text-align:center;">Markdown</th>
+                    <th style="border-right:1px dashed #ddd;text-align:center;">HTML</th>
+                    <th style="text-align:center">Effect</th>
                 </tr>
             </thead>
             <tbody>
@@ -806,7 +839,7 @@
             </button>
             <nobr>
                 <h4>
-                    <i class="icon-info-sign icon-large" style="color:blue"></i> {{ _("TimeFormat") }}
+                    <i class="icon-info-sign icon-large" style="color:blue"></i> TimeFormat
                 </h4>
             </nobr>
         </div>
@@ -848,9 +881,9 @@
                        style="table-layout: auto">
                     <thead>
                         <tr>
-                            <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("Code") }}</th>
-                            <th style="border-right:1px dashed #ddd;text-align:center;">{{ _("Meaning") }}</th>
-                            <th style="text-align:center">{{ _("Example") }}</th>
+                            <th style="border-right:1px dashed #ddd;text-align:center;">Code</th>
+                            <th style="border-right:1px dashed #ddd;text-align:center;">Meaning</th>
+                            <th style="text-align:center">Example</th>
                         </tr>
                     </thead>
                     <tbody>
