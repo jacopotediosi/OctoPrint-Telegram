@@ -734,7 +734,7 @@ class TelegramPlugin(
         return [dict(type="settings", name="Telegram", custom_bindings=True)]
 
     def get_template_vars(self):
-        return {"custom_emoji_map": Emoji.get_custom_emoji_map()}
+        return {"custom_emoji_map": Emoji.get_custom_emoji_map(), "plugin_version": self._plugin_version}
 
     ##########
     ### Wizard API
