@@ -279,12 +279,24 @@ class TMSG:
 
             # Temperatures
             temps = self.main._printer.get_current_temperatures()
-            bed_temp = temps.get("bed", {}).get("actual", 0.0)
-            bed_target = temps.get("bed", {}).get("target", 0.0)
-            e1_temp = temps.get("tool0", {}).get("actual", 0.0)
-            e1_target = temps.get("tool0", {}).get("target", 0.0)
-            e2_temp = temps.get("tool1", {}).get("actual", 0.0)
-            e2_target = temps.get("tool1", {}).get("target", 0.0)
+            bed = temps.get("bed", {})
+            bed_temp = bed.get("actual", 0.0)
+            bed_target = bed.get("target", 0.0)
+            tool0 = temps.get("tool0", {})
+            e1_temp = tool0.get("actual", 0.0)
+            e1_target = tool0.get("target", 0.0)
+            tool1 = temps.get("tool1", {})
+            e2_temp = tool1.get("actual", 0.0)
+            e2_target = tool1.get("target", 0.0)
+            tool2 = temps.get("tool2", {})
+            e3_temp = tool2.get("actual", 0.0)
+            e3_target = tool2.get("target", 0.0)
+            tool3 = temps.get("tool3", {})
+            e4_temp = tool3.get("actual", 0.0)
+            e4_target = tool3.get("target", 0.0)
+            tool4 = temps.get("tool4", {})
+            e5_temp = tool4.get("actual", 0.0)
+            e5_target = tool4.get("target", 0.0)
 
             # Percent
             progress = status.get("progress", {})
@@ -345,6 +357,12 @@ class TMSG:
                 e1_target=e1_target,
                 e2_temp=e2_temp,
                 e2_target=e2_target,
+                e3_temp=e3_temp,
+                e3_target=e3_target,
+                e4_temp=e4_temp,
+                e4_target=e4_target,
+                e5_temp=e5_temp,
+                e5_target=e5_target,
                 percent=percent,
                 currentLayer=currentLayer,
                 totalLayer=totalLayer,
