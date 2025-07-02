@@ -93,15 +93,6 @@ $(function () {
       self.bind.notifications = response.bind_msg
       self.bind.no_setting = response.no_setting
       self.bind.bind_text = response.bind_text
-      const ShowGifBtn = self.settings.settings.plugins.telegram.send_gif()
-
-      if (ShowGifBtn) {
-        $('.gif-options').toggle()
-      }
-
-      if (ShowGifBtn) {
-        $('.gif-options').toggle()
-      }
 
       self.onBindLoad = true
       $('#telegram_msg_list').empty()
@@ -115,153 +106,117 @@ $(function () {
           bind_text += '</small></span>'
         }
 
-        let hideMup
+        const btnImg = `
+          <div class="switch-container" style="margin: 5px 0;">
+            <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+              <span>&#x1F4F7; Send with image</span>
+              <input
+                type="checkbox"
+                style="display:none"
+                class="switch-input"
+                data-bind="checked: settings.settings.plugins.telegram.messages.${keys[id]}.image"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        `
 
-        let img
-        let btn
-        let txt
-        if (self.settings.settings.plugins.telegram.messages[keys[id]].image()) {
-          img = 'camera'
-          btn = 'success'
-          txt = 'Send Image'
-          hideMup = 'display:none'
-        } else {
-          img = 'ban-circle'
-          btn = 'warning'
-          txt = 'No Image'
-          hideMup = ''
-        }
+        const btnGif = `
+          <div class="switch-container" style="margin: 5px 0;">
+            <label
+              class="switch-label"
+              style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;"
+              data-bind="attr: {
+                title: !settings.settings.plugins.telegram.send_gif() ? 'Enable \\'Send gif\\' globally to use this option' : null
+              }"
+            >
+              <span>&#x1F3A5; Send with gif</span>
+              <input
+                type="checkbox"
+                style="display:none"
+                class="switch-input"
+                data-bind="
+                  checked: settings.settings.plugins.telegram.messages.${keys[id]}.gif,
+                  enable: settings.settings.plugins.telegram.send_gif,
+                "
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        `
 
-        let imgSilent
-        let bSilent
-        let txtSilent
-        if (self.settings.settings.plugins.telegram.messages[keys[id]].silent()) {
-          imgSilent = 'volume-off'
-          bSilent = 'warning'
-          txtSilent = 'Silent'
-          hideMup = ''
-        } else {
-          imgSilent = 'volume-up'
-          bSilent = 'success'
-          txtSilent = 'Notification'
-          hideMup = ''
-        }
+        const btnSilent = `
+          <div class="switch-container" style="margin: 5px 0;">
+            <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+              <span>&#128263; Send silently</span>
+              <input
+                type="checkbox"
+                style="display:none"
+                class="switch-input"
+                data-bind="checked: settings.settings.plugins.telegram.messages.${keys[id]}.silent"
+              />
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+        `
 
-        let imgGif
-        let bGif
-        let txtGif
-        if (self.settings.settings.plugins.telegram.messages[keys[id]].gif()) {
-          imgGif = 'camera'
-          bGif = 'success'
-          txtGif = 'Send Gif'
-          hideMup = ''
-        } else {
-          imgGif = 'ban-circle'
-          bGif = 'warning'
-          txtGif = 'No Gif'
-          hideMup = ''
-        }
+        const currentMarkup = self.settings.settings.plugins.telegram.messages[keys[id]].markup() || 'off'
+        self.markupFrom[self.msgCnt] = currentMarkup
 
-        let showGif
-        if (ShowGifBtn) {
-          showGif = ''
-        } else {
-          showGif = 'display:none'
-        }
+        const btnMarkupGrp = `
+          <span>
+            <span>Markup Selection</span><br>
+            <span class="btn-group" data-toggle="buttons-radio">
+              <button
+                type="button"
+                class="btn btn-mini${currentMarkup === 'off' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','off','${keys[id]}')"
+              >Off</button>
+              <button
+                type="button"
+                class="btn btn-mini${currentMarkup === 'HTML' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','HTML','${keys[id]}')"
+              >HTML</button>
+              <button
+                type="button"
+                class="btn btn-mini${currentMarkup === 'Markdown' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','Markdown','${keys[id]}')"
+              >Markdown</button>
+              <button
+                type="button"
+                class="btn btn-mini${currentMarkup === 'MarkdownV2' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','MarkdownV2','${keys[id]}')"
+              >MarkdownV2</button>
+            </span><br>
+          </span>
+        `
 
-        let bOff
-        let bHtml
-        let bMd
-        if (self.settings.settings.plugins.telegram.messages[keys[id]].markup() === 'HTML') {
-          bOff = 'info'
-          bHtml = 'danger active'
-          bMd = 'info'
-          self.markupFrom[self.msgCnt] = 'HTML'
-        } else if (self.settings.settings.plugins.telegram.messages[keys[id]].markup() === 'Markdown') {
-          bOff = 'info'
-          bHtml = 'info'
-          bMd = 'danger active'
-          self.markupFrom[self.msgCnt] = 'Markdown'
-        } else if (self.settings.settings.plugins.telegram.messages[keys[id]].markup() === 'MarkdownV2') {
-          bOff = 'info'
-          bHtml = 'info'
-          bMd = 'danger active'
-          self.markupFrom[self.msgCnt] = 'MarkdownV2'
-        } else {
-          bOff = 'danger active'
-          bHtml = 'info'
-          bMd = 'info'
-          self.markupFrom[self.msgCnt] = 'off'
-        }
-
-        let btnGrp = '<span id="mupBut' + self.msgCnt + '" style="' + hideMup + '"><span class="muted"><small>Markup Selection<br></small></span><span class="btn-group" data-toggle="buttons-radio">'
-        btnGrp += '<button id="off' + self.msgCnt + '" type="button" class="btn btn-' + bOff + ' btn-mini" data-bind="click: toggleMarkup.bind($data,\'' + self.msgCnt + '\',\'off\',\'' + keys[id] + '\')">Off</button>'
-        btnGrp += '<button id="HTML' + self.msgCnt + '" type="button" class="btn btn-' + bHtml + ' btn-mini" data-bind="click: toggleMarkup.bind($data,\'' + self.msgCnt + '\',\'HTML\',\'' + keys[id] + '\')">HTML</button>'
-        btnGrp += '<button id="Markdown' + self.msgCnt + '" type="button" class="btn btn-' + bMd + ' btn-mini" data-bind="click: toggleMarkup.bind($data,\'' + self.msgCnt + '\',\'Markdown\',\'' + keys[id] + '\')">Markdown</button>'
-        btnGrp += '<button id="MarkdownV2' + self.msgCnt + '" type="button" class="btn btn-' + bMd + ' btn-mini" data-bind="click: toggleMarkup.bind($data,\'' + self.msgCnt + '\',\'MarkdownV2\',\'' + keys[id] + '\')">MarkdownV2</button>'
-        btnGrp += '</span><br></span>'
-
-        let btnImg = '<span class="muted"><small>Send with image?<br></small></span>'
-        btnImg += '<label id="chkBtn' + self.msgCnt + '" class="btn btn-' + btn + ' btn-mini" title="Toggle \'Send with image\'">'
-        btnImg += '<input type="checkbox" style="display:none" data-bind="checked: settings.settings.plugins.telegram.messages.' + keys[id] + '.image, click: toggleImg(\'' + self.msgCnt + '\')"/>'
-        btnImg += '<i id="chkImg' + self.msgCnt + '" class="icon-' + img + '"></i> '
-        btnImg += '<span id="chkTxt' + self.msgCnt + '">' + txt + '</span></label><br>'
-
-        let btnSilent = '<span class="muted"><small>Send silently?<br></small></span>'
-        btnSilent += '<label id="chkSilentBtn' + self.msgCnt + '" class="btn btn-' + bSilent + ' btn-mini" title="Toggle \'Silence\'">'
-        btnSilent += '<input type="checkbox" style="display:none" data-bind="checked: settings.settings.plugins.telegram.messages.' + keys[id] + '.silent, click: toggleSilent(\'' + self.msgCnt + '\')"/>'
-        btnSilent += '<i id="chkSilent' + self.msgCnt + '" class="icon-' + imgSilent + '"></i> '
-        btnSilent += '<span id="chkSilentTxt' + self.msgCnt + '">' + txtSilent + '</span></label><br>'
-
-        let btnGif = '<span class="muted" id="chkGifLbl' + self.msgCnt + '" style="' + showGif + '" ><small>Send with gif?<br></small></span>'
-        btnGif += '<label id="chkGifBtn' + self.msgCnt + '"  style="' + showGif + '" class="btn btn-' + bGif + ' btn-mini" title="Toggle \'Send with gif\'">'
-        btnGif += '<input type="checkbox" style="display:none" data-bind="checked: settings.settings.plugins.telegram.messages.' + keys[id] + '.gif, click: toggleGif(\'' + self.msgCnt + '\')"/>'
-        btnGif += '<i id="chkGif' + self.msgCnt + '"  style="' + showGif + '" class="icon-' + imgGif + '"></i> '
-        btnGif += '<span id="chkGifTxt' + self.msgCnt + '"  style="' + showGif + '">' + txtGif + '</span></label><br>'
-
-        let msgEdt = '<div class="control-group"><div class="controls " ><hr style="margin:0px 0px 0px -90px;"></div></div><div class="control-group" id="telegramMsgText' + self.msgCnt + '">'
-        msgEdt += '<label class="control-label"><strong>' + keys[id] + '</strong>' + bind_text + '</label>'
-        msgEdt += '<div class="controls " >'
-        msgEdt += '<div class="row">'
-        msgEdt += '<div class="span9"><textarea rows="4" style="margin-left:7px;" class="block" data-bind="value: settings.settings.plugins.telegram.messages.' + keys[id] + '.text"></textarea></div>'
-        msgEdt += '<div class="span3" style="text-align:center;">' + btnImg + btnGif + btnSilent + btnGrp + '</div>'
-        msgEdt += '</div></div></div>'
+        const msgEdt = `
+          <div class="control-group">
+            <div class="controls">
+              <hr style="margin:0px 0px 0px -90px;">
+            </div>
+          </div>
+          <div id="telegramMsgText${self.msgCnt}" style="margin-bottom: 20px;">
+            <label for="textarea${self.msgCnt}" style="display: block; font-weight: bold; margin-bottom: 6px;">
+              ${keys[id]}${bind_text}
+            </label>
+            <textarea
+              id="textarea${self.msgCnt}"
+              rows="5"
+              style="width: 100%; box-sizing: border-box; margin-bottom: 10px;"
+              data-bind="value: settings.settings.plugins.telegram.messages.${keys[id]}.text"
+            ></textarea>
+            <div style="text-align: center;">
+              ${btnImg}${btnGif}${btnSilent}${btnMarkupGrp}
+            </div>
+          </div>
+        `
 
         $('#telegram_msg_list').append(msgEdt)
         ko.applyBindings(self, $('#telegramMsgText' + self.msgCnt++)[0])
       }
       self.isloading(false)
-      $('#chkImg0').removeClass('icon-camera')
-      $('#chkImg0').removeClass('icon-ban-circle')
-      $('#chkGif0').removeClass('icon-camera')
-      $('#chkGif0').removeClass('icon-ban-circle')
-      $('#chkBtn0').removeClass('btn-success')
-      $('#chkBtn0').removeClass('btn-warning')
-      $('#chkTxt0').text('')
-      $('#chkGifBtn0').removeClass('btn-success')
-      $('#chkGifBtn0').removeClass('btn-warning')
-      $('#chkGifTxt0').text('')
-      if (self.settings.settings.plugins.telegram.image_not_connected()) {
-        $('#chkImg0').addClass('icon-camera')
-        $('#chkBtn0').addClass('btn-success')
-        $('#chkTxt0').text('Send Image')
-      } else {
-        $('#chkImg0').addClass('icon-ban-circle')
-        $('#chkBtn0').addClass('btn-warning')
-        $('#chkTxt0').text('No Image')
-      }
-
-      /*
-        if(self.settings.settings.plugins.telegram.gif_not_connected()){
-            $('#chkGif0').addClass("icon-camera");
-            $('#chkGifBtn0').addClass("btn-success");
-            $('#chkGifTxt0').text("Send Gif");
-        } else {
-            $('#chkGif0').addClass("icon-ban-circle");
-            $('#chkGifBtn0').addClass("btn-warning");
-            $('#chkGifTxt0').text("No Gif");
-        }
-      */
 
       self.onBindLoad = false
     }
@@ -269,57 +224,11 @@ $(function () {
     self.toggleMarkup = function (data, sender, msg) {
       if (!self.onBindLoad) {
         if (self.markupFrom[data] !== sender) {
-          $('#' + sender + data).toggleClass('btn-info btn-danger')
-          $('#' + self.markupFrom[data] + data).toggleClass('btn-info btn-danger')
+          $('#' + sender + data).toggleClass('active')
+          $('#' + self.markupFrom[data] + data).toggleClass('active')
           self.settings.settings.plugins.telegram.messages[msg].markup(sender)
+          self.markupFrom[data] = sender
         }
-        self.markupFrom[data] = sender
-      }
-    }
-
-    self.toggleImg = function (data) {
-      if (!self.onBindLoad) {
-        $('#chkImg' + data).toggleClass('icon-ban-circle icon-camera')
-        $('#chkBtn' + data).toggleClass('btn-success btn-warning')
-        if ($('#chkTxt' + data).text() === 'Send Image') {
-          $('#chkTxt' + data).text('No Image')
-        } else {
-          $('#chkTxt' + data).text('Send Image')
-        }
-      }
-    }
-
-    self.toggleSilent = function (data) {
-      if (!self.onBindLoad) {
-        $('#chkSilent' + data).toggleClass('icon-volume-off icon-volume-up')
-        $('#chkSilentBtn' + data).toggleClass('btn-success btn-warning')
-        if ($('#chkSilentTxt' + data).text() === 'Silent') {
-          $('#chkSilentTxt' + data).text('Notification')
-        } else {
-          $('#chkSilentTxt' + data).text('Silent')
-        }
-      }
-    }
-
-    self.toggleGif = function (data) {
-      if (!self.onBindLoad) {
-        $('#chkGif' + data).toggleClass('icon-ban-circle icon-camera')
-        $('#chkGifBtn' + data).toggleClass('btn-success btn-warning')
-        $('#lblGifwar' + data).toggle()
-        if ($('#chkGifTxt' + data).text() === 'Send Gif') {
-          $('#chkGifTxt' + data).text('No Gif')
-        } else {
-          $('#chkGifTxt' + data).text('Send Gif')
-        }
-      }
-    }
-
-    self.toggleGifGen = function () {
-      if (!self.onBindLoad) {
-        $('[id*="chkGifBtn"]').toggle()
-        $('[id*="chkGifTxt"]').toggle()
-        $('[id*="chkGifLbl"]').toggle()
-        $('.gif-options').toggle()
       }
     }
 
