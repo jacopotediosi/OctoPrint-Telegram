@@ -3,3 +3,42 @@
     width: 80%;
     margin-left: -40%;
 }
+
+/* Sliding switches */
+.switch-input {
+  display: none;
+}
+
+.switch-slider {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background-color: #ccc;
+  border-radius: 10px;
+  transition: 0.2s;
+}
+
+.switch-slider::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 2px;
+  top: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.switch-input:checked + .switch-slider {
+  background-color: #5cb85c;
+}
+
+.switch-input:checked + .switch-slider::before {
+  transform: translateX(16px);
+}
+
+.switch-input:disabled + .switch-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

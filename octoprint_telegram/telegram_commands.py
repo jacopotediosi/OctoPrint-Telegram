@@ -102,11 +102,13 @@ class TCMD:
     def cmdStatus(self, chat_id, from_id, cmd, parameter, user=""):
         if not self.main._printer.is_operational():
             with_image = self.main._settings.get_boolean(["image_not_connected"])
+            with_gif = self.main._settings.get_boolean(["gif_not_connected"]) and self.main._settings.get(["send_gif"])
             self.main.send_msg(
                 f"{get_emoji('warning')} Not connected to a printer. Use /con to connect.",
                 chatID=chat_id,
                 inline=False,
                 with_image=with_image,
+                with_gif=with_gif,
             )
         elif self.main._printer.is_printing():
             self.main.on_event("StatusPrinting", {}, chatID=chat_id)
