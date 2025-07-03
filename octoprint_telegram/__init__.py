@@ -879,6 +879,7 @@ class TelegramPlugin(
             send_gif=False,
             no_mistake=False,
             fileOrder=False,
+            ffmpeg_preset="medium",
             PreImgMethod="None",
             PreImgCommand="",
             PostImgMethod="None",
@@ -2191,6 +2192,10 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception getting number of cpu. Using defaults...")
 
+        valid_presets = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"]
+        preset_setting = self._settings.get(["ffmpeg_preset"])
+        preset = preset_setting if preset_setting in valid_presets else "medium"
+
         cmd = []
         if shutil.which("nice"):
             cmd = ["nice", "-n", "20"]
@@ -2213,6 +2218,7 @@ class TelegramPlugin(
             # Video encoding
             "-color_range", "tv",
             "-c:v", "libx264",
+            "-preset", preset,
             "-profile:v", "baseline",
             # Audio encoding
             "-c:a", "aac",

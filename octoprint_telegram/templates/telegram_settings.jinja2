@@ -146,23 +146,6 @@
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label">Enable gifs</label>
-                    <div class="controls">
-                        <label class="checkbox">
-                            <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.send_gif" />
-                            <span class="help-inline">
-                                <small>
-                                    Check to enable gif generation.
-                                    <span class="text-warning">
-                                        Warning, enabling this feature might affect your prints and make octoprint unresponsive: use at your own risk.
-                                    </span>
-                                </small>
-                            </span>
-                        </label>
-                    </div>
-                </div>
-                <div class="control-group">
                     <label class="control-label">Disable "I do not understand you" messages</label>
                     <div class="controls">
                         <label class="checkbox">
@@ -182,11 +165,56 @@
                         </label>
                     </div>
                 </div>
+                <legend>Gifs generation</legend>
+                <div class="control-group">
+                    <label class="control-label">Enable gifs</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.send_gif" />
+                            <span class="help-inline">
+                                <small>
+                                    Check to enable gifs generation.
+                                    <span class="text-warning">
+                                        Warning, enabling this feature might affect your prints and make octoprint unresponsive: use at your own risk.
+                                    </span>
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">FFmpeg preset</label>
+                    <div class="controls">
+                        <select class="input-block-level"
+                                data-bind="value: settings.settings.plugins.telegram.ffmpeg_preset">
+                            <option value="ultrafast">ultrafast</option>
+                            <option value="superfast">superfast</option>
+                            <option value="veryfast">veryfast</option>
+                            <option value="faster">faster</option>
+                            <option value="fast">fast</option>
+                            <option value="medium" selected>medium</option>
+                            <option value="slow">slow</option>
+                            <option value="slower">slower</option>
+                            <option value="veryslow">veryslow</option>
+                        </select>
+                        <span class="help-block">
+                            <small>
+                                Controls encoding speed vs file size.
+                                Faster presets reduce processing time without quality loss but create larger files.
+                                Slower presets produce smaller files but take longer to encode.
+                                See <a href="https://trac.ffmpeg.org/wiki/Encode/H.264#Preset"
+    target="_blank">FFmpeg documentation</a> for details.
+                            </small>
+                        </span>
+                    </div>
+                </div>
                 <legend>Pre / post image actions</legend>
                 <div class="control-group">
                     <label class="control-label">Pre Image Action</label>
                     <div class="controls">
-                        <select data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
+                        <select class="input-block-level"
+                                data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
                             <option value="None">No Action</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
@@ -200,7 +228,8 @@
                 <div class="control-group">
                     <label class="control-label">Post Image Action</label>
                     <div class="controls">
-                        <select data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
+                        <select class="input-block-level"
+                                data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
                             <option value="None">No Action</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
@@ -273,8 +302,7 @@
                         <input type="text"
                                class="input-block-level"
                                data-bind="value: settings.settings.plugins.telegram.TimeFormat" />
-                        <span class="help-block"><small>Time format for finishing within the day.</small>
-                        </span>
+                        <span class="help-block"><small>Time format for finishing within the day.</small></span>
                     </div>
                 </div>
                 <div class="control-group">
