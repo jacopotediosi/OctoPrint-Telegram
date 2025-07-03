@@ -43,10 +43,19 @@
                 <div class="control-group">
                     <label class="control-label">Telegram bot token</label>
                     <div class="controls">
-                        <input type="text"
-                               class="input-block-level"
-                               id="settings_plugin_telegram_token"
-                               data-bind="value: settings.settings.plugins.telegram.token" />
+                        <div class="reveal-wrapper">
+                            <input type="password"
+                                   id="settings_plugin_telegram_token"
+                                   class="reveal-input"
+                                   data-bind="value: settings.settings.plugins.telegram.token" />
+                            <button type="button"
+                                    class="btn reveal-btn"
+                                    data-toggle="reveal"
+                                    data-target="#settings_plugin_telegram_token"
+                                    title="Show">
+                                <i class="fa fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="control-group">
@@ -211,10 +220,19 @@
                 <div class="control-group">
                     <label class="control-label">API key imgbb</label>
                     <div class="controls">
-                        <input type="text"
-                               class="input-block-level"
-                               id="settings_plugin_telegram_imgbbApiKey"
-                               data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
+                        <div class="reveal-wrapper">
+                            <input type="password"
+                                   id="settings_plugin_telegram_imgbbApiKey"
+                                   class="reveal-input"
+                                   data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
+                            <button type="button"
+                                    class="btn reveal-btn"
+                                    data-toggle="reveal"
+                                    data-target="#settings_plugin_telegram_imgbbApiKey"
+                                    title="Show">
+                                <i class="fa fa-eye"></i>
+                            </button>
+                        </div>
                         <span class="help-block"><small>We can show the thumbnail on files selection but we need an internet link so we upload the file to your account on imgbb (you can set the account to be private and the files to be deleted after 5 minutes).</small></span>
                     </div>
                 </div>

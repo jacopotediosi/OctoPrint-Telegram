@@ -42,3 +42,20 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Secret inputs with "reveal" button */
+.reveal-wrapper {
+    display: flex;
+    width: 100%;
+}
+
+.reveal-input {
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.reveal-btn {
+    flex: 0 0 auto;
+}
+
+.form-horizontal .reveal-wrapper + .help-block { margin-top: 10px; }
