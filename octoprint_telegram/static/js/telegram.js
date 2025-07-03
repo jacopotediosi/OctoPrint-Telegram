@@ -496,6 +496,19 @@ $(function () {
       self.requestData()
       self.requestBindings()
     }
+
+    $(function () {
+      $('button[data-toggle="reveal"]').on('click', function () {
+        const $btn = $(this)
+        const $input = $($btn.data('target'))
+        const $icon = $btn.find('i')
+        const isPassword = $input.attr('type') === 'password'
+
+        $input.attr('type', isPassword ? 'text' : 'password')
+        $icon.toggleClass('fa-eye fa-eye-slash')
+        $btn.attr('title', isPassword ? 'Hide' : 'Show')
+      })
+    })
   }
 
   // view model class, parameters for constructor, container to bind to
