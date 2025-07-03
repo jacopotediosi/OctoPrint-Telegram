@@ -2091,7 +2091,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, proxies=self.telegram_utils.get_proxies(), verify=False)
+        r = requests.get(snapshot_url, timeout=10, verify=False)
         r.raise_for_status()
 
         image_content = r.content
