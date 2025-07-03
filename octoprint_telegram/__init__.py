@@ -19,6 +19,7 @@ import octoprint.filemanager
 import octoprint.plugin
 import requests
 import urllib3
+from flask import jsonify
 from flask_login import current_user
 from octoprint.access.permissions import Permissions
 from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
@@ -1208,7 +1209,7 @@ class TelegramPlugin(
                     bind_text[telegramMsgDict[key]["bind_msg"]].append(key)
                 else:
                     bind_text[telegramMsgDict[key]["bind_msg"]] = [key]
-            return json.dumps(
+            return jsonify(
                 {
                     "bind_cmd": [k for k, v in self.tcmd.commandDict.items() if "bind_none" not in v],
                     "bind_msg": [k for k, v in telegramMsgDict.items() if "bind_msg" not in v],
@@ -1233,7 +1234,7 @@ class TelegramPlugin(
                 else:
                     ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
 
-            return json.dumps(
+            return jsonify(
                 {
                     "chats": ret_chats,
                     "connection_state_str": self.connection_state_str,
@@ -1275,7 +1276,7 @@ class TelegramPlugin(
                 self.stop_listening()
                 self.start_listening()
 
-                return json.dumps(
+                return jsonify(
                     {
                         "ok": True,
                         "connection_state_str": f"Token valid for {username}",
@@ -1284,7 +1285,7 @@ class TelegramPlugin(
                 )
             except Exception as e:
                 self._logger.exception("Caught an exception testing token")
-                return json.dumps(
+                return jsonify(
                     {
                         "ok": False,
                         "connection_state_str": f"Error testing token: {e}",
@@ -1305,7 +1306,7 @@ class TelegramPlugin(
 
             self._logger.info(f"Chat {chat_id} deleted")
 
-            return json.dumps(
+            return jsonify(
                 {
                     "chats": {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"},
                     "connection_state_str": self.connection_state_str,
@@ -1318,16 +1319,16 @@ class TelegramPlugin(
             try:
                 self.on_event(event, {})
                 self._logger.info(f"Event {event} tested")
-                return json.dumps({"ok": True})
+                return jsonify({"ok": True})
             except Exception as e:
                 self._logger.exception(f"Caught an exception testing event {event}: {e}")
-                return json.dumps({"ok": False})
+                return jsonify({"ok": False})
 
         elif command == "setCommandList":
             try:
                 self.set_bot_commands()
                 self._logger.info("Bot commands set")
-                return json.dumps(
+                return jsonify(
                     {
                         "ok": True,
                         "setMyCommands_state_str": "Commands set",
@@ -1335,7 +1336,7 @@ class TelegramPlugin(
                 )
             except Exception as e:
                 self._logger.exception("Caught an exception setting bot commands")
-                return json.dumps(
+                return jsonify(
                     {
                         "ok": False,
                         "setMyCommands_state_str": f"Error setting commands: {e}",
