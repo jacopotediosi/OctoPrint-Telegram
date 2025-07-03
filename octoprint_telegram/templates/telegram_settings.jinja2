@@ -218,7 +218,16 @@
                         <span class="help-block"><small>We can show the thumbnail on files selection but we need an internet link so we upload the file to your account on imgbb (you can set the account to be private and the files to be deleted after 5 minutes).</small></span>
                     </div>
                 </div>
-                <legend>Proxies</legend>
+                <legend style="display: flex;
+                               justify-content: space-between;
+                               align-items: center">
+                    Proxies
+                    <button title="Click to open information dialog"
+                            class="btn btn-info btn-small"
+                            data-bind="click: function() {$root.proxyInfoDialog.modal('show');}">
+                        <i class="icon-info-sign"></i> Proxy formats
+                    </button>
+                </legend>
                 <div class="control-group">
                     <label class="control-label">Proxy http</label>
                     <div class="controls">
@@ -226,13 +235,6 @@
                                class="input-block-level"
                                id="settings_plugin_telegram_http_proxy"
                                data-bind="value: settings.settings.plugins.telegram.http_proxy" />
-                        <span class="help-block">
-                            <small>
-                                Example: socks5h://0.0.0.0:0000.
-                                <br>
-                                Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.
-                            </small>
-                        </span>
                     </div>
                 </div>
                 <div class="control-group">
@@ -242,9 +244,6 @@
                                class="input-block-level"
                                id="settings_plugin_telegram_https_proxy"
                                data-bind="value: settings.settings.plugins.telegram.https_proxy" />
-                        <span class="help-block"><small>Example: socks5h://0.0.0.0:0000.
-                            <br>
-                        Use socks5h:// prefix to proxy dns requests, and socks5:// for regular dns requests.</small></span>
                     </div>
                 </div>
                 <legend style="display: flex;
@@ -254,7 +253,7 @@
                     <button title="Click to open information dialog"
                             class="btn btn-info btn-small"
                             data-bind="click: function() {$root.timeInfoDialog.modal('show');}">
-                        <i class="icon-info-sign"></i> TimeFormat
+                        <i class="icon-info-sign"></i> Time formats
                     </button>
                 </legend>
                 <div class="control-group">
@@ -831,76 +830,112 @@
             </span>
         </p>
     </div>
-    <div id="settings-telegramDialogTimeInfo"
-         class="modal modal-full hide fade">
-        <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
-                <i class="fas fa-times"></i>
-            </button>
-            <nobr>
-                <h4>
-                    <i class="icon-info-sign icon-large" style="color:blue"></i> TimeFormat
-                </h4>
-            </nobr>
-        </div>
-        <div class="modal-body">
-            <p>
-                You can set the time format in the options.
-                {% set format_codes = [
-                ("%a", "Weekday as locale’s abbreviated name.", "Mon"),
-                ("%A", "Weekday as locale’s full name.", "Monday"),
-                ("%d", "Day of the month as a zero-padded decimal number.", "30"),
-                ("%-d", "Day of the month as a decimal number. (Platform specific)", "30"),
-                ("%b", "Month as locale’s abbreviated name.", "Sep"),
-                ("%B", "Month as locale’s full name.", "September"),
-                ("%m", "Month as a zero-padded decimal number.", "09"),
-                ("%-m", "Month as a decimal number. (Platform specific)", "9"),
-                ("%y", "Year without century as a zero-padded decimal number.", "13"),
-                ("%Y", "Year with century as a decimal number.", "2013"),
-                ("%H", "Hour (24-hour clock) as a zero-padded decimal number.", "07"),
-                ("%-H", "Hour (24-hour clock) as a decimal number. (Platform specific)", "7"),
-                ("%I", "Hour (12-hour clock) as a zero-padded decimal number.", "07"),
-                ("%-I", "Hour (12-hour clock) as a decimal number. (Platform specific)", "7"),
-                ("%p", "Locale’s equivalent of either AM or PM.", "AM"),
-                ("%M", "Minute as a zero-padded decimal number.", "06"),
-                ("%-M", "Minute as a decimal number. (Platform specific)", "6"),
-                ("%S", "Second as a zero-padded decimal number.", "05"),
-                ("%-S", "Second as a decimal number. (Platform specific)", "5"),
-                ("%f", "Microsecond as a decimal number, zero-padded on the left.", "000000"),
-                ("%z", "UTC offset in the form +HHMM or -HHMM (empty string if the object is naive).", ""),
-                ("%Z", "Time zone name (empty string if the object is naive).", ""),
-                ("%j", "Day of the year as a zero-padded decimal number.", "273"),
-                ("%-j", "Day of the year as a decimal number. (Platform specific)", "273"),
-                ("%U", "Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0.", "39"),
-                ("%W", "Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.", "39"),
-                ("%c", "Locale’s appropriate date and time representation.", "Mon Sep 30 07:06:05 2013"),
-                ("%x", "Locale’s appropriate date representation.", "09/30/13"),
-                ("%X", "Locale’s appropriate time representation.", "07:06:05")
-                ] %}
-                <table class="table table-condensed table-striped"
-                       style="table-layout: auto">
-                    <thead>
+</div>
+<!-- TIME FORMATS DIALOG -->
+<div id="settings-telegramDialogTimeInfo"
+     class="modal modal-full hide fade">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+            <i class="fas fa-times"></i>
+        </button>
+        <nobr>
+            <h4>
+                <i class="icon-info-sign icon-large" style="color:blue"></i> Time formats
+            </h4>
+        </nobr>
+    </div>
+    <div class="modal-body">
+        <p>
+            You can set the time format in the options.
+            {% set format_codes = [
+            ("%a", "Weekday as locale’s abbreviated name.", "Mon"),
+            ("%A", "Weekday as locale’s full name.", "Monday"),
+            ("%d", "Day of the month as a zero-padded decimal number.", "30"),
+            ("%-d", "Day of the month as a decimal number. (Platform specific)", "30"),
+            ("%b", "Month as locale’s abbreviated name.", "Sep"),
+            ("%B", "Month as locale’s full name.", "September"),
+            ("%m", "Month as a zero-padded decimal number.", "09"),
+            ("%-m", "Month as a decimal number. (Platform specific)", "9"),
+            ("%y", "Year without century as a zero-padded decimal number.", "13"),
+            ("%Y", "Year with century as a decimal number.", "2013"),
+            ("%H", "Hour (24-hour clock) as a zero-padded decimal number.", "07"),
+            ("%-H", "Hour (24-hour clock) as a decimal number. (Platform specific)", "7"),
+            ("%I", "Hour (12-hour clock) as a zero-padded decimal number.", "07"),
+            ("%-I", "Hour (12-hour clock) as a decimal number. (Platform specific)", "7"),
+            ("%p", "Locale’s equivalent of either AM or PM.", "AM"),
+            ("%M", "Minute as a zero-padded decimal number.", "06"),
+            ("%-M", "Minute as a decimal number. (Platform specific)", "6"),
+            ("%S", "Second as a zero-padded decimal number.", "05"),
+            ("%-S", "Second as a decimal number. (Platform specific)", "5"),
+            ("%f", "Microsecond as a decimal number, zero-padded on the left.", "000000"),
+            ("%z", "UTC offset in the form +HHMM or -HHMM (empty string if the object is naive).", ""),
+            ("%Z", "Time zone name (empty string if the object is naive).", ""),
+            ("%j", "Day of the year as a zero-padded decimal number.", "273"),
+            ("%-j", "Day of the year as a decimal number. (Platform specific)", "273"),
+            ("%U", "Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0.", "39"),
+            ("%W", "Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.", "39"),
+            ("%c", "Locale’s appropriate date and time representation.", "Mon Sep 30 07:06:05 2013"),
+            ("%x", "Locale’s appropriate date representation.", "09/30/13"),
+            ("%X", "Locale’s appropriate time representation.", "07:06:05")
+            ] %}
+            <table class="table table-condensed table-striped"
+                   style="table-layout: auto">
+                <thead>
+                    <tr>
+                        <th style="border-right:1px dashed #ddd;text-align:center;">Code</th>
+                        <th style="border-right:1px dashed #ddd;text-align:center;">Meaning</th>
+                        <th style="text-align:center">Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for code, meaning, example in format_codes %}
                         <tr>
-                            <th style="border-right:1px dashed #ddd;text-align:center;">Code</th>
-                            <th style="border-right:1px dashed #ddd;text-align:center;">Meaning</th>
-                            <th style="text-align:center">Example</th>
+                            <td style="vertical-align: middle;
+                                       border-right:1px dashed #ddd;
+                                       text-align:center">{{ code }}</td>
+                            <td style="vertical-align: middle;
+                                       border-right:1px dashed #ddd;
+                                       text-align:center">{{ meaning }}</td>
+                            <td style="vertical-align: middle;">{{ example }}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for code, meaning, example in format_codes %}
-                            <tr>
-                                <td style="vertical-align: middle;
-                                           border-right:1px dashed #ddd;
-                                           text-align:center">{{ code }}</td>
-                                <td style="vertical-align: middle;
-                                           border-right:1px dashed #ddd;
-                                           text-align:center">{{ meaning }}</td>
-                                <td style="vertical-align: middle;">{{ example }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </p>
-        </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </p>
+    </div>
+</div>
+<!-- PROXY FORMATS DIALOG -->
+<div id="settings-telegramDialogProxyInfo"
+     class="modal modal-full hide fade">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+            <i class="fas fa-times"></i>
+        </button>
+        <nobr>
+            <h4>
+                <i class="icon-info-sign icon-large" style="color:blue"></i> Proxy formats
+            </h4>
+        </nobr>
+    </div>
+    <div class="modal-body">
+        <p>
+            Proxy format: <code>scheme://[user:password@]host:port</code>
+            <br>
+            <br>
+            Examples:
+            <br>
+            <ul>
+                <li>
+                    <code>http://proxy.example.com:8080</code>
+                </li>
+                <li>
+                    <code>socks5h://127.0.0.1:9050</code>
+                </li>
+            </ul>
+            <br>
+            Supported schemes: <code>http</code>, <code>https</code>, <code>socks4</code>, <code>socks5</code>, <code>socks5h</code>.
+            <br>
+            Use <code>socks5h</code> scheme to proxy also dns requests, and <code>socks5</code> for regular dns requests.
+        </p>
     </div>
 </div>

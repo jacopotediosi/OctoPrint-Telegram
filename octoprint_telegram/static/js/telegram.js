@@ -45,6 +45,7 @@ $(function () {
     self.emoInfoDialog = undefined
     self.mupInfoDialog = undefined
     self.timeInfoDialog = undefined
+    self.proxyInfoDialog = undefined
     self.currChatID = 'Unknown'
     self.currChatTitle = ko.observable('Unknown')
     self.bind_cmd = {}
@@ -463,6 +464,7 @@ $(function () {
       self.emoInfoDialog = $('#settings-telegramDialogEmoInfo')
       self.mupInfoDialog = $('#settings-telegramDialogMupInfo')
       self.timeInfoDialog = $('#settings-telegramDialogTimeInfo')
+      self.proxyInfoDialog = $('#settings-telegramDialogProxyInfo')
     }
 
     self.isNumber = function (number) {
