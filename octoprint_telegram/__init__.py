@@ -54,7 +54,7 @@ class TelegramListener(threading.Thread):
         self.update_offset = 0
         self.first_contact = True
         self.main = main
-        self.utils = TelegramUtils(main)
+        self.telegram_utils = TelegramUtils(main)
         self.do_stop = False
         self.username = "UNKNOWN"
         self._logger = main._logger.getChild("TelegramListener")
@@ -552,7 +552,7 @@ class TelegramListener(threading.Thread):
         # If it is the first contact, drain the updates backlog
         if self.update_offset == 0 and self.first_contact:
             while True:
-                json_data = self.utils.send_telegram_request(
+                json_data = self.telegram_utils.send_telegram_request(
                     f"{self.main.bot_url}/getUpdates",
                     "get",
                     params={"offset": self.update_offset, "timeout": 0},
@@ -572,7 +572,7 @@ class TelegramListener(threading.Thread):
 
         # Else, get the updates
         else:
-            json_data = self.utils.send_telegram_request(
+            json_data = self.telegram_utils.send_telegram_request(
                 f"{self.main.bot_url}/getUpdates",
                 "get",
                 params={"offset": self.update_offset, "timeout": 30},
@@ -666,7 +666,7 @@ class TelegramPlugin(
         self.update_message_id = {}
         self.shut_up = {}
         self.send_messages = True
-        self.utils = None
+        self.telegram_utils = None
         self.tcmd = None
         self.tmsg = None
         self.sending_okay_minute = None
@@ -783,7 +783,7 @@ class TelegramPlugin(
         Emoji.init(self._settings)
         app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
 
-        self.utils = TelegramUtils(self)
+        self.telegram_utils = TelegramUtils(self)
         self.tcmd = TCMD(self)
         self.triggered = False
 
@@ -958,7 +958,7 @@ class TelegramPlugin(
                         "disable_web_page_preview": True,
                     }
 
-                    json_data = self.utils.send_telegram_request(
+                    json_data = self.telegram_utils.send_telegram_request(
                         f"{self.main.bot_url}/sendMessage",
                         "post",
                         data=message,
@@ -1448,7 +1448,7 @@ class TelegramPlugin(
                 data["reply_markup"] = json.dumps(keyboard)
 
             self._logger.debug(f"SENDING UPDATE: {data}")
-            self.utils.send_telegram_request(
+            self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/editMessageText",
                 "post",
                 data=data,
@@ -1460,7 +1460,7 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception in _send_edit_msg()")
             self.thread.set_status("Exception sending a message")
-            self.utils.send_telegram_request(
+            self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/sendMessage",
                 "post",
                 data={
@@ -1631,7 +1631,7 @@ class TelegramPlugin(
                 with self.telegram_action_context(chatID, action):
                     message_data["media"] = json.dumps(media)
 
-                    tlg_response = self.utils.send_telegram_request(
+                    tlg_response = self.telegram_utils.send_telegram_request(
                         f"{self.bot_url}/sendMediaGroup",
                         "post",
                         data=message_data,
@@ -1645,7 +1645,7 @@ class TelegramPlugin(
                 with self.telegram_action_context(chatID, "typing"):
                     message_data["text"] = message
 
-                    tlg_response = self.utils.send_telegram_request(
+                    tlg_response = self.telegram_utils.send_telegram_request(
                         f"{self.bot_url}/sendMessage",
                         "post",
                         data=message_data,
@@ -1659,7 +1659,7 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception in _send_msg()")
             self.thread.set_status("Exception sending a message")
-            self.utils.send_telegram_request(
+            self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/sendMessage",
                 "post",
                 data={
@@ -1696,7 +1696,7 @@ class TelegramPlugin(
             self._logger.info(f"Sending file {path} to chat {chat_id}")
 
             with open(path, "rb") as document:
-                self.utils.send_telegram_request(
+                self.telegram_utils.send_telegram_request(
                     f"{self.bot_url}/sendDocument",
                     "post",
                     files={"document": document},
@@ -1709,7 +1709,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Requesting file with id {file_id}")
 
-        json_data = self.utils.send_telegram_request(
+        json_data = self.telegram_utils.send_telegram_request(
             f"{self.bot_url}/getFile",
             "get",
             data={"file_id": file_id},
@@ -1720,7 +1720,7 @@ class TelegramPlugin(
 
         self._logger.info(f"Downloading file: {file_url}")
 
-        file_req = requests.get(file_url, proxies=self.utils.get_proxies())
+        file_req = requests.get(file_url, proxies=self.telegram_utils.get_proxies())
         file_req.raise_for_status()
 
         return file_req.content
@@ -1732,14 +1732,14 @@ class TelegramPlugin(
         self._logger.debug(f"Saving chat picture for chat_id {chat_id}")
 
         if is_group_or_channel(chat_id):
-            json_data = self.utils.send_telegram_request(
+            json_data = self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/getChat",
                 "get",
                 params={"chat_id": chat_id},
             )
             file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
         else:
-            json_data = self.utils.send_telegram_request(
+            json_data = self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/getUserProfilePhotos",
                 "get",
                 params={"limit": 1, "user_id": chat_id},
@@ -1777,7 +1777,7 @@ class TelegramPlugin(
         def _loop():
             try:
                 while not stop_event.is_set():
-                    self.utils.send_telegram_request(
+                    self.telegram_utils.send_telegram_request(
                         f"{self.bot_url}/sendChatAction",
                         "get",
                         params={"chat_id": chat_id, "action": action},
@@ -1803,7 +1803,7 @@ class TelegramPlugin(
         if token is None:
             token = self._settings.get(["token"])
 
-        json_data = self.utils.send_telegram_request(
+        json_data = self.telegram_utils.send_telegram_request(
             f"https://api.telegram.org/bot{token}/getMe",
             "get",
         )
@@ -1897,7 +1897,7 @@ class TelegramPlugin(
             {"command": "help", "description": "Shows this help message"},
         ]
 
-        self.utils.send_telegram_request(
+        self.telegram_utils.send_telegram_request(
             f"{self.bot_url}/setMyCommands",
             "post",
             data={"commands": json.dumps(commands)},
@@ -2091,7 +2091,7 @@ class TelegramPlugin(
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, proxies=self.utils.get_proxies(), verify=False)
+        r = requests.get(snapshot_url, timeout=10, proxies=self.telegram_utils.get_proxies(), verify=False)
         r.raise_for_status()
 
         image_content = r.content
