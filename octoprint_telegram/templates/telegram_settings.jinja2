@@ -81,7 +81,6 @@
                 <legend>Bot command list</legend>
                 <div class="control-group">
                     <button class="btn"
-                            id="btnSetCommandList"
                             data-bind="click: setCommandList"
                             title="Set default command list">
                         <i class="fas fa-terminal"></i> Set default command list
@@ -187,8 +186,7 @@
                 <div class="control-group">
                     <label class="control-label">Pre Image Action</label>
                     <div class="controls">
-                        <select id="settings_plugin_telegram_PreImgMethod"
-                                data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
+                        <select data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
                             <option value="None">No Action</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
@@ -196,15 +194,13 @@
                         <span class="help-block"><small>Action pre image could be none, a gcode or a system command (script name with full path)</small></span>
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_PreImgCommand"
                                data-bind="value: settings.settings.plugins.telegram.PreImgCommand" />
                     </div>
                 </div>
                 <div class="control-group">
                     <label class="control-label">Post Image Action</label>
                     <div class="controls">
-                        <select id="settings_plugin_telegram_PostImgMethod"
-                                data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
+                        <select data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
                             <option value="None">No Action</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
@@ -212,7 +208,6 @@
                         <span class="help-block"><small>Action post image could be none, a gcode or a system command (script name with full path)</small></span>
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_PostImgCommand"
                                data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
                     </div>
                 </div>
@@ -251,7 +246,6 @@
                     <div class="controls">
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_http_proxy"
                                data-bind="value: settings.settings.plugins.telegram.http_proxy" />
                     </div>
                 </div>
@@ -260,7 +254,6 @@
                     <div class="controls">
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_https_proxy"
                                data-bind="value: settings.settings.plugins.telegram.https_proxy" />
                     </div>
                 </div>
@@ -279,7 +272,6 @@
                     <div class="controls">
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_TimeFormat"
                                data-bind="value: settings.settings.plugins.telegram.TimeFormat" />
                         <span class="help-block"><small>Time format for finishing within the day.</small>
                         </span>
@@ -290,7 +282,6 @@
                     <div class="controls">
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_DayTimeFormat"
                                data-bind="value: settings.settings.plugins.telegram.DayTimeFormat" />
                         <span class="help-block"><small>Time format for finishing within the week.</small></span>
                     </div>
@@ -300,7 +291,6 @@
                     <div class="controls">
                         <input type="text"
                                class="input-block-level"
-                               id="settings_plugin_telegram_WeekTimeFormat"
                                data-bind="value: settings.settings.plugins.telegram.WeekTimeFormat" />
                         <span class="help-block"><small>Time format for more than one week.</small></span>
                     </div>
@@ -546,8 +536,7 @@
                                       cursor: pointer"
                                data-bind="css: { 'disabled': !settings.settings.plugins.telegram.send_gif() }, attr: { title: !settings.settings.plugins.telegram.send_gif() ? 'Check \'Enable gifs\' setting to use this option' : null }">
                             <span>Send camera gifs &#x1F3A5;</span>
-                            <input id="gifNotConnectedCheckbox"
-                                   type="checkbox"
+                            <input type="checkbox"
                                    style="display:none"
                                    class="switch-input"
                                    data-bind="checked: settings.settings.plugins.telegram.gif_not_connected, enable: settings.settings.plugins.telegram.send_gif" />
