@@ -164,7 +164,7 @@ class TCMD:
                         self.temp_notification_settings["notification_height"] = new_height
 
                     else:
-                        self.main._settings.set_float(["notification_height"], height, force=True)
+                        self.main._settings.set_float(["notification_height"], height)
                         self.main._settings.save()
                         self.cmdSettings(chat_id, from_id, cmd, "back", user)
                         return
@@ -214,7 +214,7 @@ class TCMD:
                         new_notification_time = max(int(notification_time + sign * magnitude), 0)
                         self.temp_notification_settings["notification_time"] = new_notification_time
                     else:
-                        self.main._settings.set_int(["notification_time"], notification_time, force=True)
+                        self.main._settings.set_int(["notification_time"], notification_time)
                         self.main._settings.save()
                         self.cmdSettings(chat_id, from_id, cmd, "back", user)
                         return
@@ -244,10 +244,7 @@ class TCMD:
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
             elif params[0] == "g":
-                if self.main._settings.get_boolean(["send_gif"]):
-                    self.main._settings.set_int(["send_gif"], 0, force=True)
-                else:
-                    self.main._settings.set_int(["send_gif"], 1, force=True)
+                self.main._settings.set_boolean(["send_gif"], not self.main._settings.get_boolean(["send_gif"]))
                 self.main._settings.save()
                 self.cmdSettings(chat_id, from_id, cmd, "back", user)
                 return
@@ -2751,9 +2748,11 @@ class TCMD:
         elif opt.startswith("s"):
             if opt == "s_n":
                 self.main._settings.set_boolean(["fileOrder"], False)
+                self.main._settings.save()
                 self.fileList(loc, page, cmd, chat_id)
             elif opt == "s_d":
                 self.main._settings.set_boolean(["fileOrder"], True)
+                self.main._settings.save()
                 self.fileList(loc, page, cmd, chat_id)
             else:
                 msg = f"{get_emoji('question')} <b>Choose sorting order of files</b>"
@@ -3018,7 +3017,7 @@ class TCMD:
     def ConPort(self, chat_id, parameter, parent):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set(["serial", "port"], parameter[0], force=True)
+            self.main._settings.global_set(["serial", "port"], parameter[0])
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
@@ -3057,7 +3056,7 @@ class TCMD:
     def ConBaud(self, chat_id, parameter, parent):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set_int(["serial", "baudrate"], parameter[0], force=True)
+            self.main._settings.global_set_int(["serial", "baudrate"], parameter[0])
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
@@ -3096,7 +3095,7 @@ class TCMD:
     def ConProfile(self, chat_id, parameter, parent):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set(["printerProfiles", "default"], parameter[0], force=True)
+            self.main._settings.global_set(["printerProfiles", "default"], parameter[0])
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
@@ -3136,7 +3135,7 @@ class TCMD:
     def ConAuto(self, chat_id, parameter):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
-            self.main._settings.global_set_boolean(["serial", "autoconnect"], parameter[0], force=True)
+            self.main._settings.global_set_boolean(["serial", "autoconnect"], parameter[0])
             self.main._settings.save()
             self.ConSettings(chat_id, [])
         else:
