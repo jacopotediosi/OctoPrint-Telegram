@@ -5,7 +5,6 @@ import json
 import logging
 import multiprocessing
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -35,7 +34,7 @@ from .telegram_notifications import (
     TMSG,
     telegramMsgDict,
 )  # Dict of known notification messages
-from .telegram_utils import TOKEN_PATTERN, TelegramUtils, is_group_or_channel
+from .telegram_utils import TOKEN_REGEX, TelegramUtils, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -614,13 +613,14 @@ class TelegramListener(threading.Thread):
         self.main.connection_state_str = status
 
 
-class TelegramPluginLoggingFilter(logging.Filter):
-    def filter(self, record):
-        # Redact Telegram bot tokens from logs
-        msg = str(record.msg) if not isinstance(record.msg, str) else record.msg
-        for match in re.findall(TOKEN_PATTERN, msg):
-            record.msg = msg.replace(match, "REDACTED")
-        return True
+class RedactingFormatter(logging.Formatter):
+    # Redact Telegram bot tokens from logs
+    def format(self, record):
+        try:
+            formatted = super().format(record)
+            return TOKEN_REGEX.sub("REDACTED", formatted)
+        except Exception as e:
+            return f"RedactingFormatter failed: {type(e).__name__}"
 
 
 class WebcamProfile:
@@ -751,8 +751,8 @@ class TelegramPlugin(
     ##########
 
     def on_startup(self, host, port):
-        # Logging formatter
-        logging_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        # Logging formatter that sanitizes logs by redacting sensitive data (e.g., bot tokens)
+        logging_formatter = RedactingFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         # File logging handler
         file_handler = CleaningTimedRotatingFileHandler(
@@ -761,7 +761,6 @@ class TelegramPlugin(
             backupCount=3,
         )
         file_handler.setFormatter(logging_formatter)
-        file_handler.addFilter(TelegramPluginLoggingFilter())
         self._logger.addHandler(file_handler)
 
         # Console logging handler
@@ -1081,7 +1080,7 @@ class TelegramPlugin(
             data["token"] = data["token"].strip()
 
             # Check token format
-            if not re.match(TOKEN_PATTERN, data["token"]):
+            if not TOKEN_REGEX.fullmatch(data["token"]):
                 data["token"] = ""
                 self._logger.error("Not saving token because it doesn't seem to have the right format.")
                 self.connection_state_str = "The previously entered token doesn't seem to have the correct format. It should look like this: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11."
