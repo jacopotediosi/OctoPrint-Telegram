@@ -29,17 +29,12 @@
                     title="Test the token">
                 <i class="icon-key"></i> Test this token
             </button>
-            <span class="help-inline muted">
-                <small>Click to test the token and start the listener.</small>
+            <span class="help-block" data-bind="if: token_state_str || isloading()">
+                Token status is:
+                <strong id="teleErrored2"
+                        data-bind="text: token_state_str, visible: ! isloading()"></strong>
+                <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
             </span>
-            <p>
-                <span class="help-block" data-bind="if: token_state_str || isloading()">
-                    Token status is:
-                    <strong id="teleErrored2"
-                            data-bind="text: token_state_str, visible: ! isloading()"></strong>
-                    <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
-                </span>
-            </p>
         </div>
     </div>
 </form>

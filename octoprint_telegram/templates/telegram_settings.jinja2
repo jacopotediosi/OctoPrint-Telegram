@@ -66,16 +66,12 @@
                                 title="Test the token">
                             <i class="icon-key"></i> Test above token
                         </button>
-                        <span class="help-inline">
-                            <small>Click to test the token and (re)start the listener</small>
+                        <span class="help-block" data-bind="if: token_state_str || isloading()">
+                            Token status is:
+                            <strong id="teleErrored"
+                                    data-bind="text: token_state_str, visible: ! isloading()"></strong>
+                            <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
                         </span>
-                        <p>
-                            <span class="help-block" data-bind="if: token_state_str || isloading()">Token status is:
-                                <strong id="teleErrored"
-                                        data-bind="text: token_state_str, visible: ! isloading()"></strong>
-                                <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
-                            </span>
-                        </p>
                     </div>
                 </div>
                 <legend>Bot command list</legend>
