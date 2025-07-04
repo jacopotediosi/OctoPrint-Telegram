@@ -1466,7 +1466,7 @@ class TCMD:
         return
 
     def cmdUser(self, chat_id, from_id, cmd, parameter, user=""):
-        chat_data = self.main.chats[chat_id]
+        chat_data = self.main._settings.get(["chats"])[chat_id]
 
         msg = (
             f"{get_emoji('info')} <b>Your user settings:</b>\n\n"

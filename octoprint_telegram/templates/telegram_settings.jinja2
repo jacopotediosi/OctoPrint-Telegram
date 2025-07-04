@@ -394,24 +394,6 @@
                                                 padding:0px 5px 0px 0px;
                                                 margin:0px;
                                                 position:relative">
-                                        <span style="font-size:1.2em;" data-bind="visible: newUsr">
-                                            <div style="float:left;
-                                                        position:absolute;
-                                                        left:-4px;
-                                                        top:-4px;
-                                                        z-index:1001;
-                                                        padding:0px">
-                                                <i style="color:orangered;" class="icon-star" title="New User"></i>
-                                            </div>
-                                            <div style="float:left;
-                                                        position:absolute;
-                                                        left:-3px;
-                                                        top:-3px;
-                                                        z-index:1000;
-                                                        padding:0px">
-                                                <i style="color:gainsboro;" class="icon-star"></i>
-                                            </div>
-                                        </span>
                                         <img data-bind="attr: {src: image}"
                                              width="40px"
                                              height="40px"
@@ -430,13 +412,12 @@
                                         </span>
                                     </div>
                                 </td>
-                                <!-- ko if: !newUsr -->
                                 <td class="settings_users_active"
                                     style="width:40px;
                                            vertical-align: middle;
                                            border-right:1px dashed #ddd;
                                            text-align: center">
-                                    <span data-bind="visible: !newUsr">
+                                    <span>
                                         <a href="#"
                                            data-bind="visible: accept_commands , click: function() {$root.showEditCmdDialog($data,'commands');}"
                                            style="text-decoration:none"
@@ -452,7 +433,7 @@
                                            vertical-align: middle;
                                            border-right:1px dashed #ddd;
                                            text-align: center">
-                                    <span data-bind="visible: !newUsr">
+                                    <span>
                                         <a href="#"
                                            data-bind="visible: send_notifications , click: function() {$root.showEditCmdDialog($data,'notifications');}"
                                            style="text-decoration:none"
@@ -462,28 +443,20 @@
                                         <span data-bind="visible: !send_notifications"><i class="icon-remove icon-large"></i></span>
                                     </span>
                                 </td>
-                                <!-- /ko -->
                                 <td class="settings_users_actions"
                                     style="width:40px;
                                            vertical-align: middle;
-                                           text-align: center"
-                                    data-bind="attr: {colspan: newUsr == true ? 3 : null }">
-                                    <span data-bind="visible: !newUsr">
+                                           text-align: center">
+                                    <span>
                                         <a href="#"
                                            class="icon-pencil icon-large"
                                            title="Update user settings"
                                            data-bind="click: function() { $root.showEditChatDialog($data);}"></a>&nbsp;&nbsp;|&nbsp;
                                     </span>
-                                    <span data-bind="visible: newUsr">
-                                        <span class="muted"><small>Save first or&nbsp;&nbsp;</small></span>
-                                    </span>
                                     <a href="#"
                                        class="icon-trash icon-large"
                                        title="Delete user"
                                        data-bind="click:  function() { $root.delChat($data);}"></a>
-                                    <span data-bind="visible: newUsr">
-                                        <span class="muted"><small>(click)</small></span>
-                                    </span>
                                 </td>
                             </tr>
                         </tbody>
