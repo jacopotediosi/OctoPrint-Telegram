@@ -1,3 +1,4 @@
+import copy
 import datetime
 import io
 import json
@@ -141,17 +142,17 @@ class TelegramListener(threading.Thread):
         self.set_update_offset(message["update_id"])
 
         if "message" in message and message["message"].get("chat"):
-            self.main.chats = self.main._settings.get(["chats"])
+            settings_chats = self.main._settings.get(["chats"])
 
             chat_id = self.get_chat_id(message)
             from_id = self.get_from_id(message)
 
-            is_known_chat = chat_id in self.main.chats
-            is_known_user = from_id in self.main.chats
+            is_known_chat = chat_id in settings_chats
+            is_known_user = from_id in settings_chats
 
             chat = message["message"]["chat"]
 
-            data = self.main.chats.get(chat_id, dict(self.main.new_chat))
+            data = settings_chats.get(chat_id, self.main.new_chat_settings)
 
             data["type"] = chat["type"]
 
@@ -182,9 +183,11 @@ class TelegramListener(threading.Thread):
                     return
 
             if not is_known_chat:
-                self.main.chats[chat_id] = data
-
                 self._logger.info(f"Got new chat: {chat_id}")
+
+                settings_chats[chat_id] = data
+                self.main._settings.set(["chats"], settings_chats)
+                self.main._settings.save()
 
                 self.main.send_msg(
                     f"{get_emoji('info')} Now I know you. "
@@ -237,13 +240,18 @@ class TelegramListener(threading.Thread):
 
     def handle_left_chat_member_message(self, message):
         self._logger.debug("Message Del_Chat")
-        if (
-            message["message"]["left_chat_member"]["username"] == self.username[1:]
-            and str(message["message"]["chat"]["id"]) in self.main.chats
-        ):
-            del self.main.chats[str(message["message"]["chat"]["id"])]
-            # Do a self._settings.save() ???
-            self._logger.debug("Chat deleted")
+
+        settings_chats = self.main._settings.get(["chats"])
+
+        chat_id = str(message["message"]["chat"]["id"])
+        username = message["message"]["left_chat_member"]["username"]
+
+        if username == self.username[1:] and chat_id in settings_chats:
+            del settings_chats[chat_id]
+            self.main._settings.set(["chats"], settings_chats)
+            self.main._settings.save()
+
+            self._logger.debug(f"Chat {chat_id} removed from settings")
 
     def handle_delete_chat_photo_message(self, message):
         chat_id = self.get_chat_id(message)
@@ -266,7 +274,7 @@ class TelegramListener(threading.Thread):
         chat_id = self.get_chat_id(message)
 
         # Only if we know the chat
-        if chat_id in self.main.chats:
+        if chat_id in self.main._settings.get(["chats"]):
             self._logger.info(f"Chat {chat_id} changed picture, updating it...")
 
             try:
@@ -660,7 +668,6 @@ class TelegramPlugin(
         self._logger = logging.getLogger("octoprint.plugins.telegram")
         self.thread = None
         self.bot_url = None
-        self.chats = {}
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
         self.port = 5000
@@ -673,8 +680,7 @@ class TelegramPlugin(
         self.sending_okay_minute = None
         self.sending_okay_count = 0
         # Initial settings for new chat. See on_after_startup()
-        # !!! sync with new_usr_dict in on_settings_migrate() !!!
-        self.new_chat = {}
+        self.new_chat_settings = {}
 
     # Starts the telegram listener thread
     def start_listening(self):
@@ -793,20 +799,16 @@ class TelegramPlugin(
         self.tmsg = TMSG(self)
 
         # Initial settings for new chat.
-        # !!! sync this dict with new_usr_dict in on_settings_migrate() !!!
-        self.new_chat = {
+        self.new_chat_settings = {
             "private": True,
             "title": "[UNKNOWN]",
             "accept_commands": False,
             "send_notifications": False,
-            "new": True,
             "type": "",
             "allow_users": False,
             "commands": {k: False for k, v in self.tcmd.commandDict.items()},
             "notifications": {k: False for k, v in telegramMsgDict.items()},
         }
-
-        self.chats = self._settings.get(["chats"])
 
         # Create / clean tmpgif folder
         shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
@@ -821,7 +823,7 @@ class TelegramPlugin(
             if os.path.isfile(file_path):
                 filename_chat_id = filename.split(".")[0][3:]
                 self._logger.debug(f"Testing Pic ID {filename_chat_id}")
-                if filename_chat_id not in self.chats:
+                if filename_chat_id not in self._settings.get(["chats"]):
                     self._logger.debug(f"Removing file {file_path}")
                     try:
                         os.remove(file_path)
@@ -829,7 +831,7 @@ class TelegramPlugin(
                         self._logger.exception(f"Caught an exception removing file {file_path}")
 
         # Update user profile photos
-        for chat_id in self.chats:
+        for chat_id in self._settings.get(["chats"]):
             try:
                 if chat_id != "zBOTTOMOFCHATS":
                     t = threading.Thread(target=self.save_chat_picture, kwargs={"chat_id": chat_id})
@@ -904,19 +906,6 @@ class TelegramPlugin(
         self._logger.setLevel(logging.DEBUG)
         self._logger.debug("MIGRATE DO")
         tcmd = TCMD(self)
-        # Initial settings for new chat
-        # !!! sync this dict with self.new_chat in on_after_startup() !!!
-        new_usr_dict = {
-            "private": True,
-            "title": "[UNKNOWN]",
-            "accept_commands": False,
-            "send_notifications": False,
-            "new": False,
-            "type": "",
-            "allow_users": False,
-            "commands": {k: False for k, v in tcmd.commandDict.items()},
-            "notifications": {k: False for k, v in telegramMsgDict.items()},
-        }
 
         ##########
         ### Migrate from old plugin Versions < 1.3 (old versions had no settings version check)
@@ -929,7 +918,7 @@ class TelegramPlugin(
             # There shouldn't be any chats, but maybe someone had installed any test branch.
             # Then we have to check if all needed settings are populated.
             for chat in chats:
-                for setting in new_usr_dict:
+                for setting in self.new_chat_settings:
                     if setting not in chats[chat]:
                         if setting == "commands":
                             chats[chat]["commands"] = {
@@ -944,8 +933,7 @@ class TelegramPlugin(
             chat = self._settings.get(["chat"])
             if chat is not None:
                 self._settings.set(["chat"], None)
-                data = {}
-                data.update(new_usr_dict)
+                data = copy.deepcopy(self.new_chat_settings)
                 data["private"] = True
                 data["title"] = "[UNKNOWN]"
                 # Try to get infos from telegram by sending a "you are migrated" message
@@ -1094,25 +1082,8 @@ class TelegramPlugin(
         self._logger.debug("MIGRATED Saved")
 
     def on_settings_save(self, data):
-        # Remove 'new'-flag and apply bindings for all chats
-        if data.get("chats"):
-            del_list = []
-            for key in data["chats"]:
-                if "new" in data["chats"][key]:
-                    data["chats"][key]["new"] = False
-                # Look for deleted chats
-                if key not in self.chats and not key == "zBOTTOMOFCHATS":
-                    del_list.append(key)
-            # Delete chats finally
-            for key in del_list:
-                del data["chats"][key]
-        # Also remove 'new'-flag from self.chats so settingsUI is consistent
-        # self.chats will only update to settings data on first received message after saving done
-        for key in self.chats:
-            if "new" in self.chats[key]:
-                self.chats[key]["new"] = False
-
         self._logger.debug(f"Saving data: {data}")
+
         # Check token for right format
         if "token" in data:
             data["token"] = data["token"].strip()
@@ -1219,7 +1190,9 @@ class TelegramPlugin(
                 }
             )
         else:
-            ret_chats = {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"}
+            ret_chats = {
+                k: v for k, v in self._settings.get(["chats"]).items() if "delMe" not in v and k != "zBOTTOMOFCHATS"
+            }
             for chat_id in ret_chats:
                 if os.path.isfile(
                     os.path.join(
@@ -1299,19 +1272,21 @@ class TelegramPlugin(
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
 
-            if chat_id not in self.chats:
+            settings_chats = self._settings.get(["chats"])
+
+            if chat_id not in settings_chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return "Unknown chat with given id", 404
 
-            self.chats.pop(chat_id)
-            self._settings.set(["chats"], self.chats)
+            del settings_chats[chat_id]
+            self._settings.set(["chats"], settings_chats)
             self._settings.save()
 
             self._logger.info(f"Chat {chat_id} deleted")
 
             return jsonify(
                 {
-                    "chats": {k: v for k, v in self.chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"},
+                    "chats": {k: v for k, v in settings_chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"},
                     "connection_state_str": self.connection_state_str,
                     "connection_ok": self.connection_ok,
                 }
@@ -1348,9 +1323,10 @@ class TelegramPlugin(
 
         elif command == "editUser":
             chat_id = str(data.get("chat_id"))
+            settings_chats = self._settings.get(["chats"])
 
             # Check if chat_id is known
-            if chat_id not in self.chats:
+            if chat_id not in settings_chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return "Unknown chat with given id", 404
 
@@ -1364,7 +1340,9 @@ class TelegramPlugin(
 
             # Update user
             for key in settings_keys:
-                self.chats[chat_id][key] = data[key]
+                settings_chats[chat_id][key] = data[key]
+            self._settings.set(["chats"], settings_chats)
+            self._settings.save()
 
             # Logging successful user update
             settings = ", ".join(f"{k}={data[k]}" for k in settings_keys)
@@ -1382,19 +1360,24 @@ class TelegramPlugin(
             return
 
         kwargs["message"] = message
+
+        settings_chats = self._settings.get(["chats"])
+
         try:
             # If it's a regular event notification
             if "chatID" not in kwargs and "event" in kwargs:
-                self._logger.debug(f"Send_msg() found event: {kwargs['event']} | chats list={self.chats}")
-                for key in self.chats:
+                self._logger.debug(f"Send_msg() found event: {kwargs['event']} | chats settings={settings_chats}")
+                for key in settings_chats:
                     self._logger.debug(f"send_msg loop key = {key}")
                     if key != "zBOTTOMOFCHATS":
                         try:
-                            self._logger.debug(f"self.chats[key]['notifications'] = {self.chats[key]['notifications']}")
+                            self._logger.debug(
+                                f"settings_chats[key]['notifications'] = {settings_chats[key]['notifications']}"
+                            )
                             if (
-                                self.chats[key]["notifications"][kwargs["event"]]
+                                settings_chats[key]["notifications"][kwargs["event"]]
                                 and (key not in self.shut_up or self.shut_up[key] == 0)
-                                and self.chats[key]["send_notifications"]
+                                and settings_chats[key]["send_notifications"]
                             ):
                                 kwargs["chatID"] = key
                                 threading.Thread(target=self._send_msg, kwargs=kwargs).run()
@@ -1402,7 +1385,7 @@ class TelegramPlugin(
                             self._logger.exception(f"Caught an exception in loop chatId for key: {key}")
             # Seems to be a broadcast
             elif "chatID" not in kwargs:
-                for key in self.chats:
+                for key in settings_chats:
                     kwargs["chatID"] = key
                     threading.Thread(target=self._send_msg, kwargs=kwargs).run()
             # This is a 'editMessageText' message
@@ -1918,12 +1901,14 @@ class TelegramPlugin(
         if not command:
             return False
 
-        chat_settings = self.chats.get(chat_id, {})
+        settings_chats = self._settings.get(["chats"])
+
+        chat_settings = settings_chats.get(chat_id, {})
         chat_accept_commands = chat_settings.get("accept_commands", False)
         chat_accept_this_command = chat_settings.get("commands", {}).get(command, False)
         chat_allow_commands_from_users = chat_settings.get("allow_users", False)
 
-        from_settings = self.chats.get(from_id, {})
+        from_settings = settings_chats.get(from_id, {})
         from_accept_commands = from_settings.get("accept_commands", False)
         from_accept_this_command = from_settings.get("commands", {}).get(command, False)
 

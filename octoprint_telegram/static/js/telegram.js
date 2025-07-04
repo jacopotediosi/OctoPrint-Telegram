@@ -306,11 +306,6 @@ $(function () {
       for (const id in entries) {
         const data = entries[id]
         data.id = id
-        if (data.new) {
-          data.newUsr = true
-        } else {
-          data.newUsr = false
-        }
         array.push(data)
         currentChats.push(id)
         newChats = newChats || !_.includes(formerChats, id)
