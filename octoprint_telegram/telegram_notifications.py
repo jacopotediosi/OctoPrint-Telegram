@@ -212,12 +212,12 @@ class TMSG:
         self._sendNotification(payload, **kwargs)
 
     def msgPrintDone(self, payload, **kwargs):
-        self.main.shut_up = {}
+        self.main.shut_up = set()
         kwargs["delay"] = self.main._settings.get_int(["message_at_print_done_delay"])
         self._sendNotification(payload, **kwargs)
 
     def msgPrintFailed(self, payload, **kwargs):
-        self.main.shut_up = {}
+        self.main.shut_up = set()
         self._sendNotification(payload, **kwargs)
 
     def msgMovieDone(self, payload, **kwargs):

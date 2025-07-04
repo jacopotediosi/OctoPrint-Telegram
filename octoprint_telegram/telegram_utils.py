@@ -7,6 +7,8 @@ import requests
 
 _logger = logging.getLogger("octoprint.plugins.telegram").getChild("TelegramUtils")
 
+TOKEN_PATTERN = r"[0-9]{8,10}:[a-zA-Z0-9_-]{35}"
+
 
 class TelegramUtils:
     def __init__(self, main):

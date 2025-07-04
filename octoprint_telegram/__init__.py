@@ -35,7 +35,7 @@ from .telegram_notifications import (
     TMSG,
     telegramMsgDict,
 )  # Dict of known notification messages
-from .telegram_utils import TelegramUtils, is_group_or_channel
+from .telegram_utils import TOKEN_PATTERN, TelegramUtils, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -64,9 +64,10 @@ class TelegramListener(threading.Thread):
     def run(self):
         self._logger.debug("Try first connect.")
         self.try_first_contact()
-        # Repeat fetching and processing messages until thread stopped
+
         self._logger.debug("Listener is running.")
 
+        # Repeat fetching and processing messages until thread stopped
         while not self.do_stop:
             try:
                 self.loop()
@@ -80,7 +81,8 @@ class TelegramListener(threading.Thread):
         got_contact = False
         while not self.do_stop and not got_contact:
             try:
-                self.username = self.main.test_token()
+                token = self.main._settings.get(["token"])
+                self.username = self.main.test_token(token)
                 got_contact = True
                 self.set_status(f"Connected as {self.username}", ok=True)
             except Exception as e:
@@ -615,10 +617,8 @@ class TelegramListener(threading.Thread):
 class TelegramPluginLoggingFilter(logging.Filter):
     def filter(self, record):
         # Redact Telegram bot tokens from logs
-        pattern = r"[0-9]{8,10}:[a-zA-Z0-9_-]{35}"
         msg = str(record.msg) if not isinstance(record.msg, str) else record.msg
-
-        for match in re.findall(pattern, msg):
+        for match in re.findall(TOKEN_PATTERN, msg):
             record.msg = msg.replace(match, "REDACTED")
         return True
 
@@ -667,59 +667,47 @@ class TelegramPlugin(
         # For more init stuff see on_after_startup()
         self._logger = logging.getLogger("octoprint.plugins.telegram")
         self.thread = None
+        self.bot_ready = False
         self.bot_url = None
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
         self.port = 5000
         self.update_message_id = {}
-        self.shut_up = {}
-        self.send_messages = True
+        self.shut_up = set()
         self.telegram_utils = None
         self.tcmd = None
         self.tmsg = None
-        self.sending_okay_minute = None
-        self.sending_okay_count = 0
         # Initial settings for new chat. See on_after_startup()
         self.new_chat_settings = {}
 
-    # Starts the telegram listener thread
-    def start_listening(self):
+    # Starts the telegram bot
+    def start_bot(self):
         token = self._settings.get(["token"])
-        if token != "" and self.thread is None:
-            self._logger.debug("Starting listener.")
+
+        if token and self.thread is None:
+            self._logger.debug("Starting bot.")
+
             self.bot_url = f"https://api.telegram.org/bot{token}"
             self.bot_file_url = f"https://api.telegram.org/file/bot{token}"
+
             self.thread = TelegramListener(self)
             self.thread.daemon = True
             self.thread.start()
 
-    # Stops the telegram listener thread
-    def stop_listening(self):
+            self.bot_ready = True
+
+    # Stops the telegram bot
+    def stop_bot(self):
         if self.thread is not None:
-            self._logger.debug("Stopping listener.")
+            self._logger.debug("Stopping bot.")
+
+            self.bot_ready = False
+
+            self.bot_url = None
+            self.bot_file_url = None
+
             self.thread.stop()
             self.thread = None
-
-    def shutdown(self):
-        self._logger.warning("shutdown() running!")
-        self.stop_listening()
-        self.send_messages = False
-
-    def sending_okay(self):
-        # If the count ever goeas above 10, we stop doing everything else and just return False.
-        # So if this is ever reached, it will stay this way.
-        if self.sending_okay_count > 10:
-            self._logger.warning("Sent more than 10 messages in the last minute. Shutting down...")
-            self.shutdown()
-            return False
-
-        if self.sending_okay_minute != datetime.datetime.now().minute:
-            self.sending_okay_minute = datetime.datetime.now().minute
-            self.sending_okay_count = 1
-        else:
-            self.sending_okay_count += 1
-
-        return True
 
     ##########
     ### Asset API
@@ -795,7 +783,7 @@ class TelegramPlugin(
         self.tcmd = TCMD(self)
         self.triggered = False
 
-        # Notification Message Handler class. called only by on_event()
+        # Notification Message Handler class. Called only by on_event()
         self.tmsg = TMSG(self)
 
         # Initial settings for new chat.
@@ -814,7 +802,7 @@ class TelegramPlugin(
         shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
         os.makedirs(self.get_tmpgif_dir(), exist_ok=True)
 
-        self.start_listening()
+        self.start_bot()
 
         # Delete user profile photos if user doesn't exist anymore
         img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
@@ -842,7 +830,7 @@ class TelegramPlugin(
 
     def on_shutdown(self):
         self.on_event("PrinterShutdown", {})
-        self.stop_listening()
+        self.stop_bot()
 
     ##########
     ### Settings API
@@ -950,7 +938,7 @@ class TelegramPlugin(
                     }
 
                     json_data = self.telegram_utils.send_telegram_request(
-                        f"{self.main.bot_url}/sendMessage",
+                        f"{self.bot_url}/sendMessage",
                         "post",
                         data=message,
                     )
@@ -1084,25 +1072,27 @@ class TelegramPlugin(
     def on_settings_save(self, data):
         self._logger.debug(f"Saving data: {data}")
 
-        # Check token for right format
-        if "token" in data:
-            data["token"] = data["token"].strip()
-            if not re.match(r"^[0-9]+:[a-zA-Z0-9_\-]+$", data["token"]):
-                self._logger.error("Not saving token because it doesn't seem to have the right format.")
-                self.connection_state_str = "The previously entered token doesn't seem to have the correct format. It should look like this: 12345678:AbCdEfGhIjKlMnOpZhGtDsrgkjkZTCHJKkzvjhb"
-                data["token"] = ""
+        # Get old token from settings
         old_token = self._settings.get(["token"])
+
+        # If there is a new token in data
+        if "token" in data:
+            # Strip the token
+            data["token"] = data["token"].strip()
+
+            # Check token format
+            if not re.match(TOKEN_PATTERN, data["token"]):
+                data["token"] = ""
+                self._logger.error("Not saving token because it doesn't seem to have the right format.")
+                self.connection_state_str = "The previously entered token doesn't seem to have the correct format. It should look like this: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11."
+
         # Now save settings
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-        # Reconnect on new token
-        # Will stop listener on invalid token
-        if "token" in data:
-            if data["token"] != old_token:
-                self.stop_listening()
-            if data["token"] != "":
-                self.start_listening()
-            else:
-                self.connection_state_str = "No token given."
+
+        # Reconnect if the token changed
+        if "token" in data and data["token"] != old_token:
+            self.stop_bot()
+            self.start_bot()
 
     def on_settings_load(self):
         data = octoprint.plugin.SettingsPlugin.on_settings_load(self)
@@ -1144,6 +1134,10 @@ class TelegramPlugin(
         try:
             if not self.tmsg:
                 self._logger.debug("Received an event, but tmsg is not initialized yet")
+                return
+
+            if not self.bot_ready:
+                self._logger.warning("Received an event, but bot is not ready")
                 return
 
             # If we know the event, start handler
@@ -1238,18 +1232,20 @@ class TelegramPlugin(
             return "Insufficient permissions", 403
 
         if command == "testToken":
-            token = str(data.get("token"))
+            token_to_test = str(data.get("token")).strip()
+
+            if not token_to_test:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "connection_state_str": "Token is empty",
+                        "username": None,
+                    }
+                )
 
             try:
-                username = self.test_token(token)
-                self._settings.set(["token"], token)
-                self._settings.save()
-
-                self._logger.info("Token set via testToken API command")
-
-                # To start with new token if already running
-                self.stop_listening()
-                self.start_listening()
+                # This will raise an exception if token is invalid
+                username = self.test_token(token_to_test)
 
                 return jsonify(
                     {
@@ -1356,7 +1352,7 @@ class TelegramPlugin(
     ##########
 
     def send_msg(self, message, **kwargs):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         kwargs["message"] = message
@@ -1376,7 +1372,7 @@ class TelegramPlugin(
                             )
                             if (
                                 settings_chats[key]["notifications"][kwargs["event"]]
-                                and (key not in self.shut_up or self.shut_up[key] == 0)
+                                and str(key) not in self.shut_up
                                 and settings_chats[key]["send_notifications"]
                             ):
                                 kwargs["chatID"] = key
@@ -1412,7 +1408,7 @@ class TelegramPlugin(
         delay=0,
         **kwargs,
     ):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         if delay > 0:
@@ -1475,9 +1471,8 @@ class TelegramPlugin(
         self._logger.debug(f"Start _send_msg with args: {locals()}")
 
         try:
-            # Check if messages are enabled
-            if not self.send_messages:
-                self._logger.debug("Not enabled to send messages, return...")
+            # Check if bot is ready
+            if not self.bot_ready:
                 return
 
             # Delay
@@ -1677,7 +1672,7 @@ class TelegramPlugin(
             return f"{B / TB:.2f} TB"
 
     def send_file(self, chat_id, path, text):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         with self.telegram_action_context(chat_id, "upload_document"):
@@ -1692,7 +1687,7 @@ class TelegramPlugin(
                 )
 
     def get_file(self, file_id):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         self._logger.debug(f"Requesting file with id {file_id}")
@@ -1714,7 +1709,7 @@ class TelegramPlugin(
         return file_req.content
 
     def save_chat_picture(self, chat_id):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         self._logger.debug(f"Saving chat picture for chat_id {chat_id}")
@@ -1784,13 +1779,8 @@ class TelegramPlugin(
             stop_event.set()
             thread.join(timeout=2)
 
-    def test_token(self, token=None):
-        if not self.send_messages:
-            return
-
-        if token is None:
-            token = self._settings.get(["token"])
-
+    def test_token(self, token):
+        # This will raise an exception if token is invalid
         json_data = self.telegram_utils.send_telegram_request(
             f"https://api.telegram.org/bot{token}/getMe",
             "get",
@@ -1799,7 +1789,7 @@ class TelegramPlugin(
 
     # Sets bot own list of commands
     def set_bot_commands(self):
-        if not self.send_messages:
+        if not self.bot_ready:
             return
 
         commands = [

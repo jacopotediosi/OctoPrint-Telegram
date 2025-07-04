@@ -346,12 +346,7 @@ class TCMD:
         self.main.send_msg(msg, chatID=chat_id, inline=False)
 
     def cmdShutup(self, chat_id, from_id, cmd, parameter, user=""):
-        if chat_id not in self.main.shut_up:
-            self.main.shut_up[chat_id] = 0
-        self.main.shut_up[chat_id] += 1
-        if self.main.shut_up[chat_id] >= 5:
-            self._logger.warning(f"shut_up value is {self.main.shut_up[chat_id]}. Shutting down.")
-            self.main.shutdown()
+        self.main.shut_up.add(str(chat_id))
         self.main.send_msg(
             f"{get_emoji('nonotify')} Okay, shutting up until the next print is finished.\n"
             f"Use /dontshutup to let me talk again before that.",
@@ -360,8 +355,7 @@ class TCMD:
         )
 
     def cmdNShutup(self, chat_id, from_id, cmd, parameter, user=""):
-        if chat_id in self.main.shut_up:
-            self.main.shut_up[chat_id] = 0
+        self.main.shut_up.discard(str(chat_id))
         self.main.send_msg(
             f"{get_emoji('notify')} Yay, I can talk again.",
             chatID=chat_id,
