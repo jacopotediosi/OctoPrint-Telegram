@@ -678,10 +678,11 @@ class TelegramPlugin(
 
     # Starts the telegram listener thread
     def start_listening(self):
-        if self._settings.get(["token"]) != "" and self.thread is None:
+        token = self._settings.get(["token"])
+        if token != "" and self.thread is None:
             self._logger.debug("Starting listener.")
-            self.bot_url = f"https://api.telegram.org/bot{self._settings.get(['token'])}"
-            self.bot_file_url = f"https://api.telegram.org/file/bot{self._settings.get(['token'])}"
+            self.bot_url = f"https://api.telegram.org/bot{token}"
+            self.bot_file_url = f"https://api.telegram.org/file/bot{token}"
             self.thread = TelegramListener(self)
             self.thread.daemon = True
             self.thread.start()
@@ -1269,6 +1270,7 @@ class TelegramPlugin(
             try:
                 username = self.test_token(token)
                 self._settings.set(["token"], token)
+                self._settings.save()
 
                 self._logger.info("Token set via testToken API command")
 
@@ -1303,6 +1305,7 @@ class TelegramPlugin(
 
             self.chats.pop(chat_id)
             self._settings.set(["chats"], self.chats)
+            self._settings.save()
 
             self._logger.info(f"Chat {chat_id} deleted")
 
