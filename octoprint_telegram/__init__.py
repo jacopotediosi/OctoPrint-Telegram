@@ -1776,88 +1776,12 @@ class TelegramPlugin(
         if not self.bot_ready:
             return
 
-        commands = [
-            {
-                "command": "status",
-                "description": "Displays the current status including a capture from the camera",
-            },
-            {
-                "command": "togglepause",
-                "description": "Pauses/Resumes current print",
-            },
-            {
-                "command": "home",
-                "description": "Home the printer print head",
-            },
-            {
-                "command": "files",
-                "description": "Lists all the files available for printing",
-            },
-            {
-                "command": "print",
-                "description": "Lets you start a print (confirmation required)",
-            },
-            {
-                "command": "tune",
-                "description": "Sets feed and flow rate, control temperatures",
-            },
-            {
-                "command": "ctrl",
-                "description": "Activates self defined controls from Octoprint",
-            },
-            {
-                "command": "con",
-                "description": "Connects or disconnects the printer",
-            },
-            {
-                "command": "sys",
-                "description": "Executes Octoprint system commands",
-            },
-            {
-                "command": "abort",
-                "description": "Aborts the currently running print (confirmation required)",
-            },
-            {"command": "off", "description": "Turn off the printer"},
-            {"command": "on", "description": "Turn on the printer"},
-            {
-                "command": "settings",
-                "description": "Displays notification settings and lets change them",
-            },
-            {
-                "command": "upload",
-                "description": "Stores a file into the Octoprint library",
-            },
-            {
-                "command": "filament",
-                "description": "Shows filament spools and lets you change it (requires Filament Manager Plugin)",
-            },
-            {"command": "user", "description": "Gets user info"},
-            {
-                "command": "gcode",
-                "description": "Call gCode commande with /gcode_XXX where XXX is the gcode command",
-            },
-            {
-                "command": "gif",
-                "description": "Sends a gif from the current video",
-            },
-            {
-                "command": "supergif",
-                "description": "Sends a bigger gif from the current video",
-            },
-            {
-                "command": "photo",
-                "description": "Sends photo from webcams",
-            },
-            {
-                "command": "shutup",
-                "description": "Disables automatic notifications until the next print ends",
-            },
-            {
-                "command": "dontshutup",
-                "description": "Makes the bot talk again (opposite of `/shutup`)",
-            },
-            {"command": "help", "description": "Shows this help message"},
-        ]
+        commands = []
+        for cmd_name, cmd_info in self.tcmd.commandDict.items():
+            if cmd_name.startswith("/"):
+                commands.append(
+                    {"command": cmd_name.lstrip("/"), "description": cmd_info.get("desc", "No description provided")}
+                )
 
         self.telegram_utils.send_telegram_request(
             f"{self.bot_url}/setMyCommands",

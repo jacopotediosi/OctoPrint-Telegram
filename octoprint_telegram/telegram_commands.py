@@ -37,34 +37,89 @@ class TCMD:
         self._spoolManagerPluginImplementation = None
 
         self.commandDict = {
-            "Yes": {"cmd": self.cmdYes, "bind_none": True},
-            "No": {"cmd": self.cmdNo, "bind_none": True},
-            "SwitchOn": {"cmd": self.cmdSwitchOn, "param": True},
-            "SwitchOff": {"cmd": self.cmdSwitchOff, "param": True},
-            "/test": {"cmd": self.cmdTest, "bind_none": True},
-            "/status": {"cmd": self.cmdStatus},
-            "/gif": {"cmd": self.cmdGif},
-            "/supergif": {"cmd": self.cmdSuperGif},
-            "/photo": {"cmd": self.cmdPhoto},
-            "/settings": {"cmd": self.cmdSettings, "param": True},
-            "/abort": {"cmd": self.cmdAbort, "param": True},
-            "/togglepause": {"cmd": self.cmdTogglePause},
-            "/home": {"cmd": self.cmdHome},
-            "/shutup": {"cmd": self.cmdShutup},
-            "/dontshutup": {"cmd": self.cmdNShutup},
-            "/print": {"cmd": self.cmdPrint, "param": True},
-            "/files": {"cmd": self.cmdFiles, "param": True},
-            "/upload": {"cmd": self.cmdUpload},
-            "/filament": {"cmd": self.cmdFilament, "param": True},
-            "/sys": {"cmd": self.cmdSys, "param": True},
-            "/ctrl": {"cmd": self.cmdCtrl, "param": True},
-            "/off": {"cmd": self.cmdPrinterOff, "param": True},
-            "/on": {"cmd": self.cmdPrinterOn, "param": True},
-            "/con": {"cmd": self.cmdConnection, "param": True},
-            "/user": {"cmd": self.cmdUser},
-            "/tune": {"cmd": self.cmdTune, "param": True},
-            "/help": {"cmd": self.cmdHelp, "bind_none": True},
-            "/gcode": {"cmd": self.cmdGCode, "param": True},
+            "/status": {
+                "cmd": self.cmdStatus,
+                "desc": "Show current status",
+            },
+            "/togglepause": {
+                "cmd": self.cmdTogglePause,
+                "desc": "Pause or resume the current print",
+            },
+            "/home": {
+                "cmd": self.cmdHome,
+                "desc": "Home the printer's print head",
+            },
+            "/files": {
+                "cmd": self.cmdFiles,
+                "param": True,
+                "desc": "List all available print files",
+            },
+            "/print": {
+                "cmd": self.cmdPrint,
+                "param": True,
+                "desc": "Start a print job (confirmation required)",
+            },
+            "/tune": {
+                "cmd": self.cmdTune,
+                "param": True,
+                "desc": "Adjust feed rate, flow, and temperatures",
+            },
+            "/ctrl": {
+                "cmd": self.cmdCtrl,
+                "param": True,
+                "desc": "Activate custom OctoPrint controls",
+            },
+            "/con": {
+                "cmd": self.cmdConnection,
+                "param": True,
+                "desc": "Connect or disconnect the printer",
+            },
+            "/sys": {
+                "cmd": self.cmdSys,
+                "param": True,
+                "desc": "Run OctoPrint system commands",
+            },
+            "/abort": {
+                "cmd": self.cmdAbort,
+                "param": True,
+                "desc": "Abort current print (confirmation required)",
+            },
+            "/off": {"cmd": self.cmdPrinterOff, "param": True, "desc": "Turn off the printer"},
+            "/on": {"cmd": self.cmdPrinterOn, "param": True, "desc": "Turn on the printer"},
+            "/settings": {"cmd": self.cmdSettings, "param": True, "desc": "Show and change notification settings"},
+            "/upload": {"cmd": self.cmdUpload, "desc": "Upload a file to OctoPrint library"},
+            "/filament": {"cmd": self.cmdFilament, "param": True, "desc": "Manage filament spools"},
+            "/user": {"cmd": self.cmdUser, "desc": "Get user information"},
+            "/gcode": {
+                "cmd": self.cmdGCode,
+                "param": True,
+                "desc": "Send G-code commands to the printer (use /gcode_XXX)",
+            },
+            "/gif": {
+                "cmd": self.cmdGif,
+                "desc": "Show GIFs from the webcams",
+            },
+            "/supergif": {
+                "cmd": self.cmdSuperGif,
+                "desc": "Show longer GIFs from the webcams",
+            },
+            "/photo": {
+                "cmd": self.cmdPhoto,
+                "desc": "Show photos from the webcams",
+            },
+            "/shutup": {
+                "cmd": self.cmdShutup,
+                "desc": "Disable automatic notifications until the next print ends",
+            },
+            "/dontshutup": {
+                "cmd": self.cmdNShutup,
+                "desc": "Make the bot talk again (opposite of /shutup)",
+            },
+            "/help": {"cmd": self.cmdHelp, "bind_none": True, "desc": "Show available commands"},
+            "Yes": {"cmd": self.cmdYes, "bind_none": True, "desc": "Confirm action"},
+            "No": {"cmd": self.cmdNo, "bind_none": True, "desc": "Cancel action"},
+            "SwitchOn": {"cmd": self.cmdSwitchOn, "param": True, "desc": "Turn on the printer without confirmation"},
+            "SwitchOff": {"cmd": self.cmdSwitchOff, "param": True, "desc": "Turn off the printer without confirmation"},
         }
 
     ############################################################################################
@@ -85,18 +140,6 @@ class TCMD:
             chatID=chat_id,
             msg_id=self.main.get_update_msg_id(chat_id),
             inline=False,
-        )
-
-    def cmdTest(self, chat_id, from_id, cmd, parameter, user=""):
-        self.main.send_msg(
-            f"{get_emoji('question')} Is this a test?\n\n",
-            responses=[
-                [
-                    [f"{get_emoji('check')} Yes", "Yes"],
-                    [f"{get_emoji('cancel')} No", "No"],
-                ]
-            ],
-            chatID=chat_id,
         )
 
     def cmdStatus(self, chat_id, from_id, cmd, parameter, user=""):
@@ -2104,35 +2147,11 @@ class TCMD:
 
     def cmdHelp(self, chat_id, from_id, cmd, parameter, user=""):
         commands = [
-            ("/abort", "Aborts the currently running print. A confirmation is required."),
-            ("/shutup", "Disables automatic notifications till the next print ends."),
-            ("/dontshutup", "The opposite of /shutup - Makes the bot talk again."),
-            ("/status", "Sends the current status including a current photo."),
-            ("/gif", f"Sends a gif from the current video. {get_emoji('warning')}"),
-            ("/supergif", "Sends a bigger gif from the current video."),
-            ("/photo", "Sends a photo from webcams."),
-            ("/settings", "Displays the current notification settings and allows you to change them."),
-            ("/files", "Lists all the files available for printing."),
-            (
-                "/filament",
-                "Shows you your filament spools or lets you change it. Requires the Filament Manager Plugin.",
-            ),
-            ("/print", "Lets you start a print. A confirmation is required."),
-            ("/togglepause", "Pause/Resume current Print."),
-            ("/home", "Home the printer print head."),
-            ("/con", "Connect/disconnect printer."),
-            ("/upload", "You can just send me a gcode file or a zip file to save it to my library."),
-            ("/sys", "Execute Octoprint System Commands."),
-            ("/ctrl", "Use self defined controls from Octoprint."),
-            ("/tune", "Set feed- and flowrate. Control temperatures."),
-            ("/user", "Get user info."),
+            (cmd, info.get("desc", "No description provided"))
+            for cmd, info in self.commandDict.items()
+            if cmd.startswith("/")
         ]
-
-        if self.main._plugin_manager.get_plugin("psucontrol", True):
-            commands.append(("/off", "Switch off the Printer."))
-            commands.append(("/on", "Switch on the Printer."))
-
-        commands.append(("/help", "Show this help message."))
+        commands.sort()
 
         message = f"{get_emoji('info')} <b>The following commands are known:</b>\n\n"
         message += "\n".join(f"{html.escape(cmd)} - {html.escape(desc)}" for cmd, desc in commands)
