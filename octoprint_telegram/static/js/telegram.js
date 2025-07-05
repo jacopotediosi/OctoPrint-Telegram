@@ -39,7 +39,6 @@ $(function () {
     self.isloading = ko.observable(false)
     self.errored = ko.observable(false)
     self.token_state_str = ko.observable('Unknown')
-    self.setCommandList_state_str = ko.observable('')
     self.editChatDialog = undefined
     self.varInfoDialog = undefined
     self.emoInfoDialog = undefined
@@ -260,33 +259,6 @@ $(function () {
         $('#teleErrored2').addClass('text-success')
         $('#teleErrored2').removeClass('text-error')
       }
-    }
-
-    self.setCommandResponse = function (response) {
-      self.setCommandList_state_str(response.setMyCommands_state_str)
-      self.errored(!response.ok)
-      if (!response.ok) {
-        $('#CmdteleErrored').removeClass('text-warning')
-        $('#CmdteleErrored').addClass('text-error')
-      } else {
-        $('#CmdteleErrored').removeClass('text-warning')
-        $('#CmdteleErrored').addClass('text-success')
-      }
-    }
-
-    self.setCommandList = function (data, event) {
-      $('#CmdteleErrored').addClass('text-warning')
-      $('#CmdteleErrored').removeClass('text-danger')
-      $('#CmdteleErrored').removeClass('text-sucess')
-      self.setCommandList_state_str('Please wait ...')
-      const callback = function () {
-        OctoPrint.simpleApiCommand(
-          self.pluginIdentifier,
-          'setCommandList',
-          {}
-        ).done((response) => self.setCommandResponse(response))
-      }
-      showConfirmationDialog('Do you really want to set default commands?', callback)
     }
 
     self.fromResponse = function (response) {

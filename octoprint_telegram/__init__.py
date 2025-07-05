@@ -696,6 +696,11 @@ class TelegramPlugin(
 
             self.bot_ready = True
 
+            try:
+                self.set_bot_commands()
+            except Exception:
+                self._logger.exception("Caught an exception setting bot commands")
+
     # Stops the telegram bot
     def stop_bot(self):
         if self.thread is not None:
@@ -1212,7 +1217,6 @@ class TelegramPlugin(
     def get_api_commands(self):
         return dict(
             delChat=["chat_id"],
-            setCommandList=[],
             testEvent=["event"],
             testToken=["token"],
             editUser=[
@@ -1296,25 +1300,6 @@ class TelegramPlugin(
             except Exception as e:
                 self._logger.exception(f"Caught an exception testing event {event}: {e}")
                 return jsonify({"ok": False})
-
-        elif command == "setCommandList":
-            try:
-                self.set_bot_commands()
-                self._logger.info("Bot commands set")
-                return jsonify(
-                    {
-                        "ok": True,
-                        "setMyCommands_state_str": "Commands set",
-                    }
-                )
-            except Exception as e:
-                self._logger.exception("Caught an exception setting bot commands")
-                return jsonify(
-                    {
-                        "ok": False,
-                        "setMyCommands_state_str": f"Error setting commands: {e}",
-                    }
-                )
 
         elif command == "editUser":
             chat_id = str(data.get("chat_id"))
