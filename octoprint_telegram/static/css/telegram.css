@@ -58,4 +58,8 @@
     flex: 0 0 auto;
 }
 
-.form-horizontal .reveal-wrapper + .help-block { margin-top: 10px; }
+/* Help block top margins */
+.form-horizontal button + .help-block,
+.form-horizontal .reveal-wrapper + .help-block {
+    margin-top: 10px;
+}
