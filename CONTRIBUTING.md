@@ -18,10 +18,10 @@ Before you do that for the first time though please take a moment to read the fo
 
 ### What should I do before submitting a bug report?
 1. **Make sure you are in the right place.**
-   This is the bug tracker for the [OctoPrint-Telegram](https://github.com/jacopotediosi/OctoPrint-Telegram) plugin.  
+   This is the bug tracker for the [OctoPrint-Telegram](https://github.com/jacopotediosi/OctoPrint-Telegram) plugin.
    Bugs related to other plugins or OctoPrint itself should not be reported here, unless they are caused by this plugin.
 2. **Ensure you are using the latest version of the plugin**, to verify whether the issue you're experiencing has already been fixed.
-3. **Search through the existing issues** (use GitHub's search feature) to check if the problem has already been reported.  
+3. **Search through the existing issues** (use GitHub's search feature) to check if the problem has already been reported.
    Take your time to review potential duplicates carefully and be sure your issue is truly new.
 
 ### What should I pay attention to when writing a bug report?
@@ -47,13 +47,13 @@ Before you do that for the first time though please take a moment to read the fo
 4. **Never mix two or more issues in a single ticket.** If you encounter more than one bug, open a separate ticket for each.
 
 # Creating Pull Requests
-1. Create your pull request **from a custom branch** on your end (e.g. `improve/my-new-feature`). Pull requests created from a `master` branch will not be accepted.  
+1. Create your pull request **from a custom branch** on your end (e.g. `improve/my-new-feature`). Pull requests created from a `master` branch will not be accepted.
    The reason is that anything added to your PR's branch will become part of the PR itself.
    If you create a PR from your `master` branch, chances are high you'll accidentally include unrelated changes.
 2. Create your pull request **only against the `devel` branch**. PRs targeting the `master` branch will not be accepted.
 3. Create **one pull request per feature or bug fix**.
-4. Make sure your pull request includes **only relevant changes**  
-   Avoid modifications to unrelated files or addition of unnecessary files (e.g. your full virtual environment).  
+4. Make sure your pull request includes **only relevant changes**.
+   Avoid modifications to unrelated files or addition of unnecessary files (e.g. your full virtual environment).
    Ideally, your PR should consist of a single commit (use `git rebase` and `squash` to clean your history).
 5. Ensure that your code **follows the current coding style**:
    - Use spaces for indentation, matching the existing style of the file you're editing
