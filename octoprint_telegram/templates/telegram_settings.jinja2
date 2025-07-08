@@ -385,8 +385,8 @@
                                              width="40px"
                                              height="40px"
                                              class="img-circle teleUsrPic"
-                                             alt="User Profile Photo"
-                                             title="User Profile Photo">
+                                             alt="Chat profile photo"
+                                             title="Chat profile photo">
                                     </div>
                                     <div>
                                         <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;
@@ -437,12 +437,12 @@
                                     <span>
                                         <a href="#"
                                            class="icon-pencil icon-large"
-                                           title="Update user settings"
+                                           title="Update chat settings"
                                            data-bind="click: function() { $root.showEditChatDialog($data);}"></a>&nbsp;&nbsp;|&nbsp;
                                     </span>
                                     <a href="#"
                                        class="icon-trash icon-large"
-                                       title="Delete user"
+                                       title="Delete chat"
                                        data-bind="click:  function() { $root.delChat($data);}"></a>
                                 </td>
                             </tr>
@@ -542,7 +542,7 @@
      class="modal modal-full hide fade">
     <div class="modal-header">
         <h4>
-            <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit user: <span data-bind="text: currChatTitle"></span>
+            <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit chat: <span data-bind="text: currChatTitle"></span>
         </h4>
     </div>
     <div class="modal-body">

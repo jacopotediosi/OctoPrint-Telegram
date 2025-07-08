@@ -808,7 +808,7 @@ class TelegramPlugin(
 
         self.start_bot()
 
-        # Delete user profile photos if user doesn't exist anymore
+        # Delete chat profile photos if user doesn't exist anymore
         img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
         for filename in os.listdir(img_user_dir):
             file_path = os.path.join(img_user_dir, filename)
@@ -822,7 +822,7 @@ class TelegramPlugin(
                     except OSError:
                         self._logger.exception(f"Caught an exception removing file {file_path}")
 
-        # Update user profile photos
+        # Update chat profile photos
         for chat_id in self._settings.get(["chats"]):
             try:
                 if chat_id != "zBOTTOMOFCHATS":
