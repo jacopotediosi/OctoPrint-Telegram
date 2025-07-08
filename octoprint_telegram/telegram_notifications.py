@@ -23,6 +23,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint starts",
     },
     "PrinterShutdown": {
         "text": "{emo:shutdown} Shutting down. Goodbye.",
@@ -30,6 +31,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint shuts down",
     },
     "PrintStarted": {
         "text": "{emo:play} Started printing {file}.",
@@ -37,6 +39,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when a print starts",
     },
     "PrintPaused": {
         "text": "{emo:pause} Paused printing {file} at {percent}%. {time_left} remaining.",
@@ -44,6 +47,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when a print is paused",
     },
     "PrintResumed": {
         "text": "{emo:resume} Resumed printing {file} at {percent}%. {time_left} remaining.",
@@ -51,6 +55,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when a print is resumed",
     },
     "PrintFailed": {
         "text": "{emo:attention} Printing {file} failed.",
@@ -58,6 +63,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when a print fails",
     },
     "ZChange": {
         "text": "Printing at Z={z}.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.\n{time_done}, {percent}% done, {time_left} remaining.\nCompleted time {time_finish}.",
@@ -65,6 +71,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when the printer's Z-height changes (new layer)",
     },
     "PrintDone": {
         "text": "{emo:finish} Finished printing {file}.",
@@ -72,6 +79,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when a print completes successfully",
     },
     "StatusNotPrinting": {
         "text": "Not printing.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
@@ -80,14 +88,20 @@ telegramMsgDict = {
         "gif": False,
         "markup": "off",
         "no_setting": True,
+        "desc": "Triggered on user request when no print is running",
     },
-    "StatusPrinting": {"bind_msg": "ZChange", "no_setting": True},
+    "StatusPrinting": {
+        "bind_msg": "ZChange",
+        "no_setting": True,
+        "desc": "Triggered on user request when a print is running",
+    },
     "plugin_pause_for_user_event_notify": {
         "text": "{emo:warning} User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when the printer requests user interaction, via 'echo:busy: paused for user' or '//action:paused' on the serial line",
     },
     "gCode_M600": {
         "text": "{emo:warning} Color change requested.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
@@ -95,6 +109,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint sends the M600 G-code (filament change) to the printer - only for prints started via OctoPrint",
     },
     "Error": {
         "text": "{emo:attention} Printer Error {error_msg}.",
@@ -102,14 +117,20 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered in case of an unrecoverable error (e.g., thermal runaway or connection loss)",
     },
-    "plugin_octolapse_movie_done": {"bind_msg": "MovieDone", "no_setting": True},
+    "plugin_octolapse_movie_done": {
+        "bind_msg": "MovieDone",
+        "no_setting": True,
+        "desc": "Triggered when the Octolapse plugin finishes rendering the movie",
+    },
     "MovieDone": {
         "text": "{emo:movie} Movie done.",
         "image": False,
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when the timelapse movie is completed",
     },
     "Connected": {
         "text": "{emo:online} Printer Connected.",
@@ -117,6 +138,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint connects to the printer",
     },
     "Disconnected": {
         "text": "{emo:offline} Printer Disconnected.",
@@ -124,6 +146,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when the printer disconnects from OctoPrint",
     },
     "Home": {
         "text": "{emo:home} Printer received home command\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
@@ -131,6 +154,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint sends the home command (G-code G28) to the printer",
     },
     "Alert": {
         "text": "{emo:notify} Printer received alert command\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
@@ -138,6 +162,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when OctoPrint sends the M300 G-code to sound the printer buzzer",
     },
     "UserNotif": {
         "text": "{emo:notify} User Notification: {UserNotif_Text}.",
@@ -145,6 +170,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
+        "desc": "Triggered when the printer sends 'echo:UserNotif TEXT' over serial, e.g. from a G-code like 'M118 E1 UserNotif TEXT'",
     },
 }
 

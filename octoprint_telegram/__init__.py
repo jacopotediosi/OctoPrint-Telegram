@@ -1169,50 +1169,59 @@ class TelegramPlugin(
         if not Permissions.SETTINGS.can():
             return "Insufficient permissions", 403
 
-        return self.get_chat_settings("bindings" in request.args)
+        return self.get_chat_settings(request.args)
 
-    def get_chat_settings(self, bindings=False):
-        if bindings:
+    def get_chat_settings(self, request_args=None):
+        # /?bindings
+        if request_args and "bindings" in request_args:
             bind_text = {}
-            for key in {k: v for k, v in telegramMsgDict.items() if "bind_msg" in v}:
-                if telegramMsgDict[key]["bind_msg"] in bind_text:
-                    bind_text[telegramMsgDict[key]["bind_msg"]].append(key)
-                else:
-                    bind_text[telegramMsgDict[key]["bind_msg"]] = [key]
+            for key, value in telegramMsgDict.items():
+                if "bind_msg" in value:
+                    msg_key = value["bind_msg"]
+                    bind_text.setdefault(msg_key, []).append({key: value.get("desc", "No description provided")})
             return jsonify(
                 {
-                    "bind_cmd": [k for k, v in self.tcmd.commandDict.items() if "bind_none" not in v],
-                    "bind_msg": [k for k, v in telegramMsgDict.items() if "bind_msg" not in v],
+                    "bind_cmd": {
+                        k: v.get("desc", "No description provided")
+                        for k, v in self.tcmd.commandDict.items()
+                        if "bind_none" not in v
+                    },
+                    "bind_msg": {
+                        k: v.get("desc", "No description provided")
+                        for k, v in telegramMsgDict.items()
+                        if "bind_msg" not in v
+                    },
                     "bind_text": bind_text,
                     "no_setting": [k for k, v in telegramMsgDict.items() if "no_setting" in v],
                 }
             )
-        else:
-            ret_chats = {
-                k: v for k, v in self._settings.get(["chats"]).items() if "delMe" not in v and k != "zBOTTOMOFCHATS"
-            }
-            for chat_id in ret_chats:
-                if os.path.isfile(
-                    os.path.join(
-                        self.get_plugin_data_folder(),
-                        "img",
-                        "user",
-                        os.path.basename(f"pic{chat_id}.jpg"),
-                    )
-                ):
-                    ret_chats[chat_id]["image"] = f"/plugin/telegram/img/user/pic{chat_id}.jpg"
-                elif is_group_or_channel(chat_id):
-                    ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/group.jpg"
-                else:
-                    ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
 
-            return jsonify(
-                {
-                    "chats": ret_chats,
-                    "connection_state_str": self.connection_state_str,
-                    "connection_ok": self.connection_ok,
-                }
-            )
+        # /
+        ret_chats = {
+            k: v for k, v in self._settings.get(["chats"]).items() if "delMe" not in v and k != "zBOTTOMOFCHATS"
+        }
+        for chat_id in ret_chats:
+            if os.path.isfile(
+                os.path.join(
+                    self.get_plugin_data_folder(),
+                    "img",
+                    "user",
+                    os.path.basename(f"pic{chat_id}.jpg"),
+                )
+            ):
+                ret_chats[chat_id]["image"] = f"/plugin/telegram/img/user/pic{chat_id}.jpg"
+            elif is_group_or_channel(chat_id):
+                ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/group.jpg"
+            else:
+                ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
+
+        return jsonify(
+            {
+                "chats": ret_chats,
+                "connection_state_str": self.connection_state_str,
+                "connection_ok": self.connection_ok,
+            }
+        )
 
     def get_api_commands(self):
         return dict(

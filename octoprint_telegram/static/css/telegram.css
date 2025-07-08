@@ -63,3 +63,8 @@
 .form-horizontal .reveal-wrapper + .help-block {
     margin-top: 10px;
 }
+
+/* Tables */
+.table-vcenter td {
+    vertical-align: middle;
+}
