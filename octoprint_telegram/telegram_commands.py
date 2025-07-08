@@ -57,7 +57,7 @@ class TCMD:
             "/print": {
                 "cmd": self.cmdPrint,
                 "param": True,
-                "desc": "Start a print job (confirmation required)",
+                "desc": "Print the loaded file (confirmation required) or browse files",
             },
             "/tune": {
                 "cmd": self.cmdTune,
@@ -406,34 +406,30 @@ class TCMD:
         )
 
     def cmdPrint(self, chat_id, from_id, cmd, parameter, user=""):
+        if not self.main._printer.is_ready():
+            self.main.send_msg(
+                f"{get_emoji('warning')} Can't start a new print, printer is not ready. Printer status: {self.main._printer.get_state_string()}",
+                chatID=chat_id,
+            )
+            return
+
         if parameter and len(parameter.split("|")) == 1:
-            if parameter == "s":  # start print
+            if parameter == "s":  # print the loaded file
                 data = self.main._printer.get_current_data()
                 if data["job"]["file"]["name"] is None:
                     self.main.send_msg(
-                        f"{get_emoji('warning')} Uh oh... No file is selected for printing. Did you select one using /list?",
+                        f"{get_emoji('warning')} Uh oh... No file is selected for printing. Did you select one using /files?",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
-                elif not self.main._printer.is_operational():
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} Can't start printing: I'm not connected to a printer.",
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                elif self.main._printer.is_printing():
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} A print job is already running. You can't print two thing at the same time. Maybe you want to use /abort?",
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                else:
-                    self.main._printer.start_print(user=user)
-                    self.main.send_msg(
-                        f"{get_emoji('rocket')} Started the print job.",
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
+                    return
+
+                self.main._printer.start_print(user=user)
+                self.main.send_msg(
+                    f"{get_emoji('rocket')} Started the print job.",
+                    chatID=chat_id,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                )
             elif parameter == "x":  # do not print
                 self.main._printer.unselect_file()
                 self.main.send_msg(
@@ -441,24 +437,25 @@ class TCMD:
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
-            else:  # prepare print
+            else:  # prepare print (load and ask for confirm)
                 self._logger.debug(f"Looking for hash: {parameter}")
                 destination, file, f = self.find_file_by_hash(parameter)
                 if file is None:
-                    msg = f"{get_emoji('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /list again?"
+                    msg = f"{get_emoji('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /files again?"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
-                        noMarkup=True,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
+
                 if destination == octoprint.filemanager.FileDestinations.SDCARD:
                     self.main._printer.select_file(file, True, printAfterSelect=False)
                 else:
                     file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
                     self._logger.debug(f"Using full path: {file}")
                     self.main._printer.select_file(file, False, printAfterSelect=False)
+
                 data = self.main._printer.get_current_data()
                 if data["job"]["file"]["name"] is not None:
                     msg = (
@@ -467,7 +464,6 @@ class TCMD:
                     )
                     self.main.send_msg(
                         msg,
-                        noMarkup=True,
                         msg_id=self.main.get_update_msg_id(chat_id),
                         responses=[
                             [
@@ -483,20 +479,37 @@ class TCMD:
                         ],
                         chatID=chat_id,
                     )
-                elif not self.main._printer.is_operational():
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} Can't start printing: I'm not connected to a printer.",
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
                 else:
                     self.main.send_msg(
                         f"{get_emoji('warning')} Uh oh... Problems on loading the file for print.",
                         chatID=chat_id,
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
-        else:
-            self.cmdFiles(chat_id, from_id, cmd, parameter, user)
+        else:  # offer the already loaded file or open files listing
+            data = self.main._printer.get_current_data()
+            if data["job"]["file"]["name"] is not None:
+                msg = (
+                    f"{get_emoji('info')} The file {data['job']['file']['name']} is already loaded.\n\n"
+                    f"{get_emoji('question')} What do you want to do?"
+                )
+                self.main.send_msg(
+                    msg,
+                    responses=[
+                        [
+                            [
+                                f"{get_emoji('play')} Print it",
+                                "/print_s",
+                            ],
+                            [
+                                f"{get_emoji('folder')} List files",
+                                "/files",
+                            ],
+                        ]
+                    ],
+                    chatID=chat_id,
+                )
+            else:
+                self.cmdFiles(chat_id, from_id, cmd, parameter, user)
 
     def cmdFiles(self, chat_id, from_id, cmd, parameter, user=""):
         try:

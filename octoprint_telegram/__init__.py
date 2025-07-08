@@ -439,7 +439,6 @@ class TelegramListener(threading.Thread):
                 )
                 self.main.send_msg(
                     response_message,
-                    noMarkup=True,
                     msg_id=self.main.get_update_msg_id(chat_id),
                     responses=[
                         [
@@ -1387,8 +1386,8 @@ class TelegramPlugin(
             self._logger.exception("Caught an exception in send_msg()")
 
     # This method is used to update a message text of a sent message.
-    # The sent message had to have no_markup = true when calling send_msg() (otherwise it would not work)
-    # by setting no_markup = true we got a messageg_id on sending the message which is saved in self.update_message_id.
+    # The sent message had to have markup="off" when calling send_msg() (otherwise it would not work)
+    # by setting markup="off" we got a messagge_id on sending the message which is saved in self.update_message_id.
     # If this message_id is passed in msg_id to send_msg() then this method will be called.
     def _send_edit_msg(
         self,
