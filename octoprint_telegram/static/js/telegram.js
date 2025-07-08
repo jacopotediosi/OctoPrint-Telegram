@@ -31,8 +31,6 @@ $(function () {
       [],
       999)
 
-    self.cmdCnt = 1
-    self.msgCnt = 1
     self.reloadPending = 0
     self.reloadUsr = ko.observable(false)
     self.connection_state_str = ko.observable('Unknown')
@@ -82,45 +80,59 @@ $(function () {
 
     self.requestBindings = function () {
       self.isloading(true)
-      OctoPrint.simpleApiGet(self.pluginIdentifier, {
-        data: { bindings: true }
-      }).done((response) => self.fromBindings(response))
+      OctoPrint.simpleApiGet(self.pluginIdentifier + '?bindings')
+        .done((response) => self.fromBindings(response))
     }
 
     self.fromBindings = function (response) {
-      self.bind = {}
-      self.bind.commands = response.bind_cmd
-      self.bind.notifications = response.bind_msg
-      self.bind.no_setting = response.no_setting
-      self.bind.bind_text = response.bind_text
+      self.bind = {
+        commands: response.bind_cmd,
+        notifications: response.bind_msg,
+        no_setting: response.no_setting,
+        bind_text: response.bind_text
+      }
 
       self.onBindLoad = true
       $('#telegram_msg_list').empty()
-      const keys = self.bind.notifications.sort()
-      for (const id in keys) {
-        let bind_text = ''
-        if (keys[id] in self.bind.bind_text) {
-          const ks = self.bind.bind_text[keys[id]].sort()
-          const aliasList = ks.join(', ')
-          bind_text = `<span class="muted"><br /><small>Also for: ${aliasList}</small></span>`
+
+      const keys = Object.keys(self.bind.notifications).sort()
+
+      // For each event
+      keys.forEach((eventName, index) => {
+        const eventDesc = self.bind.notifications[eventName] || 'No description provided'
+
+        // Event aliases
+        let eventAliases = ''
+        if (eventName in self.bind.bind_text) {
+          const aliasList = self.bind.bind_text[eventName]
+            .map(obj => {
+              const aliasName = Object.keys(obj)[0]
+              const aliasDesc = obj[aliasName]
+              const descPart = aliasDesc ? ` (${aliasDesc.charAt(0).toLowerCase() + aliasDesc.slice(1)})` : ''
+              return `<li>${aliasName}${descPart}</li>`
+            })
+            .join('')
+          eventAliases = `<br /><br /><small>Also for:<ul>${aliasList}</ul></small>`
         }
 
-        const btnImg = `
+        // Img switch
+        const imgSwitch = `
           <div class="switch-container" style="margin: 5px 0;">
             <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-              <span>Send camera photos &#x1F4F7;</span>
+              <span>&#x1F4F7; Send camera photos</span>
               <input
                 type="checkbox"
                 style="display:none"
                 class="switch-input"
-                data-bind="checked: settings.settings.plugins.telegram.messages.${keys[id]}.image"
+                data-bind="checked: settings.settings.plugins.telegram.messages.${eventName}.image"
               />
               <span class="switch-slider"></span>
             </label>
           </div>
         `
 
-        const btnGif = `
+        // Gif switch
+        const gifSwitch = `
           <div class="switch-container" style="margin: 5px 0;">
             <label
               class="switch-label"
@@ -129,13 +141,13 @@ $(function () {
                 title: !settings.settings.plugins.telegram.send_gif() ? 'Check \\'Enable gifs\\' setting to use this option' : null
               }"
             >
-              <span>Send camera gifs &#x1F3A5;</span>
+              <span>&#x1F3A5; Send camera gifs</span>
               <input
                 type="checkbox"
                 style="display:none"
                 class="switch-input"
                 data-bind="
-                  checked: settings.settings.plugins.telegram.messages.${keys[id]}.gif,
+                  checked: settings.settings.plugins.telegram.messages.${eventName}.gif,
                   enable: settings.settings.plugins.telegram.send_gif
                 "
               />
@@ -144,80 +156,71 @@ $(function () {
           </div>
         `
 
-        const btnSilent = `
+        // Silent switch
+        const silentSwitch = `
           <div class="switch-container" style="margin: 5px 0;">
             <label class="switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-              <span>Send silently &#128263;</span>
+              <span>&#128263; Send silently</span>
               <input
                 type="checkbox"
                 style="display:none"
                 class="switch-input"
-                data-bind="checked: settings.settings.plugins.telegram.messages.${keys[id]}.silent"
+                data-bind="checked: settings.settings.plugins.telegram.messages.${eventName}.silent"
               />
               <span class="switch-slider"></span>
             </label>
           </div>
         `
 
-        const currentMarkup = self.settings.settings.plugins.telegram.messages[keys[id]].markup() || 'off'
-        self.markupFrom[self.msgCnt] = currentMarkup
-
-        const btnMarkupGrp = `
+        // Markup buttons group
+        const currentMarkup = self.settings.settings.plugins.telegram.messages[eventName].markup() || 'off'
+        self.markupFrom[index] = currentMarkup
+        const markupButtonsGroup = `
           <span>
             <span>Markup Selection</span><br>
             <span class="btn-group" data-toggle="buttons-radio">
-              <button
-                type="button"
-                class="btn btn-mini${currentMarkup === 'off' ? ' active' : ''}"
-                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','off','${keys[id]}')"
-              >Off</button>
-              <button
-                type="button"
-                class="btn btn-mini${currentMarkup === 'HTML' ? ' active' : ''}"
-                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','HTML','${keys[id]}')"
-              >HTML</button>
-              <button
-                type="button"
-                class="btn btn-mini${currentMarkup === 'Markdown' ? ' active' : ''}"
-                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','Markdown','${keys[id]}')"
-              >Markdown</button>
-              <button
-                type="button"
-                class="btn btn-mini${currentMarkup === 'MarkdownV2' ? ' active' : ''}"
-                data-bind="click: toggleMarkup.bind($data,'${self.msgCnt}','MarkdownV2','${keys[id]}')"
-              >MarkdownV2</button>
+              <button type="button" class="btn btn-mini${currentMarkup === 'off' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${index}','off','${eventName}')">Off</button>
+              <button type="button" class="btn btn-mini${currentMarkup === 'HTML' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${index}','HTML','${eventName}')">HTML</button>
+              <button type="button" class="btn btn-mini${currentMarkup === 'Markdown' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${index}','Markdown','${eventName}')">Markdown</button>
+              <button type="button" class="btn btn-mini${currentMarkup === 'MarkdownV2' ? ' active' : ''}"
+                data-bind="click: toggleMarkup.bind($data,'${index}','MarkdownV2','${eventName}')">MarkdownV2</button>
             </span><br>
           </span>
         `
 
-        const msgEdt = `
-          <div id="telegramMsgText${self.msgCnt}" style="margin-bottom: 20px;">
-            <label for="textarea${self.msgCnt}" style="display: block; font-weight: bold; margin-bottom: 6px;">
-              ${keys[id]}${bind_text}
+        // Append the notification message entry
+        const msgListEntry = `
+          <div id="telegramMsgText${index}" style="margin-bottom: 20px;">
+            <label for="textarea${index}" style="display: block; font-weight: bold; margin-bottom: 6px;">
+              ${eventName}<br />
+              <span class="muted">
+                ${eventDesc}
+                ${eventAliases}
+              </span>
             </label>
-            <textarea
-              id="textarea${self.msgCnt}"
-              rows="5"
-              style="width: 100%; box-sizing: border-box; margin-bottom: 10px;"
-              data-bind="value: settings.settings.plugins.telegram.messages.${keys[id]}.text"
-            ></textarea>
+            <textarea id="textarea${index}" rows="5" style="width: 100%; box-sizing: border-box; margin-bottom: 10px;"
+              data-bind="value: settings.settings.plugins.telegram.messages.${eventName}.text"></textarea>
 
             <div style="display: flex; justify-content: space-around; margin-bottom: 10px;">
-              ${btnImg}${btnGif}${btnSilent}
+              ${imgSwitch}
+              ${gifSwitch}
+              ${silentSwitch}
             </div>
 
             <div style="text-align: center;">
-              ${btnMarkupGrp}
+              ${markupButtonsGroup}
             </div>
           </div>
           <hr style="margin:20px">
         `
+        $('#telegram_msg_list').append(msgListEntry)
+        ko.applyBindings(self, $('#telegramMsgText' + index)[0])
+      })
 
-        $('#telegram_msg_list').append(msgEdt)
-        ko.applyBindings(self, $('#telegramMsgText' + self.msgCnt++)[0])
-      }
       self.isloading(false)
-
       self.onBindLoad = false
     }
 
@@ -388,18 +391,72 @@ $(function () {
     }
 
     self.showEditCmdDialog = function (data, option) {
-      if (data === undefined) return
-      self.currChatTitle('Edit ' + option + ': ' + data.title)
-      for (self.cmdCnt; self.cmdCnt > 0; self.cmdCnt--) { $('#telegram-cmd-chkbox' + (self.cmdCnt - 1)).remove() }
-      const keys = self.bind[option].sort()
-      for (const id in keys) {
-        if (self.bind.no_setting.indexOf(keys[id]) < 0) {
-          $('#telegram-cmd-chkbox-grp').append('<span id="telegram-cmd-chkbox' + self.cmdCnt + '"><label class="checkbox"><input  type="checkbox" data-bind="checked: settings.settings.plugins.telegram.chats[\'' + data.id + '\'][\'' + option + '\'][\'' + keys[id] + '\']"> <span>' + keys[id] + '</span><label></span>')
-          ko.applyBindings(self, $('#telegram-cmd-chkbox' + self.cmdCnt++)[0])
+      if (!data) return
+
+      self.currChatTitle(`Edit ${option}: ${data.title}`)
+
+      const labelText = option === 'commands' ? 'Allowed commands:' : 'Get notifications at:'
+      $('#tele-edit-control-label').html(`<strong>${labelText}</strong>`)
+
+      const keyLabel = option === 'commands' ? 'Command' : 'Event'
+      $('#telegram-cmd-key-header').text(keyLabel)
+
+      $('#telegram-cmd-chkbox-grp').empty()
+
+      const entries = Object.entries(self.bind[option])
+        .filter(([key]) => !self.bind.no_setting.includes(key))
+        .sort(([a], [b]) => a.localeCompare(b))
+
+      entries.forEach(([key, desc], index) => {
+        desc = desc || 'No description provided'
+
+        const allNames = [`<code>${key}</code>`]
+        const allDescs = [desc]
+
+        if (option === 'notifications' && key in self.bind.bind_text) {
+          const aliases = self.bind.bind_text[key]
+          aliases.forEach(obj => {
+            const alias = Object.keys(obj)[0]
+            allNames.push(`<code>${alias}</code>`)
+            allDescs.push(obj[alias])
+          })
         }
-      }
-      $('#tele-edit-control-label').empty()
-      if (option === 'commands') { $('#tele-edit-control-label').append('<strong>Allowed commands:</strong>') } else { $('#tele-edit-control-label').append('<strong>Get Notification at...</strong>') }
+
+        const aliasNamesBlock = allNames.join('<hr style="margin:4px 0;">')
+        const aliasDescsBlock = allDescs.join('<hr style="margin:4px 0;">')
+
+        const checkboxHtml = `
+          <tr id="telegram-cmd-chkbox${index}">
+            <td style="text-align:center;">
+              <input type="checkbox"
+                    data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['${option}']['${key}']">
+            </td>
+            <td>${aliasNamesBlock}</td>
+            <td>${aliasDescsBlock}</td>
+          </tr>
+        `
+
+        const $element = $(checkboxHtml).appendTo('#telegram-cmd-chkbox-grp')
+        ko.applyBindings(self, $element[0])
+      })
+
+      $('#tele-enable-all').off('click').on('click', function () {
+        const chat = self.settings.settings.plugins.telegram.chats[data.id][option]
+        for (const key in chat) {
+          if (Object.prototype.hasOwnProperty.call(chat, key)) {
+            chat[key](true)
+          }
+        }
+      })
+      $('#tele-disable-all').off('click').on('click', function () {
+        const chat = self.settings.settings.plugins.telegram.chats[data.id][option]
+        for (const key in chat) {
+          if (Object.prototype.hasOwnProperty.call(chat, key)) {
+            chat[key](false)
+          }
+        }
+      })
+
       self.editCmdDialog.modal('show')
     }
 

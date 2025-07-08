@@ -21,7 +21,7 @@
                 <a href="#tabSettings" data-toggle="tab">General settings</a>
             </li>
             <li>
-                <a href="#tabPermissions" data-toggle="tab">Permissions</a>
+                <a href="#tabChats" data-toggle="tab">Chats</a>
             </li>
             <li>
                 <a href="#tabMessages" data-toggle="tab">Notification messages</a>
@@ -338,8 +338,8 @@
                     </div>
                 </div>
             </div>
-            <!-- TAB PERMISSIONS -->
-            <div class="tab-pane" id="tabPermissions">
+            <!-- TAB CHATS -->
+            <div class="tab-pane" id="tabChats">
                 <legend>Known chats</legend>
                 <div style="float:left;
                             padding:0px 0px 0px 0px;
@@ -569,7 +569,8 @@
     </div>
 </div>
 <!-- EDIT COMMANDS / NOTIFICATIONS DIALOG -->
-<div id="settings-telegramDialogEditCommands" class="modal hide fade">
+<div id="settings-telegramDialogEditCommands"
+     class="modal modal-full hide fade">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
             <i class="fas fa-times"></i>
@@ -579,14 +580,31 @@
         </h4>
     </div>
     <div class="modal-body">
-        <form class="form-horizontal">
-            <div class="control-group">
-                <label class="control-label" id="tele-edit-control-label"></label>
-                <div class="controls" id="telegram-cmd-chkbox-grp"></div>
-            </div>
-            <div class="alert alert-warning" style="margin-top: 20px;">
+        <form class="form-horizontal" style="width: 80%; margin: auto;">
+            <div class="alert alert-warning" style="margin-top: 10px;">
                 Remember to click <strong>Save</strong> after closing this dialog to apply changes.
             </div>
+            <div style="display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px">
+                <h4 id="tele-edit-control-label" style="margin: 0;"></h4>
+                <div>
+                    <button type="button" class="btn" id="tele-enable-all">Enable all</button>
+                    <button type="button" class="btn" id="tele-disable-all">Disable all</button>
+                </div>
+            </div>
+            <table class="table table-vcenter table-striped" id="telegram-cmd-table">
+                <thead>
+                    <tr>
+                        <th style="width:10%; text-align: center;">Enabled</th>
+                        <th id="telegram-cmd-key-header" style="width:30%;">Key</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="telegram-cmd-chkbox-grp">
+                </tbody>
+            </table>
         </form>
     </div>
 </div>
