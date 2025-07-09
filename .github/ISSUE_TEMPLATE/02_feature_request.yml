@@ -1,0 +1,31 @@
+name: ✨ Request a feature
+description: Request a new feature to implement in OctoPrint-Telegram
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Thank you for wanting to request a new feature in OctoPrint-Telegram!**
+
+        Before sending your request, please take a few moments to read through the
+        [Contribution Guidelines](https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/CONTRIBUTING.md#reporting-bugs).
+
+        Thank you for your collaboration!
+  - type: textarea
+    attributes:
+      label: The problem
+      description: Please provide a clear and concise description of what kind of problem your requested feature is supposed to solve. Eg, "I'm always frustrated when [...]".
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Please provide a clear and concise description of what you want to happen.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Alternative solutions
+      description: A clear and concise description of any alternative solutions or features you've considered.
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Add any other context, screenshots and videos about the feature request here.
