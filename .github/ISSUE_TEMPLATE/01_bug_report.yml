@@ -1,0 +1,127 @@
+name: 🐛 Report a bug
+description: Help improve OctoPrint-Telegram by reporting observed bugs
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Thank you for wanting to report a bug in OctoPrint-Telegram!**
+
+        Before sending your report, please take a few moments to read through the
+        [Contribution Guidelines](https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/CONTRIBUTING.md#reporting-bugs).
+
+        Thank you for your collaboration!
+  - type: markdown
+    attributes:
+      value: |
+        ## Preliminary checklist
+  - type: checkboxes
+    attributes:
+      label: A friendly checklist before filing your bug report
+      options:
+        - label: I have verified that the bug concerns or is caused by OctoPrint-Telegram
+          required: true
+        - label: I have verified that the bug occurs with the latest version of OctoPrint-Telegram
+          required: true
+        - label: I have verified that there isn't already an open issue for this bug
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        ## The problem
+  - type: textarea
+    attributes:
+      label: Bug description
+      description: >-
+        Describe the issue you are experiencing here.
+        Tell us step by step what you were trying to do, what you expected to happen, and what actually
+        happened that you did not expect.
+
+        Provide a clear and concise description of the problem and include as many details as possible.
+        Remember, we cannot see your screen or access your instance;
+        we need your help to understand what is going wrong in the first place.
+      placeholder: |
+        Steps to reproduce:
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment
+  - type: input
+    attributes:
+      label: Version of OctoPrint
+      description: Can be found in the lower left corner of the OctoPrint web interface.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Operating system running OctoPrint
+      description: >-
+        OctoPi, Linux, Windows, MacOS, something else? Which version? The OctoPi
+        version can be found in `/etc/octopi_version` or in the lower left corner of the
+        OctoPrint web interface.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Version of OctoPrint-Telegram
+      description: Can be found in the plugin settings.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Browser and browser version, operating system running the browser
+      description: For UI-related bugs only.
+  - type: textarea
+    attributes:
+      label: Additional details
+      description: >-
+        Write here any particularities of your setup compared to the default
+        (changed settings, special plugins installed, etc.)
+  - type: markdown
+    attributes:
+      value: |
+        ## Logs and other files needed for analysis
+  - type: checkboxes
+    attributes:
+      label: >-
+        Make sure to attach the following files in the textarea below.
+        Please be aware that issues without logs will be closed without a response.
+      options:
+        - label: >-
+            OctoPrint Systeminfo Bundle.
+            See [here](https://community.octoprint.org/t/what-is-a-systeminfo-bundle-and-how-can-i-obtain-one/29887)
+            if you don't know where to find that.
+          required: true
+        - label: >-
+            Plugin logs, preferably captured with debug-level logging enabled.
+            See [here](https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Where-are-the-logs%3F)
+            if you don't know where to find them.
+          required: true
+        - label: >-
+            JavaScript console logs from your browser.
+            See [here](https://webmasters.stackexchange.com/questions/8525/how-to-open-the-javascript-console-in-different-browsers)
+            if you don't know where to find them.
+        - label: Screenshots and/or videos showing the problem.
+  - type: textarea
+    attributes:
+      label: Additional information & file uploads
+  - type: markdown
+    attributes:
+      value: |
+        ## Final checklist
+  - type: checkboxes
+    attributes:
+      label: Final checklist
+      options:
+        - label: >-
+            The title I chose for this issue clearly describes the bug (no "please help" or "it doesn't work")
+            and is under 100 characters
+          required: true
+        - label: >-
+            This report is about a single bug only (if you encounter more than one bug, open a separate ticket for each)
+          required: true
