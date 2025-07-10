@@ -39,7 +39,6 @@ from .telegram_utils import TOKEN_REGEX, TelegramUtils, is_group_or_channel
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 get_emoji = Emoji.get_emoji
-bytes_reader_class = io.BytesIO
 
 
 ####################################################
@@ -1735,7 +1734,7 @@ class TelegramPlugin(
             os.path.basename(f"pic{chat_id}.jpg"),
         )
 
-        img = Image.open(bytes_reader_class(img_bytes))
+        img = Image.open(io.BytesIO(img_bytes))
         img = img.resize((40, 40), Image.LANCZOS)
         img.save(output_filename, format="JPEG")
 
@@ -1994,21 +1993,23 @@ class TelegramPlugin(
 
         image_content = r.content
 
-        if flipH or flipV or rotate:
-            self._logger.debug(f"Image transformations [H:{flipH}, V:{flipV}, R:{rotate}]")
-            image = Image.open(bytes_reader_class(image_content))
-            if flipH:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            if flipV:
-                image = image.transpose(Image.FLIP_TOP_BOTTOM)
-            if rotate:
-                image = image.transpose(Image.ROTATE_90)
-            output = bytes_reader_class()
-            image.save(output, format="JPEG")
-            image_content = output.getvalue()
-            output.close()
+        with io.BytesIO(image_content) as image_buffer:
+            with Image.open(image_buffer) as image:
+                image.load()
 
-        return image_content
+                if any([flipH, flipV, rotate]):
+                    self._logger.debug(f"Applying image transformations: flipH={flipH}, flipV={flipV}, rotate={rotate}")
+
+                    if flipH:
+                        image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                    if flipV:
+                        image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                    if rotate:
+                        image = image.transpose(Image.ROTATE_90)
+
+                with io.BytesIO() as output:
+                    image.save(output, format="JPEG")
+                    return output.getvalue()
 
     def take_all_gifs(self, duration=5) -> List[str]:
         taken_gif_paths = []
@@ -2050,7 +2051,7 @@ class TelegramPlugin(
     ) -> str:
         stream_url = urljoin("http://localhost/", stream_url)
 
-        self._logger.debug(f"Taking gifs from url: {stream_url}")
+        self._logger.debug(f"Taking gif from url: {stream_url}")
 
         gif_path = os.path.join(self.get_tmpgif_dir(), gif_filename)
 
@@ -2139,8 +2140,11 @@ class TelegramPlugin(
         cmd.append(gif_path)
 
         self._logger.debug(f"Creating video by running command {cmd}")
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=True)
         self._logger.debug("Video created")
+
+        if not os.path.isfile(gif_path):
+            raise FileNotFoundError(f"Expected gif file was not created: {gif_path}")
 
         return gif_path
 
