@@ -1,9 +1,5 @@
-# Development Utils
+# Development Utilities
 
-In this folder you find the following utils:
-* **datastructures** - some known structures of data from OctoPrint or Telegram (like PrinterStatus or Messages) to look things up
-* **emoji** - python helper to generate the emoji dictionary
-* **NOTES.txt** - some notes containing bugs, feature requests an more
-
-
-See README in the folders for details!
+This folder contains the following development resources:
+* **datastructures** - Known data structures used by OctoPrint and Telegram (e.g., PrinterStatus, Messages) for reference and lookup.
+* **emoji** - A Python helper script to update the emoji dictionary.
