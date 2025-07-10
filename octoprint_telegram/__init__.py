@@ -1917,10 +1917,10 @@ class TelegramPlugin(
 
         # Fallback to Multicam plugin
         if not webcam_profiles:
+            self._logger.warning("No webcams found via the new integration, falling back to Multicam plugin")
+
             try:
                 if self._plugin_manager.get_plugin("multicam", True):
-                    self._logger.debug("Getting webcam profiles from multicam")
-
                     multicam_profiles = self._settings.global_get(["plugins", "multicam", "multicam_profiles"]) or []
                     self._logger.debug(f"Multicam profiles: {multicam_profiles}")
 
@@ -1934,14 +1934,16 @@ class TelegramPlugin(
                             rotate90=bool(multicam_profile.get("rotate90", False)),
                         )
                         webcam_profiles.append(webcam_profile)
+                else:
+                    self._logger.warning("Multicam not installed or disabled")
             except Exception:
-                self._logger.exception("Caught exception getting multicam profiles")
+                self._logger.exception("Caught exception getting Multicam profiles")
 
         # Fallback to legacy webcam settings
         if not webcam_profiles:
-            try:
-                self._logger.debug("Getting webcam profiles from legacy webcam settings")
+            self._logger.warning("No webcams found via Multicam, falling back to legacy webcam settings")
 
+            try:
                 webcam_profile = WebcamProfile(
                     name=self._settings.global_get(["webcam", "name"]),
                     snapshot=self._settings.global_get(["webcam", "snapshot"]),
