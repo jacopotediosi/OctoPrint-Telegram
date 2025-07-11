@@ -347,7 +347,7 @@ class TCMD:
                 msg_id=self.main.get_update_msg_id(chat_id),
             )
         else:
-            if self.main._printer.is_printing():
+            if self.main._printer.is_printing() or self.main._printer.is_paused():
                 self.main.send_msg(
                     f"{get_emoji('question')} Really abort the currently running print?",
                     responses=[
