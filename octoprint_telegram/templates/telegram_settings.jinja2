@@ -45,13 +45,13 @@
                     <div class="controls">
                         <div class="reveal-wrapper">
                             <input type="password"
-                                   id="settings_plugin_telegram_token"
+                                   id="telegram-settings-token"
                                    class="reveal-input"
                                    data-bind="value: settings.settings.plugins.telegram.token" />
                             <button type="button"
                                     class="btn reveal-btn"
                                     data-toggle="reveal"
-                                    data-target="#settings_plugin_telegram_token"
+                                    data-target="#telegram-settings-token"
                                     title="Show">
                                 <i class="fa fa-eye"></i>
                             </button>
@@ -62,13 +62,13 @@
                     <label class="control-label">Test token</label>
                     <div class="controls">
                         <button class="btn"
-                                data-bind="click: testToken, disable:isloading()"
+                                data-bind="click: function() { testToken($('#telegram-settings-token').val()) }, disable: isloading()"
                                 title="Test the token">
                             <i class="icon-key"></i> Test above token
                         </button>
                         <span class="help-block" data-bind="if: token_state_str || isloading()">
                             Token status is:
-                            <strong id="teleErrored"
+                            <strong id="telegram-settings-token-state"
                                     data-bind="text: token_state_str, visible: ! isloading()"></strong>
                             <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
                         </span>
@@ -159,11 +159,11 @@
                     <div style="display: flex; gap: 8px;">
                         <!-- FFMPEG Badge -->
                         <span class="badge"
-                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg installed successfully' : 'ffmpeg not installed. Try installing it with apt install ffmpeg.' }"
+                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg installed successfully' : 'ffmpeg not installed. Try installing it with sudo apt install ffmpeg.' }"
                               style="cursor: default"></span>
                         <!-- CPULIMIT / LIMITCPU Badge -->
                         <span class="badge"
-                              data-bind="text: cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed', css: cpulimiterPath() ? 'badge-success' : 'badge-important', attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with apt install cpulimit or apt install limitcpu.' }"
+                              data-bind="text: cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed', css: cpulimiterPath() ? 'badge-success' : 'badge-important', attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.' }"
                               style="cursor: default"></span>
                         <!-- Reload icon (shown only if one is missing) -->
                         <button class="btn btn-mini"
@@ -247,24 +247,31 @@
                                data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
                     </div>
                 </div>
-                <legend>IMGBB</legend>
+                <legend>ImgBB</legend>
                 <div class="control-group">
-                    <label class="control-label">API key imgbb</label>
+                    <label class="control-label">API key ImgBB</label>
                     <div class="controls">
                         <div class="reveal-wrapper">
                             <input type="password"
-                                   id="settings_plugin_telegram_imgbbApiKey"
+                                   id="telegram-settings-imgbbapikey"
                                    class="reveal-input"
                                    data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
                             <button type="button"
                                     class="btn reveal-btn"
                                     data-toggle="reveal"
-                                    data-target="#settings_plugin_telegram_imgbbApiKey"
+                                    data-target="#telegram-settings-imgbbapikey"
                                     title="Show">
                                 <i class="fa fa-eye"></i>
                             </button>
                         </div>
-                        <span class="help-block"><small>We can show the thumbnail on files selection but we need an internet link so we upload the file to your account on imgbb (you can set the account to be private and the files to be deleted after 5 minutes).</small></span>
+                        <span class="help-block">
+                            <small>
+                                The ImgBB API key is required to display thumbnails while browsing files on Telegram.
+                                If you provide it, previews of your G-code files will be uploaded to ImgBB.
+                                It is recommended to set your ImgBB account to private and enable automatic deletion of files after 5 minutes.
+                                Refer to the <a href="https://imgbb.com/privacy">ImgBB Privacy Policy</a> for more information.
+                            </small>
+                        </span>
                     </div>
                 </div>
                 <legend style="display: flex;

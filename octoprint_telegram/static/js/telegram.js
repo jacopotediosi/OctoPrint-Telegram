@@ -251,10 +251,10 @@ $(function () {
       self.editChatDialog.modal('hide')
     }
 
-    self.testToken = function (data, event) {
+    self.testToken = function (token) {
       self.isloading(true)
       OctoPrint.simpleApiCommand(self.pluginIdentifier, 'testToken', {
-        token: $('#settings_plugin_telegram_token').val()
+        token
       }).done((response) => self.fromTestToken(response))
     }
 
@@ -263,15 +263,15 @@ $(function () {
       self.token_state_str(response.connection_state_str)
       self.errored(!response.ok)
       if (!response.ok) {
-        $('#teleErrored').addClass('text-error')
-        $('#teleErrored').removeClass('text-success')
-        $('#teleErrored2').addClass('text-error')
-        $('#teleErrored2').removeClass('text-success')
+        $('#telegram-settings-token-state').addClass('text-error')
+        $('#telegram-settings-token-state').removeClass('text-success')
+        $('#telegram-wizard-token-state').addClass('text-error')
+        $('#telegram-wizard-token-state').removeClass('text-success')
       } else {
-        $('#teleErrored').addClass('text-success')
-        $('#teleErrored').removeClass('text-error')
-        $('#teleErrored2').addClass('text-success')
-        $('#teleErrored2').removeClass('text-error')
+        $('#telegram-settings-token-state').addClass('text-success')
+        $('#telegram-settings-token-state').removeClass('text-error')
+        $('#telegram-wizard-token-state').addClass('text-success')
+        $('#telegram-wizard-token-state').removeClass('text-error')
       }
     }
 
@@ -488,12 +488,16 @@ $(function () {
       clearTimeout(self.reloadPending)
     }
 
+    self.onWizardShow = function () {
+      self.requestRequirements()
+    }
+
     self.onSettingsShown = function () {
       self.requestData(true, false)
       self.requestData()
       self.requestRequirements()
       self.requestBindings()
-      self.testToken()
+      self.testToken($('#telegram-settings-token').val())
       self.editChatDialog = $('#settings-telegramDialogEditChat')
       self.editCmdDialog = $('#settings-telegramDialogEditCommands')
       self.varInfoDialog = $('#settings-telegramDialogVarInfo')

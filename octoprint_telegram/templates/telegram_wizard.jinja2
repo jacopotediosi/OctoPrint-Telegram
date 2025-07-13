@@ -1,39 +1,124 @@
 <form class="form-horizontal" id="wizard_plugin_telegram">
+    <h3>
+        Telegram plugin wizard
+        <small>Version: {{ plugin_telegram_plugin_version }}</small>
+    </h3>
     <p>
         <strong>
-            You need to setup a bot token to run the Telegram plugin.
-            If you need help to get a token and setup your bot, please have a look at
+            If you need help on setting up this plugin, please have a look at
             <a href="https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/README.md"
                target="_blank">the documentation on github</a>.
         </strong>
-        <br>
-        After you input the token, click the Test button. If everything is correct, the plugin will automatically start listening for messages.
-        <br>
-        If you don’t want to set up the bot token now, that’s okay. You can do it anytime in the plugin settings.
     </p>
-    <hr>
+    <p>
+        None of the settings below are mandatory. You can always configure the plugin later through OctoPrint’s settings.
+    </p>
+    <legend>Bot connection</legend>
     <div class="control-group">
-        <label class="control-label">{{ _("Telegram Bot Token") }}</label>
+        <label class="control-label">Telegram bot token</label>
         <div class="controls">
-            <input type="text"
-                   class="input-block-level"
-                   id="settings_plugin_telegram_token"
-                   data-bind="value: settings.settings.plugins.telegram.token" />
+            <div class="reveal-wrapper">
+                <input type="password"
+                       id="telegram-wizard-token"
+                       class="reveal-input"
+                       data-bind="value: settings.settings.plugins.telegram.token" />
+                <button type="button"
+                        class="btn reveal-btn"
+                        data-toggle="reveal"
+                        data-target="#telegram-wizard-token"
+                        title="Show">
+                    <i class="fa fa-eye"></i>
+                </button>
+            </div>
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _("Test Token") }}</label>
+        <label class="control-label">Test token</label>
         <div class="controls">
             <button class="btn"
-                    data-bind="click: testToken, disable:isloading()"
+                    data-bind="click: function() { testToken($('#telegram-wizard-token').val()) }, disable: isloading()"
                     title="Test the token">
-                <i class="icon-key"></i> Test this token
+                <i class="icon-key"></i> Test above token
             </button>
             <span class="help-block" data-bind="if: token_state_str || isloading()">
                 Token status is:
-                <strong id="teleErrored2"
+                <strong id="telegram-wizard-token-state"
                         data-bind="text: token_state_str, visible: ! isloading()"></strong>
                 <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
+            </span>
+        </div>
+    </div>
+    <legend>ImgBB</legend>
+    <div class="control-group">
+        <label class="control-label">API key ImgBB</label>
+        <div class="controls">
+            <div class="reveal-wrapper">
+                <input type="password"
+                       id="telegram-wizard-imgbbapikey"
+                       class="reveal-input"
+                       data-bind="value: settings.settings.plugins.telegram.imgbbApiKey" />
+                <button type="button"
+                        class="btn reveal-btn"
+                        data-toggle="reveal"
+                        data-target="#telegram-wizard-imgbbapikey"
+                        title="Show">
+                    <i class="fa fa-eye"></i>
+                </button>
+            </div>
+            <span class="help-block">
+                <small>
+                    The ImgBB API key is required to display thumbnails while browsing files on Telegram.
+                    If you provide it, previews of your G-code files will be uploaded to ImgBB.
+                    It is recommended to set your ImgBB account to private and enable automatic deletion of files after 5 minutes.
+                    Refer to the <a href="https://imgbb.com/privacy">ImgBB Privacy Policy</a> for more information.
+                </small>
+            </span>
+        </div>
+    </div>
+    <legend>Requirements</legend>
+    <div class="control-group">
+        <label class="control-label">ffmpeg</label>
+        <div class="controls">
+            <span data-bind="css: { 'label': true, 'label-success': ffmpegPath(), 'label-important': !ffmpegPath() }, attr: { title: ffmpegPath() ? 'ffmpeg correctly installed' : 'ffmpeg not installed' }">
+                <i class="icon-ok" data-bind="visible: ffmpegPath()"></i>
+                <i class="icon-remove" data-bind="visible: !ffmpegPath()"></i>
+                <span data-bind="text: ffmpegPath() ? 'Installed' : 'Not Installed'"></span>
+            </span>
+            <a href="#"
+               style="margin-left: 10px"
+               data-bind="click: requestRequirements"
+               title="Recheck status">
+                <i class="icon-refresh"></i>
+            </a>
+            <span class="help-block">
+                <small>
+                    Required for generating GIFs. You won’t be able to enable GIFs without this requirement.
+                    <br>
+                    If not installed, it is recommended to SSH into your Raspberry Pi now and install it using: <code>sudo apt install ffmpeg</code>.
+                </small>
+            </span>
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">cpulimit / limitcpu</label>
+        <div class="controls">
+            <span data-bind="css: { 'label': true, 'label-success': cpulimiterPath(), 'label-important': !cpulimiterPath() }, attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu correctly installed' : 'cpulimit  / limitcpu not installed' }">
+                <i class="icon-ok" data-bind="visible: cpulimiterPath()"></i>
+                <i class="icon-remove" data-bind="visible: !cpulimiterPath()"></i>
+                <span data-bind="text: cpulimiterPath() ? 'Installed' : 'Not Installed'"></span>
+            </span>
+            <a href="#"
+               style="margin-left: 10px"
+               data-bind="click: requestRequirements"
+               title="Recheck status">
+                <i class="icon-refresh"></i>
+            </a>
+            <span class="help-block">
+                <small>
+                    Required for generating GIFs. You won’t be able to enable GIFs without this requirement.
+                    <br>
+                    If not installed, it is recommended to SSH into your Raspberry Pi now and install it using: <code>sudo apt install cpulimit</code> or <code>sudo apt install limitcpu</code>.
+                </small>
             </span>
         </div>
     </div>
