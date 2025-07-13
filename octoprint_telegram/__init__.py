@@ -1167,9 +1167,9 @@ class TelegramPlugin(
         if not Permissions.SETTINGS.can():
             return "Insufficient permissions", 403
 
-        return self.get_chat_settings(request.args)
+        return self.process_on_api_get(request.args)
 
-    def get_chat_settings(self, request_args=None):
+    def process_on_api_get(self, request_args=None):
         # /?bindings
         if request_args and "bindings" in request_args:
             bind_text = {}
@@ -1193,6 +1193,13 @@ class TelegramPlugin(
                     "no_setting": [k for k, v in telegramMsgDict.items() if "no_setting" in v],
                 }
             )
+
+        # /?requirements
+        if request_args and "requirements" in request_args:
+            ffmpeg_path = shutil.which("ffmpeg")
+            cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
+
+            return jsonify({"ffmpeg_path": ffmpeg_path, "cpulimiter_path": cpulimiter_path})
 
         # /
         ret_chats = {
@@ -1336,7 +1343,7 @@ class TelegramPlugin(
             self._logger.info(f"Updated settings for chat {chat_id} - {settings}")
 
             # Return updated chats settings
-            return self.get_chat_settings()
+            return self.process_on_api_get()
 
     ##########
     ### Telegram API-Functions
