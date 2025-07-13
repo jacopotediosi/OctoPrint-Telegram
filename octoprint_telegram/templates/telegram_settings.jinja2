@@ -152,13 +152,33 @@
                         </label>
                     </div>
                 </div>
-                <legend>Gifs generation</legend>
+                <legend style="display: flex;
+                               justify-content: space-between;
+                               align-items: center">
+                    Gifs generation
+                    <div style="display: flex; gap: 8px;">
+                        <!-- FFMPEG Badge -->
+                        <span class="badge"
+                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg installed successfully' : 'ffmpeg not installed. Try installing it with apt install ffmpeg.' }"
+                              style="cursor: default"></span>
+                        <!-- CPULIMIT / LIMITCPU Badge -->
+                        <span class="badge"
+                              data-bind="text: cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed', css: cpulimiterPath() ? 'badge-success' : 'badge-important', attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with apt install cpulimit or apt install limitcpu.' }"
+                              style="cursor: default"></span>
+                        <!-- Reload icon (shown only if one is missing) -->
+                        <button class="btn btn-mini"
+                                title="Check again requirements"
+                                data-bind="visible: !ffmpegPath() || !cpulimiterPath(), click: requestRequirements">
+                            <i class="icon-refresh"></i>
+                        </button>
+                    </div>
+                </legend>
                 <div class="control-group">
                     <label class="control-label">Enable gifs</label>
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.send_gif" />
+                                   data-bind=" checked: settings.settings.plugins.telegram.send_gif, enable: ffmpegPath() && cpulimiterPath(), attr: { title: (!ffmpegPath() || !cpulimiterPath()) ? 'Required tools (ffmpeg and cpulimit / limitcpu) not installed' : '' }" />
                             <span class="help-inline">
                                 <small>
                                     Check to enable gifs generation.

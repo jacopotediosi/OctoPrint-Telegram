@@ -49,6 +49,9 @@ $(function () {
     self.markupFrom = []
     self.onBindLoad = false
 
+    self.ffmpegPath = ko.observable(null)
+    self.cpulimiterPath = ko.observable(null)
+
     self.requestData = function (ignore = false, update = false) {
       if (self.reloadUsr() || ignore) {
         self.isloading(true)
@@ -76,6 +79,14 @@ $(function () {
       } else {
         self.reloadPending = setTimeout(self.requestData, 500)
       }
+    }
+
+    self.requestRequirements = function () {
+      OctoPrint.simpleApiGet(self.pluginIdentifier + '?requirements')
+        .done((response) => {
+          self.ffmpegPath(response.ffmpeg_path)
+          self.cpulimiterPath(response.cpulimiter_path)
+        })
     }
 
     self.requestBindings = function () {
@@ -244,10 +255,10 @@ $(function () {
       self.isloading(true)
       OctoPrint.simpleApiCommand(self.pluginIdentifier, 'testToken', {
         token: $('#settings_plugin_telegram_token').val()
-      }).done((response) => self.testResponse(response))
+      }).done((response) => self.fromTestToken(response))
     }
 
-    self.testResponse = function (response) {
+    self.fromTestToken = function (response) {
       self.isloading(false)
       self.token_state_str(response.connection_state_str)
       self.errored(!response.ok)
@@ -480,6 +491,7 @@ $(function () {
     self.onSettingsShown = function () {
       self.requestData(true, false)
       self.requestData()
+      self.requestRequirements()
       self.requestBindings()
       self.testToken()
       self.editChatDialog = $('#settings-telegramDialogEditChat')
