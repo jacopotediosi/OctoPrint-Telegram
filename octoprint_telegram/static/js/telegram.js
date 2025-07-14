@@ -104,7 +104,7 @@ $(function () {
       }
 
       self.onBindLoad = true
-      $('#telegram_msg_list').empty()
+      $('#telegram-settings-msg-list').empty()
 
       const keys = Object.keys(self.bind.notifications).sort()
 
@@ -227,7 +227,7 @@ $(function () {
           </div>
           <hr style="margin:20px">
         `
-        $('#telegram_msg_list').append(msgListEntry)
+        $('#telegram-settings-msg-list').append(msgListEntry)
         ko.applyBindings(self, $('#telegramMsgText' + index)[0])
       })
 
@@ -407,12 +407,12 @@ $(function () {
       self.currChatTitle(`Edit ${option}: ${data.title}`)
 
       const labelText = option === 'commands' ? 'Allowed commands:' : 'Get notifications at:'
-      $('#tele-edit-control-label').html(`<strong>${labelText}</strong>`)
+      $('#telegram-cmddialog-control-label').html(`<strong>${labelText}</strong>`)
 
       const keyLabel = option === 'commands' ? 'Command' : 'Event'
-      $('#telegram-cmd-key-header').text(keyLabel)
+      $('#telegram-cmddialog-key-header').text(keyLabel)
 
-      $('#telegram-cmd-chkbox-grp').empty()
+      $('#telegram-cmddialog-tbody').empty()
 
       const entries = Object.entries(self.bind[option])
         .filter(([key]) => !self.bind.no_setting.includes(key))
@@ -447,11 +447,11 @@ $(function () {
           </tr>
         `
 
-        const $element = $(checkboxHtml).appendTo('#telegram-cmd-chkbox-grp')
+        const $element = $(checkboxHtml).appendTo('#telegram-cmddialog-tbody')
         ko.applyBindings(self, $element[0])
       })
 
-      $('#tele-enable-all').off('click').on('click', function () {
+      $('#telegram-cmddialog-enable-all').off('click').on('click', function () {
         const chat = self.settings.settings.plugins.telegram.chats[data.id][option]
         for (const key in chat) {
           if (Object.prototype.hasOwnProperty.call(chat, key)) {
@@ -459,7 +459,7 @@ $(function () {
           }
         }
       })
-      $('#tele-disable-all').off('click').on('click', function () {
+      $('#telegram-cmddialog-disable-all').off('click').on('click', function () {
         const chat = self.settings.settings.plugins.telegram.chats[data.id][option]
         for (const key in chat) {
           if (Object.prototype.hasOwnProperty.call(chat, key)) {

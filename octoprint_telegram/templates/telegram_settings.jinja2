@@ -15,22 +15,22 @@
         <!-- TAB NAVIGATION BUTTONS -->
         <ul class="nav nav-tabs">
             <li class="active">
-                <a href="#tabConnection" data-toggle="tab">Connection</a>
+                <a href="#telegram-settings-tab-connection" data-toggle="tab">Connection</a>
             </li>
             <li>
-                <a href="#tabSettings" data-toggle="tab">General settings</a>
+                <a href="#telegram-settings-tab-settings" data-toggle="tab">General settings</a>
             </li>
             <li>
-                <a href="#tabChats" data-toggle="tab">Chats</a>
+                <a href="#telegram-settings-tab-chats" data-toggle="tab">Chats</a>
             </li>
             <li>
-                <a href="#tabMessages" data-toggle="tab">Notification messages</a>
+                <a href="#telegram-settings-tab-messages" data-toggle="tab">Notification messages</a>
             </li>
         </ul>
         <!-- TAB CONTENT -->
         <div class="tab-content">
             <!-- TAB CONNECTION -->
-            <div class="tab-pane active" id="tabConnection">
+            <div class="tab-pane active" id="telegram-settings-tab-connection">
                 <legend>Bot connection</legend>
                 <div class="control-group">
                     <label class="control-label">Connection status:</label>
@@ -79,7 +79,7 @@
                 </div>
             </div>
             <!-- TAB GENERAL SETTINGS -->
-            <div class="tab-pane" id="tabSettings">
+            <div class="tab-pane" id="telegram-settings-tab-settings">
                 <legend>Notification settings</legend>
                 <div class="control-group">
                     <label class="control-label">Send notification every</label>
@@ -366,7 +366,7 @@
                 </div>
             </div>
             <!-- TAB CHATS -->
-            <div class="tab-pane" id="tabChats">
+            <div class="tab-pane" id="telegram-settings-tab-chats">
                 <legend>Known chats</legend>
                 <div style="float:left;
                             padding:0px 0px 0px 0px;
@@ -502,7 +502,7 @@
                 </div>
             </div>
             <!-- TAB NOTIFICATION MESSAGES -->
-            <div class="tab-pane" id="tabMessages">
+            <div class="tab-pane" id="telegram-settings-tab-messages">
                 <legend style="display: flex;
                                justify-content: space-between;
                                align-items: center">
@@ -522,7 +522,7 @@
                         </button>
                     </div>
                 </legend>
-                <div id="telegram_msg_list">
+                <div id="telegram-settings-msg-list">
                     <!-- Message settings get listed here -->
                 </div>
                 <label style="display: block; font-weight: bold; margin-bottom: 6px;">"Not connected" status</label>
@@ -615,21 +615,21 @@
                         justify-content: space-between;
                         align-items: center;
                         margin-bottom: 20px">
-                <h4 id="tele-edit-control-label" style="margin: 0;"></h4>
+                <h4 id="telegram-cmddialog-control-label" style="margin: 0;"></h4>
                 <div>
-                    <button type="button" class="btn" id="tele-enable-all">Enable all</button>
-                    <button type="button" class="btn" id="tele-disable-all">Disable all</button>
+                    <button type="button" class="btn" id="telegram-cmddialog-enable-all">Enable all</button>
+                    <button type="button" class="btn" id="telegram-cmddialog-disable-all">Disable all</button>
                 </div>
             </div>
-            <table class="table table-vcenter table-striped" id="telegram-cmd-table">
+            <table class="table table-vcenter table-striped">
                 <thead>
                     <tr>
                         <th style="width:10%; text-align: center;">Enabled</th>
-                        <th id="telegram-cmd-key-header" style="width:30%;">Key</th>
+                        <th id="telegram-cmddialog-key-header" style="width:30%;">Key</th>
                         <th>Description</th>
                     </tr>
                 </thead>
-                <tbody id="telegram-cmd-chkbox-grp">
+                <tbody id="telegram-cmddialog-tbody">
                 </tbody>
             </table>
         </form>
