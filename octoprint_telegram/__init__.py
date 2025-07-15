@@ -1536,7 +1536,15 @@ class TelegramPlugin(
             # Add movie to gifs to send
             movie = kwargs.get("movie")
             if movie:
-                gifs_to_send.append(movie)
+                if os.path.getsize(movie) > 50 * 1024 * 1024:
+                    self._logger.warning("Skipping movie because it is bigger than 50MB")
+                    message += (
+                        ("<br>" if markup == "HTML" else "\n")
+                        + "The timelapse/Octolapse video could not be sent via Telegram because its size exceeds 50MB. "
+                        "Please download it manually from the OctoPrint web interface."
+                    )
+                else:
+                    gifs_to_send.append(movie)
 
             # Add gifs to gifs to send
             if with_gif:
@@ -1669,19 +1677,30 @@ class TelegramPlugin(
         elif TB <= B:
             return f"{B / TB:.2f} TB"
 
-    def send_file(self, chat_id, path, text):
+    def send_file(self, chat_id, path, caption=""):
         if not self.bot_ready:
             return
 
-        with self.telegram_action_context(chat_id, "upload_document"):
-            self._logger.info(f"Sending file {path} to chat {chat_id}")
+        self._logger.info(f"Sending file {path} to chat {chat_id}")
 
+        if os.path.getsize(path) > 50 * 1024 * 1024:
+            self._logger.warning(f"File '{path}' not sent to chat {chat_id}: exceeds 50MB limit")
+
+            self.send_msg(
+                f"{get_emoji('warning')} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
+                "Please download it manually from the OctoPrint web interface.",
+                chatID=chat_id,
+                msg_id=self.get_update_msg_id(chat_id),
+            )
+            return
+
+        with self.telegram_action_context(chat_id, "upload_document"):
             with open(path, "rb") as document:
                 self.telegram_utils.send_telegram_request(
                     f"{self.bot_url}/sendDocument",
                     "post",
                     files={"document": document},
-                    data={"chat_id": chat_id, "caption": text},
+                    data={"chat_id": chat_id, "caption": caption},
                 )
 
     def get_file(self, file_id):

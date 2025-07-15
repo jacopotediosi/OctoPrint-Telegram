@@ -2610,24 +2610,15 @@ class TCMD:
             )
 
         elif opt.startswith("dl"):
-            mb = float(file["size"]) / 1024 / 1024
-            if mb > 50:
+            try:
+                self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path))
+            except Exception:
+                self._logger.exception(f"Caught an exception sending file {path} to {chat_id}")
                 self.main.send_msg(
-                    f"{get_emoji('warning')} {path} is too big (>50MB) to download!",
+                    f"{get_emoji('warning')} An error occurred sending your file. Please check logs.",
                     chatID=chat_id,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
-                self.fileDetails(loc, page, cmd, hash, chat_id, from_id, wait=3)
-            else:
-                try:
-                    self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path), "")
-                except Exception:
-                    self._logger.exception(f"Caught an exception sending a file to {chat_id}")
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} An error occurred sending your file. Please check logs.",
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
 
         elif opt.startswith("m"):
             msg_id = self.main.get_update_msg_id(chat_id)
