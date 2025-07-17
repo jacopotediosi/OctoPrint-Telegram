@@ -1353,39 +1353,49 @@ class TelegramPlugin(
         if not self.bot_ready:
             return
 
-        kwargs["message"] = message
-
         settings_chats = self._settings.get(["chats"])
 
+        kwargs["message"] = message
+
         try:
-            # If it's a regular event notification
+            # Message is a regular event notification
             if "chatID" not in kwargs and "event" in kwargs:
-                self._logger.debug(f"Send_msg() found event: {kwargs['event']} | chats settings={settings_chats}")
-                for key in settings_chats:
-                    self._logger.debug(f"send_msg loop key = {key}")
-                    if key != "zBOTTOMOFCHATS":
-                        try:
-                            self._logger.debug(
-                                f"settings_chats[key]['notifications'] = {settings_chats[key]['notifications']}"
-                            )
-                            if (
-                                settings_chats[key]["notifications"][kwargs["event"]]
-                                and str(key) not in self.shut_up
-                                and settings_chats[key]["send_notifications"]
-                            ):
-                                kwargs["chatID"] = key
-                                threading.Thread(target=self._send_msg, kwargs=kwargs).run()
-                        except Exception:
-                            self._logger.exception(f"Caught an exception in loop chatId for key: {key}")
-            # Seems to be a broadcast
+                event = kwargs["event"]
+
+                self._logger.debug(f"Send_msg() - Found event: {event} | chats settings={settings_chats}")
+
+                for chat_id, chat_settings in settings_chats.items():
+                    if chat_id == "zBOTTOMOFCHATS":
+                        continue
+
+                    try:
+                        notifications = chat_settings.get("notifications", {})
+                        send_notifications = chat_settings.get("send_notifications", False)
+                        is_shut_up = str(chat_id) in self.shut_up
+
+                        if notifications.get(event) and send_notifications and not is_shut_up:
+                            kwargs["chatID"] = chat_id
+                            threading.Thread(target=self._send_msg, kwargs=kwargs).run()
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing chat {chat_id}")
+
+            # Message is a broadcast
             elif "chatID" not in kwargs:
-                for key in settings_chats:
-                    kwargs["chatID"] = key
-                    threading.Thread(target=self._send_msg, kwargs=kwargs).run()
-            # This is a 'editMessageText' message
-            elif "msg_id" in kwargs and kwargs["msg_id"] != "" and kwargs["msg_id"] is not None:
+                for chat_id in settings_chats:
+                    if chat_id == "zBOTTOMOFCHATS":
+                        continue
+
+                    try:
+                        kwargs["chatID"] = chat_id
+                        threading.Thread(target=self._send_msg, kwargs=kwargs).run()
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing chat {chat_id}")
+
+            # Message is a 'editMessageText'
+            elif kwargs.get("msg_id"):
                 threading.Thread(target=self._send_edit_msg, kwargs=kwargs).run()
-            # Direct message or event notification to a chat_id
+
+            # Message is a direct message
             else:
                 threading.Thread(target=self._send_msg, kwargs=kwargs).run()
         except Exception:
