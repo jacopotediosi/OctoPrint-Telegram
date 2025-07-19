@@ -116,10 +116,10 @@ class TCMD:
                 "desc": "Make the bot talk again (opposite of /shutup)",
             },
             "/help": {"cmd": self.cmdHelp, "bind_none": True, "desc": "Show available commands"},
-            "Yes": {"cmd": self.cmdYes, "bind_none": True, "desc": "Confirm action"},
-            "No": {"cmd": self.cmdNo, "bind_none": True, "desc": "Cancel action"},
-            "SwitchOn": {"cmd": self.cmdSwitchOn, "param": True, "desc": "Turn on the printer without confirmation"},
-            "SwitchOff": {"cmd": self.cmdSwitchOff, "param": True, "desc": "Turn off the printer without confirmation"},
+            "yes": {"cmd": self.cmdYes, "bind_none": True, "desc": "Confirm action"},
+            "no": {"cmd": self.cmdNo, "bind_none": True, "desc": "Cancel action"},
+            "switchon": {"cmd": self.cmdSwitchOn, "param": True, "desc": "Turn on the printer without confirmation"},
+            "switchoff": {"cmd": self.cmdSwitchOff, "param": True, "desc": "Turn off the printer without confirmation"},
         }
 
     ############################################################################################
@@ -325,7 +325,7 @@ class TCMD:
                         "/settings_g",
                     ],
                 ],
-                [[f"{get_emoji('cancel')} Close", "No"]],
+                [[f"{get_emoji('cancel')} Close", "no"]],
             ]
 
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
@@ -356,7 +356,7 @@ class TCMD:
                                 f"{get_emoji('check')} Stop print",
                                 "/abort_stop",
                             ],
-                            [f"{get_emoji('cancel')} Close", "No"],
+                            [f"{get_emoji('cancel')} Close", "no"],
                         ]
                     ],
                     chatID=chat_id,
@@ -547,7 +547,7 @@ class TCMD:
 
                     command_buttons = []
                     command_buttons.extend([([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)])
-                    command_buttons.append([[f"{get_emoji('cancel')} Close", "No"]])
+                    command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
 
                     msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
 
@@ -775,7 +775,7 @@ class TCMD:
 
             message = f"{get_emoji('info')} {message_text}"
 
-            keys.append([[f"{get_emoji('cancel')} Close", "No"]])
+            keys.append([[f"{get_emoji('cancel')} Close", "no"]])
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
@@ -859,7 +859,7 @@ class TCMD:
                         self._logger.exception("An Exception in get action")
                 if len(tmpKeys) > 0:
                     keys.append(tmpKeys)
-                keys.append([[f"{get_emoji('cancel')} Close", "No"]])
+                keys.append([[f"{get_emoji('cancel')} Close", "no"]])
             except Exception:
                 self._logger.exception("An Exception in get list action")
             if empty:
@@ -903,8 +903,8 @@ class TCMD:
                 f"{get_emoji('question')} Turn on the Printer?\n\n",
                 responses=[
                     [
-                        [f"{get_emoji('check')} Yes", "SwitchOn"],
-                        [f"{get_emoji('cancel')} No", "No"],
+                        [f"{get_emoji('check')} Yes", "switchon"],
+                        [f"{get_emoji('cancel')} No", "no"],
                     ]
                 ],
                 chatID=chat_id,
@@ -943,7 +943,7 @@ class TCMD:
                         chatID=chat_id,
                     )
 
-                # self.main.send_msg(f"{get_emoji('question')} Turn on the Plug {pluglabel}?\n\n", responses=[[[get_emoji('check')+" Yes","SwitchOn",pluglabel], [get_emoji('cancel')+" No","No"]]],chatID=chat_id)
+                # self.main.send_msg(f"{get_emoji('question')} Turn on the Plug {pluglabel}?\n\n", responses=[[[f"{get_emoji('check')} Yes","switchon",pluglabel], [f"{get_emoji('cancel')} No","no"]]],chatID=chat_id)
                 self._logger.info("Attempting to turn on the printer with API")
                 try:
                     headers = {
@@ -1069,11 +1069,11 @@ class TCMD:
                                     [
                                         [
                                             f"{get_emoji('check')} Yes",
-                                            f"SwitchOn_{firstplug}",
+                                            f"switchon_{firstplug}",
                                         ],
                                         [
                                             f"{get_emoji('cancel')} No",
-                                            "No",
+                                            "no",
                                         ],
                                     ]
                                 ],
@@ -1085,7 +1085,7 @@ class TCMD:
                                 [
                                     [
                                         f"{get_emoji('cancel')} Close",
-                                        "No",
+                                        "no",
                                     ]
                                 ]
                             )
@@ -1142,8 +1142,8 @@ class TCMD:
                 f"{get_emoji('question')} Turn off the Printer?\n\n",
                 responses=[
                     [
-                        [f"{get_emoji('check')} Yes", "SwitchOff"],
-                        [f"{get_emoji('cancel')} No", "No"],
+                        [f"{get_emoji('check')} Yes", "switchoff"],
+                        [f"{get_emoji('cancel')} No", "no"],
                     ]
                 ],
                 chatID=chat_id,
@@ -1182,7 +1182,7 @@ class TCMD:
                         chatID=chat_id,
                     )
 
-                # self.main.send_msg(f"{get_emoji('question')} Turn on the Plug {pluglabel}?\n\n", responses=[[[f"{get_emoji('check')} Yes","SwitchOn",pluglabel], [f"{get_emoji('cancel')} No","No"]]],chatID=chat_id)
+                # self.main.send_msg(f"{get_emoji('question')} Turn on the Plug {pluglabel}?\n\n", responses=[[[f"{get_emoji('check')} Yes","switchon",pluglabel], [f"{get_emoji('cancel')} No","no"]]],chatID=chat_id)
                 self._logger.info("Attempting to turn off the printer with API")
                 try:
                     headers = {
@@ -1308,11 +1308,11 @@ class TCMD:
                                     [
                                         [
                                             f"{get_emoji('check')} Yes",
-                                            f"SwitchOff_{firstplug}",
+                                            f"switchoff_{firstplug}",
                                         ],
                                         [
                                             f"{get_emoji('cancel')} No",
-                                            "No",
+                                            "no",
                                         ],
                                     ]
                                 ],
@@ -1324,7 +1324,7 @@ class TCMD:
                                 [
                                     [
                                         f"{get_emoji('cancel')} Close",
-                                        "No",
+                                        "no",
                                     ]
                                 ]
                             )
@@ -1597,7 +1597,7 @@ class TCMD:
         is_busy = self.main._printer.is_printing() or self.main._printer.is_paused()
 
         btn_defaults = [f"{get_emoji('star')} Defaults", "/con_s"]
-        btn_close = [f"{get_emoji('cancel')} Close", "No"]
+        btn_close = [f"{get_emoji('cancel')} Close", "no"]
 
         if is_operational:
             if is_busy:
@@ -1891,7 +1891,7 @@ class TCMD:
                 if tool_command_buttons:
                     command_buttons.append(tool_command_buttons)
 
-            command_buttons.append([[f"{get_emoji('cancel')} Close", "No"]])
+            command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
 
             self.main.send_msg(msg, responses=command_buttons, chatID=chat_id, markup="HTML", msg_id=msg_id)
 
@@ -1998,7 +1998,7 @@ class TCMD:
                                 [
                                     [
                                         f"{get_emoji('cancel')} Close",
-                                        "No",
+                                        "no",
                                     ]
                                 ]
                             )
@@ -2016,7 +2016,7 @@ class TCMD:
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
-                keys.append([[f"{get_emoji('cancel')} Close", "No"]])
+                keys.append([[f"{get_emoji('cancel')} Close", "no"]])
                 msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
         elif self.main._plugin_manager.get_plugin("SpoolManager", True):
@@ -2123,7 +2123,7 @@ class TCMD:
                                 [
                                     [
                                         f"{get_emoji('cancel')} Close",
-                                        "No",
+                                        "no",
                                     ]
                                 ]
                             )
@@ -2141,7 +2141,7 @@ class TCMD:
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
-                keys.append([[f"{get_emoji('cancel')} Close", "No"]])
+                keys.append([[f"{get_emoji('cancel')} Close", "no"]])
                 msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
         else:
@@ -2286,7 +2286,7 @@ class TCMD:
                     ],
                     [
                         f"{get_emoji('cancel')} Close",
-                        "No",
+                        "no",
                     ],
                 ]
             )

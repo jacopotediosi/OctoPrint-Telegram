@@ -464,26 +464,18 @@ class TelegramListener(threading.Thread):
             )
 
     def handle_text_message(self, message, chat_id, from_id):
-        # We got a chat message.
-        # Handle special messages from groups (/command@BotName).
-        command = str(message["message"]["text"].split("@")[0])
-        parameter = ""
-        # TODO: Do we need this anymore?
-        # reply_to_messages will be send on value inputs (eg notification height)
-        # but also on android when pushing a button. Then we have to switch command and parameter.
-        # if "reply_to_message" in message['message'] and "text" in message['message']['reply_to_message']:
-        # command = message['message']['reply_to_message']['text']
-        # parameter = message['message']['text']
-        # if command not in [str(k) for k in self.main.tcmd.commandDict.keys()]:
-        # command = message['message']['text']
-        # parameter = message['message']['reply_to_message']['text']
-        # if command is with parameter, get the parameter
-        if any((f"{k}_") in command for k, v in self.main.tcmd.commandDict.items() if "param" in v):
-            parameter = "_".join(command.split("_")[1:])
-            command = command.split("_")[0]
+        # Separate command and parameter
+        command_text = message["message"]["text"].split("@")[0]
+        parts = command_text.split("_")
+        command = parts[0].lower()
+        cmd_info = self.main.tcmd.commandDict.get(command, {})
+        parameter = "_".join(parts[1:]) if cmd_info.get("param") else ""
+
+        # Log received command
         self._logger.info(
-            f"Got a command: '{command}' with parameter: '{parameter}' in chat id {message['message']['chat']['id']}"
+            f"Received command '{command}' with parameter '{parameter}' in chat {self.get_chat_id(message)} from {self.get_from_id(message)}"
         )
+
         # Is command  known?
         if command not in self.main.tcmd.commandDict:
             # we dont know the command so skip the message
