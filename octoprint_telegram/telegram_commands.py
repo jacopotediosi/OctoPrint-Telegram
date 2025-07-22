@@ -1877,12 +1877,15 @@ class TCMD:
             if self.main._printer.is_operational():
                 tool_command_buttons = []
 
-                for i in range(0, profile["extruder"]["count"]):
-                    tool_command_buttons.append(
-                        [
-                            f"{get_emoji('tool')} Tool {i}",
-                            f"/tune_e_{i}",
-                        ]
+                extruder = profile["extruder"]
+                shared_nozzle = extruder.get("sharedNozzle", False)
+                count = extruder.get("count", 1)
+
+                if shared_nozzle:
+                    tool_command_buttons.append([f"{get_emoji('tool')} Tool", "/tune_e_0"])
+                else:
+                    tool_command_buttons.extend(
+                        [[f"{get_emoji('tool')} Tool {i}", f"/tune_e_{i}"] for i in range(count)]
                     )
 
                 if profile["heatedBed"]:
