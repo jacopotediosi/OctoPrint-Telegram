@@ -618,6 +618,7 @@ class WebcamProfile:
         self,
         name: Optional[str] = None,
         snapshot: Optional[str] = None,
+        snapshotTimeout: Optional[int] = 15,
         stream: Optional[str] = None,
         flipH: bool = False,
         flipV: bool = False,
@@ -625,6 +626,7 @@ class WebcamProfile:
     ):
         self.name = name
         self.snapshot = snapshot
+        self.snapshotTimeout = snapshotTimeout
         self.stream = stream
         self.flipH = flipH
         self.flipV = flipV
@@ -632,7 +634,7 @@ class WebcamProfile:
 
     def __repr__(self):
         return (
-            f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
+            f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r}  snapshotTimeout={self.snapshotTimeout!r}"
             f"stream={self.stream!r} flipH={self.flipH} "
             f"flipV={self.flipV} rotate90={self.rotate90}>"
         )
@@ -1940,6 +1942,7 @@ class TelegramPlugin(
                         webcam_profile = WebcamProfile(
                             name=getattr(wc, "name", None),
                             snapshot=getattr(compat, "snapshot", None),
+                            snapshotTimeout=max(15, getattr(compat, "snapshotTimeout", 0)),
                             stream=getattr(compat, "stream", None),
                             flipH=bool(getattr(wc, "flipH", False)),
                             flipV=bool(getattr(wc, "flipV", False)),
@@ -1963,6 +1966,7 @@ class TelegramPlugin(
                         webcam_profile = WebcamProfile(
                             name=multicam_profile.get("name"),
                             snapshot=multicam_profile.get("snapshot"),
+                            snapshotTimeout=15,  # Multicam currently doesn't expose snapshotTimeout, see https://github.com/mikedmor/OctoPrint_MultiCam/issues/78
                             stream=multicam_profile.get("URL"),
                             flipH=bool(multicam_profile.get("flipH", False)),
                             flipV=bool(multicam_profile.get("flipV", False)),
@@ -1982,6 +1986,7 @@ class TelegramPlugin(
                 webcam_profile = WebcamProfile(
                     name=self._settings.global_get(["webcam", "name"]),
                     snapshot=self._settings.global_get(["webcam", "snapshot"]),
+                    snapshotTimeout=max(15, self._settings.global_get(["webcam", "snapshotTimeout"]) or 0),
                     stream=self._settings.global_get(["webcam", "stream"]),
                     flipH=bool(self._settings.global_get(["webcam", "flipH"])),
                     flipV=bool(self._settings.global_get(["webcam", "flipV"])),
@@ -2012,6 +2017,7 @@ class TelegramPlugin(
                     webcam_profile.flipH,
                     webcam_profile.flipV,
                     webcam_profile.rotate90,
+                    webcam_profile.snapshotTimeout,
                 )
                 taken_images_contents.append(taken_image_content)
             except Exception:
@@ -2019,12 +2025,12 @@ class TelegramPlugin(
 
         return taken_images_contents
 
-    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False) -> bytes:
+    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False, timeout=15) -> bytes:
         snapshot_url = urljoin("http://localhost/", snapshot_url)
 
         self._logger.debug(f"Taking image from url: {snapshot_url}")
 
-        r = requests.get(snapshot_url, timeout=10, verify=False)
+        r = requests.get(snapshot_url, timeout=timeout, verify=False)
         r.raise_for_status()
 
         image_content = r.content
