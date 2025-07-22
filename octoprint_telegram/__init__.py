@@ -1188,7 +1188,15 @@ class TelegramPlugin(
 
         # /?requirements
         if request_args and "requirements" in request_args:
-            ffmpeg_path = shutil.which("ffmpeg")
+            settings_ffmpeg = self._settings.global_get(["webcam", "ffmpeg"])
+            ffmpeg_path = (
+                settings_ffmpeg
+                if isinstance(settings_ffmpeg, str)
+                and os.path.isfile(settings_ffmpeg)
+                and os.access(settings_ffmpeg, os.X_OK)
+                else shutil.which("ffmpeg")
+            )
+
             cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
 
             return jsonify({"ffmpeg_path": ffmpeg_path, "cpulimiter_path": cpulimiter_path})
@@ -2089,7 +2097,14 @@ class TelegramPlugin(
         except FileNotFoundError:
             pass
 
-        ffmpeg_path = shutil.which("ffmpeg")
+        settings_ffmpeg = self._settings.global_get(["webcam", "ffmpeg"])
+        ffmpeg_path = (
+            settings_ffmpeg
+            if isinstance(settings_ffmpeg, str)
+            and os.path.isfile(settings_ffmpeg)
+            and os.access(settings_ffmpeg, os.X_OK)
+            else shutil.which("ffmpeg")
+        )
         if not ffmpeg_path:
             self._logger.error("ffmpeg not installed")
             raise RuntimeError("ffmpeg not installed")
