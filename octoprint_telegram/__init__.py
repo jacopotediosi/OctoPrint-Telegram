@@ -858,13 +858,13 @@ class TelegramPlugin(
                     "private": False,
                 }
             },
-            debug=False,
             send_icon=True,
             image_not_connected=True,
             gif_not_connected=False,
             send_gif=False,
             no_mistake=False,
             fileOrder=False,
+            no_cpulimit=False,
             ffmpeg_preset="medium",
             PreImgMethod="None",
             PreImgCommand="",
@@ -2090,13 +2090,15 @@ class TelegramPlugin(
             pass
 
         ffmpeg_path = shutil.which("ffmpeg")
-        cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
-
         if not ffmpeg_path:
             self._logger.error("ffmpeg not installed")
             raise RuntimeError("ffmpeg not installed")
 
-        if cpulimiter_path:
+        cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
+        cpulimiter_disabled = self._settings.get(["no_cpulimit"]) or False
+        if cpulimiter_disabled:
+            self._logger.debug("CPU limiter disabled via settings")
+        elif cpulimiter_path:
             self._logger.debug(f"Using CPU limiter: {cpulimiter_path}")
         else:
             self._logger.error("Neither cpulimit nor limitcpu is installed")
@@ -2126,12 +2128,17 @@ class TelegramPlugin(
         if shutil.which("nice"):
             cmd = ["nice", "-n", "20"]
 
+        if not cpulimiter_disabled:
+            cmd += [
+                cpulimiter_path,
+                "-l",
+                str(limit_cpu),
+                "-f",
+                "-z",
+                "--",
+            ]
+
         cmd += [
-            cpulimiter_path,
-            "-l", str(limit_cpu),
-            "-f",
-            "-z",
-            "--",
             ffmpeg_path,
             # Overwrite output file
             "-y",

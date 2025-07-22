@@ -163,12 +163,12 @@
                               style="cursor: default"></span>
                         <!-- CPULIMIT / LIMITCPU Badge -->
                         <span class="badge"
-                              data-bind="text: cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed', css: cpulimiterPath() ? 'badge-success' : 'badge-important', attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.' }"
+                              data-bind=" text: settings.settings.plugins.telegram.no_cpulimit() ? 'cpulimit / limitcpu: bypassed' : (cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed'), css: (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit()) ? 'badge-success' : 'badge-important', attr: { title: settings.settings.plugins.telegram.no_cpulimit() ? 'Bypassed via \'Don\'t use cpulimit/limitcpu checkbox\'' : (cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.') }"
                               style="cursor: default"></span>
                         <!-- Reload icon (shown only if one is missing) -->
                         <button class="btn btn-mini"
                                 title="Check again requirements"
-                                data-bind="visible: !ffmpegPath() || !cpulimiterPath(), click: requestRequirements">
+                                data-bind="visible: !ffmpegPath() || (!cpulimiterPath() && !settings.settings.plugins.telegram.no_cpulimit()), click: requestRequirements">
                             <i class="icon-refresh"></i>
                         </button>
                     </div>
@@ -178,12 +178,30 @@
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind=" checked: settings.settings.plugins.telegram.send_gif, enable: ffmpegPath() && cpulimiterPath(), attr: { title: (!ffmpegPath() || !cpulimiterPath()) ? 'Required tools (ffmpeg and cpulimit / limitcpu) not installed' : '' }" />
+                                   data-bind="checked: settings.settings.plugins.telegram.send_gif, enable: ffmpegPath() && (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit), attr: { title: (!ffmpegPath() || (!settings.settings.plugins.telegram.no_cpulimit() && !cpulimiterPath())) ? 'Required tools (ffmpeg and cpulimit / limitcpu) not installed' : '' }" />
                             <span class="help-inline">
                                 <small>
                                     Check to enable gifs generation.
                                     <span class="text-warning">
                                         Warning, enabling this feature might affect your prints and make octoprint unresponsive: use at your own risk.
+                                    </span>
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Don't use cpulimit/limitcpu</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.no_cpulimit" />
+                            <span class="help-inline">
+                                <small>
+                                    Check to disable cpulimit/limitcpu, e.g., if you can't install them on your device.
+                                    <span class="text-warning">
+                                        Make sure your device is powerful enough (e.g., a Windows laptop).
+                                        On embedded devices (e.g., a Raspberry Pi), you really should install cpulimit/limitcpu.
                                     </span>
                                 </small>
                             </span>
