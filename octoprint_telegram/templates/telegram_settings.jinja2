@@ -159,11 +159,11 @@
                     <div style="display: flex; gap: 8px;">
                         <!-- FFMPEG Badge -->
                         <span class="badge"
-                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg installed successfully' : 'ffmpeg not installed. Try installing it with sudo apt install ffmpeg.' }"
+                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg correctly installed: ' + ffmpegPath() : 'ffmpeg not installed. Try installing it with sudo apt install ffmpeg.' }"
                               style="cursor: default"></span>
                         <!-- CPULIMIT / LIMITCPU Badge -->
                         <span class="badge"
-                              data-bind=" text: settings.settings.plugins.telegram.no_cpulimit() ? 'cpulimit / limitcpu: bypassed' : (cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed'), css: (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit()) ? 'badge-success' : 'badge-important', attr: { title: settings.settings.plugins.telegram.no_cpulimit() ? 'Bypassed via \'Don\'t use cpulimit/limitcpu checkbox\'' : (cpulimiterPath() ? 'cpulimit / limitcpu installed successfully' : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.') }"
+                              data-bind=" text: settings.settings.plugins.telegram.no_cpulimit() ? 'cpulimit / limitcpu: bypassed' : (cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed'), css: (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit()) ? 'badge-success' : 'badge-important', attr: { title: settings.settings.plugins.telegram.no_cpulimit() ? 'Bypassed via \'Don\'t use cpulimit/limitcpu checkbox\'' : (cpulimiterPath() ? 'cpulimit / limitcpu correctly installed: ' + cpulimiterPath() : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.') }"
                               style="cursor: default"></span>
                         <!-- Reload icon (shown only if one is missing) -->
                         <button class="btn btn-mini"
