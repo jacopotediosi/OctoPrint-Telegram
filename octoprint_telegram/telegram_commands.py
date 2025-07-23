@@ -1101,9 +1101,18 @@ class TCMD:
                     )
                     return
         else:
+            message = (
+                f"{get_emoji('warning')} No power manager plugin installed. "
+                "Please install one of the following plugins:\n"
+                "- <a href='https://plugins.octoprint.org/plugins/psucontrol/'>PSU Control</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tasmota_mqtt/'>TasmotaMQTT</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tplinksmartplug/'>TPLinkSmartplug</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tuyasmartplug/'>TuyaSmartplug</a>\n"
+            )
             self.main.send_msg(
-                f"{get_emoji('warning')} PSU Control plugin not found. Command can not be executed.",
+                message,
                 chatID=chat_id,
+                markup="HTML",
             )
 
     def cmdPrinterOff(self, chat_id, from_id, cmd, parameter, user=""):
@@ -1340,9 +1349,18 @@ class TCMD:
                     )
                     return
         else:
+            message = (
+                f"{get_emoji('warning')} No power manager plugin installed. "
+                "Please install one of the following plugins:\n"
+                "- <a href='https://plugins.octoprint.org/plugins/psucontrol/'>PSU Control</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tasmota_mqtt/'>TasmotaMQTT</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tplinksmartplug/'>TPLinkSmartplug</a>\n"
+                "- <a href='https://plugins.octoprint.org/plugins/tuyasmartplug/'>TuyaSmartplug</a>\n"
+            )
             self.main.send_msg(
-                f"{get_emoji('warning')} PSU Control plugin not found. Command can not be executed.",
+                message,
                 chatID=chat_id,
+                markup="HTML",
             )
 
     def cmdSwitchOff(self, chat_id, from_id, cmd, parameter, user=""):
@@ -1405,6 +1423,7 @@ class TCMD:
                         msg_id=self.main.get_update_msg_id(chat_id),
                     )
                     return
+
             if answer.status_code >= 300:
                 self._logger.debug(f"Call response (POST API octoprint): {answer}")
                 self.main.send_msg(
@@ -2148,9 +2167,13 @@ class TCMD:
                 msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
                 self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
         else:
-            message = f"{get_emoji('warning')} No filament manager plugin installed."
+            message = (
+                f"{get_emoji('warning')} No filament manager plugin installed. "
+                "Please install <a href='https://plugins.octoprint.org/plugins/filamentmanager/'>FilamentManager</a> or "
+                "<a href='https://plugins.octoprint.org/plugins/SpoolManager/'>SpoolManager</a>."
+            )
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id)
+            self.main.send_msg(message, chatID=chat_id, markup="HTML", msg_id=msg_id)
 
     def cmdGCode(self, chat_id, from_id, cmd, parameter, user=""):
         if parameter and parameter != "back":

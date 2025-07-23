@@ -49,8 +49,7 @@ $(function () {
     self.markupFrom = []
     self.onBindLoad = false
 
-    self.ffmpegPath = ko.observable(null)
-    self.cpulimiterPath = ko.observable(null)
+    self.requirements = ko.observable({})
 
     self.requestData = function (ignore = false, update = false) {
       if (self.reloadUsr() || ignore) {
@@ -84,8 +83,7 @@ $(function () {
     self.requestRequirements = function () {
       OctoPrint.simpleApiGet(self.pluginIdentifier + '?requirements')
         .done((response) => {
-          self.ffmpegPath(response.ffmpeg_path)
-          self.cpulimiterPath(response.cpulimiter_path)
+          self.requirements(response)
         })
     }
 

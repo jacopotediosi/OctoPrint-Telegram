@@ -159,16 +159,16 @@
                     <div style="display: flex; gap: 8px;">
                         <!-- FFMPEG Badge -->
                         <span class="badge"
-                              data-bind="text: ffmpegPath() ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: ffmpegPath() ? 'badge-success' : 'badge-important', attr: { title: ffmpegPath() ? 'ffmpeg correctly installed: ' + ffmpegPath() : 'ffmpeg not installed. Try installing it with sudo apt install ffmpeg.' }"
+                              data-bind="text: requirements().ffmpeg_path ? 'ffmpeg: installed' : 'ffmpeg: not installed', css: requirements().ffmpeg_path ? 'badge-success' : 'badge-important', attr: { title: requirements().ffmpeg_path ? 'ffmpeg correctly installed: ' + requirements().ffmpeg_path : 'ffmpeg not installed. Try installing it with sudo apt install ffmpeg.' }"
                               style="cursor: default"></span>
                         <!-- CPULIMIT / LIMITCPU Badge -->
                         <span class="badge"
-                              data-bind=" text: settings.settings.plugins.telegram.no_cpulimit() ? 'cpulimit / limitcpu: bypassed' : (cpulimiterPath() ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed'), css: (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit()) ? 'badge-success' : 'badge-important', attr: { title: settings.settings.plugins.telegram.no_cpulimit() ? 'Bypassed via \'Don\'t use cpulimit/limitcpu checkbox\'' : (cpulimiterPath() ? 'cpulimit / limitcpu correctly installed: ' + cpulimiterPath() : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.') }"
+                              data-bind=" text: settings.settings.plugins.telegram.no_cpulimit() ? 'cpulimit / limitcpu: bypassed' : (requirements().cpulimiter_path ? 'cpulimit / limitcpu: installed' : 'cpulimit / limitcpu: not installed'), css: (requirements().cpulimiter_path || settings.settings.plugins.telegram.no_cpulimit()) ? 'badge-success' : 'badge-important', attr: { title: settings.settings.plugins.telegram.no_cpulimit() ? 'Bypassed via \'Don\'t use cpulimit/limitcpu checkbox\'' : (requirements().cpulimiter_path ? 'cpulimit / limitcpu correctly installed: ' + requirements().cpulimiter_path : 'cpulimit / limitcpu not installed. Try installing it with sudo apt install cpulimit or sudo apt install limitcpu.') }"
                               style="cursor: default"></span>
                         <!-- Reload icon (shown only if one is missing) -->
                         <button class="btn btn-mini"
                                 title="Check again requirements"
-                                data-bind="visible: !ffmpegPath() || (!cpulimiterPath() && !settings.settings.plugins.telegram.no_cpulimit()), click: requestRequirements">
+                                data-bind="visible: !requirements().ffmpeg_path || (!requirements().cpulimiter_path && !settings.settings.plugins.telegram.no_cpulimit()), click: requestRequirements">
                             <i class="icon-refresh"></i>
                         </button>
                     </div>
@@ -178,7 +178,7 @@
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.send_gif, enable: ffmpegPath() && (cpulimiterPath() || settings.settings.plugins.telegram.no_cpulimit), attr: { title: (!ffmpegPath() || (!settings.settings.plugins.telegram.no_cpulimit() && !cpulimiterPath())) ? 'Required tools (ffmpeg and cpulimit / limitcpu) not installed' : '' }" />
+                                   data-bind="checked: settings.settings.plugins.telegram.send_gif, enable: requirements().ffmpeg_path && (requirements().cpulimiter_path || settings.settings.plugins.telegram.no_cpulimit), attr: { title: (!requirements().ffmpeg_path || (!settings.settings.plugins.telegram.no_cpulimit() && !requirements().cpulimiter_path)) ? 'Required tools (ffmpeg and cpulimit / limitcpu) not installed' : '' }" />
                             <span class="help-inline">
                                 <small>
                                     Check to enable gifs generation.
@@ -227,9 +227,9 @@
                             <small>
                                 Controls encoding speed vs file size.
                                 Faster presets reduce processing time without quality loss but create larger files.
-                                Slower presets produce smaller files but take longer to encode.
-                                See <a href="https://trac.ffmpeg.org/wiki/Encode/H.264#Preset"
-    target="_blank">FFmpeg documentation</a> for details.
+                                Slower presets produce smaller files but take longer to encode. See
+                                <a href="https://trac.ffmpeg.org/wiki/Encode/H.264#Preset"
+                                   target="_blank">FFmpeg documentation</a> for details.
                             </small>
                         </span>
                     </div>
@@ -382,6 +382,125 @@
                         </label>
                     </div>
                 </div>
+                {# djlint:off #}
+                {% set suggested_plugins_sections = [
+                    {
+                        "title": "Media",
+                        "subtitle": "",
+                        "plugins": [
+                            {
+                                "id": "multicam",
+                                "name": "MultiCam",
+                                "description": "Allows notification messages and command responses (e.g., <code>/photo</code>, <code>/gif</code>, <code>/supergif</code>) to include snapshots and videos from multiple webcams, combined into a single album."
+                            },
+                            {
+                                "id": "octolapse",
+                                "name": "Octolapse",
+                                "description": "Alternative to the bundled Timelapse plugin, allows receiving advanced timelapse videos as attachments in notification messages for the <code>MovieDone</code> event."
+                            }
+                        ]
+                    },
+                    {
+                        "title": "Print information",
+                        "subtitle": "Installing the following plugins enables additional template variables in notification messages.",
+                        "plugins": [
+                            {
+                                "id": "DisplayLayerProgress",
+                                "name": "DisplayLayerProgress",
+                                "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> placeholders."
+                            }
+                        ]
+                    },
+                    {
+                        "title": "File information",
+                        "subtitle": "Installing the following plugins enrich the <code>/files</code> command output with additional details.",
+                        "plugins": [
+                            {
+                                "id": "cost",
+                                "name": "Cost estimator",
+                                "description": "Displays estimated print cost within file details."
+                            }
+                        ]
+                    },
+                    {
+                        "title": "Filament",
+                        "subtitle": "Installing the following plugins allows you to view and manage filament spools via the <code>/filament</code> command.",
+                        "plugins": [
+                            {
+                                "id": "filamentmanager",
+                                "name": "FilamentManager",
+                                "description": ""
+                            },
+                            {
+                                "id": "SpoolManager",
+                                "name": "SpoolManager",
+                                "description": ""
+                            }
+                        ]
+                    },
+                    {
+                        "title": "Power",
+                        "subtitle": "Installing any of the following plugins enables control of your printer’s power using the <code>/on</code> and <code>/off</code> commands.",
+                        "plugins": [
+                            {
+                                "id": "psucontrol",
+                                "name": "PSU Control",
+                                "description": ""
+                            },
+                            {
+                                "id": "tasmota_mqtt",
+                                "name": "TasmotaMQTT",
+                                "description": ""
+                            },
+                            {
+                                "id": "tplinksmartplug",
+                                "name": "TPLinkSmartplug",
+                                "description": ""
+                            },
+                            {
+                                "id": "tuyasmartplug",
+                                "name": "TuyaSmartplug",
+                                "description": ""
+                            }
+                        ]
+                    }
+                ] %}
+                {# djlint:on #}
+                <legend>Suggested plugins</legend>
+                <p>
+                    <small>
+                        OctoPrint-Telegram can optionally integrate with several OctoPrint plugins. Installing them is not required but unlocks additional features and improves the overall user experience.
+                    </small>
+                </p>
+                {% for section in suggested_plugins_sections %}
+                    <h5>{{ section.title }}</h5>
+                    {% if section.subtitle %}
+                        <p>
+                            <small>{{ section.subtitle | safe }}</small>
+                        </p>
+                    {% endif %}
+                    <table class="table table-condensed" style="table-layout: auto; width: 100%">
+                        <tbody>
+                            {% for plugin in section.plugins %}
+                                <tr>
+                                    <td style="width: 25%;">
+                                        <a href="https://plugins.octoprint.org/plugins/{{ plugin.id }}/"
+                                           target="_blank">{{ plugin.name }}</a>
+                                    </td>
+                                    <td style="width: 15%;">
+                                        <span data-bind=" text: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'Enabled' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'Disabled' : 'Not installed') : 'Unknown', css: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'badge badge-success' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'badge badge-warning' : 'badge badge-important') : 'badge badge-secondary' "
+                                              class="badge"
+                                              style="min-width: 80%;
+                                                     text-align: center"></span>
+                                    </td>
+                                    <td>
+                                        <span class="help-inline"><small>{{ plugin.description | safe }}</small></span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endfor %}
             </div>
             <!-- TAB CHATS -->
             <div class="tab-pane" id="telegram-settings-tab-chats">
@@ -706,7 +825,7 @@
             },
             {
                 "var": "{currentLayer} {totalLayer}",
-                "desc": "Current and total number of layers. <small class='muted'><a href='https://github.com/OllisGit/OctoPrint-DisplayLayerProgress'>DisplayLayerProgress</a> plugin required.</small>"
+                "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
             },
             {
                 "var": "{owner} {user}",

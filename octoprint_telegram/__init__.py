@@ -1201,7 +1201,34 @@ class TelegramPlugin(
 
             cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
 
-            return jsonify({"ffmpeg_path": ffmpeg_path, "cpulimiter_path": cpulimiter_path})
+            def get_plugin_status(plugin_id):
+                info = self._plugin_manager.get_plugin_info(plugin_id, require_enabled=False)
+                if info is None:
+                    return "not_installed"
+                if not info.enabled:
+                    return "disabled"
+                return "enabled"
+
+            suggested_plugin_ids = [
+                "multicam",
+                "octolapse",
+                "DisplayLayerProgress",
+                "cost",
+                "filamentmanager",
+                "SpoolManager",
+                "psucontrol",
+                "tasmota_mqtt",
+                "tplinksmartplug",
+                "tuyasmartplug",
+            ]
+
+            return jsonify(
+                {
+                    "ffmpeg_path": ffmpeg_path,
+                    "cpulimiter_path": cpulimiter_path,
+                    **{id: get_plugin_status(id) for id in suggested_plugin_ids},
+                }
+            )
 
         # /
         ret_chats = {

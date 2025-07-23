@@ -79,10 +79,10 @@
     <div class="control-group">
         <label class="control-label">ffmpeg</label>
         <div class="controls">
-            <span data-bind="css: { 'label': true, 'label-success': ffmpegPath(), 'label-important': !ffmpegPath() }, attr: { title: ffmpegPath() ? 'ffmpeg correctly installed: ' + ffmpegPath() : 'ffmpeg not installed' }">
-                <i class="icon-ok" data-bind="visible: ffmpegPath()"></i>
-                <i class="icon-remove" data-bind="visible: !ffmpegPath()"></i>
-                <span data-bind="text: ffmpegPath() ? 'Installed: ' + ffmpegPath() : 'Not Installed'"></span>
+            <span data-bind="css: { 'label': true, 'label-success': requirements().ffmpeg_path, 'label-important': !requirements().ffmpeg_path }, attr: { title: requirements().ffmpeg_path ? 'ffmpeg correctly installed: ' + requirements().ffmpeg_path : 'ffmpeg not installed' }">
+                <i class="icon-ok" data-bind="visible: requirements().ffmpeg_path"></i>
+                <i class="icon-remove" data-bind="visible: !requirements().ffmpeg_path"></i>
+                <span data-bind="text: requirements().ffmpeg_path ? 'Installed: ' + requirements().ffmpeg_path : 'Not Installed'"></span>
             </span>
             <a href="#"
                style="margin-left: 10px"
@@ -102,10 +102,11 @@
     <div class="control-group">
         <label class="control-label">cpulimit / limitcpu</label>
         <div class="controls">
-            <span data-bind="css: { 'label': true, 'label-success': cpulimiterPath(), 'label-important': !cpulimiterPath() }, attr: { title: cpulimiterPath() ? 'cpulimit / limitcpu correctly installed: ' + cpulimiterPath() : 'cpulimit  / limitcpu not installed' }">
-                <i class="icon-ok" data-bind="visible: cpulimiterPath()"></i>
-                <i class="icon-remove" data-bind="visible: !cpulimiterPath()"></i>
-                <span data-bind="text: cpulimiterPath() ? 'Installed: ' + cpulimiterPath() : 'Not Installed'"></span>
+            <span data-bind="css: { 'label': true, 'label-success': requirements().cpulimiter_path, 'label-important': !requirements().cpulimiter_path }, attr: { title: requirements().cpulimiter_path ? 'cpulimit / limitcpu correctly installed: ' + requirements().cpulimiter_path : 'cpulimit  / limitcpu not installed' }">
+                <i class="icon-ok" data-bind="visible: requirements().cpulimiter_path"></i>
+                <i class="icon-remove"
+                   data-bind="visible: !requirements().cpulimiter_path"></i>
+                <span data-bind="text: requirements().cpulimiter_path ? 'Installed: ' + requirements().cpulimiter_path : 'Not Installed'"></span>
             </span>
             <a href="#"
                style="margin-left: 10px"
