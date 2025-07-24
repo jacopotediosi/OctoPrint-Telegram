@@ -1125,6 +1125,13 @@ class TelegramPlugin(
         )
 
     ##########
+    ### Custom Event Hook
+    ##########
+
+    def register_custom_events(*args, **kwargs):
+        return ["preimg", "postimg"]
+
+    ##########
     ### EventHandler API
     ##########
 
@@ -1911,7 +1918,7 @@ class TelegramPlugin(
         if method == "None":
             return
 
-        if method not in {"GCODE", "SYSTEM"}:
+        if method not in {"EVENT", "GCODE", "SYSTEM"}:
             self._logger.warning(f"Unknown pre_image method: {method}")
             return
 
@@ -1920,7 +1927,9 @@ class TelegramPlugin(
 
         self._logger.debug(f"Executing pre_image: method={method}, command={command}, delay={delay}s")
 
-        if method == "GCODE":
+        if method == "EVENT":
+            self._event_bus.fire("plugin_telegram_preimg")
+        elif method == "GCODE":
             self._printer.commands(command)
             self._logger.debug("Pre_image gcode command sent")
         elif method == "SYSTEM":
@@ -1942,7 +1951,7 @@ class TelegramPlugin(
         if method == "None":
             return
 
-        if method not in {"GCODE", "SYSTEM"}:
+        if method not in {"EVENT", "GCODE", "SYSTEM"}:
             self._logger.warning(f"Unknown post_image method: {method}")
             return
 
@@ -1955,7 +1964,9 @@ class TelegramPlugin(
             self._logger.debug(f"Post_image: sleeping for {delay}s")
             time.sleep(delay)
 
-        if method == "GCODE":
+        if method == "EVENT":
+            self._event_bus.fire("plugin_telegram_postimg")
+        elif method == "GCODE":
             self._printer.commands(command)
             self._logger.debug("Post_image gcode command sent")
         elif method == "SYSTEM":
@@ -2362,4 +2373,5 @@ __plugin_hooks__ = {
     "octoprint.server.http.routes": __plugin_implementation__.route_hook,
     "octoprint.comm.protocol.gcode.received": __plugin_implementation__.recv_callback,
     "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.hook_gcode_sent,
+    "octoprint.events.register_custom_events": __plugin_implementation__.register_custom_events,
 }

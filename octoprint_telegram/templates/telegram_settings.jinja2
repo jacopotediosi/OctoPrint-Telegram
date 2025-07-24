@@ -242,12 +242,14 @@
                         <select class="input-block-level"
                                 data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
                             <option value="None">No Action</option>
+                            <option value="EVENT">Trigger OctoPrint event (plugin_telegram_preimg)</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
                         </select>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="control-group"
+                     data-bind="visible: ['GCODE', 'SYSTEM'].includes(settings.settings.plugins.telegram.PreImgMethod())">
                     <label class="control-label">Command</label>
                     <div class="controls">
                         <input type="text"
@@ -258,7 +260,8 @@
                         </span>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="control-group"
+                     data-bind="visible: settings.settings.plugins.telegram.PreImgMethod() !== 'None'">
                     <label class="control-label">Delay</label>
                     <div class="controls">
                         <div class="input-append input-block-level">
@@ -282,12 +285,14 @@
                         <select class="input-block-level"
                                 data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
                             <option value="None">No Action</option>
+                            <option value="EVENT">Trigger OctoPrint event (plugin_telegram_postimg)</option>
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
                         </select>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="control-group"
+                     data-bind="visible: ['GCODE', 'SYSTEM'].includes(settings.settings.plugins.telegram.PostImgMethod())">
                     <label class="control-label">Command</label>
                     <div class="controls">
                         <input type="text"
@@ -298,7 +303,8 @@
                         </span>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="control-group"
+                     data-bind="visible: settings.settings.plugins.telegram.PostImgMethod() !== 'None'">
                     <label class="control-label">Delay</label>
                     <div class="controls">
                         <div class="input-append input-block-level">
