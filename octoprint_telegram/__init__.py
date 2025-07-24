@@ -870,8 +870,10 @@ class TelegramPlugin(
             ffmpeg_preset="medium",
             PreImgMethod="None",
             PreImgCommand="",
+            PreImgDelay=0,
             PostImgMethod="None",
             PostImgCommand="",
+            PostImgDelay=0,
             TimeFormat="%H:%M:%S",
             DayTimeFormat="%a %H:%M:%S",
             WeekTimeFormat="%d.%m.%Y %H:%M:%S",
@@ -1537,22 +1539,17 @@ class TelegramPlugin(
                 inline_keyboard = {"inline_keyboard": inline_keyboard_buttons}
                 message_data["reply_markup"] = json.dumps(inline_keyboard)
 
-            # Pre image
-            if with_image or with_gif:
-                try:
-                    self.pre_image()
-                except Exception:
-                    self._logger.exception("Caught an exception calling pre_image()")
-
-            # Prepare images to send
+            # Prepare images and gifs to send
             images_to_send = []
+            gifs_to_send = []
 
-            # Add thumbnails to images to send
-            if kwargs.get("thumbnail"):
+            # Add thumbnail to images to send
+            thumbnail = kwargs.get("thumbnail")
+            if thumbnail:
                 try:
-                    self._logger.debug(f"Get thumbnail: {kwargs.get('thumbnail')}")
+                    self._logger.debug(f"Get thumbnail: {thumbnail}")
 
-                    url = f"http://localhost:{self.port}/{kwargs.get('thumbnail', '')}"
+                    url = f"http://localhost:{self.port}/{thumbnail}"
 
                     thumbnail_response = requests.get(url)
                     thumbnail_response.raise_for_status()
@@ -1560,17 +1557,6 @@ class TelegramPlugin(
                     images_to_send.append(thumbnail_response.content)
                 except Exception:
                     self._logger.exception("Caught an exception getting thumbnail")
-
-            # Add webcam images to images to send
-            if with_image:
-                with self.telegram_action_context(chatID, "record_video"):
-                    try:
-                        images_to_send += self.take_all_images()
-                    except Exception:
-                        self._logger.exception("Caught an exception taking all images")
-
-            # Prepare gifs to send
-            gifs_to_send = []
 
             # Add movie to gifs to send
             movie = kwargs.get("movie")
@@ -1585,20 +1571,33 @@ class TelegramPlugin(
                 else:
                     gifs_to_send.append(movie)
 
-            # Add gifs to gifs to send
-            if with_gif:
-                with self.telegram_action_context(chatID, "record_video"):
-                    try:
-                        gifs_to_send += self.take_all_gifs(gif_duration)
-                    except Exception:
-                        self._logger.exception("Caught an exception taking all gifs")
-
-            # Post image
             if with_image or with_gif:
-                try:
-                    self.post_image()
-                except Exception:
-                    self._logger.exception("Caught an exception calling post_image()")
+                with self.telegram_action_context(chatID, "record_video"):
+                    # Pre image
+                    try:
+                        self.pre_image()
+                    except Exception:
+                        self._logger.exception("Caught an exception calling pre_image()")
+
+                    # Add webcam images to images to send
+                    if with_image:
+                        try:
+                            images_to_send += self.take_all_images()
+                        except Exception:
+                            self._logger.exception("Caught an exception taking all images")
+
+                    # Add gifs to gifs to send
+                    if with_gif:
+                        try:
+                            gifs_to_send += self.take_all_gifs(gif_duration)
+                        except Exception:
+                            self._logger.exception("Caught an exception taking all gifs")
+
+                    # Post image
+                    try:
+                        self.post_image()
+                    except Exception:
+                        self._logger.exception("Caught an exception calling post_image()")
 
             # Initialize files and media
             files = {}
@@ -1908,45 +1907,65 @@ class TelegramPlugin(
 
     def pre_image(self):
         method = self._settings.get(["PreImgMethod"])
-        command = self._settings.get(["PreImgCommand"])
-
-        self._logger.debug(f"Starting pre_image. Method: {method}. Command: {command}.")
 
         if method == "None":
             return
-        elif method == "GCODE":
-            self._printer.commands(command)
-            self._logger.debug("Pre_image gcode command executed")
-        elif method == "SYSTEM":
-            p = subprocess.Popen(command, shell=True)
-            self._logger.debug(f"Pre_image system command executed. PID={p.pid}.")
-            while p.poll() is None:
-                time.sleep(0.1)
-            r = p.returncode
-            self._logger.debug(f"Pre_image system command returned: {r}")
-        else:
+
+        if method not in {"GCODE", "SYSTEM"}:
             self._logger.warning(f"Unknown pre_image method: {method}")
+            return
+
+        command = self._settings.get(["PreImgCommand"])
+        delay = self._settings.get_int(["PreImgDelay"], min=0)
+
+        self._logger.debug(f"Executing pre_image: method={method}, command={command}, delay={delay}s")
+
+        if method == "GCODE":
+            self._printer.commands(command)
+            self._logger.debug("Pre_image gcode command sent")
+        elif method == "SYSTEM":
+            try:
+                proc = subprocess.Popen(command, shell=True)
+                self._logger.debug(f"Pre_image SYSTEM command started (PID={proc.pid})")
+                proc.wait()
+                self._logger.debug(f"Pre_image SYSTEM command finished with return code {proc.returncode}")
+            except Exception:
+                self._logger.exception(f"Caught an exception running pre_image SYSTEM command '{command}'")
+
+        if delay:
+            self._logger.debug(f"Pre_image: sleeping for {delay}s")
+            time.sleep(delay)
 
     def post_image(self):
         method = self._settings.get(["PostImgMethod"])
-        command = self._settings.get(["PostImgCommand"])
-
-        self._logger.debug(f"Starting post_image. Method: {method}. Command: {command}.")
 
         if method == "None":
             return
-        elif method == "GCODE":
-            self._printer.commands(command)
-            self._logger.debug("Post_image gcode command executed")
-        elif method == "SYSTEM":
-            p = subprocess.Popen(command, shell=True)
-            self._logger.debug(f"Post_image system command executed. PID={p.pid}.")
-            while p.poll() is None:
-                time.sleep(0.1)
-            r = p.returncode
-            self._logger.debug(f"Post_image system command returned: {r}")
-        else:
+
+        if method not in {"GCODE", "SYSTEM"}:
             self._logger.warning(f"Unknown post_image method: {method}")
+            return
+
+        command = self._settings.get(["PostImgCommand"])
+        delay = self._settings.get_int(["PostImgDelay"], min=0)
+
+        self._logger.debug(f"Executing post_image: method={method}, command={command}, delay={delay}s")
+
+        if delay:
+            self._logger.debug(f"Post_image: sleeping for {delay}s")
+            time.sleep(delay)
+
+        if method == "GCODE":
+            self._printer.commands(command)
+            self._logger.debug("Post_image gcode command sent")
+        elif method == "SYSTEM":
+            try:
+                proc = subprocess.Popen(command, shell=True)
+                self._logger.debug(f"Post_image SYSTEM command started (PID={proc.pid})")
+                proc.wait()
+                self._logger.debug(f"Post_image SYSTEM command finished with return code {proc.returncode}")
+            except Exception:
+                self._logger.exception(f"Caught an exception running post_image SYSTEM command '{command}'")
 
     def get_webcam_profiles(self) -> List[WebcamProfile]:
         webcam_profiles: List[WebcamProfile] = []

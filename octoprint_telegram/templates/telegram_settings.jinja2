@@ -235,8 +235,9 @@
                     </div>
                 </div>
                 <legend>Pre / post image actions</legend>
+                <h5>Pre-image</h5>
                 <div class="control-group">
-                    <label class="control-label">Pre Image Action</label>
+                    <label class="control-label">Method</label>
                     <div class="controls">
                         <select class="input-block-level"
                                 data-bind="value: settings.settings.plugins.telegram.PreImgMethod">
@@ -244,14 +245,39 @@
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
                         </select>
-                        <span class="help-block"><small>Action pre image could be none, a gcode or a system command (script name with full path)</small></span>
-                        <input type="text"
-                               class="input-block-level"
-                               data-bind="value: settings.settings.plugins.telegram.PreImgCommand" />
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label">Post Image Action</label>
+                    <label class="control-label">Command</label>
+                    <div class="controls">
+                        <input type="text"
+                               class="input-block-level"
+                               data-bind="value: settings.settings.plugins.telegram.PreImgCommand" />
+                        <span class="help-block">
+                            <small>For system commands, always use absolute paths when referencing files or scripts.</small>
+                        </span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Delay</label>
+                    <div class="controls">
+                        <div class="input-append input-block-level">
+                            <input type="number"
+                                   step="1"
+                                   min="0"
+                                   data-bind="value: settings.settings.plugins.telegram.PreImgDelay" />
+                            <span class="add-on">s</span>
+                        </div>
+                        <span class="help-block">
+                            <small>
+                                Delay (in seconds) between the execution of the pre-image action and the image capture - useful, for instance, to allow LEDs to power on completely.
+                            </small>
+                        </span>
+                    </div>
+                </div>
+                <h5>Post-image</h5>
+                <div class="control-group">
+                    <label class="control-label">Method</label>
                     <div class="controls">
                         <select class="input-block-level"
                                 data-bind="value: settings.settings.plugins.telegram.PostImgMethod">
@@ -259,10 +285,32 @@
                             <option value="GCODE">G-Code Command</option>
                             <option value="SYSTEM">System Command</option>
                         </select>
-                        <span class="help-block"><small>Action post image could be none, a gcode or a system command (script name with full path)</small></span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Command</label>
+                    <div class="controls">
                         <input type="text"
                                class="input-block-level"
                                data-bind="value: settings.settings.plugins.telegram.PostImgCommand" />
+                        <span class="help-block">
+                            <small>For system commands, always use absolute paths when referencing files or scripts.</small>
+                        </span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Delay</label>
+                    <div class="controls">
+                        <div class="input-append input-block-level">
+                            <input type="number"
+                                   step="1"
+                                   min="0"
+                                   data-bind="value: settings.settings.plugins.telegram.PostImgDelay" />
+                            <span class="add-on">s</span>
+                        </div>
+                        <span class="help-block">
+                            <small>Delay (in seconds) between the image capture and the execution of the post-image action.</small>
+                        </span>
                     </div>
                 </div>
                 <legend>ImgBB</legend>
