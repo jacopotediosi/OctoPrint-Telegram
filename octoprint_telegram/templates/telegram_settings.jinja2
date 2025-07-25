@@ -559,6 +559,18 @@
             </div>
             <!-- TAB CHATS -->
             <div class="tab-pane" id="telegram-settings-tab-chats">
+                <legend>Enrollment</legend>
+                <p style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button"
+                            class="btn"
+                            style="white-space: nowrap"
+                            data-bind="click: toggleEnrollmentCountdown, text: enrollmentCountdownButtonText"></button>
+                    <small>
+                        Click the button on the left to enable or disable enrollment.
+                        While the enrollment countdown is active, send a message to the bot (in a private chat or group)
+                        to add the chat to the table below.
+                    </small>
+                </p>
                 <legend>Known chats</legend>
                 <div style="position:relative">
                     <div style="position:absolute;

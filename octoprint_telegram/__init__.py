@@ -1,5 +1,4 @@
 import copy
-import datetime
 import io
 import json
 import logging
@@ -12,6 +11,7 @@ import threading
 import time
 import zipfile
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from typing import List, Optional
 from urllib.parse import urljoin
 
@@ -147,9 +147,6 @@ class TelegramListener(threading.Thread):
             chat_id = self.get_chat_id(message)
             from_id = self.get_from_id(message)
 
-            is_known_chat = chat_id in settings_chats
-            is_known_user = from_id in settings_chats
-
             chat = message["message"]["chat"]
 
             data = settings_chats.get(chat_id, self.main.new_chat_settings)
@@ -170,28 +167,20 @@ class TelegramListener(threading.Thread):
                     title_parts.append(f"@{chat['username']}")
                 data["title"] = " - ".join(title_parts)
 
-            allow_users = data["allow_users"]
-            accept_commands = data["accept_commands"]
-
-            if not data["private"] and is_known_chat:
-                if allow_users and not is_known_user and not accept_commands:
-                    self._logger.warning("Previous command was from an unknown user.")
-                    self.main.send_msg(
-                        f"{get_emoji('notallowed')} I don't know you!",
-                        chatID=chat_id,
-                    )
+            if chat_id not in settings_chats:
+                if not self.main.enrollment_countdown_end or datetime.now() > self.main.enrollment_countdown_end:
+                    self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
                     return
 
-            if not is_known_chat:
-                self._logger.info(f"Got new chat: {chat_id}")
+                self._logger.info(f"Adding chat {chat_id} to known chats")
 
                 settings_chats[chat_id] = data
                 self.main._settings.set(["chats"], settings_chats)
                 self.main._settings.save()
 
                 self.main.send_msg(
-                    f"{get_emoji('info')} Now I know you. "
-                    "Before you can do anything, go to plugin settings and edit your permissions.",
+                    f"{get_emoji('info')} Chat added to known chats. "
+                    "Before you can do anything, please go to plugin settings and edit your permissions.",
                     chatID=chat_id,
                 )
 
@@ -655,22 +644,26 @@ class TelegramPlugin(
     octoprint.plugin.AssetPlugin,
     octoprint.plugin.WizardPlugin,
 ):
+    # For more init stuff see also on_after_startup()
     def __init__(self):
-        # For more init stuff see on_after_startup()
         self._logger = logging.getLogger("octoprint.plugins.telegram")
         self.thread = None
+        self.port = 5000
         self.bot_ready = False
         self.bot_url = None
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
-        self.port = 5000
+
         self.update_message_id = {}
         self.shut_up = set()
+
         self.telegram_utils = None
         self.tcmd = None
         self.tmsg = None
-        # Initial settings for new chat. See on_after_startup()
-        self.new_chat_settings = {}
+
+        self.new_chat_settings = {}  # Initial settings for new chat. See on_after_startup()
+
+        self.enrollment_countdown_end = None
 
     # Starts the telegram bot
     def start_bot(self):
@@ -1173,6 +1166,14 @@ class TelegramPlugin(
         return self.process_on_api_get(request.args)
 
     def process_on_api_get(self, request_args=None):
+        # /?enrollmentCountdown
+        if request_args and "enrollmentCountdown" in request_args:
+            if self.enrollment_countdown_end:
+                remaining = int((self.enrollment_countdown_end - datetime.now()).total_seconds())
+                if remaining > 0:
+                    return jsonify({"remaining": remaining})
+            return jsonify({"remaining": 0})
+
         # /?bindings
         if request_args and "bindings" in request_args:
             bind_text = {}
@@ -1277,6 +1278,8 @@ class TelegramPlugin(
                 "send_notifications",
                 "allow_users",
             ],
+            startEnrollmentCountdown=[],
+            stopEnrollmentCountdown=[],
         )
 
     def on_api_command(self, command, data):
@@ -1319,7 +1322,6 @@ class TelegramPlugin(
                     }
                 )
 
-        # Delete a chat
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
 
@@ -1382,6 +1384,17 @@ class TelegramPlugin(
 
             # Return updated chats settings
             return self.process_on_api_get()
+
+        elif command == "startEnrollmentCountdown":
+            duration = 5 * 60
+            self.enrollment_countdown_end = datetime.now() + timedelta(seconds=duration)
+            self._plugin_manager.send_plugin_message(self._identifier, {"enrollment_countdown": duration})
+            return jsonify({"ok": True, "duration": duration})
+
+        elif command == "stopEnrollmentCountdown":
+            self.enrollment_countdown_end = None
+            self._plugin_manager.send_plugin_message(self._identifier, {"enrollment_countdown": 0})
+            return jsonify({"ok": True})
 
     ##########
     ### Telegram API-Functions
@@ -2185,7 +2198,7 @@ class TelegramPlugin(
         duration = max(1, min(duration, 60))
         self._logger.debug(f"duration={duration}")
 
-        time_sec = str(datetime.timedelta(seconds=duration))
+        time_sec = str(timedelta(seconds=duration))
         self._logger.debug(f"timeSec={time_sec}")
 
         used_cpu, limit_cpu = 1, 65
@@ -2282,10 +2295,10 @@ class TelegramPlugin(
         return layers
 
     def calculate_ETA(self, printTime):
-        current_time = datetime.datetime.now()
-        finish_time = current_time + datetime.timedelta(seconds=printTime)
+        current_time = datetime.now()
+        finish_time = current_time + timedelta(seconds=printTime)
 
-        if finish_time.day > current_time.day and finish_time > current_time + datetime.timedelta(days=7):
+        if finish_time.day > current_time.day and finish_time > current_time + timedelta(days=7):
             # Longer than a week ahead
             format = self._settings.get(["WeekTimeFormat"])  # "%d.%m.%Y %H:%M:%S"
         elif finish_time.day > current_time.day:

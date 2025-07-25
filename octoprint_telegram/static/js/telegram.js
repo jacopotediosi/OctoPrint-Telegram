@@ -5,7 +5,7 @@
  * License: AGPLv3
  */
 
-/* global $, _, ko, OctoPrint, OCTOPRINT_VIEWMODELS, showConfirmationDialog, ItemListHelper */
+/* global $, _, ko, OctoPrint, OCTOPRINT_VIEWMODELS, showConfirmationDialog, ItemListHelper, moment */
 /* eslint camelcase: "off" */
 
 $(function () {
@@ -47,6 +47,9 @@ $(function () {
     self.isChatsTableLoading = ko.observable(false)
     self.isTestingToken = ko.observable(false)
     self.onBindLoad = false
+
+    self.enrollmentCountdownRemaining = ko.observable(0)
+    self.enrollmentCountdownInterval = undefined
 
     self.editChatDialog = undefined
     self.varInfoDialog = undefined
@@ -479,7 +482,14 @@ $(function () {
       self.requestDataInterval = setInterval(self.requestData, 3000)
       self.requestRequirements()
       self.requestBindings()
+
       self.testToken($('#telegram-settings-token').val())
+
+      self.fetchEnrollmentCountdownRemaining(function (remaining) {
+        if (remaining > 0) {
+          self.startEnrollmentCountdown(remaining)
+        }
+      })
 
       self.editChatDialog = $('#settings-telegramDialogEditChat')
       self.editCmdDialog = $('#settings-telegramDialogEditCommands')
@@ -512,6 +522,70 @@ $(function () {
       })
     }
 
+    self.onDataUpdaterPluginMessage = function (plugin, data) {
+      if (plugin !== self.pluginIdentifier) {
+        return
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'enrollment_countdown')) {
+        const remaining = data.enrollment_countdown
+        if (remaining > 0) {
+          self.startEnrollmentCountdown(remaining)
+        } else {
+          self.stopEnrollmentCountdown()
+        }
+      }
+    }
+
+    self.fetchEnrollmentCountdownRemaining = function (callback) {
+      OctoPrint.simpleApiGet(self.pluginIdentifier + '?enrollmentCountdown')
+        .done(function (response) {
+          callback(response.remaining)
+        })
+    }
+
+    self.toggleEnrollmentCountdown = function () {
+      if (self.enrollmentCountdownRemaining() > 0) {
+        OctoPrint.simpleApiCommand(self.pluginIdentifier, 'stopEnrollmentCountdown', {})
+      } else {
+        OctoPrint.simpleApiCommand(self.pluginIdentifier, 'startEnrollmentCountdown', {})
+      }
+    }
+
+    self.startEnrollmentCountdown = function (duration) {
+      self.enrollmentCountdownRemaining(duration)
+
+      clearInterval(self.enrollmentCountdownInterval)
+
+      self.enrollmentCountdownInterval = setInterval(function () {
+        const current = self.enrollmentCountdownRemaining()
+        if (current <= 1) {
+          self.stopEnrollmentCountdown()
+        } else {
+          self.enrollmentCountdownRemaining(current - 1)
+        }
+      }, 1000)
+    }
+
+    self.stopEnrollmentCountdown = function () {
+      self.enrollmentCountdownRemaining(0)
+      clearInterval(self.enrollmentCountdownInterval)
+    }
+
+    self.enrollmentCountdownButtonText = ko.pureComputed(function () {
+      const remaining = self.enrollmentCountdownRemaining()
+      if (remaining <= 0) {
+        const warningEmoji = String.fromCodePoint(0x26A0, 0xFE0F)
+        return `${warningEmoji} Enable`
+      }
+
+      const timerEmoji = String.fromCodePoint(0x23F1, 0xFE0F)
+      const duration = moment.duration(remaining, 'seconds')
+      const formatted = moment.utc(duration.asMilliseconds()).format('m:ss')
+
+      return `Disable (${timerEmoji} ${formatted})`
+    })
+
     // Reveal password buttons
     $(function () {
       $('button[data-toggle="reveal"]').on('click', function () {
@@ -528,13 +602,9 @@ $(function () {
   }
 
   // View model class, parameters for constructor, containers to bind to
-  OCTOPRINT_VIEWMODELS.push([
-    TelegramViewModel,
-
-    // e.g. loginStateViewModel, settingsViewModel, ...
-    ['settingsViewModel'],
-
-    // e.g. #settings_plugin_telegram, #tab_plugin_telegram, ...
-    ['#settings_plugin_telegram', '#wizard_plugin_telegram']
-  ])
+  OCTOPRINT_VIEWMODELS.push({
+    construct: TelegramViewModel,
+    dependencies: ['settingsViewModel'],
+    elements: ['#settings_plugin_telegram', '#wizard_plugin_telegram']
+  })
 })
