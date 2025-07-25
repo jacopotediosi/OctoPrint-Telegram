@@ -36,15 +36,16 @@
         <label class="control-label">Test token</label>
         <div class="controls">
             <button class="btn"
-                    data-bind="click: function() { testToken($('#telegram-wizard-token').val()) }, disable: isloading()"
+                    data-bind="click: function() { testToken($('#telegram-wizard-token').val()) }, disable: isTestingToken()"
                     title="Test the token">
                 <i class="icon-key"></i> Test above token
             </button>
-            <span class="help-block" data-bind="if: token_state_str || isloading()">
+            <span class="help-block"
+                  data-bind="if: token_state_str || isTestingToken()">
                 Token status is:
                 <strong id="telegram-wizard-token-state"
-                        data-bind="text: token_state_str, visible: ! isloading()"></strong>
-                <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
+                        data-bind="text: token_state_str, visible: !isTestingToken()"></strong>
+                <strong class="text-warning" data-bind="if: isTestingToken">Testing the token, please wait...</strong>
             </span>
         </div>
     </div>

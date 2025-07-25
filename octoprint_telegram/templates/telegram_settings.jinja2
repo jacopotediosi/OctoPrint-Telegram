@@ -62,15 +62,16 @@
                     <label class="control-label">Test token</label>
                     <div class="controls">
                         <button class="btn"
-                                data-bind="click: function() { testToken($('#telegram-settings-token').val()) }, disable: isloading()"
+                                data-bind="click: function() { testToken($('#telegram-settings-token').val()) }, disable: isTestingToken()"
                                 title="Test the token">
                             <i class="icon-key"></i> Test above token
                         </button>
-                        <span class="help-block" data-bind="if: token_state_str || isloading()">
+                        <span class="help-block"
+                              data-bind="if: token_state_str || isTestingToken()">
                             Token status is:
                             <strong id="telegram-settings-token-state"
-                                    data-bind="text: token_state_str, visible: ! isloading()"></strong>
-                            <strong class="text-warning" data-bind="if: isloading">Testing the token, please wait...</strong>
+                                    data-bind="text: token_state_str, visible: !isTestingToken()"></strong>
+                            <strong class="text-warning" data-bind="if: isTestingToken">Testing the token, please wait...</strong>
                         </span>
                     </div>
                 </div>
@@ -559,10 +560,7 @@
             <!-- TAB CHATS -->
             <div class="tab-pane" id="telegram-settings-tab-chats">
                 <legend>Known chats</legend>
-                <div style="float:left;
-                            padding:0px 0px 0px 0px;
-                            margin:0px;
-                            position:relative">
+                <div style="position:relative">
                     <div style="position:absolute;
                                 left:0px;
                                 top:0px;
@@ -571,13 +569,13 @@
                                 width:100%;
                                 height:100%;
                                 background-color:white"
-                         data-bind="visible: isloading()">
+                         data-bind="visible: isChatsTableLoading()">
                         <span style="position:absolute;
                                      left:50%;
                                      top:50%;
                                      z-index:1011"
                               class="icon-spinner icon-spin icon-large"
-                              title="Request in progress..."></span>
+                              title="Loading..."></span>
                     </div>
                     <table class="table table-condensed table-hover table-striped">
                         <thead>
@@ -666,30 +664,6 @@
                             </tr>
                         </tbody>
                     </table>
-                    <div class="control-group">
-                        <div style="display: flex;
-                                    justify-content: space-between;
-                                    align-items: center">
-                            <button class="btn"
-                                    data-bind="click: function (){ $root.requestData(true); }">
-                                <i class="icon-refresh"></i> Refresh
-                            </button>
-                            <div class="switch-container">
-                                <label class="switch-label"
-                                       style="display: inline-flex;
-                                              align-items: center;
-                                              gap: 8px;
-                                              cursor: pointer">
-                                    <span>Enable auto refresh (20 sec.)</span>
-                                    <input type="checkbox"
-                                           style="display:none"
-                                           class="switch-input"
-                                           data-bind="checked: reloadUsr" />
-                                    <span class="switch-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <!-- TAB NOTIFICATION MESSAGES -->
