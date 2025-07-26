@@ -20,9 +20,9 @@ $(function () {
       'known_chats',
       {
         title: function (a, b) {
-          if (a.title.toLocaleLowerCase() < b.title.toLocaleLowerCase()) return -1
-          if (a.title.toLocaleLowerCase() > b.title.toLocaleLowerCase()) return 1
-          return 0
+          const aTitle = (a.title || '').toLocaleLowerCase()
+          const bTitle = (b.title || '').toLocaleLowerCase()
+          return aTitle.localeCompare(bTitle)
         }
       },
       {},
@@ -31,8 +31,6 @@ $(function () {
       [],
       999
     )
-
-    self.requestDataInterval = undefined
 
     self.connection_state_str = ko.observable('Unknown')
     self.token_state_str = ko.observable('Unknown')
@@ -250,7 +248,7 @@ $(function () {
     }
 
     self.fromTestToken = function (response) {
-      if (response === undefined) return
+      if (!response) return
 
       self.token_state_str(response.connection_state_str)
       self.errored(!response.ok)
@@ -269,7 +267,7 @@ $(function () {
     }
 
     self.fromResponse = function (response) {
-      if (response === undefined) return
+      if (!response) return
 
       if (Object.prototype.hasOwnProperty.call(response, 'connection_state_str')) {
         self.connection_state_str(response.connection_state_str)
@@ -279,17 +277,9 @@ $(function () {
       }
 
       const entries = response.chats
-      if (entries === undefined) return
+      if (!entries) return
 
-      const newIds = Object.keys(entries)
-      const previousIds = _.map(self.chatListHelper.allItems, 'id')
-
-      if (!_.isEqual(_.sortBy(newIds), _.sortBy(previousIds))) {
-        self.isChatsTableLoading(true)
-        const newChatsArray = newIds.map(id => ({ id, ...entries[id] }))
-        self.chatListHelper.updateItems(newChatsArray)
-        self.isChatsTableLoading(false)
-      }
+      self.updateChatsTable(entries)
     }
 
     self.showEditChatDialog = function (data) {
@@ -459,8 +449,6 @@ $(function () {
       const message = `Do you really want to delete ${title}?`
 
       showConfirmationDialog(message, function () {
-        self.isChatsTableLoading(true)
-
         OctoPrint.simpleApiCommand(
           self.pluginIdentifier,
           'delChat',
@@ -469,17 +457,12 @@ $(function () {
       })
     }
 
-    self.onSettingsHidden = function () {
-      clearTimeout(self.requestDataInterval)
-    }
-
     self.onWizardShow = function () {
       self.requestRequirements()
     }
 
     self.onSettingsShown = function () {
       self.requestData()
-      self.requestDataInterval = setInterval(self.requestData, 3000)
       self.requestRequirements()
       self.requestBindings()
 
@@ -523,18 +506,75 @@ $(function () {
     }
 
     self.onDataUpdaterPluginMessage = function (plugin, data) {
-      if (plugin !== self.pluginIdentifier) {
-        return
-      }
+      if (plugin !== self.pluginIdentifier || !data || !data.type) return
 
-      if (Object.prototype.hasOwnProperty.call(data, 'enrollment_countdown')) {
-        const remaining = data.enrollment_countdown
-        if (remaining > 0) {
-          self.startEnrollmentCountdown(remaining)
-        } else {
-          self.stopEnrollmentCountdown()
+      switch (data.type) {
+        case 'enrollment_countdown': {
+          const remaining = data.remaining
+          if (remaining > 0) {
+            self.startEnrollmentCountdown(remaining)
+          } else {
+            self.stopEnrollmentCountdown()
+          }
+          break
+        }
+
+        case 'update_known_chats': {
+          self.updateChatsTable(data.chats)
+          break
         }
       }
+    }
+
+    self.updateChatsTable = function (incomingChats) {
+      const existingChats = self.settings.settings.plugins.telegram.chats
+
+      self.isChatsTableLoading(true)
+
+      function createObservableRecursive (obj) {
+        if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+          return ko.observable(obj)
+        }
+
+        const observableObj = {}
+        for (const [key, value] of Object.entries(obj)) {
+          observableObj[key] = createObservableRecursive(value)
+        }
+        return observableObj
+      }
+
+      for (const [id, newChat] of Object.entries(incomingChats)) {
+        if (!existingChats[id]) {
+          existingChats[id] = createObservableRecursive(newChat)
+        } else {
+          if ('image' in newChat && existingChats[id].image) {
+            existingChats[id].image(newChat.image)
+          }
+          if ('title' in newChat && existingChats[id].title) {
+            existingChats[id].title(newChat.title)
+          }
+        }
+      }
+
+      for (const id of Object.keys(existingChats)) {
+        if (!(id in incomingChats)) {
+          delete existingChats[id]
+        }
+      }
+
+      const newChatsItems = Object.entries(existingChats)
+        .filter(([id]) => id !== 'zBOTTOMOFCHATS')
+        .map(([id, chat]) => {
+          const item = { id }
+          for (const [key, observable] of Object.entries(chat)) {
+            item[key] = ko.isObservable(observable) ? observable() : observable
+          }
+          return item
+        })
+
+      self.chatListHelper.updateItems(newChatsItems)
+
+      self.isChatsTableLoading(false)
     }
 
     self.fetchEnrollmentCountdownRemaining = function (callback) {

@@ -609,12 +609,13 @@
                                                 padding:0px 5px 0px 0px;
                                                 margin:0px;
                                                 position:relative">
-                                        <img data-bind="attr: {src: image}"
+                                        <img data-bind="attr: { src: image ? image : (type && ['group', 'supergroup'].includes(type.toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg'), __type: type }"
                                              width="40px"
                                              height="40px"
                                              class="img-circle teleUsrPic"
                                              alt="Chat profile photo"
-                                             title="Chat profile photo">
+                                             title="Chat profile photo"
+                                             onerror="this.src = (this.getAttribute('__type') && ['group','supergroup'].includes(this.getAttribute('__type').toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg')">
                                     </div>
                                     <div>
                                         <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;

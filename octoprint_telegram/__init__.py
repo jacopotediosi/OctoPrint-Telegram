@@ -174,22 +174,20 @@ class TelegramListener(threading.Thread):
 
                 self._logger.info(f"Adding chat {chat_id} to known chats")
 
+                data["image"] = self.main.save_chat_picture(chat_id)
+
                 settings_chats[chat_id] = data
                 self.main._settings.set(["chats"], settings_chats)
                 self.main._settings.save()
+                self.main._plugin_manager.send_plugin_message(
+                    self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                )
 
                 self.main.send_msg(
                     f"{get_emoji('info')} Chat added to known chats. "
                     "Before you can do anything, please go to plugin settings and edit your permissions.",
                     chatID=chat_id,
                 )
-
-                try:
-                    t = threading.Thread(target=self.main.save_chat_picture, kwargs={"chat_id": chat_id})
-                    t.daemon = True
-                    t.run()
-                except Exception:
-                    self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
 
                 return
 
@@ -206,7 +204,7 @@ class TelegramListener(threading.Thread):
                 self.handle_new_chat_photo_message(message)
             # We got message with notification for a deleted chat title photo so we do the same
             elif "delete_chat_photo" in message["message"]:
-                self.handle_delete_chat_photo_message(message)
+                self.handle_new_chat_photo_message(message)
             # A member was removed from a group, so lets check if it's our bot and
             # delete the group from our chats if it is
             elif "left_chat_member" in message["message"]:
@@ -239,39 +237,37 @@ class TelegramListener(threading.Thread):
             del settings_chats[chat_id]
             self.main._settings.set(["chats"], settings_chats)
             self.main._settings.save()
+            self.main._plugin_manager.send_plugin_message(
+                self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+            )
 
             self._logger.debug(f"Chat {chat_id} removed from settings")
-
-    def handle_delete_chat_photo_message(self, message):
-        chat_id = self.get_chat_id(message)
-
-        self._logger.info(f"Chat {chat_id} deleted picture, deleting it...")
-
-        path_to_remove = os.path.join(
-            self.main.get_plugin_data_folder(),
-            "img",
-            "user",
-            os.path.basename(f"pic{chat_id}.jpg"),
-        )
-        self._logger.info(f"Removing file {path_to_remove}")
-        try:
-            os.remove(path_to_remove)
-        except OSError:
-            self._logger.exception(f"Failed to remove file {path_to_remove}")
 
     def handle_new_chat_photo_message(self, message):
         chat_id = self.get_chat_id(message)
 
-        # Only if we know the chat
-        if chat_id in self.main._settings.get(["chats"]):
-            self._logger.info(f"Chat {chat_id} changed picture, updating it...")
+        settings_chats = self.main._settings.get(["chats"])
 
-            try:
-                t = threading.Thread(target=self.main.save_chat_picture, kwargs={"chat_id": chat_id})
-                t.daemon = True
-                t.run()
-            except Exception:
-                self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
+        if chat_id not in settings_chats:
+            return
+
+        self._logger.info(f"Chat {chat_id} changed picture, updating it...")
+
+        try:
+
+            def update_chat_picture():
+                public_path = self.main.save_chat_picture(chat_id)
+                if public_path:
+                    settings_chats[chat_id]["image"] = public_path
+                    self.main._settings.set(["chats"], settings_chats)
+                    self.main._settings.save()
+                    self.main._plugin_manager.send_plugin_message(
+                        self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                    )
+
+            threading.Thread(target=update_chat_picture, daemon=True).start()
+        except Exception:
+            self._logger.exception(f"Caught an exception updating chat picture for chat_id {chat_id}")
 
     def handle_document_message(self, message):
         try:
@@ -681,10 +677,35 @@ class TelegramPlugin(
 
             self.bot_ready = True
 
+            # Set bot commands
             try:
                 self.set_bot_commands()
             except Exception:
                 self._logger.exception("Caught an exception setting bot commands")
+
+            # Update chat pictures
+            try:
+
+                def update_chat_pictures():
+                    settings_chats = self._settings.get(["chats"])
+
+                    for chat_id in settings_chats:
+                        if chat_id == "zBOTTOMOFCHATS":
+                            continue
+
+                        public_path = self.save_chat_picture(chat_id)
+                        if public_path:
+                            settings_chats[chat_id]["image"] = public_path
+
+                    self._settings.set(["chats"], settings_chats)
+                    self._settings.save()
+                    self._plugin_manager.send_plugin_message(
+                        self._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                    )
+
+                threading.Thread(target=update_chat_pictures, daemon=True).start()
+            except Exception:
+                self._logger.exception("Caught an exception updating chat pictures")
 
     # Stops the telegram bot
     def stop_bot(self):
@@ -782,6 +803,7 @@ class TelegramPlugin(
             "accept_commands": False,
             "send_notifications": False,
             "type": "",
+            "image": "",
             "allow_users": False,
             "commands": {k: False for k, v in self.tcmd.commandDict.items()},
             "notifications": {k: False for k, v in telegramMsgDict.items()},
@@ -791,31 +813,27 @@ class TelegramPlugin(
         shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
         os.makedirs(self.get_tmpgif_dir(), exist_ok=True)
 
-        self.start_bot()
+        # Delete chat pictures if chat isn't known anymore
+        try:
+            existing_chat_ids = set(self._settings.get(["chats"]).keys())
 
-        # Delete chat profile photos if user doesn't exist anymore
-        img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
-        for filename in os.listdir(img_user_dir):
-            file_path = os.path.join(img_user_dir, filename)
-            if os.path.isfile(file_path):
-                filename_chat_id = filename.split(".")[0][3:]
-                self._logger.debug(f"Testing Pic ID {filename_chat_id}")
-                if filename_chat_id not in self._settings.get(["chats"]):
-                    self._logger.debug(f"Removing file {file_path}")
-                    try:
+            img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
+            for filename in os.listdir(img_user_dir):
+                file_path = os.path.join(img_user_dir, filename)
+                try:
+                    if not os.path.isfile(file_path):
+                        continue
+
+                    filename_chat_id = filename[3:].rsplit(".", 1)[0]
+                    if filename_chat_id not in existing_chat_ids:
                         os.remove(file_path)
-                    except OSError:
-                        self._logger.exception(f"Caught an exception removing file {file_path}")
+                        self._logger.info(f"Deleted obsolete chat picture {file_path}")
+                except Exception:
+                    self._logger.exception(f"Caught an exception deleting obsolete chat picture {file_path}")
+        except Exception:
+            self._logger.exception("Caught an exception deleting obsolete chat pictures")
 
-        # Update chat profile photos
-        for chat_id in self._settings.get(["chats"]):
-            try:
-                if chat_id != "zBOTTOMOFCHATS":
-                    t = threading.Thread(target=self.save_chat_picture, kwargs={"chat_id": chat_id})
-                    t.daemon = True
-                    t.run()
-            except Exception:
-                self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
+        self.start_bot()
 
     def on_shutdown(self):
         self.on_event("PrinterShutdown", {})
@@ -1244,20 +1262,6 @@ class TelegramPlugin(
         ret_chats = {
             k: v for k, v in self._settings.get(["chats"]).items() if "delMe" not in v and k != "zBOTTOMOFCHATS"
         }
-        for chat_id in ret_chats:
-            if os.path.isfile(
-                os.path.join(
-                    self.get_plugin_data_folder(),
-                    "img",
-                    "user",
-                    os.path.basename(f"pic{chat_id}.jpg"),
-                )
-            ):
-                ret_chats[chat_id]["image"] = f"/plugin/telegram/img/user/pic{chat_id}.jpg"
-            elif is_group_or_channel(chat_id):
-                ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/group.jpg"
-            else:
-                ret_chats[chat_id]["image"] = "/plugin/telegram/static/img/default.jpg"
 
         return jsonify(
             {
@@ -1388,12 +1392,14 @@ class TelegramPlugin(
         elif command == "startEnrollmentCountdown":
             duration = 5 * 60
             self.enrollment_countdown_end = datetime.now() + timedelta(seconds=duration)
-            self._plugin_manager.send_plugin_message(self._identifier, {"enrollment_countdown": duration})
+            self._plugin_manager.send_plugin_message(
+                self._identifier, {"type": "enrollment_countdown", "remaining": duration}
+            )
             return jsonify({"ok": True, "duration": duration})
 
         elif command == "stopEnrollmentCountdown":
             self.enrollment_countdown_end = None
-            self._plugin_manager.send_plugin_message(self._identifier, {"enrollment_countdown": 0})
+            self._plugin_manager.send_plugin_message(self._identifier, {"type": "enrollment_countdown", "remaining": 0})
             return jsonify({"ok": True})
 
     ##########
@@ -1785,44 +1791,60 @@ class TelegramPlugin(
 
     def save_chat_picture(self, chat_id):
         if not self.bot_ready:
-            return
+            return ""
 
-        self._logger.debug(f"Saving chat picture for chat_id {chat_id}")
+        chat_id = int(chat_id)
 
-        if is_group_or_channel(chat_id):
-            json_data = self.telegram_utils.send_telegram_request(
-                f"{self.bot_url}/getChat",
-                "get",
-                params={"chat_id": chat_id},
-            )
-            file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
-        else:
-            json_data = self.telegram_utils.send_telegram_request(
-                f"{self.bot_url}/getUserProfilePhotos",
-                "get",
-                params={"limit": 1, "user_id": chat_id},
-            )
-            file_id = json_data.get("result", {}).get("photos", [])
-            file_id = file_id[0][0].get("file_id") if file_id and file_id[0] else None
+        self._logger.debug(f"Saving chat picture for chat {chat_id}")
 
-        if not file_id:
-            self._logger.debug(f"Chat id {chat_id} has no photo.")
-            return
+        default_img = "/plugin/telegram/static/img/default.jpg"
+        group_img = "/plugin/telegram/static/img/group.jpg"
 
-        img_bytes = self.get_file(file_id)
+        try:
+            is_group = is_group_or_channel(chat_id)
 
-        output_filename = os.path.join(
-            self.get_plugin_data_folder(),
-            "img",
-            "user",
-            os.path.basename(f"pic{chat_id}.jpg"),
-        )
+            output_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
+            output_filename = os.path.join(output_dir, f"pic{chat_id}.jpg")
+            os.makedirs(output_dir, exist_ok=True)
 
-        img = Image.open(io.BytesIO(img_bytes))
-        img = img.resize((40, 40), Image.LANCZOS)
-        img.save(output_filename, format="JPEG")
+            file_id = None
+            if is_group:
+                json_data = self.telegram_utils.send_telegram_request(
+                    f"{self.bot_url}/getChat",
+                    "get",
+                    params={"chat_id": chat_id},
+                )
+                file_id = json_data.get("result", {}).get("photo", {}).get("small_file_id")
+            else:
+                json_data = self.telegram_utils.send_telegram_request(
+                    f"{self.bot_url}/getUserProfilePhotos",
+                    "get",
+                    params={"limit": 1, "user_id": chat_id},
+                )
+                photos = json_data.get("result", {}).get("photos", [])
+                if photos and photos[0]:
+                    file_id = photos[0][0].get("file_id")
 
-        self._logger.info(f"Saved chat picture for chat id {chat_id}")
+            if not file_id:
+                self._logger.debug(f"Chat {chat_id} has no photo")
+
+                try:
+                    os.remove(output_filename)
+                except Exception:
+                    pass
+
+                return group_img if is_group else default_img
+
+            img_bytes = self.get_file(file_id)
+            with Image.open(io.BytesIO(img_bytes)) as img:
+                img = img.resize((40, 40), Image.LANCZOS)
+                img.save(output_filename, format="JPEG")
+
+            self._logger.info(f"Saved chat picture for chat id {chat_id}")
+            return f"/plugin/telegram/img/user/pic{chat_id}.jpg"
+        except Exception:
+            self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
+            return default_img
 
     @contextmanager
     def telegram_action_context(self, chat_id, action):
