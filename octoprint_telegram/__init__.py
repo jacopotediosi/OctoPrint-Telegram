@@ -805,7 +805,7 @@ class TelegramPlugin(
             "type": "",
             "image": "",
             "allow_users": False,
-            "commands": {k: False for k, v in self.tcmd.commandDict.items()},
+            "commands": {k: False for k, v in self.tcmd.commandDict.items() if "bind_none" not in v},
             "notifications": {k: False for k, v in telegramMsgDict.items()},
         }
 
@@ -842,20 +842,6 @@ class TelegramPlugin(
     ##########
     ### Settings API
     ##########
-
-    def get_settings_version(self):
-        return 5
-        # Settings version numbers used in releases
-        # < 1.3.0: no settings versioning
-        # 1.3.0 : 1
-        # 1.3.1 : 2
-        # 1.3.2 : 2
-        # 1.3.3 : 2
-        # 1.4.0 : 3
-        # 1.4.1 : 3
-        # 1.4.2 : 3
-        # 1.4.3 : 4
-        # 1.5.1 : 5 (PauseForUser)
 
     def get_settings_defaults(self):
         return dict(
@@ -899,41 +885,35 @@ class TelegramPlugin(
             ),
         )
 
+    def get_settings_version(self):
+        # Settings version numbers used in releases
+        # < 1.3.0: no settings versioning
+        # 1.3.0: 1
+        # 1.3.1: 2
+        # 1.4.0: 3
+        # 1.4.3: 4
+        # 1.5.1: 5 (PauseForUser)
+        # 1.9.0: 6
+        return 6
+
     def on_settings_migrate(self, target, current=None):
-        self._logger.setLevel(logging.DEBUG)
-        self._logger.debug("MIGRATE DO")
+        self._logger.warning(f"Migration - start migration from {current} to {target}")
+
         tcmd = TCMD(self)
 
-        ##########
-        ### Migrate from old plugin Versions < 1.3 (old versions had no settings version check)
-        ##########
         chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
-        self._logger.debug(f"LOADED CHATS: {chats}")
-        self._settings.set(["chats"], {})
+        self._logger.info(f"Migration - loaded chats: {chats}")
+
+        messages = self._settings.get(["messages"])
+        self._logger.info(f"Migration - loaded messages: {messages}")
+
+        # Migrate from plugin versions < 1.3.0
         if current is None or current < 1:
-            ########## Update Chats
-            # There shouldn't be any chats, but maybe someone had installed any test branch.
-            # Then we have to check if all needed settings are populated.
-            for chat in chats:
-                for setting in self.new_chat_settings:
-                    if setting not in chats[chat]:
-                        if setting == "commands":
-                            chats[chat]["commands"] = {
-                                k: False for k, v in tcmd.commandDict.items() if "bind_none" not in v
-                            }
-                        elif setting == "notifications":
-                            chats[chat]["notifications"] = {k: False for k, v in telegramMsgDict.items()}
-                        else:
-                            chats[chat][setting] = False
-            ########## Is there a chat from old single user plugin version?
-            # Then migrate it into chats.
+            # Is there a chat from old single user plugin version? Then migrate it into chats.
             chat = self._settings.get(["chat"])
             if chat is not None:
-                self._settings.set(["chat"], None)
-                data = copy.deepcopy(self.new_chat_settings)
-                data["private"] = True
-                data["title"] = "[UNKNOWN]"
-                # Try to get infos from telegram by sending a "you are migrated" message
+                new_chat_settings = copy.deepcopy(self.new_chat_settings)
+                # Try to get info from telegram by sending a migration message
                 try:
                     message = {
                         "text": (
@@ -955,10 +935,10 @@ class TelegramPlugin(
                     chat = json_data["result"]["chat"]
 
                     if chat["type"] == "group" or chat["type"] == "supergroup":
-                        data["private"] = False
-                        data["title"] = chat["title"]
+                        new_chat_settings["private"] = False
+                        new_chat_settings["title"] = chat["title"]
                     elif chat["type"] == "private":
-                        data["private"] = True
+                        new_chat_settings["private"] = True
                         title_parts = []
                         if "first_name" in chat:
                             title_parts.append(chat["first_name"])
@@ -966,117 +946,95 @@ class TelegramPlugin(
                             title_parts.append(chat["last_name"])
                         if "username" in chat:
                             title_parts.append(f"@{chat['username']}")
-                        data["title"] = " - ".join(title_parts)
-
+                        new_chat_settings["title"] = " - ".join(title_parts)
                 except Exception:
-                    self._logger.exception("ERROR migrating chat. Done with defaults private=true,title=[UNKNOWN]")
+                    self._logger.exception(
+                        "Caught an exception migrating from the single chat version. Done with defaults."
+                    )
 
                 # Place the migrated chat in chats
-                chats.update({str(chat["id"]): data})
+                self._settings.set(["chat"], None)
+                chats[str(chat["id"])] = new_chat_settings
 
-            self._logger.debug(f"MIGRATED Chats: {chats}")
+            # Delete old settings
+            for key in [
+                "message_at_startup",
+                "message_at_shutdown",
+                "message_at_print_started",
+                "message_at_print_done",
+                "message_at_print_failed",
+            ]:
+                self._settings.set([key], None)
 
-            ########## Update messages. Old text will be taken to new structure.
-            messages = self._settings.get(["messages"])
-            msg_out = {}
-            for msg in messages:
-                if msg == "TelegramSendNotPrintingStatus":
-                    msg2 = "StatusNotPrinting"
-                elif msg == "TelegramSendPrintingStatus":
-                    msg2 = "StatusPrinting"
-                else:
-                    msg2 = msg
-                if type(messages[msg]) is not type({}):
-                    new_msg = telegramMsgDict[msg2].copy()
-                    new_msg["text"] = str(messages[msg])
-                    msg_out.update({msg2: new_msg})
-                else:
-                    msg_out.update({msg2: messages[msg]})
-            self._settings.set(["messages"], msg_out)
-            ########## Delete old settings
-            self._settings.set(["message_at_startup"], None)
-            self._settings.set(["message_at_shutdown"], None)
-            self._settings.set(["message_at_print_started"], None)
-            self._settings.set(["message_at_print_done"], None)
-            self._settings.set(["message_at_print_failed"], None)
-
-        ##########
-        ### Migrate to new command/notification settings version.
-        ### This should work on all future versions. So if you add/del
-        ### some commands/notifications, then increment settings version counter
-        ### in get_settings_version(). This will trigger octoprint to update settings
-        ##########
+        # General migration from all previous versions
         if current is None or current < target:
-            # First we have to check if anything has changed in commandDict or telegramMsgDict
-            # then we have to update user command or notification settings
+            # Update chats
+            for chat_settings in chats.values():
+                # Add new chat settings
+                for setting, default_value in self.new_chat_settings.items():
+                    if setting not in chat_settings:
+                        chat_settings[setting] = copy.deepcopy(default_value)
 
-            # This for loop updates commands and notifications settings items of chats.
-            # If there are changes in commandDict or telegramMsgDict.
-            for chat in chats:
-                # Handle renamed commands
-                if "/list" in chats[chat]["commands"]:
-                    chats[chat]["commands"].update({"/files": chats[chat]["commands"]["/list"]})
-                if "/imsorrydontshutup" in chats[chat]["commands"]:
-                    chats[chat]["commands"].update({"/dontshutup": chats[chat]["commands"]["/imsorrydontshutup"]})
-                if "type" not in chats[chat]:
-                    chats[chat].update({"type": "PRIVATE" if chats[chat]["private"] else "GROUP"})
-                del_cmd = []
-                # Collect remove 'bind_none' commands
-                for cmd in tcmd.commandDict:
-                    if cmd in chats[chat]["commands"] and "bind_none" in tcmd.commandDict[cmd]:
-                        del_cmd.append(cmd)
-                # Collect Delete commands from settings if they don't belong to commandDict anymore
-                for cmd in chats[chat]["commands"]:
-                    if cmd not in tcmd.commandDict:
-                        del_cmd.append(cmd)
-                # Finally delete commands
-                for cmd in del_cmd:
-                    del chats[chat]["commands"][cmd]
-                # If there are new commands in commandDict, add them to settings
-                for cmd in tcmd.commandDict:
-                    if cmd not in chats[chat]["commands"]:
-                        if "bind_none" not in tcmd.commandDict[cmd]:
-                            chats[chat]["commands"].update({cmd: False})
-                # Delete notifications from settings if they don't belong to msgDict anymore
-                del_msg = []
-                for msg in chats[chat]["notifications"]:
+                # Get references
+                chat_commands = chat_settings["commands"]
+                chat_notifications = chat_settings["notifications"]
+
+                # Rename commands (copy, not move)
+                rename_commands = {"/list": "/files", "/imsorrydontshutup": "/dontshutup"}
+                for old_cmd, new_cmd in rename_commands.items():
+                    if old_cmd in chat_commands:
+                        chat_commands[new_cmd] = chat_commands[old_cmd]
+
+                # Remove obsolete commands (marked with 'bind_none' or no longer present in tcmd.commandDict)
+                for command in list(chat_commands):
+                    if command not in tcmd.commandDict or "bind_none" in tcmd.commandDict.get(command, {}):
+                        chat_commands.pop(command, None)
+
+                # Add new commands
+                for command, command_props in tcmd.commandDict.items():
+                    if command not in chat_commands and "bind_none" not in command_props:
+                        chat_commands[command] = False
+
+                # Remove obsolete notifications (no longer present in telegramMsgDict)
+                for msg in list(chat_notifications):
                     if msg not in telegramMsgDict:
-                        del_msg.append(msg)
-                for msg in del_msg:
-                    del chats[chat]["notifications"][msg]
-                # If there are new notifications in msgDict, add them to settings
-                for msg in telegramMsgDict:
-                    if msg not in chats[chat]["notifications"]:
-                        chats[chat]["notifications"].update({msg: False})
-            self._settings.set(["chats"], chats)
+                        chat_notifications.pop(msg, None)
 
-            ########## If anything changed in telegramMsgDict, we also have to update settings for messages
-            messages = self._settings.get(["messages"])
-            # This for loop deletes items from messages settings
-            # if they don't belong to telegramMsgDict anymore
-            del_msg = []
-            for msg in messages:
-                if msg not in telegramMsgDict:
-                    del_msg.append(msg)
-            for msg in del_msg:
-                del messages[msg]
-            # This for loop adds new message settings from telegramMsgDict to settings
-            for msg in telegramMsgDict:
-                if msg not in messages:
-                    messages.update({msg: telegramMsgDict[msg]})
+                # Add new notifications
+                for notification in telegramMsgDict:
+                    if notification not in chat_notifications:
+                        chat_notifications[notification] = False
 
-            self._settings.set(["messages"], messages)
-            self._logger.debug(f"MESSAGES: {self._settings.get(['messages'])}")
+            # Rename messages (copy, not move)
+            rename_messages = {
+                "TelegramSendNotPrintingStatus": "StatusNotPrinting",
+                "TelegramSendPrintingStatus": "StatusPrinting",
+            }
+            for message, message_props in list(messages.items()):
+                mapped_key = rename_messages.get(message, message)
+                messages[mapped_key] = (
+                    message_props
+                    if isinstance(message_props, dict)
+                    else {**telegramMsgDict.get(mapped_key, {}), "text": str(message_props)}
+                )
 
-        ##########
-        ### Save the settings after Migration is done
-        ##########
-        self._logger.debug(f"SAVED Chats: {self._settings.get(['chats'])}")
-        try:
-            self._settings.save()
-        except Exception:
-            self._logger.exception("MIGRATED Save failed")
-        self._logger.debug("MIGRATED Saved")
+            # Remove obsolete messages (no longer present in telegramMsgDict)
+            for message in list(messages):
+                if message not in telegramMsgDict:
+                    messages.pop(message, None)
+
+            # Add new messages
+            for message, message_props in telegramMsgDict.items():
+                if message not in messages:
+                    messages[message] = message_props
+
+        # Save the settings after migration is done
+        self._settings.set(["chats"], chats)
+        self._logger.info(f"Migration - chats set: {chats}")
+        self._settings.set(["messages"], messages)
+        self._logger.info(f"Migration - messages set: {messages}")
+
+        self._logger.warning("Migration - end")
 
     def on_settings_save(self, data):
         self._logger.debug(f"Saving data: {data}")
