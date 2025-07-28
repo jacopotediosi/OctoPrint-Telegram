@@ -181,23 +181,28 @@ class TelegramListener(threading.Thread):
 
                 return
 
+            message_message = message["message"]
+
             # If message is a text message, we probably got a command.
             # When the command is not known, the following handler will discard it.
-            if "text" in message["message"]:
+            if "text" in message_message:
                 self.handle_text_message(message, chat_id, from_id)
             # We got no message with text (command) so lets check if we got a file.
             # The following handler will check file and saves it to disk.
-            elif "document" in message["message"]:
+            elif "document" in message_message:
                 self.handle_document_message(message)
+            # We got message with notification for a new chat title so lets update it
+            elif "new_chat_title" in message_message:
+                self.handle_new_chat_title_message(message)
             # We got message with notification for a new chat title photo so lets download it
-            elif "new_chat_photo" in message["message"]:
+            elif "new_chat_photo" in message_message:
                 self.handle_new_chat_photo_message(message)
             # We got message with notification for a deleted chat title photo so we do the same
-            elif "delete_chat_photo" in message["message"]:
+            elif "delete_chat_photo" in message_message:
                 self.handle_new_chat_photo_message(message)
             # A member was removed from a group, so lets check if it's our bot and
             # delete the group from our chats if it is
-            elif "left_chat_member" in message["message"]:
+            elif "left_chat_member" in message_message:
                 self.handle_left_chat_member_message(message)
             # At this point we don't know what message type it is, so we do nothing
             else:
@@ -216,22 +221,40 @@ class TelegramListener(threading.Thread):
         self.handle_text_message(message["callback_query"], chat_id, from_id)
 
     def handle_left_chat_member_message(self, message):
-        self._logger.debug("Message Del_Chat")
+        settings_chats = self.main._settings.get(["chats"])
+
+        chat_id = self.get_chat_id(message)
+        username = message["message"]["left_chat_member"]["username"]
+
+        if username != self.username[1:] or chat_id not in settings_chats:
+            return
+
+        self._logger.info(f"Chat {chat_id} kicked the bot out, removing it from settings...")
+
+        del settings_chats[chat_id]
+        self.main._settings.set(["chats"], settings_chats)
+        self.main._settings.save()
+        self.main._plugin_manager.send_plugin_message(
+            self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+        )
+
+    def handle_new_chat_title_message(self, message):
+        chat_id = self.get_chat_id(message)
+        message_chat = message.get("message", {}).get("chat", {})
 
         settings_chats = self.main._settings.get(["chats"])
 
-        chat_id = str(message["message"]["chat"]["id"])
-        username = message["message"]["left_chat_member"]["username"]
+        if chat_id not in settings_chats or not message_chat:
+            return
 
-        if username == self.username[1:] and chat_id in settings_chats:
-            del settings_chats[chat_id]
-            self.main._settings.set(["chats"], settings_chats)
-            self.main._settings.save()
-            self.main._plugin_manager.send_plugin_message(
-                self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
-            )
+        self._logger.info(f"Chat {chat_id} changed title, updating it...")
 
-            self._logger.debug(f"Chat {chat_id} removed from settings")
+        settings_chats[chat_id]["title"] = get_chat_title(message_chat)
+        self.main._settings.set(["chats"], settings_chats)
+        self.main._settings.save()
+        self.main._plugin_manager.send_plugin_message(
+            self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+        )
 
     def handle_new_chat_photo_message(self, message):
         chat_id = self.get_chat_id(message)
