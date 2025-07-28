@@ -34,7 +34,7 @@ from .telegram_notifications import (
     TMSG,
     telegramMsgDict,
 )  # Dict of known notification messages
-from .telegram_utils import TOKEN_REGEX, TelegramUtils, is_group_or_channel
+from .telegram_utils import TOKEN_REGEX, TelegramUtils, get_chat_title, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -147,33 +147,23 @@ class TelegramListener(threading.Thread):
             chat_id = self.get_chat_id(message)
             from_id = self.get_from_id(message)
 
-            chat = message["message"]["chat"]
+            message_chat = message["message"]["chat"]
 
-            data = settings_chats.get(chat_id, self.main.new_chat_settings)
-
-            data["type"] = chat["type"]
-
-            if chat["type"] in ("group", "supergroup"):
-                data["private"] = False
-                data["title"] = chat["title"]
-            elif chat["type"] == "private":
-                data["private"] = True
-                title_parts = []
-                if "first_name" in chat:
-                    title_parts.append(chat["first_name"])
-                if "last_name" in chat:
-                    title_parts.append(chat["last_name"])
-                if "username" in chat:
-                    title_parts.append(f"@{chat['username']}")
-                data["title"] = " - ".join(title_parts)
-
-            if chat_id not in settings_chats:
-                if not self.main.enrollment_countdown_end or datetime.now() > self.main.enrollment_countdown_end:
+            is_chat_unknown = chat_id not in settings_chats
+            if is_chat_unknown:
+                is_enrollment_allowed = (
+                    self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
+                )
+                if not is_enrollment_allowed:
                     self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
                     return
 
                 self._logger.info(f"Adding chat {chat_id} to known chats")
 
+                data = copy.deepcopy(settings_chats.get(chat_id, self.main.new_chat_settings))
+                data["type"] = message_chat["type"]
+                data["private"] = message_chat.get("type") == "private"
+                data["title"] = get_chat_title(message_chat)
                 data["image"] = self.main.save_chat_picture(chat_id)
 
                 settings_chats[chat_id] = data
@@ -488,7 +478,7 @@ class TelegramListener(threading.Thread):
 
                 first_name = sender.get("first_name")
                 last_name = sender.get("last_name")
-                fullname = " ".join(part for part in [first_name, last_name] if part).strip()
+                fullname = " ".join(part for part in (first_name, last_name) if part).strip()
 
                 parts = []
 
@@ -497,9 +487,9 @@ class TelegramListener(threading.Thread):
                 if fullname:
                     parts.append(fullname)
 
-                user += " - ".join(parts) if parts else "unknown"
+                user += " - ".join(parts) if parts else "UNKNOWN"
             except Exception:
-                user += "unknown"
+                user += "UNKNOWN"
 
             # Execute command
             self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
@@ -924,20 +914,8 @@ class TelegramPlugin(
                     )
 
                     chat = json_data["result"]["chat"]
-
-                    if chat["type"] == "group" or chat["type"] == "supergroup":
-                        new_chat_settings["private"] = False
-                        new_chat_settings["title"] = chat["title"]
-                    elif chat["type"] == "private":
-                        new_chat_settings["private"] = True
-                        title_parts = []
-                        if "first_name" in chat:
-                            title_parts.append(chat["first_name"])
-                        if "last_name" in chat:
-                            title_parts.append(chat["last_name"])
-                        if "username" in chat:
-                            title_parts.append(f"@{chat['username']}")
-                        new_chat_settings["title"] = " - ".join(title_parts)
+                    new_chat_settings["private"] = chat.get("type") == "private"
+                    new_chat_settings["title"] = get_chat_title(chat)
                 except Exception:
                     self._logger.exception(
                         "Caught an exception migrating from the single chat version. Done with defaults."

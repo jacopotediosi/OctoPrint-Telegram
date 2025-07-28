@@ -86,6 +86,26 @@ def is_group_or_channel(chat_id):
     return int(chat_id) < 0
 
 
+def get_chat_title(chat):
+    if chat.get("type") == "private":
+        name_parts = []
+
+        first_name = chat.get("first_name")
+        last_name = chat.get("last_name")
+        username = chat.get("username")
+
+        full_name = " ".join(part for part in (first_name, last_name) if part).strip()
+        if full_name:
+            name_parts.append(full_name)
+
+        if username:
+            name_parts.append("@{}".format(username))
+
+        return " - ".join(name_parts) if name_parts else "UNKNOWN"
+
+    return chat.get("title", "UNKNOWN")
+
+
 def escape_markdown(text: str, version: int = 1, entity_type: Optional[str] = None) -> str:
     """
     Copied from python-telegram-bot/python-telegram-bot
