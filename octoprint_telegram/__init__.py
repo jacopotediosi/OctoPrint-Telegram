@@ -1249,7 +1249,7 @@ class TelegramPlugin(
 
         if not Permissions.SETTINGS.can():
             self._logger.warning("API command was not allowed")
-            return "Insufficient permissions", 403
+            return jsonify({"ok": False, "error": "Insufficient permissions"}), 403
 
         if command == "testToken":
             token_to_test = str(data.get("token")).strip()
@@ -1291,7 +1291,15 @@ class TelegramPlugin(
 
             if chat_id not in settings_chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
-                return "Unknown chat with given id", 404
+                return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
+
+            try:
+                chat_picture_path = os.path.join(self.get_plugin_data_folder(), "img", "user", f"pic{int(chat_id)}.jpg")
+                os.remove(chat_picture_path)
+            except OSError:
+                pass
+            except Exception:
+                return jsonify({"ok": False, "error": "Cannot delete chat picture"}), 500
 
             del settings_chats[chat_id]
             self._settings.set(["chats"], settings_chats)
@@ -1301,6 +1309,7 @@ class TelegramPlugin(
 
             return jsonify(
                 {
+                    "ok": True,
                     "chats": {k: v for k, v in settings_chats.items() if "delMe" not in v and k != "zBOTTOMOFCHATS"},
                     "connection_state_str": self.connection_state_str,
                     "connection_ok": self.connection_ok,
@@ -1313,8 +1322,8 @@ class TelegramPlugin(
                 self.on_event(event, {})
                 self._logger.info(f"Event {event} tested")
                 return jsonify({"ok": True})
-            except Exception as e:
-                self._logger.exception(f"Caught an exception testing event {event}: {e}")
+            except Exception:
+                self._logger.exception(f"Caught an exception testing event {event}")
                 return jsonify({"ok": False})
 
         elif command == "editUser":
@@ -1324,7 +1333,7 @@ class TelegramPlugin(
             # Check if chat_id is known
             if chat_id not in settings_chats:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
-                return "Unknown chat with given id", 404
+                return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
             settings_keys = ("accept_commands", "send_notifications", "allow_users")
 
@@ -1332,7 +1341,9 @@ class TelegramPlugin(
             invalid_keys = [k for k in settings_keys if not isinstance(data.get(k), bool)]
             if invalid_keys:
                 self._logger.warning(f"Received args {', '.join(invalid_keys)} are not boolean")
-                return f"Invalid values: {', '.join(invalid_keys)} must be boolean", 400
+                return jsonify(
+                    {"ok": False, "error": f"Invalid values: {', '.join(invalid_keys)} must be boolean"}
+                ), 400
 
             # Update user
             for key in settings_keys:
