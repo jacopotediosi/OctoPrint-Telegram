@@ -159,17 +159,17 @@ class TelegramListener(threading.Thread):
 
                 self._logger.info(f"Adding chat {chat_id} to known chats")
 
-                data = copy.deepcopy(settings_chats.get(chat_id, self.main.new_chat_settings))
-                data["type"] = message_chat["type"]
-                data["private"] = message_chat.get("type") == "private"
-                data["title"] = get_chat_title(message_chat)
-                data["image"] = self.main.save_chat_picture(chat_id)
+                new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
+                new_chat_settings["type"] = message_chat["type"]
+                new_chat_settings["private"] = message_chat["type"] == "private"
+                new_chat_settings["title"] = get_chat_title(message_chat)
+                new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
 
-                settings_chats[chat_id] = data
+                settings_chats[chat_id] = new_chat_settings
                 self.main._settings.set(["chats"], settings_chats)
                 self.main._settings.save()
                 self.main._plugin_manager.send_plugin_message(
-                    self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                    self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
                 )
 
                 self.main.send_msg(
@@ -220,47 +220,44 @@ class TelegramListener(threading.Thread):
         self.handle_text_message(message["callback_query"], chat_id, from_id)
 
     def handle_left_chat_member_message(self, message):
-        settings_chats = self.main._settings.get(["chats"])
-
         chat_id = self.get_chat_id(message)
+
+        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
         username = message["message"]["left_chat_member"]["username"]
 
-        if username != self.username[1:] or chat_id not in settings_chats:
+        if is_chat_unknown or username != self.username[1:]:
             return
 
         self._logger.info(f"Chat {chat_id} kicked the bot out, removing it from settings...")
 
-        del settings_chats[chat_id]
-        self.main._settings.set(["chats"], settings_chats)
+        self.main._settings.remove(["chats", chat_id])
         self.main._settings.save()
         self.main._plugin_manager.send_plugin_message(
-            self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
         )
 
     def handle_new_chat_title_message(self, message):
         chat_id = self.get_chat_id(message)
+
         message_chat = message.get("message", {}).get("chat", {})
+        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
 
-        settings_chats = self.main._settings.get(["chats"])
-
-        if chat_id not in settings_chats or not message_chat:
+        if is_chat_unknown or not message_chat:
             return
 
         self._logger.info(f"Chat {chat_id} changed title, updating it...")
 
-        settings_chats[chat_id]["title"] = get_chat_title(message_chat)
-        self.main._settings.set(["chats"], settings_chats)
+        self.main._settings.set(["chats", chat_id, "title"], get_chat_title(message_chat))
         self.main._settings.save()
         self.main._plugin_manager.send_plugin_message(
-            self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
         )
 
     def handle_new_chat_photo_message(self, message):
         chat_id = self.get_chat_id(message)
 
-        settings_chats = self.main._settings.get(["chats"])
-
-        if chat_id not in settings_chats:
+        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
+        if is_chat_unknown:
             return
 
         self._logger.info(f"Chat {chat_id} changed picture, updating it...")
@@ -270,11 +267,11 @@ class TelegramListener(threading.Thread):
             def update_chat_picture():
                 public_path = self.main.save_chat_picture(chat_id)
                 if public_path:
-                    settings_chats[chat_id]["image"] = public_path
-                    self.main._settings.set(["chats"], settings_chats)
+                    self.main._settings.set(["chats", chat_id, "image"], public_path)
                     self.main._settings.save()
                     self.main._plugin_manager.send_plugin_message(
-                        self.main._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                        self.main._identifier,
+                        {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])},
                     )
 
             threading.Thread(target=update_chat_picture, daemon=True).start()
@@ -704,12 +701,11 @@ class TelegramPlugin(
                     for chat_id in settings_chats:
                         public_path = self.save_chat_picture(chat_id)
                         if public_path:
-                            settings_chats[chat_id]["image"] = public_path
+                            self._settings.set(["chats", chat_id, "image"], public_path)
 
-                    self._settings.set(["chats"], settings_chats)
                     self._settings.save()
                     self._plugin_manager.send_plugin_message(
-                        self._identifier, {"type": "update_known_chats", "chats": settings_chats}
+                        self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
                     )
 
                 threading.Thread(target=update_chat_pictures, daemon=True).start()
@@ -1213,9 +1209,7 @@ class TelegramPlugin(
     def get_api_commands(self):
         return dict(
             delChat=["chat_id"],
-            testEvent=["event"],
-            testToken=["token"],
-            editUser=[
+            editChat=[
                 "chat_id",
                 "accept_commands",
                 "send_notifications",
@@ -1223,6 +1217,8 @@ class TelegramPlugin(
             ],
             startEnrollmentCountdown=[],
             stopEnrollmentCountdown=[],
+            testEvent=["event"],
+            testToken=["token"],
         )
 
     def on_api_command(self, command, data):
@@ -1268,9 +1264,8 @@ class TelegramPlugin(
         elif command == "delChat":
             chat_id = str(data.get("chat_id"))
 
-            settings_chats = self._settings.get(["chats"])
-
-            if chat_id not in settings_chats:
+            is_chat_unknown = self._settings.get(["chats", chat_id]) is None
+            if is_chat_unknown:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
@@ -1282,20 +1277,13 @@ class TelegramPlugin(
             except Exception:
                 return jsonify({"ok": False, "error": "Cannot delete chat picture"}), 500
 
-            del settings_chats[chat_id]
-            self._settings.set(["chats"], settings_chats)
+            self._settings.remove(["chats", chat_id])
             self._settings.save()
 
             self._logger.info(f"Chat {chat_id} deleted")
 
-            return jsonify(
-                {
-                    "ok": True,
-                    "chats": self._settings.get(["chats"]),
-                    "connection_state_str": self.connection_state_str,
-                    "connection_ok": self.connection_ok,
-                }
-            )
+            # Return updated chats settings
+            return self.process_on_api_get()
 
         elif command == "testEvent":
             event = data.get("event")
@@ -1307,12 +1295,12 @@ class TelegramPlugin(
                 self._logger.exception(f"Caught an exception testing event {event}")
                 return jsonify({"ok": False})
 
-        elif command == "editUser":
+        elif command == "editChat":
             chat_id = str(data.get("chat_id"))
-            settings_chats = self._settings.get(["chats"])
+            settings_chat = self._settings.get(["chats", chat_id])
 
-            # Check if chat_id is known
-            if chat_id not in settings_chats:
+            # Check if chat is unknown
+            if not settings_chat:
                 self._logger.warning(f"Chat id {chat_id} is unknown")
                 return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
@@ -1328,8 +1316,8 @@ class TelegramPlugin(
 
             # Update user
             for key in settings_keys:
-                settings_chats[chat_id][key] = data[key]
-            self._settings.set(["chats"], settings_chats)
+                settings_chat[key] = data[key]
+            self._settings.set(["chats", chat_id], settings_chat)
             self._settings.save()
 
             # Logging successful user update
@@ -1856,14 +1844,12 @@ class TelegramPlugin(
         if not command:
             return False
 
-        settings_chats = self._settings.get(["chats"])
-
-        chat_settings = settings_chats.get(chat_id, {})
+        chat_settings = self._settings.get(["chats", chat_id]) or {}
         chat_accept_commands = chat_settings.get("accept_commands", False)
         chat_accept_this_command = chat_settings.get("commands", {}).get(command, False)
         chat_allow_commands_from_users = chat_settings.get("allow_users", False)
 
-        from_settings = settings_chats.get(from_id, {})
+        from_settings = self._settings.get(["chats", from_id]) or {}
         from_accept_commands = from_settings.get("accept_commands", False)
         from_accept_this_command = from_settings.get("commands", {}).get(command, False)
 

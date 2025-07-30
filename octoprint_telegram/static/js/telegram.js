@@ -227,7 +227,7 @@ $(function () {
     self.updateChat = function (data) {
       OctoPrint.simpleApiCommand(
         self.pluginIdentifier,
-        'editUser',
+        'editChat',
         {
           chat_id: self.currChatID,
           accept_commands: $('#telegram-acccmd-chkbox-box').prop('checked'),
