@@ -20,7 +20,6 @@ import octoprint.plugin
 import requests
 import urllib3
 from flask import jsonify
-from flask_login import current_user
 from octoprint.access.permissions import Permissions
 from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
 from octoprint.server import app
@@ -1057,17 +1056,6 @@ class TelegramPlugin(
         if "token" in data and data["token"] != old_token:
             self.stop_bot()
             self.start_bot()
-
-    def on_settings_load(self):
-        data = octoprint.plugin.SettingsPlugin.on_settings_load(self)
-
-        # Only return our restricted settings to admin users - this is only needed for OctoPrint <= 1.2.16
-        restricted = (("token", None), ("chats", dict()))
-        for r, v in restricted:
-            if r in data and (current_user is None or current_user.is_anonymous() or not current_user.is_admin()):
-                data[r] = v
-
-        return data
 
     def get_settings_restricted_paths(self):
         # Only used in OctoPrint versions > 1.2.16
