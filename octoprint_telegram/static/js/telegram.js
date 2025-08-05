@@ -563,6 +563,7 @@ $(function () {
       }
 
       const newChatsItems = Object.entries(existingChats)
+        .filter(([id]) => id !== 'zBOTTOMOFCHATS')
         .map(([id, chat]) => {
           const item = { id }
           for (const [key, observable] of Object.entries(chat)) {

@@ -699,6 +699,9 @@ class TelegramPlugin(
                     settings_chats = self._settings.get(["chats"])
 
                     for chat_id in settings_chats:
+                        if chat_id == "zBOTTOMOFCHATS":
+                            continue
+
                         public_path = self.save_chat_picture(chat_id)
                         if public_path:
                             self._settings.set(["chats", chat_id, "image"], public_path)
@@ -855,7 +858,8 @@ class TelegramPlugin(
             notification_time=15,
             message_at_print_done_delay=0,
             messages=telegramMsgDict,
-            chats={},
+            # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
+            chats={"zBOTTOMOFCHATS": {}},
             send_icon=True,
             image_not_connected=True,
             gif_not_connected=False,
@@ -900,7 +904,7 @@ class TelegramPlugin(
 
         tcmd = TCMD(self)
 
-        chats = self._settings.get(["chats"])
+        chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
         self._logger.info(f"Migration - loaded chats: {chats}")
 
         messages = self._settings.get(["messages"])
@@ -952,11 +956,6 @@ class TelegramPlugin(
                 "message_at_print_failed",
             ]:
                 self._settings.set([key], None)
-
-        # Migrate from plugin versions < 1.9.0
-        if current < 6:
-            # Before version 1.9.0 chats contained an element with key "zBOTTOMOFCHATS", let's remove it
-            chats.pop("zBOTTOMOFCHATS", None)
 
         # General migration from all previous versions
         if current is None or current < target:
@@ -1198,9 +1197,11 @@ class TelegramPlugin(
             )
 
         # /
+        ret_chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
+
         return jsonify(
             {
-                "chats": self._settings.get(["chats"]),
+                "chats": ret_chats,
                 "connection_state_str": self.connection_state_str,
                 "connection_ok": self.connection_ok,
             }
@@ -1360,6 +1361,9 @@ class TelegramPlugin(
                 self._logger.debug(f"Send_msg() - Found event: {event} | chats settings={settings_chats}")
 
                 for chat_id, chat_settings in settings_chats.items():
+                    if chat_id == "zBOTTOMOFCHATS":
+                        continue
+
                     try:
                         notifications = chat_settings.get("notifications", {})
                         send_notifications = chat_settings.get("send_notifications", False)
@@ -1374,6 +1378,9 @@ class TelegramPlugin(
             # Message is a broadcast
             elif "chatID" not in kwargs:
                 for chat_id in settings_chats:
+                    if chat_id == "zBOTTOMOFCHATS":
+                        continue
+
                     try:
                         kwargs["chatID"] = chat_id
                         threading.Thread(target=self._send_msg, kwargs=kwargs).run()
