@@ -1183,6 +1183,7 @@ class TelegramPlugin(
                 "filamentmanager",
                 "SpoolManager",
                 "psucontrol",
+                "tasmota",
                 "tasmota_mqtt",
                 "tplinksmartplug",
                 "tuyasmartplug",

@@ -931,6 +931,7 @@ class TCMD:
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = {
             "psucontrol": "PSU Control",
+            "tasmota": "Tasmota",
             "tasmota_mqtt": "TasmotaMQTT",
             "tplinksmartplug": "TPLinkSmartplug",
             "tuyasmartplug": "TuyaSmartplug",
@@ -989,6 +990,28 @@ class TCMD:
                 data = plugin_id
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "tasmota":
+                # Tasmota plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/jneilliii/OctoPrint-Tasmota/blob/49c7e01f4a077d0d650931fd91f3b63cfef780c2/octoprint_tasmota/__init__.py#L816
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                for plug in plugs:
+                    is_on = False
+                    try:
+                        response = self.send_octoprint_api_command(
+                            plugin_id, "checkStatus", {"ip": plug["ip"], "idx": plug["idx"]}
+                        )
+                        is_on = response.json().get("currentState", "").lower() == "on"
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug.get("label") or f"{plug['ip']}|{plug['idx']}"
+
+                    escaped_ip = plug["ip"].replace("|", "\\|")
+                    escaped_idx = plug["idx"].replace("|", "\\|")
+                    data = f"{escaped_ip}|{escaped_idx}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
             elif plugin_id == "tasmota_mqtt":
                 response = self.send_octoprint_api_command(plugin_id, "getListPlug")
@@ -1157,6 +1180,13 @@ class TCMD:
                             elif action == "on":
                                 command = "turnPSUOn"
                             self.send_octoprint_api_command(plugin_id, command)
+                        elif plugin_id == "tasmota":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            ip, idx = self.split_parameters(plug_data, "|")
+                            self.send_octoprint_api_command(plugin_id, command, {"ip": ip, "idx": idx})
                         elif plugin_id == "tasmota_mqtt":
                             if action == "off":
                                 command = "turnOff"
