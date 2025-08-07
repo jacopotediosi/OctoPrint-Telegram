@@ -1176,13 +1176,14 @@ class TelegramPlugin(
                 return "enabled"
 
             suggested_plugin_ids = [
+                "cost",
+                "DisplayLayerProgress",
+                "filamentmanager",
+                "ikea_tradfri",
                 "multicam",
                 "octolapse",
-                "DisplayLayerProgress",
-                "cost",
-                "filamentmanager",
-                "SpoolManager",
                 "psucontrol",
+                "SpoolManager",
                 "tasmota",
                 "tasmota_mqtt",
                 "tplinksmartplug",

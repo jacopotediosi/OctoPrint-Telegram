@@ -930,6 +930,7 @@ class TCMD:
 
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = {
+            "ikea_tradfri": "Ikea Tradfri",
             "psucontrol": "PSU Control",
             "tasmota": "Tasmota",
             "tasmota_mqtt": "TasmotaMQTT",
@@ -978,7 +979,24 @@ class TCMD:
             """
             plugs_data = []
 
-            if plugin_id == "psucontrol":
+            if plugin_id == "ikea_tradfri":
+                # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "selected_devices"])
+                for plug in plugs:
+                    is_on = False
+                    try:
+                        response = self.send_octoprint_api_command(plugin_id, "checkStatus", {"ip": plug["id"]})
+                        is_on = response.json().get("currentState", "").lower() == "on"
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug.get("name") or plug["id"]
+                    data = plug["id"]
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "psucontrol":
                 is_on = False
                 try:
                     response = self.send_octoprint_api_command(plugin_id, "getPSUState")
@@ -1105,7 +1123,7 @@ class TCMD:
                         status_emoji = get_emoji("online" if is_on else "offline")
 
                         data = plug_data["data"]
-                        command = cmd + "_" + plugin_id.replace("_", "\\_") + "_" + data.replace("_", "\\_")
+                        command = cmd + "_" + plugin_id.replace("_", "\\_") + "_" + str(data).replace("_", "\\_")
 
                         plug_buttons.append([f"{status_emoji} {label}", command])
                 except Exception:
@@ -1145,7 +1163,7 @@ class TCMD:
                 plugs = get_plugs_data(plugin_id)
                 selected_plug = None
 
-                selected_plug = next((plug for plug in plugs if plug["data"] == plug_data), None)
+                selected_plug = next((plug for plug in plugs if str(plug["data"]) == plug_data), None)
 
                 if selected_plug is None:
                     message = f"{get_emoji('attention')} Selected plug not found!"
@@ -1192,7 +1210,13 @@ class TCMD:
                     message = f"{get_emoji('attention')} Action not supported!"
                 else:
                     try:
-                        if plugin_id == "psucontrol":
+                        if plugin_id == "ikea_tradfri":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
+                        elif plugin_id == "psucontrol":
                             if action == "off":
                                 command = "turnPSUOff"
                             elif action == "on":
