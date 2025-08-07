@@ -1050,15 +1050,11 @@ class TCMD:
                 for plug in plugs:
                     is_on = False
                     try:
-                        # Tuyasmartplug plugin has no API for getting plug status. Below code is copied from the plugin code:
-                        # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L235
-                        from octoprint_tuyasmartplug.utils import pytuya  # pyright: ignore # noqa: I001
-
-                        device = pytuya.OutletDevice(plug["id"], plug["ip"], plug["localKey"])
-                        if plug.get("v33"):
-                            device.version = 3.3
-                        status = device.status()
-                        is_on = bool(status.get("dps", {}).get(str(plug["slot"])))
+                        # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
+                        plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
+                        if not plugin_implementation:
+                            raise RuntimeError(f"Plugin {plugin_id} is not available")
+                        is_on = plugin_implementation.is_turned_on(pluglabel=plug["label"])
                     except Exception:
                         self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
 
