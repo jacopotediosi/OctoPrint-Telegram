@@ -1187,6 +1187,7 @@ class TelegramPlugin(
                 "tasmota_mqtt",
                 "tplinksmartplug",
                 "tuyasmartplug",
+                "wemoswitch",
             ]
 
             return jsonify(

@@ -935,6 +935,7 @@ class TCMD:
             "tasmota_mqtt": "TasmotaMQTT",
             "tplinksmartplug": "TPLinkSmartplug",
             "tuyasmartplug": "TuyaSmartplug",
+            "wemoswitch": "WemoSwitch",
         }
 
         available_plugins = {
@@ -1060,6 +1061,27 @@ class TCMD:
 
                     label = plug["label"]
                     data = label
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "wemoswitch":
+                # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                for plug in plugs:
+                    is_on = False
+                    try:
+                        # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
+                        plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
+                        if not plugin_implementation:
+                            raise RuntimeError(f"Plugin {plugin_id} is not available")
+                        chk = plugin_implementation.sendCommand("info", plug["ip"])
+                        is_on = chk == 1 or chk == 8
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug["label"] or plug["ip"]
+                    data = plug["ip"]
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
@@ -1202,6 +1224,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"label": plug_data})
+                        elif plugin_id == "wemoswitch":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
                         else:
                             raise ValueError(f"Plugin {plugin_id} not supported")
 
