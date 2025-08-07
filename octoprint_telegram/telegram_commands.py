@@ -930,6 +930,7 @@ class TCMD:
 
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = {
+            "domoticz": "Domoticz",
             "ikea_tradfri": "Ikea Tradfri",
             "orvibos20": "OrviboS20",
             "psucontrol": "PSU Control",
@@ -973,14 +974,48 @@ class TCMD:
                 List[Dict[str, Any]]: A list of plug dictionaries, each containing:
                     - "label" (str): Human-readable name for display.
                     - "is_on" (bool): Current power state.
-                    - "data" (str): Internal identifier used by ON/OFF APIs.
+                    - "data" (str): Internal identifier used by ON/OFF APIs, separated by "|".
 
             Raises:
                 ValueError: If the specified plugin is not supported.
             """
             plugs_data = []
 
-            if plugin_id == "ikea_tradfri":
+            if plugin_id == "domoticz":
+                # Domoticz plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L147
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                for plug in plugs:
+                    ip = plug["ip"]
+                    idx = plug["idx"]
+                    username = plug.get("username", "")
+                    password = plug.get("password", "")
+                    passcode = plug.get("passcode", "")
+
+                    is_on = False
+                    try:
+                        # Domoticz plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
+                        # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L241
+                        str_url = f"{ip}/json.htm?type=command&param=getdevices&rid={idx}"
+                        if passcode != "":
+                            str_url = f"{str_url}&passcode={passcode}"
+                        if username != "":
+                            response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
+                        else:
+                            response = requests.get(str_url, timeout=10, verify=False)
+                        is_on = response.json()["result"][0]["Status"].lower() == "on"
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug.get("label") or f"{ip}|{idx}"
+
+                    escaped_ip = ip.replace("|", "\\|")
+                    escaped_idx = idx.replace("|", "\\|")
+                    data = f"{escaped_ip}|{escaped_idx}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "ikea_tradfri":
                 # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
                 # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "selected_devices"])
@@ -1004,7 +1039,7 @@ class TCMD:
                 for plug in plugs:
                     is_on = False
                     try:
-                        # OrviboS20 plugin has no API for getting plugs, so we need to use the plugin functions
+                        # OrviboS20 plugin has no API for getting plug status, so we need to use the plugin functions
                         plugin_module = self.main._plugin_manager.get_plugin(plugin_id, True)
                         is_on = plugin_module.Orvibo.discover(plug["ip"]).on
                     except Exception:
@@ -1225,7 +1260,39 @@ class TCMD:
                     message = f"{get_emoji('attention')} Action not supported!"
                 else:
                     try:
-                        if plugin_id in {"ikea_tradfri", "orvibos20", "tplinksmartplug", "wemoswitch"}:
+                        if plugin_id == "domoticz":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+
+                            ip, idx = self.split_parameters(plug_data, "|")
+
+                            selected_plug = None
+                            plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                            for plug in plugs:
+                                if plug.get("ip") == ip and plug.get("idx") == idx:
+                                    selected_plug = plug
+                                    break
+                            if not selected_plug:
+                                raise RuntimeError(f"Plug {plug_data} not found")
+
+                            username = selected_plug["username"]
+                            password = selected_plug["password"]
+                            passcode = selected_plug["passcode"]
+
+                            self.send_octoprint_api_command(
+                                plugin_id,
+                                command,
+                                {
+                                    "ip": ip,
+                                    "idx": idx,
+                                    "username": username,
+                                    "password": password,
+                                    "passcode": passcode,
+                                },
+                            )
+                        elif plugin_id in {"ikea_tradfri", "orvibos20", "tplinksmartplug", "wemoswitch"}:
                             if action == "off":
                                 command = "turnOff"
                             elif action == "on":

@@ -1178,6 +1178,7 @@ class TelegramPlugin(
             suggested_plugin_ids = [
                 "cost",
                 "DisplayLayerProgress",
+                "domoticz",
                 "filamentmanager",
                 "ikea_tradfri",
                 "multicam",
