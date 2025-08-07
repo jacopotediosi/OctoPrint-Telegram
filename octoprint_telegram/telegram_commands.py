@@ -86,6 +86,7 @@ class TCMD:
             },
             "/off": {"cmd": self.cmdPrinterOff, "param": True, "desc": "Turn off the printer"},
             "/on": {"cmd": self.cmdPrinterOn, "param": True, "desc": "Turn on the printer"},
+            "/power": {"cmd": self.cmdPower, "param": True, "desc": "Monitor and control power switches"},
             "/settings": {"cmd": self.cmdSettings, "param": True, "desc": "Show and change notification settings"},
             "/upload": {"cmd": self.cmdUpload, "desc": "Upload a file to OctoPrint library"},
             "/filament": {"cmd": self.cmdFilament, "param": True, "desc": "Manage filament spools"},
@@ -866,6 +867,339 @@ class TCMD:
                 message += f"\n\n{get_emoji('warning')} No Printer Control Command found..."
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+
+    def split_parameters(self, param_str: str, separator: str = "_") -> list[str]:
+        """
+        Splits a string into a list of parameters using the specified separator
+        (default: underscore '_'), correctly handling escaped separators (e.g., '\\_').
+
+        This function is useful to parse strings where parameters may contain the separator
+        character, escaped to avoid splitting on them.
+
+        Args:
+            param_str (str): The input string to split.
+            separator (str): The character to use as separator (default: '_').
+
+        Returns:
+            list[str]: The list of split and unescaped parameters.
+        """
+        params = []
+        current = ""
+        escaped = False
+        for char in param_str:
+            if escaped:
+                current += char
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == separator:
+                params.append(current)
+                current = ""
+            else:
+                current += char
+        params.append(current)
+        return params
+
+    def send_octoprint_api_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a command to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            command (str): The command string to send to the plugin.
+            parameters (dict, optional): Additional parameters to include in the request body.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the POST request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        payload = {"command": command}
+        if parameters:
+            payload.update(parameters)
+
+        response = requests.post(
+            f"http://localhost:{self.port}/api/plugin/{plugin_id}",
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Api-Key": self.main._settings.global_get(["api", "key"]),
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return response
+
+    def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
+        supported_plugins = {
+            "psucontrol": "PSU Control",
+            "tasmota_mqtt": "TasmotaMQTT",
+            "tplinksmartplug": "TPLinkSmartplug",
+            "tuyasmartplug": "TuyaSmartplug",
+        }
+
+        available_plugins = {
+            plugin_id: plugin_name
+            for plugin_id, plugin_name in supported_plugins.items()
+            if self.main._plugin_manager.get_plugin(plugin_id, True)
+        }
+
+        if not available_plugins:
+            message = (
+                f"{get_emoji('warning')} No power manager plugin installed. "
+                "Please install one of the following plugins:\n"
+            )
+            for plugin_id, plugin_name in supported_plugins.items():
+                message += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_id)}/'>{html.escape(plugin_name)}</a>\n"
+
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                markup="HTML",
+            )
+
+            return
+
+        def get_plugs_data(plugin_id):
+            """
+            Retrieves information about all plugs managed by the specified power plugin.
+
+            Args:
+                plugin_id (str): Identifier of the power management plugin.
+
+            Returns:
+                List[Dict[str, Any]]: A list of plug dictionaries, each containing:
+                    - "label" (str): Human-readable name for display.
+                    - "is_on" (bool): Current power state.
+                    - "data" (str): Internal identifier used by ON/OFF APIs.
+
+            Raises:
+                ValueError: If the specified plugin is not supported.
+            """
+            plugs_data = []
+
+            if plugin_id == "psucontrol":
+                is_on = False
+                try:
+                    response = self.send_octoprint_api_command(plugin_id, "getPSUState")
+                    is_on = response.json().get("isPSUOn", False)
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                # Psucontrol is single plug, so label and data below are dummy
+                label = available_plugins["psucontrol"]
+                data = plugin_id
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "tasmota_mqtt":
+                response = self.send_octoprint_api_command(plugin_id, "getListPlug")
+                plugs = response.json()
+                for plug in plugs:
+                    try:
+                        is_on = plug.get("currentstate", "").lower() == "on"
+
+                        label = plug.get("label") or f"{plug['topic']}|{plug['relayN']}"
+
+                        escaped_topic = plug["topic"].replace("|", "\\|")
+                        escaped_relay = plug["relayN"].replace("|", "\\|")
+                        data = f"{escaped_topic}|{escaped_relay}"
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
+            elif plugin_id == "tplinksmartplug":
+                response = self.send_octoprint_api_command(plugin_id, "getListPlug")
+                plugs = response.json()
+                for plug in plugs:
+                    try:
+                        is_on = plug.get("currentState", "").lower() == "on"
+                        label = plug.get("label") or plug["ip"]
+                        data = plug["ip"]
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
+            elif plugin_id == "tuyasmartplug":
+                # Tuyasmartplug plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L240
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                for plug in plugs:
+                    is_on = False
+                    try:
+                        # Tuyasmartplug plugin has no API for getting plug status. Below code is copied from the plugin code:
+                        # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L235
+                        from octoprint_tuyasmartplug.utils import pytuya  # pyright: ignore # noqa: I001
+
+                        device = pytuya.OutletDevice(plug["id"], plug["ip"], plug["localKey"])
+                        if plug.get("v33"):
+                            device.version = 3.3
+                        status = device.status()
+                        is_on = bool(status.get("dps", {}).get(str(plug["slot"])))
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug["label"]
+                    data = label
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            else:
+                raise ValueError(f"Plugin {plugin_id} not supported")
+
+            return plugs_data
+
+        if not parameter:
+            # Command was /power, show plugs list
+
+            message = f"{get_emoji('question')} Which plug do you want to manage?"
+
+            plug_buttons = []
+            for plugin_id in available_plugins:
+                try:
+                    for plug_data in get_plugs_data(plugin_id):
+                        label = plug_data["label"]
+
+                        is_on = plug_data["is_on"]
+                        status_emoji = get_emoji("online" if is_on else "offline")
+
+                        data = plug_data["data"]
+                        command = cmd + "_" + plugin_id.replace("_", "\\_") + "_" + data.replace("_", "\\_")
+
+                        plug_buttons.append([f"{status_emoji} {label}", command])
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs")
+
+            max_per_row = 3
+            plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
+            command_buttons = plug_button_rows + [[[f"{get_emoji('cancel')} Close", "no"]]]
+
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                responses=command_buttons,
+                msg_id=self.main.get_update_msg_id(chat_id),
+                markup="HTML",
+            )
+
+        else:
+            splitted_parameters = self.split_parameters(parameter)
+            plugin_id, plug_data, action = (splitted_parameters + [None] * 3)[:3]
+
+            if plugin_id not in available_plugins:
+                message = f"{get_emoji('attention')} Plugin {html.escape(plugin_id)} is not available!"
+                command_buttons = [[[f"{get_emoji('back')} Back", cmd], [f"{get_emoji('cancel')} Close", "no"]]]
+                self.main.send_msg(
+                    message,
+                    chatID=chat_id,
+                    responses=command_buttons,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                    markup="HTML",
+                )
+                return
+
+            if action is None:
+                # Command was /power_plugin\_id_plug\_data, show plug status and ask for action
+
+                plugs = get_plugs_data(plugin_id)
+                selected_plug = None
+
+                selected_plug = next((plug for plug in plugs if plug["data"] == plug_data), None)
+
+                if selected_plug is None:
+                    message = f"{get_emoji('attention')} Selected plug not found!"
+                    command_buttons = [[[f"{get_emoji('back')} Back", cmd], [f"{get_emoji('cancel')} Close", "no"]]]
+                    self.main.send_msg(
+                        message,
+                        chatID=chat_id,
+                        responses=command_buttons,
+                        msg_id=self.main.get_update_msg_id(chat_id),
+                        markup="HTML",
+                    )
+                    return
+
+                label = selected_plug["label"]
+                is_on = selected_plug["is_on"]
+                status_text = "ON" if is_on else "OFF"
+                status_emoji = get_emoji("online" if is_on else "offline")
+
+                message = (
+                    f"{get_emoji('info')} Plug {html.escape(label)} is {status_emoji} {status_text}.\n"
+                    f"{get_emoji('question')} What do you want to do?"
+                )
+
+                original_command = f"{cmd}_{parameter}"
+                command_buttons = [
+                    [
+                        [f"{get_emoji('online')} Turn ON", f"{original_command}_on"],
+                        [f"{get_emoji('offline')} Turn OFF", f"{original_command}_off"],
+                    ],
+                    [[f"{get_emoji('back')} Back", cmd], [f"{get_emoji('cancel')} Close", "no"]],
+                ]
+
+                self.main.send_msg(
+                    message,
+                    chatID=chat_id,
+                    responses=command_buttons,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                    markup="HTML",
+                )
+            else:
+                # Command was /power_plugin\_id_plug\_data_action, execute action
+
+                if action not in ("on", "off"):
+                    message = f"{get_emoji('attention')} Action not supported!"
+                else:
+                    try:
+                        if plugin_id == "psucontrol":
+                            if action == "off":
+                                command = "turnPSUOff"
+                            elif action == "on":
+                                command = "turnPSUOn"
+                            self.send_octoprint_api_command(plugin_id, command)
+                        elif plugin_id == "tasmota_mqtt":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            topic, relay_n = self.split_parameters(plug_data, "|")
+                            self.send_octoprint_api_command(plugin_id, command, {"topic": topic, "relayN": relay_n})
+                        elif plugin_id == "tplinksmartplug":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
+                        elif plugin_id == "tuyasmartplug":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"label": plug_data})
+                        else:
+                            raise ValueError(f"Plugin {plugin_id} not supported")
+
+                        message = f"{get_emoji('check')} Command sent!"
+                    except Exception:
+                        self._logger.exception(f"Caught an exception sending action to {plugin_id}")
+                        message = f"{get_emoji('attention')} Something went wrong!"
+
+                original_command = f"{cmd}_{parameter.rsplit('_', 1)[0]}"
+                command_buttons = [
+                    [[f"{get_emoji('back')} Back", original_command], [f"{get_emoji('cancel')} Close", "no"]],
+                ]
+
+                self.main.send_msg(
+                    message,
+                    chatID=chat_id,
+                    responses=command_buttons,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                    markup="HTML",
+                )
 
     def cmdPrinterOn(self, chat_id, from_id, cmd, parameter, user=""):
         if self.main._plugin_manager.get_plugin("psucontrol", True):
