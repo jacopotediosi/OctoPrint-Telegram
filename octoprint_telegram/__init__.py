@@ -1182,6 +1182,7 @@ class TelegramPlugin(
                 "ikea_tradfri",
                 "multicam",
                 "octolapse",
+                "orvibos20",
                 "psucontrol",
                 "SpoolManager",
                 "tasmota",

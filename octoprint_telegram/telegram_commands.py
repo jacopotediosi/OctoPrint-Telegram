@@ -931,6 +931,7 @@ class TCMD:
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = {
             "ikea_tradfri": "Ikea Tradfri",
+            "orvibos20": "OrviboS20",
             "psucontrol": "PSU Control",
             "tasmota": "Tasmota",
             "tasmota_mqtt": "TasmotaMQTT",
@@ -993,6 +994,24 @@ class TCMD:
 
                     label = plug.get("name") or plug["id"]
                     data = plug["id"]
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "orvibos20":
+                # OrviboS20 plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/cprasmu/OctoPrint-OrviboS20/blob/a40d0ad4184e48781ff1ebc7fb108eba1e084ba8/octoprint_orvibos20/__init__.py#L500
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
+                for plug in plugs:
+                    is_on = False
+                    try:
+                        # OrviboS20 plugin has no API for getting plugs, so we need to use the plugin functions
+                        plugin_module = self.main._plugin_manager.get_plugin(plugin_id, True)
+                        is_on = plugin_module.Orvibo.discover(plug["ip"]).on
+                    except Exception:
+                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                    label = plug.get("label") or plug["ip"]
+                    data = plug["ip"]
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
@@ -1071,8 +1090,6 @@ class TCMD:
                     try:
                         # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
                         plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                        if not plugin_implementation:
-                            raise RuntimeError(f"Plugin {plugin_id} is not available")
                         is_on = plugin_implementation.is_turned_on(pluglabel=plug["label"])
                     except Exception:
                         self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
@@ -1091,8 +1108,6 @@ class TCMD:
                     try:
                         # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
                         plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                        if not plugin_implementation:
-                            raise RuntimeError(f"Plugin {plugin_id} is not available")
                         chk = plugin_implementation.sendCommand("info", plug["ip"])
                         is_on = chk == 1 or chk == 8
                     except Exception:
@@ -1210,7 +1225,7 @@ class TCMD:
                     message = f"{get_emoji('attention')} Action not supported!"
                 else:
                     try:
-                        if plugin_id == "ikea_tradfri":
+                        if plugin_id in {"ikea_tradfri", "orvibos20", "tplinksmartplug", "wemoswitch"}:
                             if action == "off":
                                 command = "turnOff"
                             elif action == "on":
@@ -1236,24 +1251,12 @@ class TCMD:
                                 command = "turnOn"
                             topic, relay_n = self.split_parameters(plug_data, "|")
                             self.send_octoprint_api_command(plugin_id, command, {"topic": topic, "relayN": relay_n})
-                        elif plugin_id == "tplinksmartplug":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
                         elif plugin_id == "tuyasmartplug":
                             if action == "off":
                                 command = "turnOff"
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"label": plug_data})
-                        elif plugin_id == "wemoswitch":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
                         else:
                             raise ValueError(f"Plugin {plugin_id} not supported")
 
