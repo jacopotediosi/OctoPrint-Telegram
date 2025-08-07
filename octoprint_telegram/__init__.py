@@ -971,7 +971,7 @@ class TelegramPlugin(
                 chat_notifications = chat_settings["notifications"]
 
                 # Rename commands (copy, not move)
-                rename_commands = {"/list": "/files", "/imsorrydontshutup": "/dontshutup"}
+                rename_commands = {"/list": "/files", "/imsorrydontshutup": "/dontshutup", "/on": "/power"}
                 for old_cmd, new_cmd in rename_commands.items():
                     if old_cmd in chat_commands:
                         chat_commands[new_cmd] = chat_commands[old_cmd]
