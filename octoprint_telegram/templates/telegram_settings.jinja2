@@ -440,8 +440,8 @@
                 {# djlint:off #}
                 {% set suggested_plugins_sections = [
                     {
-                        "title": "Media",
-                        "subtitle": "",
+                        "title": "Camera",
+                        "subtitle": "Installing the following plugins extends webcam and timelapse capabilities.",
                         "plugins": [
                             {
                                 "id": "multicam",
@@ -456,29 +456,7 @@
                         ]
                     },
                     {
-                        "title": "Print information",
-                        "subtitle": "Installing the following plugins enables additional template variables in notification messages.",
-                        "plugins": [
-                            {
-                                "id": "DisplayLayerProgress",
-                                "name": "DisplayLayerProgress",
-                                "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> placeholders."
-                            }
-                        ]
-                    },
-                    {
-                        "title": "File information",
-                        "subtitle": "Installing the following plugins enrich the <code>/files</code> command output with additional details.",
-                        "plugins": [
-                            {
-                                "id": "cost",
-                                "name": "Cost estimator",
-                                "description": "Displays estimated print cost within file details."
-                            }
-                        ]
-                    },
-                    {
-                        "title": "Filament",
+                        "title": "Materials",
                         "subtitle": "Installing the following plugins allows you to view and manage filament spools via the <code>/filament</code> command.",
                         "plugins": [
                             {
@@ -490,6 +468,22 @@
                                 "id": "SpoolManager",
                                 "name": "SpoolManager",
                                 "description": ""
+                            }
+                        ]
+                    },
+                    {
+                        "title": "Metadata",
+                        "subtitle": "Installing the following plugins extracts and exposes additional print metadata, making it available both in notification message template variables and in the enhanced <code>/files</code> command output.",
+                        "plugins": [
+                            {
+                                "id": "cost",
+                                "name": "Cost estimator",
+                                "description": "Displays estimated print cost within file details."
+                            },
+                            {
+                                "id": "DisplayLayerProgress",
+                                "name": "DisplayLayerProgress",
+                                "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> variables in notification messages."
                             }
                         ]
                     },
