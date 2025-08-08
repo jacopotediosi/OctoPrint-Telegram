@@ -473,7 +473,7 @@
                     },
                     {
                         "title": "Metadata",
-                        "subtitle": "Installing the following plugins extracts and exposes additional print metadata, making it available both in notification message template variables and in the enhanced <code>/files</code> command output.",
+                        "subtitle": "Installing the following plugins extracts and exposes additional print metadata, making it available in notification message template variables and in the enhanced <code>/files</code> command output.",
                         "plugins": [
                             {
                                 "id": "cost",
@@ -484,6 +484,11 @@
                                 "id": "DisplayLayerProgress",
                                 "name": "DisplayLayerProgress",
                                 "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> variables in notification messages."
+                            },
+                                                        {
+                                "id": "prusaslicerthumbnails",
+                                "name": "Slicer Thumbnails",
+                                "description": "Extracts embedded slicer thumbnails from G-code files and makes them available in start print notifications and file details."
                             }
                         ]
                     },

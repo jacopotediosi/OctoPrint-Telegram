@@ -1185,6 +1185,7 @@ class TelegramPlugin(
                 "octolapse",
                 "orvibos20",
                 "psucontrol",
+                "prusaslicerthumbnails",
                 "SpoolManager",
                 "tasmota",
                 "tasmota_mqtt",
