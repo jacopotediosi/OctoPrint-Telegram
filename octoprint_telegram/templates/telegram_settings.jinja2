@@ -437,8 +437,14 @@
                         </label>
                     </div>
                 </div>
+                <legend>Suggested plugins</legend>
+                <p>
+                    <small>
+                        OctoPrint-Telegram can optionally integrate with several OctoPrint plugins. Installing them is not required but unlocks additional features and improves the overall user experience.
+                    </small>
+                </p>
                 {# djlint:off #}
-                {% set suggested_plugins_sections = [
+                {% set suggested_plugins_tabs = [
                     {
                         "title": "Camera",
                         "subtitle": "Installing the following plugins extends webcam and timelapse capabilities.",
@@ -545,41 +551,51 @@
                     }
                 ] %}
                 {# djlint:on #}
-                <legend>Suggested plugins</legend>
-                <p>
-                    <small>
-                        OctoPrint-Telegram can optionally integrate with several OctoPrint plugins. Installing them is not required but unlocks additional features and improves the overall user experience.
-                    </small>
-                </p>
-                {% for section in suggested_plugins_sections %}
-                    <h5>{{ section.title }}</h5>
-                    {% if section.subtitle %}
-                        <p>
-                            <small>{{ section.subtitle | safe }}</small>
-                        </p>
-                    {% endif %}
-                    <table class="table table-condensed" style="table-layout: auto; width: 100%">
-                        <tbody>
-                            {% for plugin in section.plugins %}
-                                <tr>
-                                    <td style="width: 25%;">
-                                        <a href="https://plugins.octoprint.org/plugins/{{ plugin.id }}/"
-                                           target="_blank">{{ plugin.name }}</a>
-                                    </td>
-                                    <td style="width: 15%;">
-                                        <span data-bind=" text: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'Enabled' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'Disabled' : 'Not installed') : 'Unknown', css: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'badge badge-success' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'badge badge-warning' : 'badge badge-important') : 'badge badge-secondary' "
-                                              class="badge"
-                                              style="min-width: 80%;
-                                                     text-align: center"></span>
-                                    </td>
-                                    <td>
-                                        <span class="help-inline"><small>{{ plugin.description | safe }}</small></span>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% endfor %}
+                <div class="tabbable">
+                    <!-- SUGGESTED PLUGINS TAB NAVIGATION BUTTONS -->
+                    <ul class="nav nav-tabs">
+                        {% for tab in suggested_plugins_tabs %}
+                            <li class="{% if loop.first %}active{% endif %}">
+                                <a href="#telegram-settings-suggested-{{ loop.index }}"
+                                   data-toggle="tab">{{ tab.title }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <!-- SUGGESTED PLUGINS TAB CONTENT -->
+                    <div class="tab-content">
+                        {% for tab in suggested_plugins_tabs %}
+                            <div class="tab-pane {% if loop.first %}active{% endif %}"
+                                 id="telegram-settings-suggested-{{ loop.index }}">
+                                {% if tab.subtitle %}
+                                    <p>
+                                        <small>{{ tab.subtitle | safe }}</small>
+                                    </p>
+                                {% endif %}
+                                <table class="table table-condensed" style="table-layout: auto; width: 100%">
+                                    <tbody>
+                                        {% for plugin in tab.plugins %}
+                                            <tr>
+                                                <td style="width: 1%; padding: 10px">
+                                                    <a href="https://plugins.octoprint.org/plugins/{{ plugin.id }}/"
+                                                       target="_blank">{{ plugin.name }}</a>
+                                                </td>
+                                                <td style="width: 1%; padding: 10px">
+                                                    <span data-bind=" text: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'Enabled' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'Disabled' : 'Not installed') : 'Unknown', css: (requirements() && requirements()['{{ plugin.id }}']) ? (requirements()['{{ plugin.id }}'] === 'enabled' ? 'badge badge-success' : requirements()['{{ plugin.id }}'] === 'disabled' ? 'badge badge-warning' : 'badge badge-important') : 'badge badge-secondary'"
+                                                          class="badge"
+                                                          style="min-width: 80%;
+                                                                 text-align: center"></span>
+                                                </td>
+                                                <td style="padding: 10px">
+                                                    <span class="help-inline"><small>{{ plugin.description | safe }}</small></span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
             <!-- TAB CHATS -->
             <div class="tab-pane" id="telegram-settings-tab-chats">
