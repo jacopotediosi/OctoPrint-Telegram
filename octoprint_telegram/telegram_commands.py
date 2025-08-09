@@ -971,6 +971,7 @@ class TCMD:
             "usbrelaycontrol": "USB Relay Control",
             "wemoswitch": "WemoSwitch",
             "wled": "WLED",
+            "ws281x_led_status": "WS281x",
         }
 
         available_plugins = {
@@ -1298,6 +1299,25 @@ class TCMD:
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
+            elif plugin_id == "ws281x_led_status":
+                plugs_names = ["lights", "torch"]
+
+                statuses = {}
+                try:
+                    statuses = self.send_octoprint_api_get(plugin_id).json()
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                for plug_name in plugs_names:
+                    try:
+                        label = f"{available_plugins[plugin_id]} {plug_name}"
+                        is_on = statuses.get(f"{plug_name}_on", False)
+                        data = plug_name
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
             else:
                 raise ValueError(f"Plugin {plugin_id} not supported")
 
@@ -1502,6 +1522,12 @@ class TCMD:
                                 command = "lights_off"
                             elif action == "on":
                                 command = "lights_on"
+                            self.send_octoprint_api_command(plugin_id, command)
+                        elif plugin_id == "ws281x_led_status":
+                            if action == "off":
+                                command = f"{plug_data}_off"
+                            elif action == "on":
+                                command = f"{plug_data}_on"
                             self.send_octoprint_api_command(plugin_id, command)
                         else:
                             raise ValueError(f"Plugin {plugin_id} not supported")

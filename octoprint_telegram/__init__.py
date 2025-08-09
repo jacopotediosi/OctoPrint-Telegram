@@ -1198,6 +1198,7 @@ class TelegramPlugin(
                 "usbrelaycontrol",
                 "wemoswitch",
                 "wled",
+                "ws281x_led_status",
             ]
 
             return jsonify(
