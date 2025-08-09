@@ -1192,6 +1192,7 @@ class TelegramPlugin(
                 "tasmota_mqtt",
                 "tplinksmartplug",
                 "tuyasmartplug",
+                "usbrelaycontrol",
                 "wemoswitch",
             ]
 

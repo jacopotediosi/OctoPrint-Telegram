@@ -965,6 +965,7 @@ class TCMD:
             "tasmota_mqtt": "TasmotaMQTT",
             "tplinksmartplug": "TPLinkSmartplug",
             "tuyasmartplug": "TuyaSmartplug",
+            "usbrelaycontrol": "USB Relay Control",
             "wemoswitch": "WemoSwitch",
         }
 
@@ -1196,6 +1197,26 @@ class TCMD:
                     except Exception:
                         self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
+            elif plugin_id == "usbrelaycontrol":
+                # Usbrelaycontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/abudden/OctoPrint-USBRelayControl/blob/0f06bccc06107f2b76fe360fed63698472c483cc/octoprint_usbrelaycontrol/__init__.py#L135
+                try:
+                    statuses = self.send_octoprint_api_get(plugin_id).json()
+                except Exception:
+                    statuses = []
+                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs statuses")
+
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "usbrelay_configurations"])
+                for index, configuration in enumerate(plugs):
+                    try:
+                        label = configuration["name"] or f"RELAY{configuration['relaynumber']}"
+                        is_on = index < len(statuses) and statuses[index].lower() == "on"
+                        data = index
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
             elif plugin_id == "wemoswitch":
                 # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
                 # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
@@ -1395,6 +1416,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"label": plug_data})
+                        elif plugin_id == "usbrelaycontrol":
+                            if action == "off":
+                                command = "turnUSBRelayOff"
+                            elif action == "on":
+                                command = "turnUSBRelayOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"id": plug_data})
                         else:
                             raise ValueError(f"Plugin {plugin_id} not supported")
 
