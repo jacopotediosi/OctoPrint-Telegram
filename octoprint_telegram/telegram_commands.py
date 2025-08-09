@@ -1013,34 +1013,37 @@ class TCMD:
                 # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L147
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
                 for plug in plugs:
-                    ip = plug["ip"]
-                    idx = plug["idx"]
-                    username = plug.get("username", "")
-                    password = plug.get("password", "")
-                    passcode = plug.get("passcode", "")
-
-                    is_on = False
                     try:
-                        # Domoticz plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
-                        # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L241
-                        str_url = f"{ip}/json.htm?type=command&param=getdevices&rid={idx}"
-                        if passcode != "":
-                            str_url = f"{str_url}&passcode={passcode}"
-                        if username != "":
-                            response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
-                        else:
-                            response = requests.get(str_url, timeout=10, verify=False)
-                        is_on = response.json()["result"][0]["Status"].lower() == "on"
+                        ip = plug["ip"]
+                        idx = plug["idx"]
+                        username = plug.get("username", "")
+                        password = plug.get("password", "")
+                        passcode = plug.get("passcode", "")
+
+                        is_on = False
+                        try:
+                            # Domoticz plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
+                            # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L241
+                            str_url = f"{ip}/json.htm?type=command&param=getdevices&rid={idx}"
+                            if passcode != "":
+                                str_url = f"{str_url}&passcode={passcode}"
+                            if username != "":
+                                response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
+                            else:
+                                response = requests.get(str_url, timeout=10, verify=False)
+                            is_on = response.json()["result"][0]["Status"].lower() == "on"
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug.get("label") or f"{ip}|{idx}"
+
+                        escaped_ip = ip.replace("|", "\\|")
+                        escaped_idx = idx.replace("|", "\\|")
+                        data = f"{escaped_ip}|{escaped_idx}"
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug.get("label") or f"{ip}|{idx}"
-
-                    escaped_ip = ip.replace("|", "\\|")
-                    escaped_idx = idx.replace("|", "\\|")
-                    data = f"{escaped_ip}|{escaped_idx}"
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "gpiocontrol":
                 # Gpiocontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
@@ -1053,46 +1056,55 @@ class TCMD:
 
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "gpio_configurations"])
                 for index, configuration in enumerate(plugs):
-                    label = configuration["name"] or f"GPIO{configuration['pin']}"
-                    is_on = index < len(statuses) and statuses[index].lower() == "on"
-                    data = index
+                    try:
+                        label = configuration["name"] or f"GPIO{configuration['pin']}"
+                        is_on = index < len(statuses) and statuses[index].lower() == "on"
+                        data = index
 
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "ikea_tradfri":
                 # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
                 # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "selected_devices"])
                 for plug in plugs:
-                    is_on = False
                     try:
-                        response = self.send_octoprint_api_command(plugin_id, "checkStatus", {"ip": plug["id"]})
-                        is_on = response.json().get("currentState", "").lower() == "on"
+                        is_on = False
+                        try:
+                            response = self.send_octoprint_api_command(plugin_id, "checkStatus", {"ip": plug["id"]})
+                            is_on = response.json().get("currentState", "").lower() == "on"
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug.get("name") or plug["id"]
+                        data = plug["id"]
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug.get("name") or plug["id"]
-                    data = plug["id"]
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "orvibos20":
                 # OrviboS20 plugin has no API for getting plugs. Below code is copied from the plugin code:
                 # https://github.com/cprasmu/OctoPrint-OrviboS20/blob/a40d0ad4184e48781ff1ebc7fb108eba1e084ba8/octoprint_orvibos20/__init__.py#L500
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
                 for plug in plugs:
-                    is_on = False
                     try:
-                        # OrviboS20 plugin has no API for getting plug status, so we need to use the plugin functions
-                        plugin_module = self.main._plugin_manager.get_plugin(plugin_id, True)
-                        is_on = plugin_module.Orvibo.discover(plug["ip"]).on
+                        is_on = False
+                        try:
+                            # OrviboS20 plugin has no API for getting plug status, so we need to use the plugin functions
+                            plugin_module = self.main._plugin_manager.get_plugin(plugin_id, True)
+                            is_on = plugin_module.Orvibo.discover(plug["ip"]).on
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug.get("label") or plug["ip"]
+                        data = plug["ip"]
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug.get("label") or plug["ip"]
-                    data = plug["ip"]
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "psucontrol":
                 is_on = False
@@ -1113,22 +1125,25 @@ class TCMD:
                 # https://github.com/jneilliii/OctoPrint-Tasmota/blob/49c7e01f4a077d0d650931fd91f3b63cfef780c2/octoprint_tasmota/__init__.py#L816
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
                 for plug in plugs:
-                    is_on = False
                     try:
-                        response = self.send_octoprint_api_command(
-                            plugin_id, "checkStatus", {"ip": plug["ip"], "idx": plug["idx"]}
-                        )
-                        is_on = response.json().get("currentState", "").lower() == "on"
+                        is_on = False
+                        try:
+                            response = self.send_octoprint_api_command(
+                                plugin_id, "checkStatus", {"ip": plug["ip"], "idx": plug["idx"]}
+                            )
+                            is_on = response.json().get("currentState", "").lower() == "on"
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug.get("label") or f"{plug['ip']}|{plug['idx']}"
+
+                        escaped_ip = plug["ip"].replace("|", "\\|")
+                        escaped_idx = plug["idx"].replace("|", "\\|")
+                        data = f"{escaped_ip}|{escaped_idx}"
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug.get("label") or f"{plug['ip']}|{plug['idx']}"
-
-                    escaped_ip = plug["ip"].replace("|", "\\|")
-                    escaped_idx = plug["idx"].replace("|", "\\|")
-                    data = f"{escaped_ip}|{escaped_idx}"
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "tasmota_mqtt":
                 response = self.send_octoprint_api_command(plugin_id, "getListPlug")
@@ -1165,37 +1180,43 @@ class TCMD:
                 # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L240
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
                 for plug in plugs:
-                    is_on = False
                     try:
-                        # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
-                        plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                        is_on = plugin_implementation.is_turned_on(pluglabel=plug["label"])
+                        is_on = False
+                        try:
+                            # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
+                            plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
+                            is_on = plugin_implementation.is_turned_on(pluglabel=plug["label"])
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug["label"]
+                        data = label
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug["label"]
-                    data = label
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             elif plugin_id == "wemoswitch":
                 # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
                 # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
                 plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
                 for plug in plugs:
-                    is_on = False
                     try:
-                        # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
-                        plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                        chk = plugin_implementation.sendCommand("info", plug["ip"])
-                        is_on = chk == 1 or chk == 8
+                        is_on = False
+                        try:
+                            # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
+                            plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
+                            chk = plugin_implementation.sendCommand("info", plug["ip"])
+                            is_on = chk == 1 or chk == 8
+                        except Exception:
+                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
+
+                        label = plug["label"] or plug["ip"]
+                        data = plug["ip"]
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
-                        self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                    label = plug["label"] or plug["ip"]
-                    data = plug["ip"]
-
-                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
             else:
                 raise ValueError(f"Plugin {plugin_id} not supported")
