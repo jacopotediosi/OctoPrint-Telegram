@@ -959,6 +959,7 @@ class TCMD:
             "domoticz": "Domoticz",
             "gpiocontrol": "GPIO Control",
             "ikea_tradfri": "Ikea Tradfri",
+            "mystromswitch": "MyStromSwitch",
             "octohue": "OctoHue",
             "octolight": "OctoLight",
             "octolightHA": "OctoLight HA",
@@ -1091,6 +1092,25 @@ class TCMD:
                         plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
                         self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
+            elif plugin_id == "mystromswitch":
+                is_on = False
+                try:
+                    # Mystromswitch plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
+                    # https://github.com/da4id/OctoPrint-MyStromSwitch/blob/e7bf0762d39938fb81b1d2d1945336df0e96d103/octoprint_mystromswitch/__init__.py#L180
+                    ip = self.main._settings.global_get(["plugins", plugin_id, "ip"])
+                    token = self.main._settings.global_get(["plugins", plugin_id, "token"])
+
+                    response = requests.get(f"http://{ip}/report", headers={"Token": token}, timeout=5)
+                    is_on = response.json().get("relay", False)
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                # Mystromswitch is single plug, so data below is dummy
+                label = available_plugins[plugin_id]
+                data = plugin_id
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
             elif plugin_id == "octohue":
                 is_on = False
@@ -1484,6 +1504,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
+                        elif plugin_id == "mystromswitch":
+                            if action == "off":
+                                command = "disableRelais"
+                            elif action == "on":
+                                command = "enableRelais"
+                            self.send_octoprint_api_command(plugin_id, command)
                         elif plugin_id == "octohue":
                             if action == "off":
                                 command = "turnoff"
