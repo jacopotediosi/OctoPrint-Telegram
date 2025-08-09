@@ -1180,6 +1180,7 @@ class TelegramPlugin(
                 "DisplayLayerProgress",
                 "domoticz",
                 "filamentmanager",
+                "gpiocontrol",
                 "ikea_tradfri",
                 "multicam",
                 "octolapse",

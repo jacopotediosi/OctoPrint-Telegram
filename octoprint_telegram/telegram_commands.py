@@ -928,9 +928,36 @@ class TCMD:
         response.raise_for_status()
         return response
 
+    def send_octoprint_api_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a GET request to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            parameters (dict, optional): Query parameters to include in the request.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the GET request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        response = requests.get(
+            f"http://localhost:{self.port}/api/plugin/{plugin_id}",
+            params=parameters or {},
+            headers={
+                "X-Api-Key": self.main._settings.global_get(["api", "key"]),
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return response
+
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = {
             "domoticz": "Domoticz",
+            "gpiocontrol": "GPIO Control",
             "ikea_tradfri": "Ikea Tradfri",
             "orvibos20": "OrviboS20",
             "psucontrol": "PSU Control",
@@ -1012,6 +1039,23 @@ class TCMD:
                     escaped_ip = ip.replace("|", "\\|")
                     escaped_idx = idx.replace("|", "\\|")
                     data = f"{escaped_ip}|{escaped_idx}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "gpiocontrol":
+                # Gpiocontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
+                # https://github.com/catgiggle/OctoPrint-GpioControl/blob/37f698e51ff02493d833f43e14e88bdf54cd8b37/octoprint_gpiocontrol/__init__.py#L129
+                try:
+                    statuses = self.send_octoprint_api_get(plugin_id).json()
+                except Exception:
+                    statuses = []
+                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs statuses")
+
+                plugs = self.main._settings.global_get(["plugins", plugin_id, "gpio_configurations"])
+                for index, configuration in enumerate(plugs):
+                    label = configuration["name"] or f"GPIO{configuration['pin']}"
+                    is_on = index < len(statuses) and statuses[index].lower() == "on"
+                    data = index
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
@@ -1292,6 +1336,12 @@ class TCMD:
                                     "passcode": passcode,
                                 },
                             )
+                        elif plugin_id == "gpiocontrol":
+                            if action == "off":
+                                command = "turnGpioOff"
+                            elif action == "on":
+                                command = "turnGpioOn"
+                            self.send_octoprint_api_command(plugin_id, command, {"id": plug_data})
                         elif plugin_id in {"ikea_tradfri", "orvibos20", "tplinksmartplug", "wemoswitch"}:
                             if action == "off":
                                 command = "turnOff"
