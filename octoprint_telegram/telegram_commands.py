@@ -959,6 +959,7 @@ class TCMD:
             "domoticz": "Domoticz",
             "gpiocontrol": "GPIO Control",
             "ikea_tradfri": "Ikea Tradfri",
+            "octohue": "OctoHue",
             "octolight": "OctoLight",
             "octolightHA": "OctoLight HA",
             "octorelay": "OctoRelay",
@@ -1091,6 +1092,20 @@ class TCMD:
                     except Exception:
                         self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
 
+            elif plugin_id == "octohue":
+                is_on = False
+                try:
+                    response = self.send_octoprint_api_command(plugin_id, "getstate")
+                    is_on = response.json().get("on", False)
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                # Octohue is single plug, so data below is dummy
+                label = available_plugins[plugin_id]
+                data = plugin_id
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
             elif plugin_id == "octolight":
                 is_on = False
                 try:
@@ -1099,7 +1114,7 @@ class TCMD:
                 except Exception:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
-                # Octolight is single plug, so label and data below are dummy
+                # Octolight is single plug, so data below is dummy
                 label = available_plugins[plugin_id]
                 data = plugin_id
 
@@ -1113,7 +1128,7 @@ class TCMD:
                 except Exception:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
-                # OctolightHA is single plug, so label and data below are dummy
+                # OctolightHA is single plug, so data below is dummy
                 label = available_plugins[plugin_id]
                 data = plugin_id
 
@@ -1161,7 +1176,7 @@ class TCMD:
                 except Exception:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
-                # Psucontrol is single plug, so label and data below are dummy
+                # Psucontrol is single plug, so data below is dummy
                 label = available_plugins[plugin_id]
                 data = plugin_id
 
@@ -1293,7 +1308,7 @@ class TCMD:
                 except Exception:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
-                # Wled is single plug, so label and data below are dummy
+                # Wled is single plug, so data below is dummy
                 label = available_plugins[plugin_id]
                 data = plugin_id
 
@@ -1469,6 +1484,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
+                        elif plugin_id == "octohue":
+                            if action == "off":
+                                command = "turnoff"
+                            elif action == "on":
+                                command = "turnon"
+                            self.send_octoprint_api_command(plugin_id, command)
                         elif plugin_id == "octolight":
                             if action == "off":
                                 command = "turnOff"

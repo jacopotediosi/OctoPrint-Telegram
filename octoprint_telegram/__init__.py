@@ -1183,6 +1183,7 @@ class TelegramPlugin(
                 "gpiocontrol",
                 "ikea_tradfri",
                 "multicam",
+                "octohue",
                 "octolapse",
                 "octolight",
                 "octolightHA",
