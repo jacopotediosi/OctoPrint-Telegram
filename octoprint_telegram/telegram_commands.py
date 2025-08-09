@@ -970,6 +970,7 @@ class TCMD:
             "tuyasmartplug": "TuyaSmartplug",
             "usbrelaycontrol": "USB Relay Control",
             "wemoswitch": "WemoSwitch",
+            "wled": "WLED",
         }
 
         available_plugins = {
@@ -1098,7 +1099,7 @@ class TCMD:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
                 # Octolight is single plug, so label and data below are dummy
-                label = available_plugins["octolight"]
+                label = available_plugins[plugin_id]
                 data = plugin_id
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
@@ -1112,7 +1113,7 @@ class TCMD:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
                 # OctolightHA is single plug, so label and data below are dummy
-                label = available_plugins["octolightHA"]
+                label = available_plugins[plugin_id]
                 data = plugin_id
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
@@ -1160,7 +1161,7 @@ class TCMD:
                     self._logger.exception(f"Caught an exception getting {plugin_id} status")
 
                 # Psucontrol is single plug, so label and data below are dummy
-                label = available_plugins["psucontrol"]
+                label = available_plugins[plugin_id]
                 data = plugin_id
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
@@ -1282,6 +1283,20 @@ class TCMD:
                         plugs_data.append({"label": label, "is_on": is_on, "data": data})
                     except Exception:
                         self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
+            elif plugin_id == "wled":
+                is_on = False
+                try:
+                    response = self.send_octoprint_api_get(plugin_id)
+                    is_on = response.json().get("lights_on", False)
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                # Wled is single plug, so label and data below are dummy
+                label = available_plugins[plugin_id]
+                data = plugin_id
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": data})
 
             else:
                 raise ValueError(f"Plugin {plugin_id} not supported")
@@ -1482,6 +1497,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnUSBRelayOn"
                             self.send_octoprint_api_command(plugin_id, command, {"id": plug_data})
+                        elif plugin_id == "wled":
+                            if action == "off":
+                                command = "lights_off"
+                            elif action == "on":
+                                command = "lights_on"
+                            self.send_octoprint_api_command(plugin_id, command)
                         else:
                             raise ValueError(f"Plugin {plugin_id} not supported")
 

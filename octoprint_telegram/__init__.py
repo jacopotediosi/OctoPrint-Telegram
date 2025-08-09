@@ -1197,6 +1197,7 @@ class TelegramPlugin(
                 "tuyasmartplug",
                 "usbrelaycontrol",
                 "wemoswitch",
+                "wled",
             ]
 
             return jsonify(
