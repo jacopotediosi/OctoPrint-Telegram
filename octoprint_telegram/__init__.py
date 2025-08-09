@@ -1185,6 +1185,7 @@ class TelegramPlugin(
                 "multicam",
                 "octolapse",
                 "octolight",
+                "octolightHA",
                 "octorelay",
                 "orvibos20",
                 "psucontrol",

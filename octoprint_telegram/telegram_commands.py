@@ -960,6 +960,7 @@ class TCMD:
             "gpiocontrol": "GPIO Control",
             "ikea_tradfri": "Ikea Tradfri",
             "octolight": "OctoLight",
+            "octolightHA": "OctoLight HA",
             "octorelay": "OctoRelay",
             "orvibos20": "OrviboS20",
             "psucontrol": "PSU Control",
@@ -1098,6 +1099,20 @@ class TCMD:
 
                 # Octolight is single plug, so label and data below are dummy
                 label = available_plugins["octolight"]
+                data = plugin_id
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": data})
+
+            elif plugin_id == "octolightHA":
+                is_on = False
+                try:
+                    response = self.send_octoprint_api_get(plugin_id, dict(action="getState"))
+                    is_on = response.json().get("state", False)
+                except Exception:
+                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
+
+                # OctolightHA is single plug, so label and data below are dummy
+                label = available_plugins["octolightHA"]
                 data = plugin_id
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": data})
@@ -1425,6 +1440,12 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command)
+                        elif plugin_id == "octolightHA":
+                            if action == "off":
+                                command = "turnOff"
+                            elif action == "on":
+                                command = "turnOn"
+                            self.send_octoprint_api_get(plugin_id, dict(action=command))
                         elif plugin_id == "octorelay":
                             self.send_octoprint_api_command(
                                 plugin_id, "update", {"subject": plug_data, "target": action == "on"}
