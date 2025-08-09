@@ -959,6 +959,7 @@ class TCMD:
             "domoticz": "Domoticz",
             "gpiocontrol": "GPIO Control",
             "ikea_tradfri": "Ikea Tradfri",
+            "octorelay": "OctoRelay",
             "orvibos20": "OrviboS20",
             "psucontrol": "PSU Control",
             "tasmota": "Tasmota",
@@ -1080,6 +1081,19 @@ class TCMD:
                             self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
 
                         label = plug.get("name") or plug["id"]
+                        data = plug["id"]
+
+                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                    except Exception:
+                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
+
+            elif plugin_id == "octorelay":
+                response = self.send_octoprint_api_command(plugin_id, "listAllStatus")
+                plugs = response.json()
+                for plug in plugs:
+                    try:
+                        label = plug.get("name") or f"RELAY{plug['id']}"
+                        is_on = plug["status"]
                         data = plug["id"]
 
                         plugs_data.append({"label": label, "is_on": is_on, "data": data})
@@ -1390,6 +1404,10 @@ class TCMD:
                             elif action == "on":
                                 command = "turnOn"
                             self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
+                        elif plugin_id == "octorelay":
+                            self.send_octoprint_api_command(
+                                plugin_id, "update", {"subject": plug_data, "target": action == "on"}
+                            )
                         elif plugin_id == "psucontrol":
                             if action == "off":
                                 command = "turnPSUOff"
