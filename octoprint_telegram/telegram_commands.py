@@ -4,6 +4,7 @@ import hashlib
 import html
 import operator
 import socket
+from abc import ABC, abstractmethod
 from itertools import islice
 
 import octoprint.filemanager
@@ -864,22 +865,30 @@ class TCMD:
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
-    def split_parameters(self, param_str: str, separator: str = "_") -> list[str]:
+    def split_with_escape_handling(self, param_str: str, separator: str) -> list[str]:
         """
-        Splits a string into a list of parameters using the specified separator
-        (default: underscore '_'), correctly handling escaped separators (e.g., '\\_').
+        Split a string by a separator while properly handling escaped characters.
 
-        This function is useful to parse strings where parameters may contain the separator
-        character, escaped to avoid splitting on them.
+        This function splits a string into parts using the specified separator,
+        but treats escaped characters (prefixed with backslash) literally.
+        This allows separators to be included in the actual data when escaped.
 
         Args:
-            param_str (str): The input string to split.
-            separator (str): The character to use as separator (default: '_').
+            param_str (str): The string to split
+            separator (str): The character to split on
 
         Returns:
-            list[str]: The list of split and unescaped parameters.
+            list[str]: List of split parts with escape sequences processed
+
+        Examples:
+            >>> split_with_escape_handling("a,b,c", ',')
+            ['a', 'b', 'c']
+            >>> split_with_escape_handling("a\\,b,c", ',')  # escaped comma
+            ['a,b', 'c']
+            >>> split_with_escape_handling("a\\\\,b", ',')  # escaped backslash
+            ['a\\', 'b']
         """
-        params = []
+        result = []
         current = ""
         escaped = False
         for char in param_str:
@@ -889,12 +898,12 @@ class TCMD:
             elif char == "\\":
                 escaped = True
             elif char == separator:
-                params.append(current)
+                result.append(current)
                 current = ""
             else:
                 current += char
-        params.append(current)
-        return params
+        result.append(current)
+        return result
 
     def send_octoprint_api_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
         """
@@ -954,41 +963,791 @@ class TCMD:
         response.raise_for_status()
         return response
 
-    def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
-        supported_plugins = {
-            "domoticz": "Domoticz",
-            "gpiocontrol": "GPIO Control",
-            "ikea_tradfri": "Ikea Tradfri",
-            "mystromswitch": "MyStromSwitch",
-            "octohue": "OctoHue",
-            "octolight": "OctoLight",
-            "octolightHA": "OctoLight HA",
-            "octorelay": "OctoRelay",
-            "orvibos20": "OrviboS20",
-            "psucontrol": "PSU Control",
-            "tasmota": "Tasmota",
-            "tasmota_mqtt": "TasmotaMQTT",
-            "tplinksmartplug": "TPLinkSmartplug",
-            "tuyasmartplug": "TuyaSmartplug",
-            "usbrelaycontrol": "USB Relay Control",
-            "wemoswitch": "WemoSwitch",
-            "wled": "WLED",
-            "ws281x_led_status": "WS281x",
-        }
+    class PowerPlugin(ABC):
+        def __init__(self, parent: "TCMD"):
+            self.parent = parent
 
-        available_plugins = {
-            plugin_id: plugin_name
-            for plugin_id, plugin_name in supported_plugins.items()
-            if self.main._plugin_manager.get_plugin(plugin_id, True)
-        }
+        @property
+        @abstractmethod
+        def plugin_id(self):
+            pass
+
+        @property
+        @abstractmethod
+        def plugin_name(self):
+            pass
+
+        @abstractmethod
+        def get_plugs_data(self):
+            """
+            Retrieve information about all plugs managed by this plugin.
+
+            Returns:
+                List[Dict[str, Any]]: A list of plug dictionaries, each containing:
+                    - "label" (str): Human-readable plug name for display purposes.
+                    - "is_on" (bool): Current power state of the plug (True if on, False if off).
+                    - "data" (str): Unique identifier used to identify the plug in plugin API calls.
+            """
+            pass
+
+        @abstractmethod
+        def turn_on(self, plug_data):
+            pass
+
+        @abstractmethod
+        def turn_off(self, plug_data):
+            pass
+
+    class DomoticzPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "domoticz"
+
+        @property
+        def plugin_name(self):
+            return "Domoticz"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Domoticz plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L147
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                try:
+                    ip = plug["ip"]
+                    idx = plug["idx"]
+                    username = plug.get("username", "")
+                    password = plug.get("password", "")
+                    passcode = plug.get("passcode", "")
+
+                    label = plug.get("label") or f"{ip}|{idx}"
+
+                    is_on = False
+                    try:
+                        # Domoticz plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
+                        # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L241
+                        str_url = f"{ip}/json.htm?type=command&param=getdevices&rid={idx}"
+                        if passcode != "":
+                            str_url = f"{str_url}&passcode={passcode}"
+                        if username != "":
+                            response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
+                        else:
+                            response = requests.get(str_url, timeout=10, verify=False)
+                        is_on = response.json()["result"][0]["Status"].lower() == "on"
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    escaped_ip = ip.replace("|", "\\|")
+                    escaped_idx = idx.replace("|", "\\|")
+                    data = f"{escaped_ip}|{escaped_idx}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            ip, idx = self.parent.split_with_escape_handling(plug_data, "|")
+
+            selected_plug = None
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                if plug.get("ip") == ip and plug.get("idx") == idx:
+                    selected_plug = plug
+                    break
+            if not selected_plug:
+                raise RuntimeError(f"Plug {plug_data} not found")
+
+            username = selected_plug["username"]
+            password = selected_plug["password"]
+            passcode = selected_plug["passcode"]
+
+            self.parent.send_octoprint_api_command(
+                self.plugin_id,
+                command,
+                {
+                    "ip": ip,
+                    "idx": idx,
+                    "username": username,
+                    "password": password,
+                    "passcode": passcode,
+                },
+            )
+
+    class GpioControlPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "gpiocontrol"
+
+        @property
+        def plugin_name(self):
+            return "GPIO Control"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Gpiocontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/catgiggle/OctoPrint-GpioControl/blob/37f698e51ff02493d833f43e14e88bdf54cd8b37/octoprint_gpiocontrol/__init__.py#L129
+            try:
+                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+            except Exception:
+                statuses = []
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "gpio_configurations"])
+            for index, configuration in enumerate(plugs):
+                try:
+                    label = configuration.get("name") or f"GPIO{configuration['pin']}"
+                    is_on = index < len(statuses) and statuses[index].lower() == "on"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": index})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnGpioOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnGpioOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"id": plug_data})
+
+    class IkeaTradfriPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "ikea_tradfri"
+
+        @property
+        def plugin_name(self):
+            return "Ikea Tradfri"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "selected_devices"])
+            for plug in plugs:
+                try:
+                    plug_id = plug["id"]
+                    label = plug.get("name") or plug_id
+
+                    is_on = False
+                    try:
+                        response = self.parent.send_octoprint_api_command(
+                            self.plugin_id, "checkStatus", {"ip": plug_id}
+                        )
+                        is_on = response.json().get("currentState", "").lower() == "on"
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_id})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+
+    class MyStromSwitchPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "mystromswitch"
+
+        @property
+        def plugin_name(self):
+            return "MyStromSwitch"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                # Mystromswitch plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
+                # https://github.com/da4id/OctoPrint-MyStromSwitch/blob/e7bf0762d39938fb81b1d2d1945336df0e96d103/octoprint_mystromswitch/__init__.py#L180
+                ip = self.parent.main._settings.global_get(["plugins", self.plugin_id, "ip"])
+                token = self.parent.main._settings.global_get(["plugins", self.plugin_id, "token"])
+
+                response = requests.get(f"http://{ip}/report", headers={"Token": token}, timeout=5)
+                is_on = response.json().get("relay", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # Mystromswitch is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("enableRelais")
+
+        def turn_off(self, plug_data):
+            self.send_command("disableRelais")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    class OctoHuePowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "octohue"
+
+        @property
+        def plugin_name(self):
+            return "OctoHue"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                response = self.parent.send_octoprint_api_command(self.plugin_id, "getstate")
+                is_on = response.json().get("on", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # Octohue is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("turnon")
+
+        def turn_off(self, plug_data):
+            self.send_command("turnoff")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    class OctoLightPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "octolight"
+
+        @property
+        def plugin_name(self):
+            return "OctoLight"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                response = self.parent.send_octoprint_api_get(self.plugin_id)
+                is_on = response.json().get("state", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # Octolight is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn")
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    class OctoLightHAPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "octolightHA"
+
+        @property
+        def plugin_name(self):
+            return "OctoLight HA"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                response = self.parent.send_octoprint_api_get(self.plugin_id, dict(action="getState"))
+                is_on = response.json().get("state", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # OctolightHA is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn")
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_get(self.plugin_id, dict(action=command))
+
+    class OctoRelayPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "octorelay"
+
+        @property
+        def plugin_name(self):
+            return "OctoRelay"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "listAllStatus").json()
+            for plug in plugs:
+                try:
+                    plug_id = plug["id"]
+                    label = plug.get("name") or f"RELAY{plug_id}"
+                    is_on = plug.get("status", False)
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_id})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command(plug_data, True)
+
+        def turn_off(self, plug_data):
+            self.send_command(plug_data, False)
+
+        def send_command(self, plug_data, target):
+            self.parent.send_octoprint_api_command(self.plugin_id, "update", {"subject": plug_data, "target": target})
+
+    class OrviboS20PowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "orvibos20"
+
+        @property
+        def plugin_name(self):
+            return "OrviboS20"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # OrviboS20 plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/cprasmu/OctoPrint-OrviboS20/blob/a40d0ad4184e48781ff1ebc7fb108eba1e084ba8/octoprint_orvibos20/__init__.py#L500
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                try:
+                    plug_ip = plug["ip"]
+                    label = plug.get("label") or plug_ip
+
+                    is_on = False
+                    try:
+                        # OrviboS20 plugin has no API for getting plug status, so we need to use the plugin functions
+                        plugin_module = self.parent.main._plugin_manager.get_plugin(self.plugin_id, True)
+                        is_on = plugin_module.Orvibo.discover(plug_ip).on
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+
+    class PSUControlPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "psucontrol"
+
+        @property
+        def plugin_name(self):
+            return "PSU Control"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                response = self.parent.send_octoprint_api_command(self.plugin_id, "getPSUState")
+                is_on = response.json().get("isPSUOn", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # Psucontrol is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("turnPSUOn")
+
+        def turn_off(self, plug_data):
+            self.send_command("turnPSUOff")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    class TasmotaPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "tasmota"
+
+        @property
+        def plugin_name(self):
+            return "Tasmota"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Tasmota plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/jneilliii/OctoPrint-Tasmota/blob/49c7e01f4a077d0d650931fd91f3b63cfef780c2/octoprint_tasmota/__init__.py#L816
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                try:
+                    plug_ip = plug["ip"]
+                    plug_idx = plug["idx"]
+                    label = plug.get("label") or f"{plug_ip}|{plug_idx}"
+
+                    is_on = False
+                    try:
+                        response = self.parent.send_octoprint_api_command(
+                            self.plugin_id, "checkStatus", {"ip": plug_ip, "idx": plug_idx}
+                        )
+                        is_on = response.json().get("currentState", "").lower() == "on"
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    escaped_ip = plug_ip.replace("|", "\\|")
+                    escaped_idx = plug_idx.replace("|", "\\|")
+                    data = f"{escaped_ip}|{escaped_idx}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            ip, idx = self.parent.split_with_escape_handling(plug_data, "|")
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": ip, "idx": idx})
+
+    class TasmotaMQTTPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "tasmota_mqtt"
+
+        @property
+        def plugin_name(self):
+            return "TasmotaMQTT"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "getListPlug").json()
+            for plug in plugs:
+                try:
+                    is_on = plug.get("currentstate", "").lower() == "on"
+
+                    label = plug.get("label") or f"{plug['topic']}|{plug['relayN']}"
+
+                    escaped_topic = plug["topic"].replace("|", "\\|")
+                    escaped_relay = plug["relayN"].replace("|", "\\|")
+                    data = f"{escaped_topic}|{escaped_relay}"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": data})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            topic, relay_n = self.parent.split_with_escape_handling(plug_data, "|")
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"topic": topic, "relayN": relay_n})
+
+    class TPLinkSmartplugPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "tplinksmartplug"
+
+        @property
+        def plugin_name(self):
+            return "TPLinkSmartplug"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "getListPlug").json()
+            for plug in plugs:
+                try:
+                    plug_ip = plug["ip"]
+                    label = plug.get("label") or plug_ip
+                    is_on = plug.get("currentState", "").lower() == "on"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+
+    class TuyaSmartplugPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "tuyasmartplug"
+
+        @property
+        def plugin_name(self):
+            return "TuyaSmartplug"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Tuyasmartplug plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L240
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                try:
+                    label = plug["label"]
+
+                    is_on = False
+                    try:
+                        # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
+                        plugin_implementation = self.parent.main._plugin_manager.plugins[self.plugin_id].implementation
+                        is_on = plugin_implementation.is_turned_on(pluglabel=label)
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": label})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"label": plug_data})
+
+    class USBRelayControlPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "usbrelaycontrol"
+
+        @property
+        def plugin_name(self):
+            return "USB Relay Control"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Usbrelaycontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/abudden/OctoPrint-USBRelayControl/blob/0f06bccc06107f2b76fe360fed63698472c483cc/octoprint_usbrelaycontrol/__init__.py#L135
+            try:
+                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+            except Exception:
+                statuses = []
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "usbrelay_configurations"])
+            for index, configuration in enumerate(plugs):
+                try:
+                    label = configuration["name"] or f"RELAY{configuration['relaynumber']}"
+                    is_on = index < len(statuses) and statuses[index].lower() == "on"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": index})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnUSBRelayOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnUSBRelayOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"id": plug_data})
+
+    class WemoSwitchPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "wemoswitch"
+
+        @property
+        def plugin_name(self):
+            return "WemoSwitch"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
+            # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            for plug in plugs:
+                try:
+                    plug_ip = plug["ip"]
+                    label = plug["label"] or plug_ip
+
+                    is_on = False
+                    try:
+                        # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
+                        plugin_implementation = self.parent.main._plugin_manager.plugins[self.plugin_id].implementation
+                        chk = plugin_implementation.sendCommand("info", plug_ip)
+                        is_on = chk == 1 or chk == 8
+                    except Exception:
+                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turnOn", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turnOff", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+
+    class WledPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "wled"
+
+        @property
+        def plugin_name(self):
+            return "WLED"
+
+        def get_plugs_data(self):
+            is_on = False
+            try:
+                response = self.parent.send_octoprint_api_get(self.plugin_id)
+                is_on = response.json().get("lights_on", False)
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+
+            # Wled is single plug, so data below is dummy
+            return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
+
+        def turn_on(self, plug_data):
+            self.send_command("lights_on")
+
+        def turn_off(self, plug_data):
+            self.send_command("lights_off")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    class WS281xPowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "ws281x_led_status"
+
+        @property
+        def plugin_name(self):
+            return "WS281x"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs_names = ["lights", "torch"]
+
+            statuses = {}
+            try:
+                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+            except Exception:
+                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+
+            for plug_name in plugs_names:
+                try:
+                    label = f"{self.plugin_name} {plug_name}"
+                    is_on = statuses.get(f"{plug_name}_on", False)
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_name})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command(f"{plug_data}_on")
+
+        def turn_off(self, plug_data):
+            self.send_command(f"{plug_data}_off")
+
+        def send_command(self, command):
+            self.parent.send_octoprint_api_command(self.plugin_id, command)
+
+    def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
+        supported_plugins = [
+            self.DomoticzPowerPlugin(self),
+            self.GpioControlPowerPlugin(self),
+            self.IkeaTradfriPowerPlugin(self),
+            self.MyStromSwitchPowerPlugin(self),
+            self.OctoHuePowerPlugin(self),
+            self.OctoLightPowerPlugin(self),
+            self.OctoLightHAPowerPlugin(self),
+            self.OctoRelayPowerPlugin(self),
+            self.OrviboS20PowerPlugin(self),
+            self.PSUControlPowerPlugin(self),
+            self.TasmotaPowerPlugin(self),
+            self.TasmotaMQTTPowerPlugin(self),
+            self.TPLinkSmartplugPowerPlugin(self),
+            self.TuyaSmartplugPowerPlugin(self),
+            self.USBRelayControlPowerPlugin(self),
+            self.WemoSwitchPowerPlugin(self),
+            self.WledPowerPlugin(self),
+            self.WS281xPowerPlugin(self),
+        ]
+
+        available_plugins = [
+            plugin_instance
+            for plugin_instance in supported_plugins
+            if self.main._plugin_manager.get_plugin(plugin_instance.plugin_id, True)
+        ]
 
         if not available_plugins:
             message = (
                 f"{get_emoji('warning')} No power manager plugin installed. "
                 "Please install one of the following plugins:\n"
             )
-            for plugin_id, plugin_name in supported_plugins.items():
-                message += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_id)}/'>{html.escape(plugin_name)}</a>\n"
+            for plugin_handler in supported_plugins:
+                message += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_handler.plugin_id)}/'>{html.escape(plugin_handler.plugin_name)}</a>\n"
 
             self.main.send_msg(
                 message,
@@ -998,386 +1757,32 @@ class TCMD:
 
             return
 
-        def get_plugs_data(plugin_id):
-            """
-            Retrieves information about all plugs managed by the specified power plugin.
-
-            Args:
-                plugin_id (str): Identifier of the power management plugin.
-
-            Returns:
-                List[Dict[str, Any]]: A list of plug dictionaries, each containing:
-                    - "label" (str): Human-readable name for display.
-                    - "is_on" (bool): Current power state.
-                    - "data" (str): Internal identifier used by ON/OFF APIs, separated by "|".
-
-            Raises:
-                ValueError: If the specified plugin is not supported.
-            """
-            plugs_data = []
-
-            if plugin_id == "domoticz":
-                # Domoticz plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L147
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                for plug in plugs:
-                    try:
-                        ip = plug["ip"]
-                        idx = plug["idx"]
-                        username = plug.get("username", "")
-                        password = plug.get("password", "")
-                        passcode = plug.get("passcode", "")
-
-                        is_on = False
-                        try:
-                            # Domoticz plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
-                            # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L241
-                            str_url = f"{ip}/json.htm?type=command&param=getdevices&rid={idx}"
-                            if passcode != "":
-                                str_url = f"{str_url}&passcode={passcode}"
-                            if username != "":
-                                response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
-                            else:
-                                response = requests.get(str_url, timeout=10, verify=False)
-                            is_on = response.json()["result"][0]["Status"].lower() == "on"
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug.get("label") or f"{ip}|{idx}"
-
-                        escaped_ip = ip.replace("|", "\\|")
-                        escaped_idx = idx.replace("|", "\\|")
-                        data = f"{escaped_ip}|{escaped_idx}"
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "gpiocontrol":
-                # Gpiocontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/catgiggle/OctoPrint-GpioControl/blob/37f698e51ff02493d833f43e14e88bdf54cd8b37/octoprint_gpiocontrol/__init__.py#L129
-                try:
-                    statuses = self.send_octoprint_api_get(plugin_id).json()
-                except Exception:
-                    statuses = []
-                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs statuses")
-
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "gpio_configurations"])
-                for index, configuration in enumerate(plugs):
-                    try:
-                        label = configuration["name"] or f"GPIO{configuration['pin']}"
-                        is_on = index < len(statuses) and statuses[index].lower() == "on"
-                        data = index
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "ikea_tradfri":
-                # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "selected_devices"])
-                for plug in plugs:
-                    try:
-                        is_on = False
-                        try:
-                            response = self.send_octoprint_api_command(plugin_id, "checkStatus", {"ip": plug["id"]})
-                            is_on = response.json().get("currentState", "").lower() == "on"
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug.get("name") or plug["id"]
-                        data = plug["id"]
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "mystromswitch":
-                is_on = False
-                try:
-                    # Mystromswitch plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
-                    # https://github.com/da4id/OctoPrint-MyStromSwitch/blob/e7bf0762d39938fb81b1d2d1945336df0e96d103/octoprint_mystromswitch/__init__.py#L180
-                    ip = self.main._settings.global_get(["plugins", plugin_id, "ip"])
-                    token = self.main._settings.global_get(["plugins", plugin_id, "token"])
-
-                    response = requests.get(f"http://{ip}/report", headers={"Token": token}, timeout=5)
-                    is_on = response.json().get("relay", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # Mystromswitch is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "octohue":
-                is_on = False
-                try:
-                    response = self.send_octoprint_api_command(plugin_id, "getstate")
-                    is_on = response.json().get("on", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # Octohue is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "octolight":
-                is_on = False
-                try:
-                    response = self.send_octoprint_api_get(plugin_id)
-                    is_on = response.json().get("state", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # Octolight is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "octolightHA":
-                is_on = False
-                try:
-                    response = self.send_octoprint_api_get(plugin_id, dict(action="getState"))
-                    is_on = response.json().get("state", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # OctolightHA is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "octorelay":
-                response = self.send_octoprint_api_command(plugin_id, "listAllStatus")
-                plugs = response.json()
-                for plug in plugs:
-                    try:
-                        label = plug.get("name") or f"RELAY{plug['id']}"
-                        is_on = plug["status"]
-                        data = plug["id"]
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "orvibos20":
-                # OrviboS20 plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/cprasmu/OctoPrint-OrviboS20/blob/a40d0ad4184e48781ff1ebc7fb108eba1e084ba8/octoprint_orvibos20/__init__.py#L500
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                for plug in plugs:
-                    try:
-                        is_on = False
-                        try:
-                            # OrviboS20 plugin has no API for getting plug status, so we need to use the plugin functions
-                            plugin_module = self.main._plugin_manager.get_plugin(plugin_id, True)
-                            is_on = plugin_module.Orvibo.discover(plug["ip"]).on
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug.get("label") or plug["ip"]
-                        data = plug["ip"]
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "psucontrol":
-                is_on = False
-                try:
-                    response = self.send_octoprint_api_command(plugin_id, "getPSUState")
-                    is_on = response.json().get("isPSUOn", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # Psucontrol is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "tasmota":
-                # Tasmota plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/jneilliii/OctoPrint-Tasmota/blob/49c7e01f4a077d0d650931fd91f3b63cfef780c2/octoprint_tasmota/__init__.py#L816
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                for plug in plugs:
-                    try:
-                        is_on = False
-                        try:
-                            response = self.send_octoprint_api_command(
-                                plugin_id, "checkStatus", {"ip": plug["ip"], "idx": plug["idx"]}
-                            )
-                            is_on = response.json().get("currentState", "").lower() == "on"
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug.get("label") or f"{plug['ip']}|{plug['idx']}"
-
-                        escaped_ip = plug["ip"].replace("|", "\\|")
-                        escaped_idx = plug["idx"].replace("|", "\\|")
-                        data = f"{escaped_ip}|{escaped_idx}"
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "tasmota_mqtt":
-                response = self.send_octoprint_api_command(plugin_id, "getListPlug")
-                plugs = response.json()
-                for plug in plugs:
-                    try:
-                        is_on = plug.get("currentstate", "").lower() == "on"
-
-                        label = plug.get("label") or f"{plug['topic']}|{plug['relayN']}"
-
-                        escaped_topic = plug["topic"].replace("|", "\\|")
-                        escaped_relay = plug["relayN"].replace("|", "\\|")
-                        data = f"{escaped_topic}|{escaped_relay}"
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "tplinksmartplug":
-                response = self.send_octoprint_api_command(plugin_id, "getListPlug")
-                plugs = response.json()
-                for plug in plugs:
-                    try:
-                        is_on = plug.get("currentState", "").lower() == "on"
-                        label = plug.get("label") or plug["ip"]
-                        data = plug["ip"]
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "tuyasmartplug":
-                # Tuyasmartplug plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L240
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                for plug in plugs:
-                    try:
-                        is_on = False
-                        try:
-                            # Tuyasmartplug plugin has no API for getting plug status, so we need to use the plugin functions
-                            plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                            is_on = plugin_implementation.is_turned_on(pluglabel=plug["label"])
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug["label"]
-                        data = label
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "usbrelaycontrol":
-                # Usbrelaycontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/abudden/OctoPrint-USBRelayControl/blob/0f06bccc06107f2b76fe360fed63698472c483cc/octoprint_usbrelaycontrol/__init__.py#L135
-                try:
-                    statuses = self.send_octoprint_api_get(plugin_id).json()
-                except Exception:
-                    statuses = []
-                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs statuses")
-
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "usbrelay_configurations"])
-                for index, configuration in enumerate(plugs):
-                    try:
-                        label = configuration["name"] or f"RELAY{configuration['relaynumber']}"
-                        is_on = index < len(statuses) and statuses[index].lower() == "on"
-                        data = index
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "wemoswitch":
-                # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
-                # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
-                plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                for plug in plugs:
-                    try:
-                        is_on = False
-                        try:
-                            # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
-                            plugin_implementation = self.main._plugin_manager.plugins[plugin_id].implementation
-                            chk = plugin_implementation.sendCommand("info", plug["ip"])
-                            is_on = chk == 1 or chk == 8
-                        except Exception:
-                            self._logger.exception(f"Caught an exception getting {plugin_id} plug status")
-
-                        label = plug["label"] or plug["ip"]
-                        data = plug["ip"]
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            elif plugin_id == "wled":
-                is_on = False
-                try:
-                    response = self.send_octoprint_api_get(plugin_id)
-                    is_on = response.json().get("lights_on", False)
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                # Wled is single plug, so data below is dummy
-                label = available_plugins[plugin_id]
-                data = plugin_id
-
-                plugs_data.append({"label": label, "is_on": is_on, "data": data})
-
-            elif plugin_id == "ws281x_led_status":
-                plugs_names = ["lights", "torch"]
-
-                statuses = {}
-                try:
-                    statuses = self.send_octoprint_api_get(plugin_id).json()
-                except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} status")
-
-                for plug_name in plugs_names:
-                    try:
-                        label = f"{available_plugins[plugin_id]} {plug_name}"
-                        is_on = statuses.get(f"{plug_name}_on", False)
-                        data = plug_name
-
-                        plugs_data.append({"label": label, "is_on": is_on, "data": data})
-                    except Exception:
-                        self._logger.exception(f"Caught an exception processing {plugin_id} plug data")
-
-            else:
-                raise ValueError(f"Plugin {plugin_id} not supported")
-
-            return plugs_data
-
         if not parameter:
             # Command was /power, show plugs list
 
             message = f"{get_emoji('question')} Which plug do you want to manage?"
 
             plug_buttons = []
-            for plugin_id in available_plugins:
+            for plugin_handler in available_plugins:
                 try:
-                    for plug_data in get_plugs_data(plugin_id):
+                    for plug_data in plugin_handler.get_plugs_data():
                         label = plug_data["label"]
 
                         is_on = plug_data["is_on"]
                         status_emoji = get_emoji("online" if is_on else "offline")
 
                         data = plug_data["data"]
-                        command = cmd + "_" + plugin_id.replace("_", "\\_") + "_" + str(data).replace("_", "\\_")
+                        command = (
+                            cmd
+                            + "_"
+                            + plugin_handler.plugin_id.replace("_", "\\_")
+                            + "_"
+                            + str(data).replace("_", "\\_")
+                        )
 
                         plug_buttons.append([f"{status_emoji} {label}", command])
                 except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_id} plugs")
+                    self._logger.exception(f"Caught an exception getting {plugin_handler.plugin_id} plugs")
 
             max_per_row = 3
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
@@ -1392,11 +1797,13 @@ class TCMD:
             )
 
         else:
-            splitted_parameters = self.split_parameters(parameter)
+            splitted_parameters = self.split_with_escape_handling(parameter, "_")
             plugin_id, plug_data, action = (splitted_parameters + [None] * 3)[:3]
 
-            if plugin_id not in available_plugins:
-                message = f"{get_emoji('attention')} Plugin {html.escape(plugin_id)} is not available!"
+            plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
+
+            if plugin_handler is None:
+                message = f"{get_emoji('attention')} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
                 command_buttons = [[[f"{get_emoji('back')} Back", cmd], [f"{get_emoji('cancel')} Close", "no"]]]
                 self.main.send_msg(
                     message,
@@ -1410,9 +1817,7 @@ class TCMD:
             if action is None:
                 # Command was /power_plugin\_id_plug\_data, show plug status and ask for action
 
-                plugs = get_plugs_data(plugin_id)
-                selected_plug = None
-
+                plugs = plugin_handler.get_plugs_data()
                 selected_plug = next((plug for plug in plugs if str(plug["data"]) == plug_data), None)
 
                 if selected_plug is None:
@@ -1433,7 +1838,7 @@ class TCMD:
                 status_emoji = get_emoji("online" if is_on else "offline")
 
                 message = (
-                    f"{get_emoji('info')} Plug {html.escape(label)} is {status_emoji} {status_text}.\n"
+                    f"{get_emoji('info')} Plug <code>{html.escape(label)}</code> is {status_emoji} {status_text}.\n"
                     f"{get_emoji('question')} What do you want to do?"
                 )
 
@@ -1456,129 +1861,13 @@ class TCMD:
             else:
                 # Command was /power_plugin\_id_plug\_data_action, execute action
 
-                if action not in ("on", "off"):
+                action_methods = {"on": plugin_handler.turn_on, "off": plugin_handler.turn_off}
+
+                if action not in action_methods:
                     message = f"{get_emoji('attention')} Action not supported!"
                 else:
                     try:
-                        if plugin_id == "domoticz":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-
-                            ip, idx = self.split_parameters(plug_data, "|")
-
-                            selected_plug = None
-                            plugs = self.main._settings.global_get(["plugins", plugin_id, "arrSmartplugs"])
-                            for plug in plugs:
-                                if plug.get("ip") == ip and plug.get("idx") == idx:
-                                    selected_plug = plug
-                                    break
-                            if not selected_plug:
-                                raise RuntimeError(f"Plug {plug_data} not found")
-
-                            username = selected_plug["username"]
-                            password = selected_plug["password"]
-                            passcode = selected_plug["passcode"]
-
-                            self.send_octoprint_api_command(
-                                plugin_id,
-                                command,
-                                {
-                                    "ip": ip,
-                                    "idx": idx,
-                                    "username": username,
-                                    "password": password,
-                                    "passcode": passcode,
-                                },
-                            )
-                        elif plugin_id == "gpiocontrol":
-                            if action == "off":
-                                command = "turnGpioOff"
-                            elif action == "on":
-                                command = "turnGpioOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"id": plug_data})
-                        elif plugin_id in {"ikea_tradfri", "orvibos20", "tplinksmartplug", "wemoswitch"}:
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"ip": plug_data})
-                        elif plugin_id == "mystromswitch":
-                            if action == "off":
-                                command = "disableRelais"
-                            elif action == "on":
-                                command = "enableRelais"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        elif plugin_id == "octohue":
-                            if action == "off":
-                                command = "turnoff"
-                            elif action == "on":
-                                command = "turnon"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        elif plugin_id == "octolight":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        elif plugin_id == "octolightHA":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_get(plugin_id, dict(action=command))
-                        elif plugin_id == "octorelay":
-                            self.send_octoprint_api_command(
-                                plugin_id, "update", {"subject": plug_data, "target": action == "on"}
-                            )
-                        elif plugin_id == "psucontrol":
-                            if action == "off":
-                                command = "turnPSUOff"
-                            elif action == "on":
-                                command = "turnPSUOn"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        elif plugin_id == "tasmota":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            ip, idx = self.split_parameters(plug_data, "|")
-                            self.send_octoprint_api_command(plugin_id, command, {"ip": ip, "idx": idx})
-                        elif plugin_id == "tasmota_mqtt":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            topic, relay_n = self.split_parameters(plug_data, "|")
-                            self.send_octoprint_api_command(plugin_id, command, {"topic": topic, "relayN": relay_n})
-                        elif plugin_id == "tuyasmartplug":
-                            if action == "off":
-                                command = "turnOff"
-                            elif action == "on":
-                                command = "turnOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"label": plug_data})
-                        elif plugin_id == "usbrelaycontrol":
-                            if action == "off":
-                                command = "turnUSBRelayOff"
-                            elif action == "on":
-                                command = "turnUSBRelayOn"
-                            self.send_octoprint_api_command(plugin_id, command, {"id": plug_data})
-                        elif plugin_id == "wled":
-                            if action == "off":
-                                command = "lights_off"
-                            elif action == "on":
-                                command = "lights_on"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        elif plugin_id == "ws281x_led_status":
-                            if action == "off":
-                                command = f"{plug_data}_off"
-                            elif action == "on":
-                                command = f"{plug_data}_on"
-                            self.send_octoprint_api_command(plugin_id, command)
-                        else:
-                            raise ValueError(f"Plugin {plugin_id} not supported")
-
+                        action_methods[action](plug_data)
                         message = f"{get_emoji('check')} Command sent!"
                     except Exception:
                         self._logger.exception(f"Caught an exception sending action to {plugin_id}")
