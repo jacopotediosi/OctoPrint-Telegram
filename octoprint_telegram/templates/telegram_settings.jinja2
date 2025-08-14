@@ -499,6 +499,17 @@
                         ]
                     },
                     {
+                        "title": "Others",
+                        "subtitle": "Installing the following plugins adds specific additional features.",
+                        "plugins": [
+                            {
+                                "id": "enclosure",
+                                "name": "Enclosure",
+                                "description": "Allows adjusting the enclosure target temperature via the <code>/tune</code> command. Enables managing outputs via the <code>/power</code> command. Allows retrieving sensor temperatures through the <code>{enclosure}</code> variable in notification messages."
+                            }
+                        ]
+                    },
+                    {
                         "title": "Power",
                         "subtitle": "Installing any of the following plugins enables control of all connected power devices (printers, lights, heaters, etc.) via the <code>/power</code> command.",
                         "plugins": [
@@ -952,6 +963,11 @@
             {
                 "var": "{currentLayer} {totalLayer}",
                 "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
+            },
+            {
+                "var": "{enclosure}",
+                "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
+                    "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
             },
             {
                 "var": "{owner} {user}",

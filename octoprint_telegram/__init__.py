@@ -1179,6 +1179,7 @@ class TelegramPlugin(
                 "cost",
                 "DisplayLayerProgress",
                 "domoticz",
+                "enclosure",
                 "filamentmanager",
                 "gpiocontrol",
                 "ikea_tradfri",

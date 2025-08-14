@@ -1123,6 +1123,42 @@ class TCMD:
                 },
             )
 
+    class EnclosurePowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "enclosure"
+
+        @property
+        def plugin_name(self):
+            return "Enclosure"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.send_octoprint_request(f"/plugin/{self.plugin_id}/outputs").json()
+            for plug in plugs:
+                try:
+                    plug_index = plug["index_id"]
+                    label = plug.get("label") or plug_index
+                    is_on = plug.get("State", "").strip().lower() == "on"
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": plug_index})
+                except Exception:
+                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command(True, plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command(False, plug_data)
+
+        def send_command(self, status, plug_data):
+            self.parent.send_octoprint_request(
+                f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json=dict(status=status)
+            )
+
     class GpioControlPowerPlugin(PowerPlugin):
         @property
         def plugin_id(self):
@@ -1759,6 +1795,7 @@ class TCMD:
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = [
             self.DomoticzPowerPlugin(self),
+            self.EnclosurePowerPlugin(self),
             self.GpioControlPowerPlugin(self),
             self.IkeaTradfriPowerPlugin(self),
             self.MyStromSwitchPowerPlugin(self),
@@ -2147,8 +2184,8 @@ class TCMD:
                         return
 
                     else:
-                        self.main._printer.set_temperature(tool_key, 0)
                         self.temp_target_temps[tool_key] = 0
+                        self.main._printer.set_temperature(tool_key, 0)
                         self.cmdTune(chat_id, from_id, cmd, "back", user)
                         return
 
@@ -2198,6 +2235,113 @@ class TCMD:
                     responses=command_buttons,
                     msg_id=self.main.get_update_msg_id(chat_id),
                 )
+            elif params[0] == "enc":
+                index_id = int(params[1])
+                tool_key = f"enc{index_id}"
+
+                enclosure_plugin_id = "enclosure"
+                enclosure_module = self.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+
+                if not enclosure_module:
+                    self.main.send_msg(
+                        f"{get_emoji('attention')} Enclosure plugin not available",
+                        chatID=chat_id,
+                        markup="HTML",
+                        msg_id=self.main.get_update_msg_id(chat_id),
+                    )
+                    return
+
+                enclosure_implementation = self.main._plugin_manager.plugins[enclosure_plugin_id].implementation
+
+                selected_rpi_output = None
+                for rpi_output in enclosure_implementation.rpi_outputs:
+                    if rpi_output["output_type"] == "temp_hum_control" and rpi_output["index_id"] == index_id:
+                        selected_rpi_output = rpi_output
+                        break
+
+                if not selected_rpi_output:
+                    self.main.send_msg(
+                        f"{get_emoji('attention')} Enclosure plugin output not found",
+                        chatID=chat_id,
+                        markup="HTML",
+                        msg_id=self.main.get_update_msg_id(chat_id),
+                    )
+                    return
+
+                if len(params) <= 2:
+                    self.temp_target_temps[tool_key] = selected_rpi_output["temp_ctr_set_value"]
+                else:
+                    delta_str = params[2]
+
+                    base = 5000 if delta_str.endswith("*") else 1000
+
+                    if delta_str.startswith(("+", "-")):
+                        sign = 1 if delta_str.startswith("+") else -1
+                        magnitude = base / (10 ** len(delta_str))
+                        self.temp_target_temps[tool_key] += sign * magnitude
+
+                    elif delta_str.startswith("s"):
+                        selected_rpi_output["temp_ctr_set_value"] = self.temp_target_temps[tool_key]
+                        enclosure_implementation.handle_temp_hum_control()
+
+                    else:
+                        self.temp_target_temps[tool_key] = 0
+                        selected_rpi_output["temp_ctr_set_value"] = 0
+                        enclosure_implementation.handle_temp_hum_control()
+
+                current_target = selected_rpi_output["temp_ctr_set_value"]
+                pending_selection = self.temp_target_temps[tool_key]
+
+                linked_temp_sensor = selected_rpi_output["linked_temp_sensor"]
+                current_sensor = None
+                for rpi_input in enclosure_implementation.rpi_inputs:
+                    if rpi_input["input_type"] == "temperature_sensor" and rpi_input["index_id"] == linked_temp_sensor:
+                        current_sensor = rpi_input["temp_sensor_temp"]
+                        break
+
+                msg = (
+                    f"{get_emoji('plugin')} Set temperature for {selected_rpi_output['label']}.\n"
+                    + (f"Sensor reading: {current_sensor}°C\n" if current_sensor is not None else "")
+                    + f"Current target: {current_target}°C\n"
+                    + f"Pending selection: <b>{pending_selection}°C</b>"
+                )
+
+                command_buttons = [
+                    [
+                        ["+50", f"/tune_enc_{params[1]}_+*"],
+                        ["+10", f"/tune_enc_{params[1]}_++"],
+                        ["+5", f"/tune_enc_{params[1]}_++*"],
+                        ["+1", f"/tune_enc_{params[1]}_+++"],
+                    ],
+                    [
+                        ["-50", f"/tune_enc_{params[1]}_-*"],
+                        ["-10", f"/tune_enc_{params[1]}_--"],
+                        ["-5", f"/tune_enc_{params[1]}_--*"],
+                        ["-1", f"/tune_enc_{params[1]}_---"],
+                    ],
+                    [
+                        [
+                            f"{get_emoji('check')} Set",
+                            f"/tune_enc_{params[1]}_s",
+                        ],
+                        [
+                            f"{get_emoji('stop')} Off",
+                            f"/tune_enc_{params[1]}_off",
+                        ],
+                        [
+                            f"{get_emoji('back')} Back",
+                            "/tune_back",
+                        ],
+                    ],
+                ]
+
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                )
             elif params[0] == "b":
                 tool_key = "bed"
 
@@ -2222,8 +2366,8 @@ class TCMD:
                         return
 
                     else:
-                        self.main._printer.set_temperature(tool_key, 0)
                         self.temp_target_temps[tool_key] = 0
+                        self.main._printer.set_temperature(tool_key, 0)
                         self.cmdTune(chat_id, from_id, cmd, "back", user)
                         return
 
@@ -2307,6 +2451,25 @@ class TCMD:
 
                 if tool_command_buttons:
                     command_buttons.append(tool_command_buttons)
+
+            try:
+                enclosure_plugin_id = "enclosure"
+                enclosure_module = self.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+                if enclosure_module:
+                    enclosure_implementation = self.main._plugin_manager.plugins[enclosure_plugin_id].implementation
+
+                    enclosure_buttons = []
+
+                    for rpi_output in enclosure_implementation.rpi_outputs:
+                        if rpi_output["output_type"] == "temp_hum_control":
+                            index_id = rpi_output["index_id"]
+                            label = rpi_output["label"]
+                            enclosure_buttons.append([f"{get_emoji('plugin')} {label}", f"/tune_enc_{index_id}"])
+
+                    if enclosure_buttons:
+                        command_buttons.append(enclosure_buttons)
+            except Exception:
+                self._logger.exception("Caught an exception getting enclosure data")
 
             command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
 

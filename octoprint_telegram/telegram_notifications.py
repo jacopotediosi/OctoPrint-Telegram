@@ -289,7 +289,7 @@ class TMSG:
     def _sendNotification(self, payload, **kwargs):
         try:
             # --- Defines all formatted variables available for notification messages ---
-            # Remember to add new variables to allowed_vars when adding them
+            # Remember to add new variables to allowed_vars
 
             # Status
             status = self.main._printer.get_current_data()
@@ -371,6 +371,37 @@ class TMSG:
             # Serial echo:UserNotif, e.g.: M118 E1 UserNotif XXXXX
             UserNotif_Text = payload.get("UserNotif", "")
 
+            enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
+            try:
+                enclosure_plugin_id = "enclosure"
+                enclosure_module = self.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+                if enclosure_module:
+                    enclosure_implementation = self.main._plugin_manager.plugins[enclosure_plugin_id].implementation
+
+                    for rpi_input in enclosure_implementation.rpi_inputs:
+                        if rpi_input["input_type"] == "temperature_sensor":
+                            index_id = str(rpi_input["index_id"])
+                            label = rpi_input.get("label") or "Enclosure"
+                            temp = rpi_input.get("temp_sensor_temp", "")
+                            humidity = rpi_input.get("temp_sensor_humidity", "")
+
+                            if temp != "":
+                                enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
+
+                            if humidity != "":
+                                enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
+
+                    for rpi_output in enclosure_implementation.rpi_outputs:
+                        if rpi_output["output_type"] == "temp_hum_control":
+                            index_id = str(rpi_output["index_id"])
+                            label = rpi_output.get("label") or "Enclosure"
+                            temp = rpi_output.get("temp_ctr_set_value", "")
+
+                            if temp != "":
+                                enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
+            except Exception:
+                self._logger.exception("Caught an exception getting enclosure data")
+
             # Variables allowed in the message formatting context
             allowed_vars = dict(
                 status=status,
@@ -401,6 +432,7 @@ class TMSG:
                 path=path,
                 error_msg=error_msg,
                 UserNotif_Text=UserNotif_Text,
+                enclosure=enclosure,
             )
 
             # --- Set additional kwargs to send the message ---
