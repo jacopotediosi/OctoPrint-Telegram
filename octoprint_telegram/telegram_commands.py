@@ -6,6 +6,7 @@ import operator
 import socket
 from abc import ABC, abstractmethod
 from itertools import islice
+from urllib.parse import urljoin
 
 import octoprint.filemanager
 import requests
@@ -905,9 +906,9 @@ class TCMD:
         result.append(current)
         return result
 
-    def send_octoprint_api_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
+    def send_octoprint_simpleapi_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
         """
-        Sends a command to an OctoPrint plugin via the HTTP API.
+        Sends a SimpleAPI command to an OctoPrint plugin via the HTTP API.
 
         Args:
             plugin_id (str): The ID of the plugin to target.
@@ -925,21 +926,19 @@ class TCMD:
         if parameters:
             payload.update(parameters)
 
-        response = requests.post(
-            f"http://localhost:{self.port}/api/plugin/{plugin_id}",
-            json=payload,
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
+            "POST",
             headers={
                 "Content-Type": "application/json",
-                "X-Api-Key": self.main._settings.global_get(["api", "key"]),
             },
+            json=payload,
             timeout=timeout,
         )
-        response.raise_for_status()
-        return response
 
-    def send_octoprint_api_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
+    def send_octoprint_simpleapi_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
         """
-        Sends a GET request to an OctoPrint plugin via the HTTP API.
+        Sends a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
 
         Args:
             plugin_id (str): The ID of the plugin to target.
@@ -952,14 +951,56 @@ class TCMD:
         Raises:
             requests.HTTPError: If the response contains an HTTP error status code.
         """
-        response = requests.get(
-            f"http://localhost:{self.port}/api/plugin/{plugin_id}",
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
             params=parameters or {},
-            headers={
-                "X-Api-Key": self.main._settings.global_get(["api", "key"]),
-            },
             timeout=timeout,
         )
+
+    def send_octoprint_request(self, url: str, method: str = "GET", **kwargs):
+        """
+        Sends an HTTP request to the OctoPrint API with default authentication headers.
+
+        Args:
+            url (str): Full or relative URL (e.g., "/api/plugin/...").
+            method (str): The HTTP method to use (e.g., "GET", "POST", "PUT", "PATCH", "DELETE", ...). Defaults to "GET".
+            **kwargs: Additional arguments passed to the underlying requests library (e.g., 'data', 'params', 'files').
+
+        Returns:
+            requests.Response: The response object from the HTTP request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        url = urljoin(f"http://localhost:{self.port}/", url)
+
+        method = method.lower()
+
+        default_headers = {
+            "X-Api-Key": self.main._settings.global_get(["api", "key"]),
+        }
+        headers = {**default_headers, **(kwargs.get("headers") or {})}
+        kwargs.pop("headers", None)
+
+        default_kwargs = {
+            "headers": headers,
+            "timeout": 5,
+        }
+        request_kwargs = {**default_kwargs, **kwargs}
+
+        loggable_kwargs = {}
+        for k, v in request_kwargs.items():
+            if k == "headers" and "X-Api-Key" in v:
+                loggable_kwargs[k] = {**v, "X-Api-Key": "REDACTED"}
+            elif k == "files":
+                loggable_kwargs[k] = "<binary data>"
+            else:
+                loggable_kwargs[k] = v
+        self._logger.debug(f"Sending OctoPrint request: method={method}, url={url}, kwargs={loggable_kwargs}.")
+
+        response = requests.request(method, url, **request_kwargs)
+        self._logger.debug(f"Received OctoPrint response: {response.text}.")
+
         response.raise_for_status()
         return response
 
@@ -1070,7 +1111,7 @@ class TCMD:
             password = selected_plug["password"]
             passcode = selected_plug["passcode"]
 
-            self.parent.send_octoprint_api_command(
+            self.parent.send_octoprint_simpleapi_command(
                 self.plugin_id,
                 command,
                 {
@@ -1097,7 +1138,7 @@ class TCMD:
             # Gpiocontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/catgiggle/OctoPrint-GpioControl/blob/37f698e51ff02493d833f43e14e88bdf54cd8b37/octoprint_gpiocontrol/__init__.py#L129
             try:
-                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+                statuses = self.parent.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
                 statuses = []
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
@@ -1121,7 +1162,7 @@ class TCMD:
             self.send_command("turnGpioOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"id": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"id": plug_data})
 
     class IkeaTradfriPowerPlugin(PowerPlugin):
         @property
@@ -1145,7 +1186,7 @@ class TCMD:
 
                     is_on = False
                     try:
-                        response = self.parent.send_octoprint_api_command(
+                        response = self.parent.send_octoprint_simpleapi_command(
                             self.plugin_id, "checkStatus", {"ip": plug_id}
                         )
                         is_on = response.json().get("currentState", "").lower() == "on"
@@ -1165,7 +1206,7 @@ class TCMD:
             self.send_command("turnOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"ip": plug_data})
 
     class MyStromSwitchPowerPlugin(PowerPlugin):
         @property
@@ -1199,7 +1240,7 @@ class TCMD:
             self.send_command("disableRelais")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     class OctoHuePowerPlugin(PowerPlugin):
         @property
@@ -1213,7 +1254,7 @@ class TCMD:
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.send_octoprint_api_command(self.plugin_id, "getstate")
+                response = self.parent.send_octoprint_simpleapi_command(self.plugin_id, "getstate")
                 is_on = response.json().get("on", False)
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
@@ -1228,7 +1269,7 @@ class TCMD:
             self.send_command("turnoff")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     class OctoLightPowerPlugin(PowerPlugin):
         @property
@@ -1242,7 +1283,7 @@ class TCMD:
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.send_octoprint_api_get(self.plugin_id)
+                response = self.parent.send_octoprint_simpleapi_get(self.plugin_id)
                 is_on = response.json().get("state", False)
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
@@ -1257,7 +1298,7 @@ class TCMD:
             self.send_command("turnOff")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     class OctoLightHAPowerPlugin(PowerPlugin):
         @property
@@ -1271,7 +1312,7 @@ class TCMD:
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.send_octoprint_api_get(self.plugin_id, dict(action="getState"))
+                response = self.parent.send_octoprint_simpleapi_get(self.plugin_id, dict(action="getState"))
                 is_on = response.json().get("state", False)
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
@@ -1286,7 +1327,7 @@ class TCMD:
             self.send_command("turnOff")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_get(self.plugin_id, dict(action=command))
+            self.parent.send_octoprint_simpleapi_get(self.plugin_id, dict(action=command))
 
     class OctoRelayPowerPlugin(PowerPlugin):
         @property
@@ -1300,7 +1341,7 @@ class TCMD:
         def get_plugs_data(self):
             plugs_data = []
 
-            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "listAllStatus").json()
+            plugs = self.parent.send_octoprint_simpleapi_command(self.plugin_id, "listAllStatus").json()
             for plug in plugs:
                 try:
                     plug_id = plug["id"]
@@ -1320,7 +1361,9 @@ class TCMD:
             self.send_command(plug_data, False)
 
         def send_command(self, plug_data, target):
-            self.parent.send_octoprint_api_command(self.plugin_id, "update", {"subject": plug_data, "target": target})
+            self.parent.send_octoprint_simpleapi_command(
+                self.plugin_id, "update", {"subject": plug_data, "target": target}
+            )
 
     class OrviboS20PowerPlugin(PowerPlugin):
         @property
@@ -1363,7 +1406,7 @@ class TCMD:
             self.send_command("turnOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"ip": plug_data})
 
     class PSUControlPowerPlugin(PowerPlugin):
         @property
@@ -1377,7 +1420,7 @@ class TCMD:
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.send_octoprint_api_command(self.plugin_id, "getPSUState")
+                response = self.parent.send_octoprint_simpleapi_command(self.plugin_id, "getPSUState")
                 is_on = response.json().get("isPSUOn", False)
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
@@ -1392,7 +1435,7 @@ class TCMD:
             self.send_command("turnPSUOff")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     class TasmotaPowerPlugin(PowerPlugin):
         @property
@@ -1417,7 +1460,7 @@ class TCMD:
 
                     is_on = False
                     try:
-                        response = self.parent.send_octoprint_api_command(
+                        response = self.parent.send_octoprint_simpleapi_command(
                             self.plugin_id, "checkStatus", {"ip": plug_ip, "idx": plug_idx}
                         )
                         is_on = response.json().get("currentState", "").lower() == "on"
@@ -1442,7 +1485,7 @@ class TCMD:
 
         def send_command(self, command, plug_data):
             ip, idx = self.parent.split_with_escape_handling(plug_data, "|")
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": ip, "idx": idx})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"ip": ip, "idx": idx})
 
     class TasmotaMQTTPowerPlugin(PowerPlugin):
         @property
@@ -1456,7 +1499,7 @@ class TCMD:
         def get_plugs_data(self):
             plugs_data = []
 
-            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "getListPlug").json()
+            plugs = self.parent.send_octoprint_simpleapi_command(self.plugin_id, "getListPlug").json()
             for plug in plugs:
                 try:
                     is_on = plug.get("currentstate", "").lower() == "on"
@@ -1481,7 +1524,7 @@ class TCMD:
 
         def send_command(self, command, plug_data):
             topic, relay_n = self.parent.split_with_escape_handling(plug_data, "|")
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"topic": topic, "relayN": relay_n})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"topic": topic, "relayN": relay_n})
 
     class TPLinkSmartplugPowerPlugin(PowerPlugin):
         @property
@@ -1495,7 +1538,7 @@ class TCMD:
         def get_plugs_data(self):
             plugs_data = []
 
-            plugs = self.parent.send_octoprint_api_command(self.plugin_id, "getListPlug").json()
+            plugs = self.parent.send_octoprint_simpleapi_command(self.plugin_id, "getListPlug").json()
             for plug in plugs:
                 try:
                     plug_ip = plug["ip"]
@@ -1515,7 +1558,7 @@ class TCMD:
             self.send_command("turnOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"ip": plug_data})
 
     class TuyaSmartplugPowerPlugin(PowerPlugin):
         @property
@@ -1557,7 +1600,7 @@ class TCMD:
             self.send_command("turnOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"label": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"label": plug_data})
 
     class USBRelayControlPowerPlugin(PowerPlugin):
         @property
@@ -1574,7 +1617,7 @@ class TCMD:
             # Usbrelaycontrol plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/abudden/OctoPrint-USBRelayControl/blob/0f06bccc06107f2b76fe360fed63698472c483cc/octoprint_usbrelaycontrol/__init__.py#L135
             try:
-                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+                statuses = self.parent.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
                 statuses = []
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
@@ -1598,7 +1641,7 @@ class TCMD:
             self.send_command("turnUSBRelayOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"id": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"id": plug_data})
 
     class WemoSwitchPowerPlugin(PowerPlugin):
         @property
@@ -1642,7 +1685,7 @@ class TCMD:
             self.send_command("turnOff", plug_data)
 
         def send_command(self, command, plug_data):
-            self.parent.send_octoprint_api_command(self.plugin_id, command, {"ip": plug_data})
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command, {"ip": plug_data})
 
     class WledPowerPlugin(PowerPlugin):
         @property
@@ -1656,7 +1699,7 @@ class TCMD:
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.send_octoprint_api_get(self.plugin_id)
+                response = self.parent.send_octoprint_simpleapi_get(self.plugin_id)
                 is_on = response.json().get("lights_on", False)
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
@@ -1671,7 +1714,7 @@ class TCMD:
             self.send_command("lights_off")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     class WS281xPowerPlugin(PowerPlugin):
         @property
@@ -1689,7 +1732,7 @@ class TCMD:
 
             statuses = {}
             try:
-                statuses = self.parent.send_octoprint_api_get(self.plugin_id).json()
+                statuses = self.parent.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
                 self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
 
@@ -1711,7 +1754,7 @@ class TCMD:
             self.send_command(f"{plug_data}_off")
 
         def send_command(self, command):
-            self.parent.send_octoprint_api_command(self.plugin_id, command)
+            self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
     def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
         supported_plugins = [
