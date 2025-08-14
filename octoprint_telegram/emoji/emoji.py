@@ -6,8 +6,9 @@ class Emoji:
     # we hardcode in the plugin sources don't break, we initialize the emoji map
     # with some custom ones.
     _custom_emoji_map = {
-        # Octoprint octopus
+        # Octoprint specific
         "octo": "\U0001f419",
+        "plugin": "\U0001f9e9",
         # Menu actions / outcomes
         "cancel": "\u274c",
         "check": "\u2705",
