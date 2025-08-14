@@ -447,6 +447,24 @@ class TMSG:
                         # Replace with corresponding emoji
                         return get_emoji(fmt)
 
+                class LazyEscaped:
+                    def __init__(self, value, markup):
+                        self.value = value
+                        self.markup = markup
+
+                    def __getitem__(self, key):
+                        return LazyEscaped(self.value[key], self.markup)
+
+                    def __str__(self):
+                        val = str(self.value)
+                        if self.markup == "HTML":
+                            return html.escape(val)
+                        elif self.markup == "Markdown":
+                            return escape_markdown(val, 1)
+                        elif self.markup == "MarkdownV2":
+                            return escape_markdown(val, 2)
+                        return val
+
                 class AllowlistedContext(dict):
                     def __init__(self, allowed_vars, emoji_formatter, markup):
                         self.allowed_vars = allowed_vars
@@ -459,21 +477,11 @@ class TMSG:
                             return self.emoji_formatter
 
                         # If variable is not in allowed_vars, return it as a literal
-                        value = self.allowed_vars.get(key)
-                        if value is None:
+                        if key not in self.allowed_vars:
                             return "{" + key + "}"
 
-                        value = str(value)
-
-                        if self.markup == "HTML":
-                            value = html.escape(value)
-                        elif self.markup == "Markdown":
-                            value = escape_markdown(value, 1)
-                        elif self.markup == "MarkdownV2":
-                            value = escape_markdown(value, 2)
-
-                        # Return value
-                        return value
+                        # Return variable within wrapper that applies markup escaping when the value is formatted
+                        return LazyEscaped(self.allowed_vars[key], self.markup)
 
                 emoji_formatter = EmojiFormatter()
                 context = AllowlistedContext(allowed_vars, emoji_formatter, markup)
@@ -481,7 +489,7 @@ class TMSG:
                 message_template = self.main._settings.get(["messages", event, "text"])
                 message = message_template.format_map(context)
             except Exception:
-                self._logger.exception("caught an exception while formatting the message")
+                self._logger.exception("Caught an exception while formatting the message")
                 message = (
                     f"{get_emoji('attention')} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
