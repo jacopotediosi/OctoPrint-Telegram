@@ -1,9 +1,12 @@
 import logging
 import re
 import traceback
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import requests
+
+if TYPE_CHECKING:
+    from . import TelegramPlugin
 
 _logger = logging.getLogger("octoprint.plugins.telegram").getChild("TelegramUtils")
 
@@ -11,7 +14,7 @@ TOKEN_REGEX = re.compile(r"[\d]{8,10}:[\w-]{35}")
 
 
 class TelegramUtils:
-    def __init__(self, main):
+    def __init__(self, main: "TelegramPlugin"):
         self.main = main
 
     def get_proxies(self):

@@ -6,6 +6,7 @@ import operator
 import socket
 from abc import ABC, abstractmethod
 from itertools import islice
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import octoprint.filemanager
@@ -14,6 +15,9 @@ import sarge
 from octoprint.printer import UnknownScript
 
 from .emoji.emoji import Emoji
+
+if TYPE_CHECKING:
+    from . import TelegramPlugin
 
 get_emoji = Emoji.get_emoji
 
@@ -24,7 +28,7 @@ get_emoji = Emoji.get_emoji
 # SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
 #################################################################################################################################
 class TCMD:
-    def __init__(self, main):
+    def __init__(self, main: "TelegramPlugin"):
         self.main = main
         self._logger = main._logger.getChild("TCMD")
         self.port = self.main.port

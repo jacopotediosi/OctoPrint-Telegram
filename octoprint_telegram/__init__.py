@@ -48,7 +48,7 @@ get_emoji = Emoji.get_emoji
 
 
 class TelegramListener(threading.Thread):
-    def __init__(self, main):
+    def __init__(self, main: "TelegramPlugin"):
         threading.Thread.__init__(self)
         self.update_offset = 0
         self.first_contact = True

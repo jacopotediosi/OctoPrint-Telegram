@@ -1,11 +1,15 @@
 import datetime
 import html
 import time
+from typing import TYPE_CHECKING
 
 import octoprint.util
 
 from .emoji.emoji import Emoji
 from .telegram_utils import escape_markdown
+
+if TYPE_CHECKING:
+    from . import TelegramPlugin
 
 get_emoji = Emoji.get_emoji
 
@@ -176,7 +180,7 @@ telegramMsgDict = {
 
 
 class TMSG:
-    def __init__(self, main):
+    def __init__(self, main: "TelegramPlugin"):
         self.main = main
         self.last_z = 0.0
         self.last_notification_time = 0
