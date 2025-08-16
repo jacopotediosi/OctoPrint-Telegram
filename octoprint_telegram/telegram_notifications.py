@@ -292,6 +292,8 @@ class TMSG:
 
     def _sendNotification(self, payload, **kwargs):
         try:
+            _logger = self._logger
+
             # --- Defines all template variables available for notification messages ---
             # To add new template variables, just add them as a @property in LazyVariables class
 
@@ -452,11 +454,7 @@ class TMSG:
                         progress = self.status.get("progress", {})
                         print_time_left = progress.get("printTimeLeft")
                         if print_time_left is not None:
-                            try:
-                                return self.parent.main.calculate_ETA(print_time_left)
-                            except Exception:
-                                self.parent._logger.exception("Caught an exception calculating ETA")
-                        return "[Unknown]"
+                            return self.parent.main.calculate_ETA(print_time_left)
 
                     return self._get_cached("time_finish", _calculate_time_finish)
 
@@ -528,37 +526,34 @@ class TMSG:
 
                     def _calculate_enclosure():
                         enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
-                        try:
-                            enclosure_plugin_id = "enclosure"
-                            enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
-                            if enclosure_module:
-                                enclosure_implementation = self.parent.main._plugin_manager.plugins[
-                                    enclosure_plugin_id
-                                ].implementation
+                        enclosure_plugin_id = "enclosure"
+                        enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+                        if enclosure_module:
+                            enclosure_implementation = self.parent.main._plugin_manager.plugins[
+                                enclosure_plugin_id
+                            ].implementation
 
-                                for rpi_input in enclosure_implementation.rpi_inputs:
-                                    if rpi_input["input_type"] == "temperature_sensor":
-                                        index_id = str(rpi_input["index_id"])
-                                        label = rpi_input.get("label") or "Enclosure"
-                                        temp = rpi_input.get("temp_sensor_temp", "")
-                                        humidity = rpi_input.get("temp_sensor_humidity", "")
+                            for rpi_input in enclosure_implementation.rpi_inputs:
+                                if rpi_input["input_type"] == "temperature_sensor":
+                                    index_id = str(rpi_input["index_id"])
+                                    label = rpi_input.get("label") or "Enclosure"
+                                    temp = rpi_input.get("temp_sensor_temp", "")
+                                    humidity = rpi_input.get("temp_sensor_humidity", "")
 
-                                        if temp != "":
-                                            enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
+                                    if temp != "":
+                                        enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
 
-                                        if humidity != "":
-                                            enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
+                                    if humidity != "":
+                                        enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
 
-                                for rpi_output in enclosure_implementation.rpi_outputs:
-                                    if rpi_output["output_type"] == "temp_hum_control":
-                                        index_id = str(rpi_output["index_id"])
-                                        label = rpi_output.get("label") or "Enclosure"
-                                        temp = rpi_output.get("temp_ctr_set_value", "")
+                            for rpi_output in enclosure_implementation.rpi_outputs:
+                                if rpi_output["output_type"] == "temp_hum_control":
+                                    index_id = str(rpi_output["index_id"])
+                                    label = rpi_output.get("label") or "Enclosure"
+                                    temp = rpi_output.get("temp_ctr_set_value", "")
 
-                                        if temp != "":
-                                            enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
-                        except Exception:
-                            self.parent._logger.exception("Caught an exception getting enclosure data")
+                                    if temp != "":
+                                        enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
                         return enclosure
 
                     return self._get_cached("enclosure", _calculate_enclosure)
@@ -637,8 +632,13 @@ class TMSG:
                         self.markup = markup
 
                     def __getitem__(self, key):
-                        # Support dictionary/list navigation
-                        return MarkupEscapedValue(self.value[key], self.markup)
+                        try:
+                            # Support dictionary/list navigation
+                            return MarkupEscapedValue(self.value[key], self.markup)
+                        except Exception:
+                            _logger.exception("Caught an exception navigating dict/list")
+                            # Return an error placeholder if attempting to access non-existent key or invalid index
+                            return MarkupEscapedValue("[ERROR]", self.markup)
 
                     def __str__(self):
                         # Apply markup escaping only at final string conversion
@@ -679,8 +679,13 @@ class TMSG:
                             return "{" + key + "}"
 
                         # Get the lazy value and wrap it with markup escaping
-                        lazy_value = getattr(self.lazy_vars, key)
-                        return MarkupEscapedValue(lazy_value, self.markup)
+                        try:
+                            lazy_value = getattr(self.lazy_vars, key)
+                            return MarkupEscapedValue(lazy_value, self.markup)
+                        except Exception:
+                            _logger.exception("Caught an exception getting lazy_vars property")
+                            # Return an error placeholder if getting the lazy_vars property raised an exception
+                            return "[ERROR]"
 
                 emoji_formatter = EmojiFormatter()
                 context = SecureTemplateContext(lazy_vars, emoji_formatter, markup)
