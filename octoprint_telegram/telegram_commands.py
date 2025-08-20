@@ -204,9 +204,7 @@ class TCMD:
                     height = self.temp_notification_settings["notification_height"]
 
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = 100 / (10 ** len(delta_str))
-                        new_height = max(height + sign * magnitude, 0)
+                        new_height = max(height + float(delta_str), 0)
                         self.temp_notification_settings["notification_height"] = new_height
 
                     else:
@@ -222,16 +220,16 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+10", "/settings_h_+"],
-                        ["+1", "/settings_h_++"],
-                        ["+.1", "/settings_h_+++"],
-                        ["+.01", "/settings_h_++++"],
+                        ["+10", "/settings_h_+10"],
+                        ["+1", "/settings_h_+1"],
+                        ["+0.1", "/settings_h_+0.1"],
+                        ["+0.01", "/settings_h_+0.01"],
                     ],
                     [
-                        ["-10", "/settings_h_-"],
-                        ["-1", "/settings_h_--"],
-                        ["-.1", "/settings_h_---"],
-                        ["-.01", "/settings_h_----"],
+                        ["-10", "/settings_h_-10"],
+                        ["-1", "/settings_h_-1"],
+                        ["-0.1", "/settings_h_-0.1"],
+                        ["-0.01", "/settings_h_-0.01"],
                     ],
                     [
                         [f"{get_emoji('save')} Save", "/settings_h_s"],
@@ -255,9 +253,7 @@ class TCMD:
                     notification_time = self.temp_notification_settings["notification_time"]
 
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = 100 / (10 ** len(delta_str))
-                        new_notification_time = max(int(notification_time + sign * magnitude), 0)
+                        new_notification_time = max(notification_time + int(delta_str), 0)
                         self.temp_notification_settings["notification_time"] = new_notification_time
                     else:
                         self.main._settings.set_int(["notification_time"], notification_time)
@@ -271,8 +267,8 @@ class TCMD:
                 )
 
                 command_buttons = [
-                    [["+10", "/settings_t_+"], ["+1", "/settings_t_++"]],
-                    [["-10", "/settings_t_-"], ["-1", "/settings_t_--"]],
+                    [["+10", "/settings_t_+10"], ["+1", "/settings_t_+1"]],
+                    [["-10", "/settings_t_-10"], ["-1", "/settings_t_-1"]],
                     [
                         [f"{get_emoji('save')} Save", "/settings_t_s"],
                         [
@@ -2081,13 +2077,10 @@ class TCMD:
                 if len(params) > 1:
                     delta_str = params[1]
 
-                    base = 2500 if delta_str.endswith("*") else 1000
-
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = base / (10 ** len(delta_str))
-                        self.temp_tune_rates["feedrate"] += sign * magnitude
-                        self.temp_tune_rates["feedrate"] = max(50, min(self.temp_tune_rates["feedrate"], 200))
+                        self.temp_tune_rates["feedrate"] = max(
+                            50, min(self.temp_tune_rates["feedrate"] + int(delta_str), 200)
+                        )
                     else:
                         self.main._printer.feed_rate(int(self.temp_tune_rates["feedrate"]))
                         self.cmdTune(chat_id, from_id, cmd, "back", user)
@@ -2097,12 +2090,12 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+25", "/tune_feed_+*"],
-                        ["+10", "/tune_feed_++"],
-                        ["+1", "/tune_feed_+++"],
-                        ["-1", "/tune_feed_---"],
-                        ["-10", "/tune_feed_--"],
-                        ["-25", "/tune_feed_-*"],
+                        ["+25", "/tune_feed_+25"],
+                        ["+10", "/tune_feed_+10"],
+                        ["+1", "/tune_feed_+1"],
+                        ["-1", "/tune_feed_-1"],
+                        ["-10", "/tune_feed_-10"],
+                        ["-25", "/tune_feed_-25"],
                     ],
                     [
                         [f"{get_emoji('check')} Set", "/tune_feed_s"],
@@ -2124,13 +2117,10 @@ class TCMD:
                 if len(params) > 1:
                     delta_str = params[1]
 
-                    base = 2500 if delta_str.endswith("*") else 1000
-
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = base / (10 ** len(delta_str))
-                        self.temp_tune_rates["flowrate"] += sign * magnitude
-                        self.temp_tune_rates["flowrate"] = max(50, min(self.temp_tune_rates["flowrate"], 200))
+                        self.temp_tune_rates["flowrate"] = max(
+                            50, min(self.temp_tune_rates["flowrate"] + int(delta_str), 200)
+                        )
                     else:
                         self.main._printer.flow_rate(int(self.temp_tune_rates["flowrate"]))
                         self.cmdTune(chat_id, from_id, cmd, "back", user)
@@ -2140,12 +2130,12 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+25", "/tune_flow_+*"],
-                        ["+10", "/tune_flow_++"],
-                        ["+1", "/tune_flow_+++"],
-                        ["-1", "/tune_flow_---"],
-                        ["-10", "/tune_flow_--"],
-                        ["-25", "/tune_flow_-*"],
+                        ["+25", "/tune_flow_+25"],
+                        ["+10", "/tune_flow_+10"],
+                        ["+1", "/tune_flow_+1"],
+                        ["-1", "/tune_flow_-1"],
+                        ["-10", "/tune_flow_-10"],
+                        ["-25", "/tune_flow_-25"],
                     ],
                     [
                         [f"{get_emoji('check')} Set", "/tune_flow_s"],
@@ -2174,13 +2164,8 @@ class TCMD:
                 else:
                     delta_str = params[2]
 
-                    base = 5000 if delta_str.endswith("*") else 1000
-
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = base / (10 ** len(delta_str))
-                        self.temp_target_temps[tool_key] += sign * magnitude
-                        self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key], 0)
+                        self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key] + int(delta_str), 0)
 
                     elif delta_str.startswith("s"):
                         self.main._printer.set_temperature(tool_key, self.temp_target_temps[tool_key])
@@ -2203,18 +2188,18 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+100", f"/tune_e_{params[1]}_+"],
-                        ["+50", f"/tune_e_{params[1]}_+*"],
-                        ["+10", f"/tune_e_{params[1]}_++"],
-                        ["+5", f"/tune_e_{params[1]}_++*"],
-                        ["+1", f"/tune_e_{params[1]}_+++"],
+                        ["+100", f"/tune_e_{params[1]}_+100"],
+                        ["+50", f"/tune_e_{params[1]}_+50"],
+                        ["+10", f"/tune_e_{params[1]}_+10"],
+                        ["+5", f"/tune_e_{params[1]}_+5"],
+                        ["+1", f"/tune_e_{params[1]}_+1"],
                     ],
                     [
-                        ["-100", f"/tune_e_{params[1]}_-"],
-                        ["-50", f"/tune_e_{params[1]}_-*"],
-                        ["-10", f"/tune_e_{params[1]}_--"],
-                        ["-5", f"/tune_e_{params[1]}_--*"],
-                        ["-1", f"/tune_e_{params[1]}_---"],
+                        ["-100", f"/tune_e_{params[1]}_-100"],
+                        ["-50", f"/tune_e_{params[1]}_-50"],
+                        ["-10", f"/tune_e_{params[1]}_-10"],
+                        ["-5", f"/tune_e_{params[1]}_-5"],
+                        ["-1", f"/tune_e_{params[1]}_-1"],
                     ],
                     [
                         [
@@ -2277,12 +2262,8 @@ class TCMD:
                 else:
                     delta_str = params[2]
 
-                    base = 5000 if delta_str.endswith("*") else 1000
-
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = base / (10 ** len(delta_str))
-                        self.temp_target_temps[tool_key] += sign * magnitude
+                        self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key] + int(delta_str), 0)
 
                     elif delta_str.startswith("s"):
                         selected_rpi_output["temp_ctr_set_value"] = self.temp_target_temps[tool_key]
@@ -2312,16 +2293,16 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+50", f"/tune_enc_{params[1]}_+*"],
-                        ["+10", f"/tune_enc_{params[1]}_++"],
-                        ["+5", f"/tune_enc_{params[1]}_++*"],
-                        ["+1", f"/tune_enc_{params[1]}_+++"],
+                        ["+50", f"/tune_enc_{params[1]}_+50"],
+                        ["+10", f"/tune_enc_{params[1]}_+10"],
+                        ["+5", f"/tune_enc_{params[1]}_+5"],
+                        ["+1", f"/tune_enc_{params[1]}_+1"],
                     ],
                     [
-                        ["-50", f"/tune_enc_{params[1]}_-*"],
-                        ["-10", f"/tune_enc_{params[1]}_--"],
-                        ["-5", f"/tune_enc_{params[1]}_--*"],
-                        ["-1", f"/tune_enc_{params[1]}_---"],
+                        ["-50", f"/tune_enc_{params[1]}_-50"],
+                        ["-10", f"/tune_enc_{params[1]}_-10"],
+                        ["-5", f"/tune_enc_{params[1]}_-5"],
+                        ["-1", f"/tune_enc_{params[1]}_-1"],
                     ],
                     [
                         [
@@ -2356,13 +2337,8 @@ class TCMD:
                 else:
                     delta_str = params[1]
 
-                    base = 5000 if delta_str.endswith("*") else 1000
-
                     if delta_str.startswith(("+", "-")):
-                        sign = 1 if delta_str.startswith("+") else -1
-                        magnitude = base / (10 ** len(delta_str))
-                        self.temp_target_temps[tool_key] += sign * magnitude
-                        self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key], 0)
+                        self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key] + int(delta_str), 0)
 
                     elif delta_str.startswith("s"):
                         self.main._printer.set_temperature(tool_key, self.temp_target_temps[tool_key])
@@ -2385,18 +2361,18 @@ class TCMD:
 
                 command_buttons = [
                     [
-                        ["+100", "/tune_b_+"],
-                        ["+50", "/tune_b_+*"],
-                        ["+10", "/tune_b_++"],
-                        ["+5", "/tune_b_++*"],
-                        ["+1", "/tune_b_+++"],
+                        ["+100", "/tune_b_+100"],
+                        ["+50", "/tune_b_+50"],
+                        ["+10", "/tune_b_+10"],
+                        ["+5", "/tune_b_+5"],
+                        ["+1", "/tune_b_+1"],
                     ],
                     [
-                        ["-100", "/tune_b_-"],
-                        ["-50", "/tune_b_-*"],
-                        ["-10", "/tune_b_--"],
-                        ["-5", "/tune_b_--*"],
-                        ["-1", "/tune_b_---"],
+                        ["-100", "/tune_b_-100"],
+                        ["-50", "/tune_b_-50"],
+                        ["-10", "/tune_b_-10"],
+                        ["-5", "/tune_b_-5"],
+                        ["-1", "/tune_b_-1"],
                     ],
                     [
                         [f"{get_emoji('check')} Set", "/tune_b_s"],
