@@ -1,11 +1,15 @@
 import datetime
 import html
 import time
+from typing import TYPE_CHECKING
 
 import octoprint.util
 
 from .emoji.emoji import Emoji
 from .telegram_utils import escape_markdown
+
+if TYPE_CHECKING:
+    from . import TelegramPlugin
 
 get_emoji = Emoji.get_emoji
 
@@ -176,7 +180,7 @@ telegramMsgDict = {
 
 
 class TMSG:
-    def __init__(self, main):
+    def __init__(self, main: "TelegramPlugin"):
         self.main = main
         self.last_z = 0.0
         self.last_notification_time = 0
@@ -288,127 +292,284 @@ class TMSG:
 
     def _sendNotification(self, payload, **kwargs):
         try:
-            # --- Defines all formatted variables available for notification messages ---
-            # Remember to add new variables to allowed_vars when adding them
+            _logger = self._logger
 
-            # Status
-            status = self.main._printer.get_current_data()
+            # --- Defines all template variables available for notification messages ---
+            # To add new template variables, just add them as a @property in LazyVariables class
 
-            # Event
-            event = str(kwargs.get("event"))
-            event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
-            if event_bind_msg:
-                event = event_bind_msg
+            class LazyVariables:
+                """Context class that calculates template variables only when accessed"""
 
-            # Z
-            z = self.z
+                def __init__(self, parent: "TMSG", payload, kwargs):
+                    self.parent = parent
+                    self.payload = payload
+                    self.kwargs = kwargs
+                    self._cache = {}
 
-            # Temperatures
-            temps = self.main._printer.get_current_temperatures()
-            bed = temps.get("bed", {})
-            bed_temp = bed.get("actual", 0.0)
-            bed_target = bed.get("target", 0.0)
-            tool0 = temps.get("tool0", {})
-            e1_temp = tool0.get("actual", 0.0)
-            e1_target = tool0.get("target", 0.0)
-            tool1 = temps.get("tool1", {})
-            e2_temp = tool1.get("actual", 0.0)
-            e2_target = tool1.get("target", 0.0)
-            tool2 = temps.get("tool2", {})
-            e3_temp = tool2.get("actual", 0.0)
-            e3_target = tool2.get("target", 0.0)
-            tool3 = temps.get("tool3", {})
-            e4_temp = tool3.get("actual", 0.0)
-            e4_target = tool3.get("target", 0.0)
-            tool4 = temps.get("tool4", {})
-            e5_temp = tool4.get("actual", 0.0)
-            e5_target = tool4.get("target", 0.0)
+                def _get_cached(self, key, calculator):
+                    """
+                    Get cached value or calculate it if not cached.
 
-            # Percent
-            progress = status.get("progress", {})
-            completion = progress.get("completion")
-            percent = int(completion if completion is not None else 0)
+                    The cache prevents calculating the same template variable multiple times
+                    within a single notification message. The cache is local to each
+                    notification and does not persist between different notifications.
 
-            # Time done
-            print_time = progress.get("printTime") or 0
-            time_done = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
+                    Args:
+                        key: Cache key for the variable
+                        calculator: Lambda function that calculates the variable value
 
-            # Time left and ETA
-            time_left = "[Unknown]"
-            time_finish = "[Unknown]"
-            print_time_left = progress.get("printTimeLeft")
-            if print_time_left is not None:
-                time_left = octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
-                try:
-                    time_finish = self.main.calculate_ETA(print_time_left)
-                except Exception:
-                    self._logger.exception("Caught an exception calculating ETA")
+                    Returns:
+                        The calculated or cached variable value
+                    """
+                    if key not in self._cache:
+                        self._cache[key] = calculator()
+                    return self._cache[key]
 
-            # Layer data
-            layer_data = self.main.get_layer_progress_values() or {}
-            layer_info = layer_data.get("layer") or {}
-            currentLayer = layer_info.get("current", "?")
-            totalLayer = layer_info.get("total", "?")
+                @property
+                def status(self):
+                    """Current printer data from OctoPrint API"""
+                    return self._get_cached("status", lambda: self.parent.main._printer.get_current_data())
 
-            # Who started the print
-            owner = status["job"].get("user") or ""
+                @property
+                def event(self):
+                    """Event that triggered the notification. If the event has an alias (bind_msg), it resolves to that."""
 
-            # Who performed the action causing the notification (e.g., pause, abort)
-            user = payload.get("user") or ""
+                    def calculate_event():
+                        event = str(self.kwargs.get("event"))
+                        event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
+                        return event_bind_msg if event_bind_msg else event
 
-            # File and file path
-            file = status.get("job", {}).get("file", {}).get("name", "")
-            for key in ("filename", "gcode", "file"):
-                value = payload.get(key)
-                if value:
-                    file = value
-                    break
-            path = status.get("job", {}).get("file", {}).get("path", "")
+                    return self._get_cached("event", calculate_event)
 
-            # For "Error" event
-            error_msg = payload.get("error", "")
+                @property
+                def z(self):
+                    """Current Z value"""
+                    return self._get_cached("z", lambda: self.parent.z)
 
-            # Serial echo:UserNotif, e.g.: M118 E1 UserNotif XXXXX
-            UserNotif_Text = payload.get("UserNotif", "")
+                @property
+                def temps(self):
+                    """Full temperature data for all tools and bed from OctoPrint API"""
+                    return self._get_cached("temps", lambda: self.parent.main._printer.get_current_temperatures())
 
-            # Variables allowed in the message formatting context
-            allowed_vars = dict(
-                status=status,
-                event=event,
-                z=z,
-                temps=temps,
-                bed_temp=bed_temp,
-                bed_target=bed_target,
-                e1_temp=e1_temp,
-                e1_target=e1_target,
-                e2_temp=e2_temp,
-                e2_target=e2_target,
-                e3_temp=e3_temp,
-                e3_target=e3_target,
-                e4_temp=e4_temp,
-                e4_target=e4_target,
-                e5_temp=e5_temp,
-                e5_target=e5_target,
-                percent=percent,
-                currentLayer=currentLayer,
-                totalLayer=totalLayer,
-                time_done=time_done,
-                time_left=time_left,
-                time_finish=time_finish,
-                owner=owner,
-                user=user,
-                file=file,
-                path=path,
-                error_msg=error_msg,
-                UserNotif_Text=UserNotif_Text,
-            )
+                @property
+                def bed_temp(self):
+                    """Current bed temperature"""
+                    return self._get_cached("bed_temp", lambda: self.temps.get("bed", {}).get("actual", 0.0))
+
+                @property
+                def bed_target(self):
+                    """Target bed temperature"""
+                    return self._get_cached("bed_target", lambda: self.temps.get("bed", {}).get("target", 0.0))
+
+                @property
+                def e1_temp(self):
+                    """Current temperature of extruder 1 (tool0)"""
+                    return self._get_cached("e1_temp", lambda: self.temps.get("tool0", {}).get("actual", 0.0))
+
+                @property
+                def e1_target(self):
+                    """Target temperature of extruder 1 (tool0)"""
+                    return self._get_cached("e1_target", lambda: self.temps.get("tool0", {}).get("target", 0.0))
+
+                @property
+                def e2_temp(self):
+                    """Current temperature of extruder 2 (tool1)"""
+                    return self._get_cached("e2_temp", lambda: self.temps.get("tool1", {}).get("actual", 0.0))
+
+                @property
+                def e2_target(self):
+                    """Target temperature of extruder 2 (tool1)"""
+                    return self._get_cached("e2_target", lambda: self.temps.get("tool1", {}).get("target", 0.0))
+
+                @property
+                def e3_temp(self):
+                    """Current temperature of extruder 3 (tool2)"""
+                    return self._get_cached("e3_temp", lambda: self.temps.get("tool2", {}).get("actual", 0.0))
+
+                @property
+                def e3_target(self):
+                    """Target temperature of extruder 3 (tool2)"""
+                    return self._get_cached("e3_target", lambda: self.temps.get("tool2", {}).get("target", 0.0))
+
+                @property
+                def e4_temp(self):
+                    """Current temperature of extruder 4 (tool3)"""
+                    return self._get_cached("e4_temp", lambda: self.temps.get("tool3", {}).get("actual", 0.0))
+
+                @property
+                def e4_target(self):
+                    """Target temperature of extruder 4 (tool3)"""
+                    return self._get_cached("e4_target", lambda: self.temps.get("tool3", {}).get("target", 0.0))
+
+                @property
+                def e5_temp(self):
+                    """Current temperature of extruder 5 (tool4)"""
+                    return self._get_cached("e5_temp", lambda: self.temps.get("tool4", {}).get("actual", 0.0))
+
+                @property
+                def e5_target(self):
+                    """Target temperature of extruder 5 (tool4)"""
+                    return self._get_cached("e5_target", lambda: self.temps.get("tool4", {}).get("target", 0.0))
+
+                @property
+                def percent(self):
+                    """Current percentage of the print progress"""
+
+                    def calculate_percent():
+                        progress = self.status.get("progress", {})
+                        completion = progress.get("completion")
+                        return int(completion if completion is not None else 0)
+
+                    return self._get_cached("percent", calculate_percent)
+
+                @property
+                def time_done(self):
+                    """Elapsed time of the current print"""
+
+                    def calculate_time_done():
+                        progress = self.status.get("progress", {})
+                        print_time = progress.get("printTime") or 0
+                        return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
+
+                    return self._get_cached("time_done", calculate_time_done)
+
+                @property
+                def time_left(self):
+                    """Remaining time of the current print"""
+
+                    def _calculate_time_left():
+                        progress = self.status.get("progress", {})
+                        print_time_left = progress.get("printTimeLeft")
+                        if print_time_left is not None:
+                            return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
+                        return "[Unknown]"
+
+                    return self._get_cached("time_left", _calculate_time_left)
+
+                @property
+                def time_finish(self):
+                    """Estimated finish time of the current print"""
+
+                    def _calculate_time_finish():
+                        progress = self.status.get("progress", {})
+                        print_time_left = progress.get("printTimeLeft")
+                        if print_time_left is not None:
+                            return self.parent.main.calculate_ETA(print_time_left)
+
+                    return self._get_cached("time_finish", _calculate_time_finish)
+
+                @property
+                def currentLayer(self):
+                    """Current layer number"""
+
+                    def calculate_current_layer():
+                        layer_data = self.parent.main.get_layer_progress_values() or {}
+                        layer_info = layer_data.get("layer") or {}
+                        return layer_info.get("current", "?")
+
+                    return self._get_cached("currentLayer", calculate_current_layer)
+
+                @property
+                def totalLayer(self):
+                    """Total number of layers"""
+
+                    def calculate_total_layer():
+                        layer_data = self.parent.main.get_layer_progress_values() or {}
+                        layer_info = layer_data.get("layer") or {}
+                        return layer_info.get("total", "?")
+
+                    return self._get_cached("totalLayer", calculate_total_layer)
+
+                @property
+                def owner(self):
+                    """The name of the user who started the print"""
+                    return self._get_cached("owner", lambda: self.status["job"].get("user") or "")
+
+                @property
+                def user(self):
+                    """The name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)"""
+                    return self._get_cached("user", lambda: self.payload.get("user") or "")
+
+                @property
+                def file(self):
+                    """File name of the file currently being printed"""
+
+                    def calculate_file():
+                        file = self.status.get("job", {}).get("file", {}).get("name", "")
+                        for key in ("filename", "gcode", "file"):
+                            value = self.payload.get(key)
+                            if value:
+                                file = value
+                                break
+                        return file
+
+                    return self._get_cached("file", calculate_file)
+
+                @property
+                def path(self):
+                    """Full path of the file currently being printed"""
+                    return self._get_cached("path", lambda: self.status.get("job", {}).get("file", {}).get("path", ""))
+
+                @property
+                def error_msg(self):
+                    """The error message string. Only useful for 'Error' event notifications."""
+                    return self._get_cached("error_msg", lambda: self.payload.get("error", ""))
+
+                @property
+                def UserNotif_Text(self):
+                    """The text received via the serial message echo:UserNotif TEXT, which is triggered by printing a G-code like: M118 E1 UserNotif TEXT."""
+                    return self._get_cached("UserNotif_Text", lambda: self.payload.get("UserNotif", ""))
+
+                @property
+                def enclosure(self):
+                    """A dictionary containing the data provided by the Enclosure plugin, such as the temperatures measured by the sensors or the configured target temperature."""
+
+                    def _calculate_enclosure():
+                        enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
+                        enclosure_plugin_id = "enclosure"
+                        enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+                        if enclosure_module:
+                            enclosure_implementation = self.parent.main._plugin_manager.plugins[
+                                enclosure_plugin_id
+                            ].implementation
+
+                            for rpi_input in enclosure_implementation.rpi_inputs:
+                                if rpi_input["input_type"] == "temperature_sensor":
+                                    index_id = str(rpi_input["index_id"])
+                                    label = rpi_input.get("label") or "Enclosure"
+                                    temp = rpi_input.get("temp_sensor_temp", "")
+                                    humidity = rpi_input.get("temp_sensor_humidity", "")
+
+                                    if temp != "":
+                                        enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
+
+                                    if humidity != "":
+                                        enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
+
+                            for rpi_output in enclosure_implementation.rpi_outputs:
+                                if rpi_output["output_type"] == "temp_hum_control":
+                                    index_id = str(rpi_output["index_id"])
+                                    label = rpi_output.get("label") or "Enclosure"
+                                    temp = rpi_output.get("temp_ctr_set_value", "")
+
+                                    if temp != "":
+                                        enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
+                        return enclosure
+
+                    return self._get_cached("enclosure", _calculate_enclosure)
+
+            lazy_vars = LazyVariables(self, payload, kwargs)
+
+            event = lazy_vars.event
 
             # --- Set additional kwargs to send the message ---
 
             thumbnail = None
             try:
                 if event == "PrintStarted":
-                    metadata = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
+                    metadata = self.main._file_manager.get_metadata(
+                        octoprint.filemanager.FileDestinations.LOCAL, lazy_vars.path
+                    )
                     if metadata:
                         thumbnail = metadata.get("thumbnail")
             except Exception:
@@ -436,8 +597,14 @@ class TMSG:
 
             kwargs["inline"] = False
 
-            # Log locals
-            self._logger.debug(f"_sendNotification locals: {locals()}")
+            # Log locals for debugging (only accessed variables to avoid triggering lazy calculation)
+            debug_info = {
+                "event": event,
+                "paload": payload,
+                "kwargs": kwargs,
+                "accessed_lazy_vars": list(lazy_vars._cache.keys()) if hasattr(lazy_vars, "_cache") else [],
+            }
+            self._logger.debug(f"_sendNotification debug info: {debug_info}")
 
             # Format the message
             try:
@@ -447,11 +614,60 @@ class TMSG:
                         # Replace with corresponding emoji
                         return get_emoji(fmt)
 
-                class AllowlistedContext(dict):
-                    def __init__(self, allowed_vars, emoji_formatter, markup):
-                        self.allowed_vars = allowed_vars
+                class MarkupEscapedValue:
+                    """
+                    Wrapper for template variable values that applies markup escaping at string conversion time.
+
+                    This ensures that escaping happens AFTER template variable resolution and dictionary/list
+                    navigation is complete. This allows users to write templates like {status[job][user]}
+                    where the escaping is applied only to the final resolved value, not to intermediate
+                    dictionary keys during navigation.
+
+                    The wrapper maintains the markup context and applies the appropriate escaping
+                    (HTML, Markdown, MarkdownV2) only when the final value is converted to string.
+                    """
+
+                    def __init__(self, value, markup):
+                        self.value = value
+                        self.markup = markup
+
+                    def __getitem__(self, key):
+                        try:
+                            # Support dictionary/list navigation
+                            return MarkupEscapedValue(self.value[key], self.markup)
+                        except Exception:
+                            _logger.exception("Caught an exception navigating dict/list")
+                            # Return an error placeholder if attempting to access non-existent key or invalid index
+                            return MarkupEscapedValue("[ERROR]", self.markup)
+
+                    def __str__(self):
+                        # Apply markup escaping only at final string conversion
+                        val = str(self.value)
+                        if self.markup == "HTML":
+                            return html.escape(val)
+                        elif self.markup == "Markdown":
+                            return escape_markdown(val, 1)
+                        elif self.markup == "MarkdownV2":
+                            return escape_markdown(val, 2)
+                        return val
+
+                class SecureTemplateContext(dict):
+                    """
+                    Secure context for template variable access.
+
+                    Only `lazy_vars` attributes decorated with `@property` can be accessed from templates.
+                    Unknown or not allowed variables are returned as literal placeholders.
+                    """
+
+                    def __init__(self, lazy_vars, emoji_formatter, markup):
+                        self.lazy_vars = lazy_vars
                         self.emoji_formatter = emoji_formatter
                         self.markup = markup
+
+                        # Only variables of lazy_vars decorated with @property are allowed
+                        self.allowed_vars = {
+                            name for name, attr in type(lazy_vars).__dict__.items() if isinstance(attr, property)
+                        }
 
                     def __getitem__(self, key):
                         # If it is an emoji, format it with emoji_formatter
@@ -459,29 +675,25 @@ class TMSG:
                             return self.emoji_formatter
 
                         # If variable is not in allowed_vars, return it as a literal
-                        value = self.allowed_vars.get(key)
-                        if value is None:
+                        if key not in self.allowed_vars:
                             return "{" + key + "}"
 
-                        value = str(value)
-
-                        if self.markup == "HTML":
-                            value = html.escape(value)
-                        elif self.markup == "Markdown":
-                            value = escape_markdown(value, 1)
-                        elif self.markup == "MarkdownV2":
-                            value = escape_markdown(value, 2)
-
-                        # Return value
-                        return value
+                        # Get the lazy value and wrap it with markup escaping
+                        try:
+                            lazy_value = getattr(self.lazy_vars, key)
+                            return MarkupEscapedValue(lazy_value, self.markup)
+                        except Exception:
+                            _logger.exception("Caught an exception getting lazy_vars property")
+                            # Return an error placeholder if getting the lazy_vars property raised an exception
+                            return "[ERROR]"
 
                 emoji_formatter = EmojiFormatter()
-                context = AllowlistedContext(allowed_vars, emoji_formatter, markup)
+                context = SecureTemplateContext(lazy_vars, emoji_formatter, markup)
 
                 message_template = self.main._settings.get(["messages", event, "text"])
                 message = message_template.format_map(context)
             except Exception:
-                self._logger.exception("caught an exception while formatting the message")
+                self._logger.exception("Caught an exception while formatting the message")
                 message = (
                     f"{get_emoji('attention')} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."

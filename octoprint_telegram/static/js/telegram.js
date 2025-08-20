@@ -5,7 +5,7 @@
  * License: AGPLv3
  */
 
-/* global $, _, ko, OctoPrint, OCTOPRINT_VIEWMODELS, showConfirmationDialog, ItemListHelper */
+/* global $, _, ko, OctoPrint, OCTOPRINT_VIEWMODELS, showConfirmationDialog, ItemListHelper, moment */
 /* eslint camelcase: "off" */
 
 $(function () {
@@ -20,77 +20,56 @@ $(function () {
       'known_chats',
       {
         title: function (a, b) {
-          if (a.title.toLocaleLowerCase() < b.title.toLocaleLowerCase()) return -1
-          if (a.title.toLocaleLowerCase() > b.title.toLocaleLowerCase()) return 1
-          return 0
+          const aTitle = (a.title || '').toLocaleLowerCase()
+          const bTitle = (b.title || '').toLocaleLowerCase()
+          return aTitle.localeCompare(bTitle)
         }
       },
       {},
       'title',
       [],
       [],
-      999)
+      999
+    )
 
-    self.reloadPending = 0
-    self.reloadUsr = ko.observable(false)
     self.connection_state_str = ko.observable('Unknown')
-    self.isloading = ko.observable(false)
-    self.errored = ko.observable(false)
     self.token_state_str = ko.observable('Unknown')
+    self.errored = ko.observable(false)
+
+    self.currChatID = 'Unknown'
+    self.currChatTitle = ko.observable('Unknown')
+    self.bind_cmd = {}
+    self.markupFrom = []
+    self.requirements = ko.observable({})
+
+    self.isChatsTableLoading = ko.observable(false)
+    self.isTestingToken = ko.observable(false)
+    self.onBindLoad = false
+
+    self.enrollmentCountdownRemaining = ko.observable(0)
+    self.enrollmentCountdownInterval = undefined
+
     self.editChatDialog = undefined
     self.varInfoDialog = undefined
     self.emoInfoDialog = undefined
     self.mupInfoDialog = undefined
     self.timeInfoDialog = undefined
     self.proxyInfoDialog = undefined
-    self.currChatID = 'Unknown'
-    self.currChatTitle = ko.observable('Unknown')
-    self.bind_cmd = {}
-    self.markupFrom = []
-    self.onBindLoad = false
 
-    self.ffmpegPath = ko.observable(null)
-    self.cpulimiterPath = ko.observable(null)
-
-    self.requestData = function (ignore = false, update = false) {
-      if (self.reloadUsr() || ignore) {
-        self.isloading(true)
-
-        if (update) {
-          OctoPrint.simpleApiCommand(
-            self.pluginIdentifier,
-            'editUser',
-            {
-              chat_id: self.currChatID,
-              accept_commands: $('#telegram-acccmd-chkbox-box').prop('checked'),
-              send_notifications: $('#telegram-notify-chkbox-box').prop('checked'),
-              allow_users: $('#telegram-user-allowed-chkbox-box').prop('checked')
-            }
-          ).done((response) => self.fromResponse(response))
-        } else {
-          OctoPrint.simpleApiGet(self.pluginIdentifier).done(
-            (response) => self.fromResponse(response)
-          )
-        }
-
-        if (!ignore) {
-          self.reloadPending = setTimeout(self.requestData, 20000)
-        }
-      } else {
-        self.reloadPending = setTimeout(self.requestData, 500)
-      }
+    self.requestData = function () {
+      OctoPrint.simpleApiGet(self.pluginIdentifier).done(
+        (response) => self.fromResponse(response)
+      )
     }
 
     self.requestRequirements = function () {
       OctoPrint.simpleApiGet(self.pluginIdentifier + '?requirements')
         .done((response) => {
-          self.ffmpegPath(response.ffmpeg_path)
-          self.cpulimiterPath(response.cpulimiter_path)
+          self.requirements(response)
         })
     }
 
     self.requestBindings = function () {
-      self.isloading(true)
       OctoPrint.simpleApiGet(self.pluginIdentifier + '?bindings')
         .done((response) => self.fromBindings(response))
     }
@@ -231,37 +210,49 @@ $(function () {
         ko.applyBindings(self, $('#telegramMsgText' + index)[0])
       })
 
-      self.isloading(false)
       self.onBindLoad = false
     }
 
     self.toggleMarkup = function (data, sender, msg) {
-      if (!self.onBindLoad) {
-        if (self.markupFrom[data] !== sender) {
-          $('#' + sender + data).toggleClass('active')
-          $('#' + self.markupFrom[data] + data).toggleClass('active')
-          self.settings.settings.plugins.telegram.messages[msg].markup(sender)
-          self.markupFrom[data] = sender
-        }
+      if (self.onBindLoad) return
+
+      if (self.markupFrom[data] !== sender) {
+        $('#' + sender + data).toggleClass('active')
+        $('#' + self.markupFrom[data] + data).toggleClass('active')
+        self.settings.settings.plugins.telegram.messages[msg].markup(sender)
+        self.markupFrom[data] = sender
       }
     }
 
     self.updateChat = function (data) {
-      self.requestData(true, true)
-      self.editChatDialog.modal('hide')
+      OctoPrint.simpleApiCommand(
+        self.pluginIdentifier,
+        'editChat',
+        {
+          chat_id: self.currChatID,
+          accept_commands: $('#telegram-acccmd-chkbox-box').prop('checked'),
+          send_notifications: $('#telegram-notify-chkbox-box').prop('checked'),
+          allow_users: $('#telegram-user-allowed-chkbox-box').prop('checked')
+        }
+      ).done(function () {
+        self.requestData()
+        self.editChatDialog.modal('hide')
+      })
     }
 
     self.testToken = function (token) {
-      self.isloading(true)
+      self.isTestingToken(true)
       OctoPrint.simpleApiCommand(self.pluginIdentifier, 'testToken', {
         token
       }).done((response) => self.fromTestToken(response))
     }
 
     self.fromTestToken = function (response) {
-      self.isloading(false)
+      if (!response) return
+
       self.token_state_str(response.connection_state_str)
       self.errored(!response.ok)
+      self.isTestingToken(false)
       if (!response.ok) {
         $('#telegram-settings-token-state').addClass('text-error')
         $('#telegram-settings-token-state').removeClass('text-success')
@@ -276,39 +267,19 @@ $(function () {
     }
 
     self.fromResponse = function (response) {
-      if (response === undefined) return
+      if (!response) return
+
       if (Object.prototype.hasOwnProperty.call(response, 'connection_state_str')) {
         self.connection_state_str(response.connection_state_str)
       }
       if (Object.prototype.hasOwnProperty.call(response, 'connection_ok')) {
         // self.errored(!response.connection_ok);
       }
+
       const entries = response.chats
-      if (entries === undefined) return
-      const array = []
-      const formerChats = _.pluck(self.chatListHelper.allItems, 'id')
-      const currentChats = []
-      let newChats = false
-      for (const id in entries) {
-        const data = entries[id]
-        data.id = id
-        array.push(data)
-        currentChats.push(id)
-        newChats = newChats || !_.includes(formerChats, id)
-      }
+      if (!entries) return
 
-      const deletedChatIds = _.difference(formerChats, currentChats)
-      if (newChats || (deletedChatIds && deletedChatIds.length)) {
-        // Transfer the chats back to the server settings (because just hitting "save" on the Settings dialog
-        // won't transfer anything we haven't explicitly set).
-
-        // TODO: This whole workflow should be optimized!
-        // Currently it takes two full server/client round trips to get the chats in sync, and just reusing
-        // the plugin's API for that purpose would probably be way way more efficient and less error prone.
-        self.settings.saveData({ plugins: { telegram: { chats: entries } } })
-      }
-      self.chatListHelper.updateItems(array)
-      self.isloading(false)
+      self.updateChatsTable(entries)
     }
 
     self.showEditChatDialog = function (data) {
@@ -472,20 +443,18 @@ $(function () {
     }
 
     self.delChat = function (data) {
-      if (data === undefined) return
-      const callback = function () {
-        self.isloading(true)
+      if (!data || !data.id) return
+
+      const title = _.escape(data.title || 'this chat')
+      const message = `Do you really want to delete ${title}?`
+
+      showConfirmationDialog(message, function () {
         OctoPrint.simpleApiCommand(
           self.pluginIdentifier,
           'delChat',
           { chat_id: data.id }
-        ).done((response) => self.fromResponse(response))
-      }
-      showConfirmationDialog('Do you really want to delete ' + _.escape(data.title), callback)
-    }
-
-    self.onSettingsHidden = function () {
-      clearTimeout(self.reloadPending)
+        ).done(self.fromResponse)
+      })
     }
 
     self.onWizardShow = function () {
@@ -493,11 +462,18 @@ $(function () {
     }
 
     self.onSettingsShown = function () {
-      self.requestData(true, false)
       self.requestData()
       self.requestRequirements()
       self.requestBindings()
+
       self.testToken($('#telegram-settings-token').val())
+
+      self.fetchEnrollmentCountdownRemaining(function (remaining) {
+        if (remaining > 0) {
+          self.startEnrollmentCountdown(remaining)
+        }
+      })
+
       self.editChatDialog = $('#settings-telegramDialogEditChat')
       self.editCmdDialog = $('#settings-telegramDialogEditCommands')
       self.varInfoDialog = $('#settings-telegramDialogVarInfo')
@@ -507,36 +483,150 @@ $(function () {
       self.proxyInfoDialog = $('#settings-telegramDialogProxyInfo')
     }
 
-    self.isNumber = function (number) {
-      return !isNaN(parseFloat(number)) && isFinite(number)
+    self.isNumeric = function (value) {
+      return /^-?\d+(\.\d+)?$/.test(value)
     }
 
     self.onSettingsBeforeSave = function () {
-      // Check specific settings to be a number, not a null
-      // In case it's not a number set it to be 0
-      const settings = self.settings.settings.plugins.telegram
-      const settings_to_check_number = [
-        settings.notification_height,
-        settings.notification_time,
-        settings.message_at_print_done_delay
+      // Ensure numeric settings are valid numbers; if not, reset them to 0
+      const pluginSettings = self.settings.settings.plugins.telegram
+      const numericFields = [
+        'notification_height',
+        'notification_time',
+        'message_at_print_done_delay',
+        'PreImgDelay',
+        'PostImgDelay'
       ]
-      for (let i = 0; i < settings_to_check_number.length; i++) {
-        if (!self.isNumber(settings_to_check_number[i]())) {
-          settings_to_check_number[i](0)
+      numericFields.forEach(field => {
+        const observable = pluginSettings[field]
+        if (!self.isNumeric(observable())) {
+          observable(0)
+        }
+      })
+    }
+
+    self.onDataUpdaterPluginMessage = function (plugin, data) {
+      if (plugin !== self.pluginIdentifier || !data || !data.type) return
+
+      switch (data.type) {
+        case 'enrollment_countdown': {
+          const remaining = data.remaining
+          if (remaining > 0) {
+            self.startEnrollmentCountdown(remaining)
+          } else {
+            self.stopEnrollmentCountdown()
+          }
+          break
+        }
+
+        case 'update_known_chats': {
+          self.updateChatsTable(data.chats)
+          break
         }
       }
     }
 
-    self.onServerDisconnect = function () {
-      clearTimeout(self.reloadPending)
+    self.updateChatsTable = function (incomingChats) {
+      const existingChats = self.settings.settings.plugins.telegram.chats
+
+      self.isChatsTableLoading(true)
+
+      function createObservableRecursive (obj) {
+        if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+          return ko.observable(obj)
+        }
+
+        const observableObj = {}
+        for (const [key, value] of Object.entries(obj)) {
+          observableObj[key] = createObservableRecursive(value)
+        }
+        return observableObj
+      }
+
+      for (const [id, newChat] of Object.entries(incomingChats)) {
+        if (!existingChats[id]) {
+          existingChats[id] = createObservableRecursive(newChat)
+        } else {
+          if ('image' in newChat && existingChats[id].image) {
+            existingChats[id].image(newChat.image)
+          }
+          if ('title' in newChat && existingChats[id].title) {
+            existingChats[id].title(newChat.title)
+          }
+        }
+      }
+
+      for (const id of Object.keys(existingChats)) {
+        if (!(id in incomingChats)) {
+          delete existingChats[id]
+        }
+      }
+
+      const newChatsItems = Object.entries(existingChats)
+        .filter(([id]) => id !== 'zBOTTOMOFCHATS')
+        .map(([id, chat]) => {
+          const item = { id }
+          for (const [key, observable] of Object.entries(chat)) {
+            item[key] = ko.isObservable(observable) ? observable() : observable
+          }
+          return item
+        })
+
+      self.chatListHelper.updateItems(newChatsItems)
+
+      self.isChatsTableLoading(false)
     }
 
-    self.onDataUpdaterReconnect = function () {
-      if (self.reloadUsr()) { self.requestData() } else { self.requestData(true, false) }
-      self.requestData()
-      self.requestBindings()
+    self.fetchEnrollmentCountdownRemaining = function (callback) {
+      OctoPrint.simpleApiGet(self.pluginIdentifier + '?enrollmentCountdown')
+        .done(function (response) {
+          callback(response.remaining)
+        })
     }
 
+    self.toggleEnrollmentCountdown = function () {
+      if (self.enrollmentCountdownRemaining() > 0) {
+        OctoPrint.simpleApiCommand(self.pluginIdentifier, 'stopEnrollmentCountdown', {})
+      } else {
+        OctoPrint.simpleApiCommand(self.pluginIdentifier, 'startEnrollmentCountdown', {})
+      }
+    }
+
+    self.startEnrollmentCountdown = function (duration) {
+      self.enrollmentCountdownRemaining(duration)
+
+      clearInterval(self.enrollmentCountdownInterval)
+
+      self.enrollmentCountdownInterval = setInterval(function () {
+        const current = self.enrollmentCountdownRemaining()
+        if (current <= 1) {
+          self.stopEnrollmentCountdown()
+        } else {
+          self.enrollmentCountdownRemaining(current - 1)
+        }
+      }, 1000)
+    }
+
+    self.stopEnrollmentCountdown = function () {
+      self.enrollmentCountdownRemaining(0)
+      clearInterval(self.enrollmentCountdownInterval)
+    }
+
+    self.enrollmentCountdownButtonText = ko.pureComputed(function () {
+      const remaining = self.enrollmentCountdownRemaining()
+      if (remaining <= 0) {
+        const warningEmoji = String.fromCodePoint(0x26A0, 0xFE0F)
+        return `${warningEmoji} Enable`
+      }
+
+      const timerEmoji = String.fromCodePoint(0x23F1, 0xFE0F)
+      const duration = moment.duration(remaining, 'seconds')
+      const formatted = moment.utc(duration.asMilliseconds()).format('m:ss')
+
+      return `Disable (${timerEmoji} ${formatted})`
+    })
+
+    // Reveal password buttons
     $(function () {
       $('button[data-toggle="reveal"]').on('click', function () {
         const $btn = $(this)
@@ -551,14 +641,10 @@ $(function () {
     })
   }
 
-  // view model class, parameters for constructor, container to bind to
-  OCTOPRINT_VIEWMODELS.push([
-    TelegramViewModel,
-
-    // e.g. loginStateViewModel, settingsViewModel, ...
-    ['settingsViewModel'],
-
-    // e.g. #settings_plugin_telegram, #tab_plugin_telegram, ...
-    ['#settings_plugin_telegram', '#wizard_plugin_telegram']
-  ])
+  // View model class, parameters for constructor, containers to bind to
+  OCTOPRINT_VIEWMODELS.push({
+    construct: TelegramViewModel,
+    dependencies: ['settingsViewModel'],
+    elements: ['#settings_plugin_telegram', '#wizard_plugin_telegram']
+  })
 })

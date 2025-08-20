@@ -18,10 +18,11 @@ The plugin can also send notifications when specific events occur (e.g., when a 
 |--------------|--------------|--------------|--------------|
 | ![Screenshot 1](extras/images/screen_1.png) | ![Screenshot 2](extras/images/screen_2.png) | ![Screenshot 3](extras/images/screen_3.png) | ![Screenshot 4](extras/images/screen_4.png) |
 | ![Screenshot 5](extras/images/screen_5.png) | ![Screenshot 6](extras/images/screen_6.png) | ![Screenshot 7](extras/images/screen_7.png) | ![Screenshot 8](extras/images/screen_8.png) |
+| ![Screenshot 9](extras/images/screen_9.png) | | | |
 
 ## Installation and usage
 
-Search for the **Telegram Notifications** plugin using the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager), or install it manually using the following URL:
+Search for the **Telegram** plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager), or install it manually with the following URL:
 ```
 https://github.com/jacopotediosi/OctoPrint-Telegram/archive/master.zip
 ```
