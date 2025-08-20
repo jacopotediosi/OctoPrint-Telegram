@@ -90,6 +90,11 @@ class TCMD:
                 "param": True,
                 "desc": "Abort current print (confirmation required)",
             },
+            "/cancelobject": {
+                "cmd": self.cmdCancelObject,
+                "param": True,
+                "desc": "Cancel an object (Cancelobject plugin required)",
+            },
             "/power": {"cmd": self.cmdPower, "param": True, "desc": "Monitor and control power switches"},
             "/settings": {"cmd": self.cmdSettings, "param": True, "desc": "Show and change notification settings"},
             "/upload": {"cmd": self.cmdUpload, "desc": "Upload a file to OctoPrint library"},
@@ -366,6 +371,55 @@ class TCMD:
                     chatID=chat_id,
                     inline=False,
                 )
+
+    def cmdCancelObject(self, chat_id, from_id, cmd, parameter, user=""):
+        cancelobject_id = "cancelobject"
+        if not self.main._plugin_manager.get_plugin(cancelobject_id, True):
+            msg = f"{get_emoji('attention')} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
+            self.main.send_msg(msg, chatID=chat_id, markup="HTML", inline=False)
+            return
+
+        if parameter:
+            params = parameter.split("_")
+
+            id = params[0]
+            self.send_octoprint_simpleapi_command(cancelobject_id, "cancel", dict(cancelled=id))
+
+            msg = f"{get_emoji('check')} Command sent!"
+            command_buttons = [[[f"{get_emoji('back')} Back", cmd]]]
+
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=self.main.get_update_msg_id(chat_id),
+            )
+        else:
+            objlist = self.send_octoprint_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
+            if objlist:
+                msg = f"{get_emoji('question')} Which object do you want to cancel?"
+
+                cancelled_objects = [obj["object"] for obj in objlist if obj.get("cancelled", False)]
+                if cancelled_objects:
+                    msg += "\n\nObjects already cancelled:\n"
+                    msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
+
+                command_buttons = [
+                    [[obj["object"], f"{cmd}_{obj['id']}"]] for obj in objlist if not obj.get("cancelled", False)
+                ]
+                command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
+
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=self.main.get_update_msg_id(chat_id),
+                )
+            else:
+                msg = f"{get_emoji('attention')} No objects found. Please make sure you've loaded the gcode."
+                self.main.send_msg(msg, chatID=chat_id, markup="HTML", inline=False)
 
     def cmdTogglePause(self, chat_id, from_id, cmd, parameter, user=""):
         msg = ""

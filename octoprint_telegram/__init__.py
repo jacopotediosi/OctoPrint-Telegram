@@ -1176,6 +1176,7 @@ class TelegramPlugin(
                 return "enabled"
 
             suggested_plugin_ids = [
+                "cancelobject",
                 "cost",
                 "DisplayLayerProgress",
                 "domoticz",
