@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "OctoPrint-Telegram"
 version = "1.8.0"
-description = "A plugin to control your printer and send notifications before, *during* and after a print via Telegram Messenger."
+description = "Control your printer and receive notification messages via Telegram Messenger."
 authors = [
     { name = "Jacopo Tediosi", email = "jacopotediosi@gmail.com" },
 ]

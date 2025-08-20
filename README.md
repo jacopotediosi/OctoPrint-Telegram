@@ -21,7 +21,7 @@ The plugin can also send notifications when specific events occur (e.g., when a 
 
 ## Installation and usage
 
-Search for the **Telegram Notifications** plugin using the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager), or install it manually using the following URL:
+Search for the **Telegram** plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager), or install it manually with the following URL:
 ```
 https://github.com/jacopotediosi/OctoPrint-Telegram/archive/master.zip
 ```
