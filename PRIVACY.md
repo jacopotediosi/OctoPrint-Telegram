@@ -62,3 +62,9 @@ Installation of these plugins is **strictly manual** and must be performed throu
 - **Telegram messages and commands are processed by Telegram, under [Telegram’s Privacy Policy](https://telegram.org/privacy/).**
 - **Optional third-party cloud services require explicit consent and are governed by their own policies.**
 - **Third-party plugin integrations occur only with plugins explicitly installed by the user and are governed by the respective plugin’s privacy policy.**
+
+## Disclaimer
+
+OctoPrint-Telegram is an **independent project** and is **not affiliated with, endorsed by, or in any way officially connected to Telegram FZ-LLC**.
+
+**"Telegram" is a trademark of Telegram FZ-LLC**.
