@@ -670,6 +670,8 @@ class TelegramPlugin(
 
         self.enrollment_countdown_end = None
 
+        self.user_pause_already_notified = False
+
     # Starts the telegram bot
     def start_bot(self):
         token = self._settings.get(["token"])
@@ -799,7 +801,6 @@ class TelegramPlugin(
 
         self.telegram_utils = TelegramUtils(self)
         self.tcmd = TCMD(self)
-        self.triggered = False
 
         # Notification Message Handler class. Called only by on_event()
         self.tmsg = TMSG(self)
@@ -2322,26 +2323,25 @@ class TelegramPlugin(
             ),
         ]
 
-    # Function to be able to do action on gcode
     def hook_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        if gcode and cmd[:4] == "M600":
-            self._logger.info("M600 registered")
-            try:
+        try:
+            if gcode and gcode == "M600":
                 self.on_event("gCode_M600", {})
-            except Exception:
-                self._logger.exception("Caught exception on event M600")
+        except Exception:
+            self._logger.exception("Caught an exception on hook_gcode_sent")
 
-    def recv_callback(self, comm_instance, line, *args, **kwargs):
-        # Found keyword, fire event and block until other text is received
-        if "echo:busy: paused for user" in line or "//action:paused" in line:
-            if not self.triggered:
-                self.on_event("plugin_pause_for_user_event_notify", {})
-                self.triggered = True
-        elif "echo:UserNotif" in line:
-            self.on_event("UserNotif", {"UserNotif": line[15:]})
-        # Other text, we may fire another event if we encounter "paused for user" again
-        else:
-            self.triggered = False
+    def hook_gcode_received(self, comm_instance, line, *args, **kwargs):
+        try:
+            if line.startswith("echo:busy: paused for user") or line.startswith("// action:paused"):
+                if not self.user_pause_already_notified:
+                    self.on_event("plugin_pause_for_user_event_notify", {})
+                    self.user_pause_already_notified = True
+            elif line.startswith("echo:UserNotif"):
+                self.on_event("UserNotif", {"UserNotif": line[15:]})
+            elif line.startswith("ok"):
+                self.user_pause_already_notified = False
+        except Exception:
+            self._logger.exception("Caught an exception on hook_gcode_received")
 
         return line
 
@@ -2361,7 +2361,7 @@ __plugin_implementation__ = get_implementation_class()
 __plugin_hooks__ = {
     "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
     "octoprint.server.http.routes": __plugin_implementation__.route_hook,
-    "octoprint.comm.protocol.gcode.received": __plugin_implementation__.recv_callback,
+    "octoprint.comm.protocol.gcode.received": __plugin_implementation__.hook_gcode_received,
     "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.hook_gcode_sent,
     "octoprint.events.register_custom_events": __plugin_implementation__.register_custom_events,
 }

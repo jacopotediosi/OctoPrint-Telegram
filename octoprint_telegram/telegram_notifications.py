@@ -105,7 +105,7 @@ telegramMsgDict = {
         "silent": False,
         "gif": False,
         "markup": "off",
-        "desc": "Triggered when the printer requests user interaction, via 'echo:busy: paused for user' or '//action:paused' on the serial line",
+        "desc": "Triggered when the printer requests user interaction, via 'echo:busy: paused for user' or '// action:paused' on the serial line",
     },
     "gCode_M600": {
         "text": "{emo:warning} Color change requested.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
