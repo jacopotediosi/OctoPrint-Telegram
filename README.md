@@ -38,3 +38,9 @@ If you'd like to support the maintainers of this project, you can donate via the
 ## Contacts
 
 You can get support and connect with the maintainers and other users of this plugin by joining the **[Octoprint-Telegram-Users Group](https://telegram.me/joinchat/CXFirQjl9XTp5dr4OZqH9Q)**.
+
+## Disclaimer
+
+This plugin is an independent project and is not affiliated with, endorsed by, or in any way officially connected to Telegram FZ-LLC.
+
+"Telegram" is a trademark of Telegram FZ-LLC.
