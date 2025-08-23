@@ -142,53 +142,30 @@ class TelegramListener(threading.Thread):
         self.set_update_offset(message["update_id"])
 
         chat_id = self.get_chat_id(message)
-        from_id = self.get_from_id(message)
 
-        if "message" in message and message["message"].get("chat"):
-            settings_chats = self.main._settings.get(["chats"])
-
-            is_chat_unknown = chat_id not in settings_chats
-            if is_chat_unknown:
-                is_enrollment_allowed = (
-                    self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
-                )
-                if not is_enrollment_allowed:
-                    self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
-                    return
-
-                self._logger.info(f"Adding chat {chat_id} to known chats")
-
-                message_chat = message["message"]["chat"]
-
-                new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
-                new_chat_settings["type"] = message_chat["type"]
-                new_chat_settings["private"] = message_chat["type"] == "private"
-                new_chat_settings["title"] = get_chat_title(message_chat)
-                new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
-
-                settings_chats[chat_id] = new_chat_settings
-                self.main._settings.set(["chats"], settings_chats)
-                self.main._settings.save()
-                self.main._plugin_manager.send_plugin_message(
-                    self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-                )
-
-                self.main.send_msg(
-                    f"{get_emoji('info')} Chat added to known chats. "
-                    "Before you can do anything, please go to plugin settings and edit your permissions.",
-                    chatID=chat_id,
-                )
-
+        is_chat_unknown = chat_id not in self.main._settings.get(["chats"])
+        if is_chat_unknown:
+            is_enrollment_allowed = (
+                self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
+            )
+            if not is_enrollment_allowed:
+                self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
                 return
 
+        if "message" in message and message["message"].get("chat"):
             message_message = message["message"]
 
-            # If message is a text message, we probably got a command.
-            # When the command is not known, the following handler will discard it.
+            # We got a text message, likely a command
             if "text" in message_message:
-                self.handle_text_message(message, chat_id, from_id, is_callback_query=False)
-            # We got no message with text (command) so lets check if we got a file.
-            # The following handler will check file and saves it to disk.
+                # If it is a new chat, add it to the known chats
+                if chat_id not in self.main._settings.get(["chats"]):
+                    chat = message_message["chat"]
+                    chat_title = get_chat_title(chat)
+                    chat_type = chat["type"]
+                    self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+
+                self.handle_text_message(message, is_callback_query=False)
+            # We got a document (file)
             elif "document" in message_message:
                 self.handle_document_message(message)
             # We got message with notification for a new chat title so lets update it
@@ -200,36 +177,68 @@ class TelegramListener(threading.Thread):
             # We got message with notification for a deleted chat title photo so we do the same
             elif "delete_chat_photo" in message_message:
                 self.handle_new_chat_photo_message(message)
-            # A member was removed from a group, so lets check if it's our bot and
-            # delete the group from our chats if it is
-            elif "left_chat_member" in message_message:
-                self.handle_left_chat_member_message(message)
             # At this point we don't know what message type it is, so we do nothing
             else:
                 self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
+        # Triggered when the user clicks on inline buttons
         elif "callback_query" in message:
-            self.handle_text_message(message, chat_id, from_id, is_callback_query=True)
+            self.handle_text_message(message, is_callback_query=True)
+        # Triggered when the bot's role in a chat changes (e.g., added, removed, promoted to admin, blocked in private chat, etc.)
+        elif "my_chat_member" in message:
+            self.handle_my_chat_member(message)
         else:
             self._logger.warning(
                 "Message is missing .message or .message.chat or .message.callback_query. Skipping it."
             )
 
-    def handle_left_chat_member_message(self, message):
-        chat_id = self.get_chat_id(message)
+    def add_chat_to_known_chats(self, chat_id, chat_title, chat_type):
+        self._logger.info(f"Adding new chat {chat_id} to known chats")
 
-        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
-        username = message["message"]["left_chat_member"]["username"]
+        new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
+        new_chat_settings["type"] = chat_type
+        new_chat_settings["private"] = chat_type == "private"
+        new_chat_settings["title"] = chat_title
+        new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
 
-        if is_chat_unknown or username != self.username[1:]:
-            return
-
-        self._logger.info(f"Chat {chat_id} kicked the bot out, removing it from settings...")
-
-        self.main._settings.remove(["chats", chat_id])
+        settings_chats = self.main._settings.get(["chats"])
+        settings_chats[chat_id] = new_chat_settings
+        self.main._settings.set(["chats"], settings_chats)
         self.main._settings.save()
+
         self.main._plugin_manager.send_plugin_message(
             self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
         )
+
+        self.main.send_msg(
+            f"{get_emoji('info')} Chat added to known chats. "
+            "Before you can do anything, please go to plugin settings and edit your permissions.",
+            chatID=chat_id,
+        )
+
+    def handle_my_chat_member(self, message):
+        new_status = message.get("my_chat_member", {}).get("new_chat_member", {}).get("status", "")
+
+        if new_status in ("administrator", "member"):
+            # If it is a new chat, add it to the known chats
+            chat_id = self.get_chat_id(message)
+            if chat_id not in self.main._settings.get(["chats"]):
+                chat = message["my_chat_member"]["chat"]
+                chat_title = get_chat_title(chat)
+                chat_type = chat["type"]
+                self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+
+        elif new_status in ("left", "kicked"):
+            # The bot left the chat, delete it from known chats
+            chat_id = self.get_chat_id(message)
+            if self.main._settings.get(["chats", chat_id]) is not None:
+                self._logger.info(f"The bot left chat {chat_id}, removing it from settings...")
+
+                self.main._settings.remove(["chats", chat_id])
+                self.main._settings.save()
+
+                self.main._plugin_manager.send_plugin_message(
+                    self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
+                )
 
     def handle_new_chat_title_message(self, message):
         chat_id = self.get_chat_id(message)
@@ -450,7 +459,11 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def handle_text_message(self, message, chat_id, from_id, is_callback_query):
+    def handle_text_message(self, message, is_callback_query):
+        # Get chat_id and from_id
+        chat_id = self.get_chat_id(message)
+        from_id = self.get_from_id(message)
+
         # Separate command and parameter
         if is_callback_query:
             command_text = message["callback_query"]["data"]
@@ -536,13 +549,13 @@ class TelegramListener(threading.Thread):
 
     def get_chat_id(self, message):
         if "message" in message:
-            chat = message["message"]["chat"]
+            chat_id = message["message"]["chat"]["id"]
         elif "callback_query" in message:
-            chat = message["callback_query"]["message"]["chat"]
+            chat_id = message["callback_query"]["message"]["chat"]["id"]
+        elif "my_chat_member" in message:
+            chat_id = message["my_chat_member"]["chat"]["id"]
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
-
-        chat_id = chat["id"]
+            raise ValueError("Unsupported message type: no 'message' or 'callback_query' or 'my_chat_member' found")
 
         return str(chat_id)
 
@@ -551,8 +564,10 @@ class TelegramListener(threading.Thread):
             from_id = message["message"]["from"]["id"]
         elif "callback_query" in message:
             from_id = message["callback_query"]["from"]["id"]
+        elif "my_chat_member" in message:
+            from_id = message["my_chat_member"]["from"]["id"]
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
+            raise ValueError("Unsupported message type: no 'message' or 'callback_query' or 'my_chat_member' found")
 
         return str(from_id)
 
