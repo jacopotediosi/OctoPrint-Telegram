@@ -1470,17 +1470,18 @@ class TelegramPlugin(
                 data=data,
             )
 
-        except Exception:
-            self._logger.exception("Caught an exception in _send_edit_msg()")
-            self.thread.set_status("Exception sending a message")
-            self.telegram_utils.send_telegram_request(
-                f"{self.bot_url}/sendMessage",
-                "post",
-                data={
-                    "chat_id": chatID,
-                    "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
-                },
-            )
+        except Exception as e:
+            if "Bad Request: message is not modified" not in str(e):
+                self._logger.exception("Caught an exception in _send_edit_msg()")
+                self.thread.set_status("Exception sending a message")
+                self.telegram_utils.send_telegram_request(
+                    f"{self.bot_url}/sendMessage",
+                    "post",
+                    data={
+                        "chat_id": chatID,
+                        "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
+                    },
+                )
 
     def _send_msg(
         self,
