@@ -595,8 +595,6 @@ class TMSG:
             markup = self.main._settings.get(["messages", event, "markup"]) or "off"
             kwargs["markup"] = markup
 
-            kwargs["inline"] = False
-
             # Log locals for debugging (only accessed variables to avoid triggering lazy calculation)
             debug_info = {
                 "event": event,

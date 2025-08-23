@@ -103,7 +103,7 @@ class TCMD:
             "/gcode": {
                 "cmd": self.cmdGCode,
                 "param": True,
-                "desc": "Send G-code commands to the printer (use /gcode_XXX)",
+                "desc": "Send G-code commands to the printer (use like /gcode_XXX)",
             },
             "/gif": {
                 "cmd": self.cmdGif,
@@ -134,73 +134,76 @@ class TCMD:
     # COMMAND HANDLERS
     ############################################################################################
 
-    def cmdYes(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdYes(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
             "Alright.",
             chatID=chat_id,
-            msg_id=self.main.get_update_msg_id(chat_id),
-            inline=False,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdNo(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdNo(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
             "Maybe next time.",
             chatID=chat_id,
-            msg_id=self.main.get_update_msg_id(chat_id),
-            inline=False,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdStatus(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdStatus(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if not self.main._printer.is_operational():
             with_image = self.main._settings.get_boolean(["image_not_connected"])
             with_gif = self.main._settings.get_boolean(["gif_not_connected"]) and self.main._settings.get(["send_gif"])
             self.main.send_msg(
                 f"{get_emoji('warning')} Not connected to a printer. Use /con to connect.",
                 chatID=chat_id,
-                inline=False,
                 with_image=with_image,
                 with_gif=with_gif,
+                msg_id=msg_id_to_update,
             )
         elif self.main._printer.is_printing():
             self.main.on_event("StatusPrinting", {}, chatID=chat_id)
         else:
             self.main.on_event("StatusNotPrinting", {}, chatID=chat_id)
 
-    def cmdGif(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdGif(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if self.main._settings.get(["send_gif"]):
             self.main.send_msg(
                 f"{get_emoji('video')} Here are your GIF(s)",
                 chatID=chat_id,
                 with_gif=True,
+                msg_id=msg_id_to_update,
             )
         else:
             self.main.send_msg(
                 f"{get_emoji('notallowed')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
+                msg_id=msg_id_to_update,
             )
 
-    def cmdSuperGif(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdSuperGif(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if self.main._settings.get(["send_gif"]):
             self.main.send_msg(
                 f"{get_emoji('video')} Here are your GIF(s)",
                 chatID=chat_id,
                 with_gif=True,
                 gif_duration=10,
+                msg_id=msg_id_to_update,
             )
         else:
             self.main.send_msg(
                 f"{get_emoji('notallowed')} Sending GIFs is disabled in plugin settings",
                 chatID=chat_id,
+                msg_id=msg_id_to_update,
             )
 
-    def cmdPhoto(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdPhoto(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
             f"{get_emoji('photo')} Here are your photo(s)",
             chatID=chat_id,
             with_image=True,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdSettings(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdSettings(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter != "back":
             params = parameter.split("_")
             if params[0] == "h":
@@ -215,7 +218,7 @@ class TCMD:
                     else:
                         self.main._settings.set_float(["notification_height"], height)
                         self.main._settings.save()
-                        self.cmdSettings(chat_id, from_id, cmd, "back", user)
+                        self.cmdSettings(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 msg = (
@@ -250,7 +253,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "t":
                 if len(params) > 1:
@@ -263,7 +266,7 @@ class TCMD:
                     else:
                         self.main._settings.set_int(["notification_time"], notification_time)
                         self.main._settings.save()
-                        self.cmdSettings(chat_id, from_id, cmd, "back", user)
+                        self.cmdSettings(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 msg = (
@@ -288,12 +291,12 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "g":
                 self.main._settings.set_boolean(["send_gif"], not self.main._settings.get_boolean(["send_gif"]))
                 self.main._settings.save()
-                self.cmdSettings(chat_id, from_id, cmd, "back", user)
+                self.cmdSettings(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                 return
         else:
             notification_height = self.main._settings.get_float(["notification_height"])
@@ -331,24 +334,21 @@ class TCMD:
                 ],
                 [[f"{get_emoji('cancel')} Close", "no"]],
             ]
-
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-
             self.main.send_msg(
                 msg,
                 chatID=chat_id,
                 markup="HTML",
                 responses=command_buttons,
-                msg_id=msg_id,
+                msg_id=msg_id_to_update,
             )
 
-    def cmdAbort(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdAbort(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter == "stop":
             self.main._printer.cancel_print(user=user)
             self.main.send_msg(
                 f"{get_emoji('info')} Aborting the print.",
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
         else:
             if self.main._printer.is_printing() or self.main._printer.is_paused():
@@ -364,19 +364,25 @@ class TCMD:
                         ]
                     ],
                     chatID=chat_id,
+                    msg_id=msg_id_to_update,
                 )
             else:
                 self.main.send_msg(
                     f"{get_emoji('info')} Currently I'm not printing, so there is nothing to stop.",
                     chatID=chat_id,
-                    inline=False,
+                    msg_id=msg_id_to_update,
                 )
 
-    def cmdCancelObject(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdCancelObject(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         cancelobject_id = "cancelobject"
         if not self.main._plugin_manager.get_plugin(cancelobject_id, True):
             msg = f"{get_emoji('attention')} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
-            self.main.send_msg(msg, chatID=chat_id, markup="HTML", inline=False)
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+                markup="HTML",
+                msg_id=msg_id_to_update,
+            )
             return
 
         if parameter:
@@ -393,7 +399,7 @@ class TCMD:
                 chatID=chat_id,
                 markup="HTML",
                 responses=command_buttons,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
         else:
             objlist = self.send_octoprint_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
@@ -415,13 +421,18 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             else:
                 msg = f"{get_emoji('attention')} No objects found. Please make sure you've loaded the gcode."
-                self.main.send_msg(msg, chatID=chat_id, markup="HTML", inline=False)
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    msg_id=msg_id_to_update,
+                )
 
-    def cmdTogglePause(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdTogglePause(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         msg = ""
         if self.main._printer.is_printing():
             msg = f"{get_emoji('pause')} Pausing the print."
@@ -430,50 +441,59 @@ class TCMD:
             msg = f"{get_emoji('resume')} Resuming the print."
             self.main._printer.toggle_pause_print(user=user)
         else:
-            msg = "  Currently I'm not printing, so there is nothing to pause/resume."
-        self.main.send_msg(msg, chatID=chat_id, inline=False)
+            msg = f"{get_emoji('warning')} Currently I'm not printing, so there is nothing to pause/resume."
+        self.main.send_msg(
+            msg,
+            chatID=chat_id,
+            msg_id=msg_id_to_update,
+        )
 
-    def cmdHome(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdHome(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if self.main._printer.is_ready():
             msg = f"{get_emoji('home')} Homing."
             self.main._printer.home(["x", "y", "z"])
         else:
             msg = f"{get_emoji('warning')} I can't go home now."
-        self.main.send_msg(msg, chatID=chat_id, inline=False)
+        self.main.send_msg(
+            msg,
+            chatID=chat_id,
+            msg_id=msg_id_to_update,
+        )
 
-    def cmdShutup(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdShutup(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.shut_up.add(str(chat_id))
         self.main.send_msg(
             f"{get_emoji('nonotify')} Okay, shutting up until the next print is finished.\n"
             f"Use /dontshutup to let me talk again before that.",
             chatID=chat_id,
-            inline=False,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdNShutup(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdNShutup(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.shut_up.discard(str(chat_id))
         self.main.send_msg(
             f"{get_emoji('notify')} Yay, I can talk again.",
             chatID=chat_id,
-            inline=False,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdPrint(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdPrint(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if not self.main._printer.is_ready():
             self.main.send_msg(
                 f"{get_emoji('warning')} Can't start a new print, printer is not ready. Printer status: {self.main._printer.get_state_string()}",
                 chatID=chat_id,
+                msg_id=msg_id_to_update,
             )
             return
 
         if parameter and len(parameter.split("|")) == 1:
             if parameter == "s":  # print the loaded file
-                data = self.main._printer.get_current_data()
-                if data["job"]["file"]["name"] is None:
+                current_data = self.main._printer.get_current_data()
+                if current_data["job"]["file"]["name"] is None:
                     self.main.send_msg(
                         f"{get_emoji('warning')} Uh oh... No file is selected for printing. Did you select one using /files?",
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
 
@@ -481,15 +501,11 @@ class TCMD:
                 self.main.send_msg(
                     f"{get_emoji('rocket')} Started the print job.",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif parameter == "x":  # do not print
                 self.main._printer.unselect_file()
-                self.main.send_msg(
-                    "Maybe next time.",
-                    chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
-                )
+                self.cmdNo(chat_id, from_id, cmd, parameter, msg_id_to_update, user)
             else:  # prepare print (load and ask for confirm)
                 self._logger.debug(f"Looking for hash: {parameter}")
                 destination, file, f = self.find_file_by_hash(parameter)
@@ -498,7 +514,7 @@ class TCMD:
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
 
@@ -509,15 +525,16 @@ class TCMD:
                     self._logger.debug(f"Using full path: {file}")
                     self.main._printer.select_file(file, False, printAfterSelect=False)
 
-                data = self.main._printer.get_current_data()
-                if data["job"]["file"]["name"] is not None:
+                current_data = self.main._printer.get_current_data()
+                job_file_name = current_data.get("job", {}).get("file", {}).get("name")
+                if job_file_name is not None:
                     msg = (
-                        f"{get_emoji('info')} Okay. The file {data['job']['file']['name']} is loaded.\n\n"
+                        f"{get_emoji('info')} Okay. The file {job_file_name} is loaded.\n\n"
                         f"{get_emoji('question')} Do you want me to start printing it now?"
                     )
                     self.main.send_msg(
                         msg,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        chatID=chat_id,
                         responses=[
                             [
                                 [
@@ -530,19 +547,20 @@ class TCMD:
                                 ],
                             ]
                         ],
-                        chatID=chat_id,
+                        msg_id=msg_id_to_update,
                     )
                 else:
                     self.main.send_msg(
-                        f"{get_emoji('warning')} Uh oh... Problems on loading the file for print.",
+                        f"{get_emoji('attention')} Uh oh... Problems on loading the file for print.",
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
         else:  # offer the already loaded file or open files listing
-            data = self.main._printer.get_current_data()
-            if data["job"]["file"]["name"] is not None:
+            current_data = self.main._printer.get_current_data()
+            job_file_name = current_data.get("job", {}).get("file", {}).get("name")
+            if job_file_name is not None:
                 msg = (
-                    f"{get_emoji('info')} The file {data['job']['file']['name']} is already loaded.\n\n"
+                    f"{get_emoji('info')} The file {job_file_name} is already loaded.\n\n"
                     f"{get_emoji('question')} What do you want to do?"
                 )
                 self.main.send_msg(
@@ -560,72 +578,75 @@ class TCMD:
                         ]
                     ],
                     chatID=chat_id,
+                    msg_id=msg_id_to_update,
                 )
             else:
-                self.cmdFiles(chat_id, from_id, cmd, parameter, user)
+                self.cmdFiles(chat_id, from_id, cmd, parameter, msg_id_to_update, user)
 
-    def cmdFiles(self, chat_id, from_id, cmd, parameter, user=""):
-        try:
-            if parameter:
-                par = parameter.split("|")
-                pathHash = par[0]
-                page = int(par[1])
-                fileHash = par[2] if len(par) > 2 else ""
-                opt = par[3] if len(par) > 3 else ""
-                if fileHash == "" and opt == "":
-                    self.fileList(pathHash, page, cmd, chat_id)
-                elif opt == "":
-                    self.fileDetails(pathHash, page, cmd, fileHash, chat_id, from_id)
-                else:
-                    if opt.startswith("dir"):
-                        self.fileList(fileHash, 0, cmd, chat_id)
-                    else:
-                        self.fileOption(pathHash, page, cmd, fileHash, opt, chat_id, from_id)
+    def cmdFiles(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
+        if parameter:
+            par = parameter.split("|")
+            pathHash = par[0]
+            page = int(par[1])
+            fileHash = par[2] if len(par) > 2 else ""
+            opt = par[3] if len(par) > 3 else ""
+            if fileHash == "" and opt == "":
+                self.fileList(pathHash, page, cmd, chat_id, msg_id_to_update)
+            elif opt == "":
+                self.fileDetails(pathHash, page, cmd, fileHash, chat_id, from_id, msg_id_to_update)
             else:
-                storages = self.main._file_manager.list_files(recursive=False)
-                if len(list(storages.keys())) < 2:
-                    self.main.send_msg("Loading files...", chatID=chat_id)
-                    self.generate_dir_hash_dict()
-                    self.cmdFiles(
-                        chat_id,
-                        from_id,
-                        cmd,
-                        f"{self.hashMe(str(f'{list(storages.keys())[0]}/'), 8)}|0",
-                        user,
-                    )
+                if opt.startswith("dir"):
+                    self.fileList(fileHash, 0, cmd, chat_id, msg_id_to_update)
                 else:
-                    self.generate_dir_hash_dict()
+                    self.fileOption(pathHash, page, cmd, fileHash, opt, chat_id, from_id, msg_id_to_update)
+        else:
+            storages = self.main._file_manager.list_files(recursive=False)
+            if len(list(storages.keys())) < 2:
+                saving_file_response = self.main.telegram_utils.send_telegram_request(
+                    f"{self.main.bot_url}/sendMessage",
+                    "post",
+                    data={
+                        "text": "Loading files...",
+                        "chat_id": chat_id,
+                    },
+                )
+                msg_id_to_update = saving_file_response["result"]["message_id"]
 
-                    msg = f"{get_emoji('save')} <b>Select Storage</b>"
+                self.generate_dir_hash_dict()
 
-                    command_buttons = []
-                    command_buttons.extend([([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)])
-                    command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
+                self.cmdFiles(
+                    chat_id,
+                    from_id,
+                    cmd,
+                    f"{self.hashMe(str(f'{list(storages.keys())[0]}/'), 8)}|0",
+                    msg_id_to_update,
+                    user,
+                )
+            else:
+                self.generate_dir_hash_dict()
 
-                    msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
+                msg = f"{get_emoji('save')} <b>Select Storage</b>"
 
-                    self.main.send_msg(
-                        msg,
-                        chatID=chat_id,
-                        markup="HTML",
-                        responses=command_buttons,
-                        msg_id=msg_id,
-                    )
-        except Exception:
-            self._logger.exception("Command failed")
-            self.main.send_msg(
-                f"{get_emoji('warning')} Command failed, please check log files",
-                chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
-            )
+                command_buttons = []
+                command_buttons.extend([([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)])
+                command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
 
-    def cmdUpload(self, chat_id, from_id, cmd, parameter, user=""):
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
+                )
+
+    def cmdUpload(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
             f"{get_emoji('info')} To upload a gcode file (also accept zip file), just send it to me.\nThe file will be stored in 'TelegramPlugin' folder.",
             chatID=chat_id,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdSys(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdSys(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter != "back":
             params = parameter.split("_")
             if params[0] == "sys":
@@ -650,7 +671,7 @@ class TCMD:
                         chatID=chat_id,
                         markup="HTML",
                         responses=command_buttons,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
 
                     return
@@ -671,21 +692,21 @@ class TCMD:
                         self.main.send_msg(
                             f"{get_emoji('warning')} Command failed with return code {returncode}: {stderr_text}",
                             chatID=chat_id,
-                            msg_id=self.main.get_update_msg_id(chat_id),
+                            msg_id=msg_id_to_update,
                         )
                         return
 
                     self.main.send_msg(
                         f"{get_emoji('check')} System Command executed.",
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                 except Exception:
                     self._logger.exception("Command failed")
                     self.main.send_msg(
                         f"{get_emoji('warning')} Command failed, please check log files",
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
             elif params[0] == "do":
@@ -714,7 +735,7 @@ class TCMD:
                             ]
                         ],
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
                 else:
@@ -738,26 +759,26 @@ class TCMD:
                                 self.main.send_msg(
                                     f"{get_emoji('warning')} Command failed with return code {returncode}: {stderr_text}",
                                     chatID=chat_id,
-                                    msg_id=self.main.get_update_msg_id(chat_id),
+                                    msg_id=msg_id_to_update,
                                 )
                                 return
                         self.main.send_msg(
                             f"{get_emoji('check')} System Command {command['name']} executed.",
                             chatID=chat_id,
-                            msg_id=self.main.get_update_msg_id(chat_id),
+                            msg_id=msg_id_to_update,
                         )
                     except Exception:
                         self._logger.exception("Command failed")
                         self.main.send_msg(
                             f"{get_emoji('warning')} Command failed, please check log files",
                             chatID=chat_id,
-                            msg_id=self.main.get_update_msg_id(chat_id),
+                            msg_id=msg_id_to_update,
                         )
             else:
                 self.main.send_msg(
                     f"{get_emoji('warning')} Sorry, i don't know this System Command.",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
                 return
         else:
@@ -829,14 +850,19 @@ class TCMD:
             message = f"{get_emoji('info')} {message_text}"
 
             keys.append([[f"{get_emoji('cancel')} Close", "no"]])
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                responses=keys,
+                msg_id=msg_id_to_update,
+            )
 
-    def cmdCtrl(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdCtrl(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if not self.main._printer.is_operational():
             self.main.send_msg(
                 f"{get_emoji('warning')} Printer not connected. You can't send any command.",
                 chatID=chat_id,
+                msg_id=msg_id_to_update,
             )
             return
         if parameter and parameter != "back":
@@ -864,7 +890,7 @@ class TCMD:
                             ]
                         ],
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
                 else:
@@ -875,7 +901,7 @@ class TCMD:
                             self.main.send_msg(
                                 f"{get_emoji('warning')} Unknown script: {command['command']}",
                                 chatID=chat_id,
-                                msg_id=self.main.get_update_msg_id(chat_id),
+                                msg_id=msg_id_to_update,
                             )
                     elif type(command["command"]) is type([]):
                         for key in command["command"]:
@@ -885,13 +911,13 @@ class TCMD:
                     self.main.send_msg(
                         f"{get_emoji('check')} Control Command {command['name']} executed.",
                         chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
             else:
                 self.main.send_msg(
                     f"{get_emoji('warning')} Control Command not found.",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
         else:
             message = f"{get_emoji('info')} The following Printer Controls are known."
@@ -917,8 +943,12 @@ class TCMD:
                 self._logger.exception("An Exception in get list action")
             if empty:
                 message += f"\n\n{get_emoji('warning')} No Printer Control Command found..."
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                responses=keys,
+                msg_id=msg_id_to_update,
+            )
 
     def split_with_escape_handling(self, param_str: str, separator: str) -> list[str]:
         """
@@ -1846,7 +1876,7 @@ class TCMD:
         def send_command(self, command):
             self.parent.send_octoprint_simpleapi_command(self.plugin_id, command)
 
-    def cmdPower(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdPower(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         supported_plugins = [
             self.DomoticzPowerPlugin(self),
             self.EnclosurePowerPlugin(self),
@@ -1887,6 +1917,7 @@ class TCMD:
                 message,
                 chatID=chat_id,
                 markup="HTML",
+                msg_id=msg_id_to_update,
             )
 
             return
@@ -1925,9 +1956,9 @@ class TCMD:
             self.main.send_msg(
                 message,
                 chatID=chat_id,
-                responses=command_buttons,
-                msg_id=self.main.get_update_msg_id(chat_id),
                 markup="HTML",
+                responses=command_buttons,
+                msg_id=msg_id_to_update,
             )
 
         else:
@@ -1942,9 +1973,9 @@ class TCMD:
                 self.main.send_msg(
                     message,
                     chatID=chat_id,
-                    responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
                 )
                 return
 
@@ -1960,9 +1991,9 @@ class TCMD:
                     self.main.send_msg(
                         message,
                         chatID=chat_id,
-                        responses=command_buttons,
-                        msg_id=self.main.get_update_msg_id(chat_id),
                         markup="HTML",
+                        responses=command_buttons,
+                        msg_id=msg_id_to_update,
                     )
                     return
 
@@ -1988,9 +2019,9 @@ class TCMD:
                 self.main.send_msg(
                     message,
                     chatID=chat_id,
-                    responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
                 )
             else:
                 # Command was /power_plugin\_id_plug\_data_action, execute action
@@ -2015,12 +2046,12 @@ class TCMD:
                 self.main.send_msg(
                     message,
                     chatID=chat_id,
-                    responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
                     markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
                 )
 
-    def cmdUser(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdUser(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         chat_data = self.main._settings.get(["chats", chat_id])
 
         msg = (
@@ -2064,18 +2095,23 @@ class TCMD:
         else:
             msg += "You will receive NO notifications.\n\n"
 
-        self.main.send_msg(msg, chatID=chat_id, markup="HTML")
+        self.main.send_msg(
+            msg,
+            chatID=chat_id,
+            markup="HTML",
+            msg_id=msg_id_to_update,
+        )
 
-    def cmdConnection(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdConnection(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter != "back":
             action, *args = parameter.split("|")
             actions = {
                 "s": self.ConSettings,
                 "c": self.ConConnect,
-                "d": lambda cid, *_: self.ConDisconnect(cid),
+                "d": self.ConDisconnect,
             }
             if action in actions:
-                actions[action](chat_id, args)
+                actions[action](chat_id, args, msg_id_to_update)
             return
 
         status, port, baudrate, profile = self.main._printer.get_current_connection()
@@ -2095,8 +2131,6 @@ class TCMD:
             f"<b>Profile</b>: {html.escape(profile_str)}\n"
             f"<b>AutoConnect</b>: {html.escape(autoconnect_str)}\n\n"
         )
-
-        msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
 
         is_operational = self.main._printer.is_operational()
         is_busy = self.main._printer.is_printing() or self.main._printer.is_paused()
@@ -2121,10 +2155,10 @@ class TCMD:
             responses=command_buttons,
             chatID=chat_id,
             markup="HTML",
-            msg_id=msg_id,
+            msg_id=msg_id_to_update,
         )
 
-    def cmdTune(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdTune(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter != "back":
             params = parameter.split("_")
             if params[0] == "feed":
@@ -2137,7 +2171,7 @@ class TCMD:
                         )
                     else:
                         self.main._printer.feed_rate(int(self.temp_tune_rates["feedrate"]))
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 msg = f"{get_emoji('feedrate')} Set feedrate.\nCurrent:  <b>{self.temp_tune_rates['feedrate']}%</b>"
@@ -2165,7 +2199,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "flow":
                 if len(params) > 1:
@@ -2177,7 +2211,7 @@ class TCMD:
                         )
                     else:
                         self.main._printer.flow_rate(int(self.temp_tune_rates["flowrate"]))
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 msg = f"{get_emoji('flowrate')} Set flowrate.\nCurrent: <b>{self.temp_tune_rates['flowrate']}%</b>"
@@ -2205,7 +2239,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "e":
                 tool_number = int(params[1])
@@ -2223,13 +2257,13 @@ class TCMD:
 
                     elif delta_str.startswith("s"):
                         self.main._printer.set_temperature(tool_key, self.temp_target_temps[tool_key])
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                     else:
                         self.temp_target_temps[tool_key] = 0
                         self.main._printer.set_temperature(tool_key, 0)
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 current_temp = temps[tool_key]["actual"]
@@ -2276,7 +2310,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "enc":
                 index_id = int(params[1])
@@ -2290,7 +2324,7 @@ class TCMD:
                         f"{get_emoji('attention')} Enclosure plugin not available",
                         chatID=chat_id,
                         markup="HTML",
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
 
@@ -2307,7 +2341,7 @@ class TCMD:
                         f"{get_emoji('attention')} Enclosure plugin output not found",
                         chatID=chat_id,
                         markup="HTML",
-                        msg_id=self.main.get_update_msg_id(chat_id),
+                        msg_id=msg_id_to_update,
                     )
                     return
 
@@ -2379,7 +2413,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             elif params[0] == "b":
                 tool_key = "bed"
@@ -2396,13 +2430,13 @@ class TCMD:
 
                     elif delta_str.startswith("s"):
                         self.main._printer.set_temperature(tool_key, self.temp_target_temps[tool_key])
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                     else:
                         self.temp_target_temps[tool_key] = 0
                         self.main._printer.set_temperature(tool_key, 0)
-                        self.cmdTune(chat_id, from_id, cmd, "back", user)
+                        self.cmdTune(chat_id, from_id, cmd, "back", msg_id_to_update, user)
                         return
 
                 current_temp = temps[tool_key]["actual"]
@@ -2443,15 +2477,13 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
         else:
             msg = f"{get_emoji('settings')} <b>Tune print settings</b>"
 
             profile = self.main._printer_profile_manager.get_current()
             temps = self.main._printer.get_current_temperatures()
-
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
 
             command_buttons = [
                 [
@@ -2507,9 +2539,15 @@ class TCMD:
 
             command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
 
-            self.main.send_msg(msg, responses=command_buttons, chatID=chat_id, markup="HTML", msg_id=msg_id)
+            self.main.send_msg(
+                msg,
+                responses=command_buttons,
+                chatID=chat_id,
+                markup="HTML",
+                msg_id=msg_id_to_update,
+            )
 
-    def cmdFilament(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdFilament(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if self.main._plugin_manager.get_plugin("filamentmanager", True):
             if parameter and parameter != "back":
                 self._logger.info(f"Parameter received for filament: {parameter}")
@@ -2543,14 +2581,20 @@ class TCMD:
                                     f"{selection['spool']['name']} "
                                     f"{selection['spool']['profile']['material']}"
                                 )
-                        msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                        self.main.send_msg(
+                            message,
+                            chatID=chat_id,
+                            msg_id=msg_id_to_update,
+                        )
                     except ValueError:
                         message = f"{get_emoji('attention')} Error getting spools. Are you sure, you have installed the Filament Manager Plugin?"
                         if errorText != "":
                             message += f"\nError text: {errorText}"
-                        msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                        self.main.send_msg(
+                            message,
+                            chatID=chat_id,
+                            msg_id=msg_id_to_update,
+                        )
                 if params[0] == "changeSpool":
                     self._logger.info(f"Command to change spool: {params}")
                     if len(params) > 1:
@@ -2573,14 +2617,20 @@ class TCMD:
                                 f"{resp['selection']['spool']['name']} "
                                 f"{resp['selection']['spool']['profile']['material']}"
                             )
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
                     else:
                         self._logger.info("Asking for spool")
                         try:
@@ -2616,23 +2666,34 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
-                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                responses=keys,
+                                msg_id=msg_id_to_update,
+                            )
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
             else:
                 message = f"{get_emoji('info')} The following Filament Manager commands are known."
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{get_emoji('cancel')} Close", "no"]])
-                msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-                self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+                self.main.send_msg(
+                    message,
+                    chatID=chat_id,
+                    responses=keys,
+                    msg_id=msg_id_to_update,
+                )
         elif self.main._plugin_manager.get_plugin("SpoolManager", True):
             if parameter and parameter != "back":
                 self._logger.info(f"Parameter received for filament: {parameter}")
@@ -2668,14 +2729,20 @@ class TCMD:
                         # for selection in resp2["selections"]:
                         # 	if selection["tool"] == 0:
                         # 		message += "\n\nCurrently selected: " + str(selection["spool"]["profile"]["vendor"]) + " " + str(selection["spool"]["name"]) + " " + str(selection["spool"]["profile"]["material"])
-                        msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                        self.main.send_msg(
+                            message,
+                            chatID=chat_id,
+                            msg_id=msg_id_to_update,
+                        )
                     except ValueError:
                         message = f"{get_emoji('attention')} Error getting spools. Are you sure you have installed the Spool Manager Plugin?"
                         if errorText != "":
                             message += f"\nError text: {errorText}"
-                        msg_id = self.main.get_update_msg_id(chat_id)
-                        self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                        self.main.send_msg(
+                            message,
+                            chatID=chat_id,
+                            msg_id=msg_id_to_update,
+                        )
                 if params[0] == "changeSpool":
                     self._logger.info(f"Command to change spool: {params}")
                     if len(params) > 1:
@@ -2698,14 +2765,20 @@ class TCMD:
                                 f"{resp['selection']['spool']['name']} "
                                 f"{resp['selection']['spool']['profile']['material']}"
                             )
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
                     else:
                         self._logger.info("Asking for spool")
                         try:
@@ -2741,42 +2814,61 @@ class TCMD:
                                     ]
                                 ]
                             )
-                            msg_id = self.main.get_update_msg_id(chat_id)
                             self._logger.info("Sending message")
-                            self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                responses=keys,
+                                msg_id=msg_id_to_update,
+                            )
                         except ValueError:
                             message = f"{get_emoji('attention')} Error changing spool"
                             if errorText != "":
                                 message += f"\nError text: {errorText}"
-                            msg_id = self.main.get_update_msg_id(chat_id)
-                            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id, inline=False)
+                            self.main.send_msg(
+                                message,
+                                chatID=chat_id,
+                                msg_id=msg_id_to_update,
+                            )
             else:
                 message = f"{get_emoji('info')} The following Filament Manager commands are known."
                 keys = []
                 keys.append([["Show spools", "/filament_spools"]])
                 keys.append([["Change spool", "/filament_changeSpool"]])
                 keys.append([[f"{get_emoji('cancel')} Close", "no"]])
-                msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-                self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
+                self.main.send_msg(
+                    message,
+                    chatID=chat_id,
+                    responses=keys,
+                    msg_id=msg_id_to_update,
+                )
         else:
             message = (
                 f"{get_emoji('warning')} No filament manager plugin installed. "
                 "Please install <a href='https://plugins.octoprint.org/plugins/filamentmanager/'>FilamentManager</a> or "
                 "<a href='https://plugins.octoprint.org/plugins/SpoolManager/'>SpoolManager</a>."
             )
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-            self.main.send_msg(message, chatID=chat_id, markup="HTML", msg_id=msg_id)
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                markup="HTML",
+                msg_id=msg_id_to_update,
+            )
 
-    def cmdGCode(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdGCode(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         if parameter and parameter != "back":
             params = parameter.split("_")
             self.main._printer.commands(params[0])
         else:
-            message = f"{get_emoji('info')} call gCode commande with /gcode_XXX where XXX is the gcode command"
-            msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
-            self.main.send_msg(message, chatID=chat_id, msg_id=msg_id)
+            message = f"{get_emoji('info')} Use <code>{cmd}_XXX</code> to call the command, where <code>XXX</code> is the G-code you want to execute"
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                markup="HTML",
+                msg_id=msg_id_to_update,
+            )
 
-    def cmdHelp(self, chat_id, from_id, cmd, parameter, user=""):
+    def cmdHelp(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         commands = [
             (cmd, info.get("desc", "No description provided"))
             for cmd, info in self.commandDict.items()
@@ -2791,13 +2883,14 @@ class TCMD:
             message,
             chatID=chat_id,
             markup="HTML",
+            msg_id=msg_id_to_update,
         )
 
     ############################################################################################
     # FILE HELPERS
     ############################################################################################
 
-    def fileList(self, pathHash, page, cmd, chat_id, wait=0):
+    def fileList(self, pathHash, page, cmd, chat_id, msg_id_to_update="", wait=0):
         try:
             full_path = self.dirHashDict[pathHash]
             path_parts = full_path.split("/")
@@ -2921,13 +3014,13 @@ class TCMD:
                 chatID=chat_id,
                 markup="HTML",
                 responses=command_buttons,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
                 delay=wait,
             )
         except Exception:
             self._logger.exception("Caught an exception in fileList")
 
-    def fileDetails(self, pathHash, page, cmd, fileHash, chat_id, from_id, wait=0):
+    def fileDetails(self, pathHash, page, cmd, fileHash, chat_id, from_id, msg_id_to_update="", wait=0):
         # Lookup file data and metadata
         dest, path, file = self.find_file_by_hash(fileHash)
         self.tmpFileHash = ""
@@ -2936,7 +3029,7 @@ class TCMD:
 
         # Message header
         msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-        msg += f"{get_emoji('name')} <b>Name:</b> {html.escape(path)}"
+        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(path)}</code>"
 
         # Upload timestamp
         try:
@@ -3059,11 +3152,11 @@ class TCMD:
             chatID=chat_id,
             markup="HTML",
             responses=command_buttons,
-            msg_id=self.main.get_update_msg_id(chat_id),
+            msg_id=msg_id_to_update,
             delay=wait,
         )
 
-    def fileOption(self, loc, page, cmd, hash, opt, chat_id, from_id):
+    def fileOption(self, loc, page, cmd, hash, opt, chat_id, from_id, msg_id_to_update=""):
         if opt != "m_m" and opt != "c_c" and not opt.startswith("s"):
             # Lookup file data and metadata
             dest, path, file = self.find_file_by_hash(hash)
@@ -3077,7 +3170,7 @@ class TCMD:
 
             # Message header
             msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-            msg += f"{get_emoji('name')} <b>Name:</b> {html.escape(path)}"
+            msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(path)}</code>"
 
             # Upload timestamp
             try:
@@ -3224,7 +3317,7 @@ class TCMD:
                 chatID=chat_id,
                 markup="HTML",
                 responses=command_buttons,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
         elif opt.startswith("dl"):
@@ -3235,34 +3328,35 @@ class TCMD:
                 self.main.send_msg(
                     f"{get_emoji('warning')} An error occurred sending your file. Please check logs.",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
 
         elif opt.startswith("m"):
-            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "m_m":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
                 cpRes = self.fileCopyMove(destM, "move", pathM, "/".join(targetPath.split("/")[1:]))
                 self._logger.debug(f"OUT MOVE: {cpRes}")
                 if cpRes == "GOOD":
-                    msg = f"{get_emoji('info')} File {pathM} moved"
+                    msg = f"{get_emoji('info')} File <code>{html.escape(pathM)}</code> moved to <code>{html.escape(targetPath)}</code>"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileList(loc, page, cmd, chat_id, wait=3)
+                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
                 else:
-                    msg = (f"{get_emoji('warning')} FAILED: Move file {pathM}\nReason: {cpRes}",)
+                    msg = f"{get_emoji('warning')} FAILED: Move file <code>{html.escape(pathM)}</code>\nReason: {html.escape(cpRes)}"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3)
+                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, msg_id_to_update, wait=3)
             else:
-                msg = (f"{get_emoji('question')} <b>Choose destination to move file</b>",)
+                msg = f"{get_emoji('question')} Where do you want to move the file <code>{html.escape(path)}</code>?"
 
                 self.tmpFileHash = hash
 
@@ -3289,31 +3383,32 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=msg_id,
+                    msg_id=msg_id_to_update,
                 )
 
         elif opt.startswith("c"):
-            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "c_c":
                 destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
                 targetPath = self.dirHashDict[hash]
                 cpRes = self.fileCopyMove(destM, "copy", pathM, "/".join(targetPath.split("/")[1:]))
                 if cpRes == "GOOD":
                     self.main.send_msg(
-                        f"{get_emoji('info')} File {pathM} copied",
+                        f"{get_emoji('info')} File <code>{html.escape(pathM)}</code> copied to <code>{html.escape(targetPath)}</code>",
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileList(loc, page, cmd, chat_id, wait=3)
+                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
                 else:
                     self.main.send_msg(
-                        f"{get_emoji('warning')} FAILED: Copy file {pathM}\nReason: {cpRes}",
+                        f"{get_emoji('warning')} FAILED: Copy file <code>{html.escape(pathM)}</code>\nReason: {cpRes}",
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, wait=3)
+                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, msg_id_to_update, wait=3)
             else:
-                msg = f"{get_emoji('question')} <b>Choose destination to copy file</b>"
+                msg = f"{get_emoji('question')} Where do you want to copy the file <code>{html.escape(path)}</code>?"
 
                 self.tmpFileHash = hash
 
@@ -3340,27 +3435,28 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=msg_id,
+                    msg_id=msg_id_to_update,
                 )
 
         elif opt.startswith("d"):
-            msg_id = self.main.get_update_msg_id(chat_id)
             if opt == "d_d":
                 delRes = self.fileDelete(dest, path)
                 if delRes == "GOOD":
                     self.main.send_msg(
-                        f"{get_emoji('info')} File {path} deleted",
+                        f"{get_emoji('info')} File <code>{html.escape(path)}</code> deleted",
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileList(loc, page, cmd, chat_id, wait=3)
+                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
                 else:
                     self.main.send_msg(
-                        f"{get_emoji('warning')} FAILED: Delete file {path}\nReason: {delRes}",
+                        f"{get_emoji('warning')} FAILED: Delete file <code>{html.escape(path)}</code>\nReason: {delRes}",
                         chatID=chat_id,
-                        msg_id=msg_id,
+                        markup="HTML",
+                        msg_id=msg_id_to_update,
                     )
-                    self.fileList(loc, page, cmd, chat_id, wait=3)
+                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
             else:
                 command_buttons = [
                     [
@@ -3375,20 +3471,21 @@ class TCMD:
                     ]
                 ]
                 self.main.send_msg(
-                    f"{get_emoji('warning')} Delete {path} ?",
+                    f"{get_emoji('warning')} Delete <code>{html.escape(path)}</code> ?",
                     chatID=chat_id,
+                    markup="HTML",
                     responses=command_buttons,
-                    msg_id=msg_id,
+                    msg_id=msg_id_to_update,
                 )
         elif opt.startswith("s"):
             if opt == "s_n":
                 self.main._settings.set_boolean(["fileOrder"], False)
                 self.main._settings.save()
-                self.fileList(loc, page, cmd, chat_id)
+                self.fileList(loc, page, cmd, chat_id, msg_id_to_update)
             elif opt == "s_d":
                 self.main._settings.set_boolean(["fileOrder"], True)
                 self.main._settings.save()
-                self.fileList(loc, page, cmd, chat_id)
+                self.fileList(loc, page, cmd, chat_id, msg_id_to_update)
             else:
                 msg = f"{get_emoji('question')} <b>Choose sorting order of files</b>"
 
@@ -3416,7 +3513,7 @@ class TCMD:
                     chatID=chat_id,
                     markup="HTML",
                     responses=command_buttons,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
 
     ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
@@ -3431,7 +3528,7 @@ class TCMD:
             destination = self.main._file_manager.join_path(target, destination, name)
 
         if _verifyFileExists(target, destination) or _verifyFolderExists(target, destination):
-            return "Destination does not exist"
+            return "Destination already exists"
 
         if command == "copy":
             if self.main._file_manager.file_exists(target, source):
@@ -3596,16 +3693,16 @@ class TCMD:
     # CONNECTION HELPERS
     ############################################################################################
 
-    def ConSettings(self, chat_id, parameter):
+    def ConSettings(self, chat_id, parameter, msg_id_to_update=""):
         if parameter:
             if parameter[0] == "p":
-                self.ConPort(chat_id, parameter[1:], "s")
+                self.ConPort(chat_id, parameter[1:], "s", msg_id_to_update)
             elif parameter[0] == "b":
-                self.ConBaud(chat_id, parameter[1:], "s")
+                self.ConBaud(chat_id, parameter[1:], "s", msg_id_to_update)
             elif parameter[0] == "pr":
-                self.ConProfile(chat_id, parameter[1:], "s")
+                self.ConProfile(chat_id, parameter[1:], "s", msg_id_to_update)
             elif parameter[0] == "a":
-                self.ConAuto(chat_id, parameter[1:])
+                self.ConAuto(chat_id, parameter[1:], msg_id_to_update)
         else:
             connection_options = octoprint.printer.get_connection_options()
             profile = self.main._printer_profile_manager.get_default()
@@ -3646,15 +3743,15 @@ class TCMD:
                 chatID=chat_id,
                 markup="HTML",
                 responses=command_buttons,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConPort(self, chat_id, parameter, parent):
+    def ConPort(self, chat_id, parameter, parent, msg_id_to_update=""):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
             self.main._settings.global_set(["serial", "port"], parameter[0])
             self.main._settings.save()
-            self.ConSettings(chat_id, [])
+            self.ConSettings(chat_id, [], msg_id_to_update)
         else:
             con = octoprint.printer.get_connection_options()
             keys = []
@@ -3685,15 +3782,15 @@ class TCMD:
                 f"{get_emoji('question')} Select default port.\nCurrent setting: {con['portPreference'] if con['portPreference'] else 'AUTO'}",
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConBaud(self, chat_id, parameter, parent):
+    def ConBaud(self, chat_id, parameter, parent, msg_id_to_update=""):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
             self.main._settings.global_set_int(["serial", "baudrate"], parameter[0])
             self.main._settings.save()
-            self.ConSettings(chat_id, [])
+            self.ConSettings(chat_id, [], msg_id_to_update)
         else:
             con = octoprint.printer.get_connection_options()
             keys = []
@@ -3724,15 +3821,15 @@ class TCMD:
                 f"{get_emoji('question')} Select default baudrate.\nCurrent setting: {con['baudratePreference'] if con['baudratePreference'] else 'AUTO'}",
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConProfile(self, chat_id, parameter, parent):
+    def ConProfile(self, chat_id, parameter, parent, msg_id_to_update=""):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
             self.main._settings.global_set(["printerProfiles", "default"], parameter[0])
             self.main._settings.save()
-            self.ConSettings(chat_id, [])
+            self.ConSettings(chat_id, [], msg_id_to_update)
         else:
             con = self.main._printer_profile_manager.get_all()
             con2 = self.main._printer_profile_manager.get_default()
@@ -3764,15 +3861,15 @@ class TCMD:
                 f"{get_emoji('question')} Select default profile.\nCurrent setting: {con2['name']}",
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConAuto(self, chat_id, parameter):
+    def ConAuto(self, chat_id, parameter, msg_id_to_update=""):
         if parameter:
             self._logger.debug(f"SETTING: {parameter[0]}")
             self.main._settings.global_set_boolean(["serial", "autoconnect"], parameter[0])
             self.main._settings.save()
-            self.ConSettings(chat_id, [])
+            self.ConSettings(chat_id, [], msg_id_to_update)
         else:
             con = octoprint.printer.get_connection_options()
             keys = [
@@ -3791,10 +3888,10 @@ class TCMD:
                 f"{get_emoji('question')} AutoConnect on startup.\nCurrent setting: {con['autoconnect']}",
                 responses=keys,
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConConnect(self, chat_id, parameter):
+    def ConConnect(self, chat_id, parameter, msg_id_to_update=""):
         if parameter:
             if parameter[0] == "a":
                 self.temp_connection_settings.extend([None, None, None])
@@ -3807,22 +3904,22 @@ class TCMD:
                     ]
                 )
             elif parameter[0] == "p" and len(parameter) < 2:
-                self.ConPort(chat_id, [], "c")
+                self.ConPort(chat_id, [], "c", msg_id_to_update)
                 return
             elif parameter[0] == "p":
                 self.temp_connection_settings.append(parameter[1])
-                self.ConBaud(chat_id, [], "c")
+                self.ConBaud(chat_id, [], "c", msg_id_to_update)
                 return
             elif parameter[0] == "b":
                 self.temp_connection_settings.append(parameter[1])
-                self.ConProfile(chat_id, [], "c")
+                self.ConProfile(chat_id, [], "c", msg_id_to_update)
                 return
             elif parameter[0] == "pr":
                 self.temp_connection_settings.append(parameter[1])
             self.main.send_msg(
                 f"{get_emoji('info')} Connecting...",
                 chatID=chat_id,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
             self.main._printer.connect(
                 port=self.temp_connection_settings[0],
@@ -3848,13 +3945,13 @@ class TCMD:
                 self.main.send_msg(
                     f"{get_emoji('check')} Connection established.",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
             else:
                 self.main.send_msg(
                     f"{get_emoji('warning')} Failed to start connection.\n\n{con[0]}",
                     chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
+                    msg_id=msg_id_to_update,
                 )
         else:
             keys = [
@@ -3874,15 +3971,15 @@ class TCMD:
                 f"{get_emoji('question')} Select connection option.",
                 chatID=chat_id,
                 responses=keys,
-                msg_id=self.main.get_update_msg_id(chat_id),
+                msg_id=msg_id_to_update,
             )
 
-    def ConDisconnect(self, chat_id):
+    def ConDisconnect(self, chat_id, parameter, msg_id_to_update=""):
         self.main._printer.disconnect()
         self.main.send_msg(
             f"{get_emoji('info')} Printer disconnected.",
             chatID=chat_id,
-            msg_id=self.main.get_update_msg_id(chat_id),
+            msg_id=msg_id_to_update,
         )
 
     ############################################################################################

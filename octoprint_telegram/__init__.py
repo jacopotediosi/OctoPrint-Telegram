@@ -1,4 +1,5 @@
 import copy
+import html
 import io
 import json
 import logging
@@ -140,13 +141,11 @@ class TelegramListener(threading.Thread):
 
         self.set_update_offset(message["update_id"])
 
+        chat_id = self.get_chat_id(message)
+        from_id = self.get_from_id(message)
+
         if "message" in message and message["message"].get("chat"):
             settings_chats = self.main._settings.get(["chats"])
-
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-
-            message_chat = message["message"]["chat"]
 
             is_chat_unknown = chat_id not in settings_chats
             if is_chat_unknown:
@@ -158,6 +157,8 @@ class TelegramListener(threading.Thread):
                     return
 
                 self._logger.info(f"Adding chat {chat_id} to known chats")
+
+                message_chat = message["message"]["chat"]
 
                 new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
                 new_chat_settings["type"] = message_chat["type"]
@@ -185,7 +186,7 @@ class TelegramListener(threading.Thread):
             # If message is a text message, we probably got a command.
             # When the command is not known, the following handler will discard it.
             if "text" in message_message:
-                self.handle_text_message(message, chat_id, from_id)
+                self.handle_text_message(message, chat_id, from_id, is_callback_query=False)
             # We got no message with text (command) so lets check if we got a file.
             # The following handler will check file and saves it to disk.
             elif "document" in message_message:
@@ -207,17 +208,11 @@ class TelegramListener(threading.Thread):
             else:
                 self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
         elif "callback_query" in message:
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-            self.handle_callback_query(message, chat_id, from_id)
+            self.handle_text_message(message, chat_id, from_id, is_callback_query=True)
         else:
             self._logger.warning(
                 "Message is missing .message or .message.chat or .message.callback_query. Skipping it."
             )
-
-    def handle_callback_query(self, message, chat_id, from_id):
-        message["callback_query"]["message"]["text"] = message["callback_query"]["data"]
-        self.handle_text_message(message["callback_query"], chat_id, from_id)
 
     def handle_left_chat_member_message(self, message):
         chat_id = self.get_chat_id(message)
@@ -291,7 +286,7 @@ class TelegramListener(threading.Thread):
             if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
                 self._logger.warning(f"Received file {uploaded_file_filename} from an unauthorized user")
                 self.main.send_msg(
-                    f"{get_emoji('warning')} You are not authorized to upload files",
+                    f"{get_emoji('notallowed')} You are not authorized to upload files!",
                     chatID=chat_id,
                 )
                 return
@@ -302,7 +297,9 @@ class TelegramListener(threading.Thread):
                 if uploaded_file_filename.lower().endswith(".zip"):
                     is_zip_file = True
                 else:
-                    self._logger.warning(f"Received file {uploaded_file_filename} with invalid extension")
+                    self._logger.warning(
+                        f"{get_emoji('attention')} Received file {uploaded_file_filename} with invalid extension"
+                    )
                     self.main.send_msg(
                         f"{get_emoji('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
                         chatID=chat_id,
@@ -310,10 +307,17 @@ class TelegramListener(threading.Thread):
                     return
 
             # Download the uploaded file
-            self.main.send_msg(
-                f"{get_emoji('save')} Saving file {uploaded_file_filename}...",
-                chatID=chat_id,
+            saving_file_response = self.telegram_utils.send_telegram_request(
+                f"{self.main.bot_url}/sendMessage",
+                "post",
+                data={
+                    "text": f"{get_emoji('save')} Saving file <code>{html.escape(uploaded_file_filename)}</code>...",
+                    "chat_id": chat_id,
+                    "parse_mode": "HTML",
+                },
             )
+            saving_file_msg_id = saving_file_response["result"]["message_id"]
+
             uploaded_file_content = self.main.get_file(message["message"]["document"]["file_id"])
 
             # Prepare the destination folder
@@ -382,71 +386,60 @@ class TelegramListener(threading.Thread):
 
                 added_files_relative_paths.append(added_file_relative_path)
 
-            # Prepare the response message
+            # Update the "saving file" message
+            command_buttons = None
             if added_files_relative_paths:
-                response_message = f"{get_emoji('download')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
+                response_message = (
+                    f"{get_emoji('download')} I've successfully saved the file"
+                    f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
+                    f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
+                )
+
+                if self.main._settings.get(["selectFileUpload"]) and len(added_files_relative_paths) == 1:
+                    # Check if printer is ready
+                    if not self.main._printer.is_ready():
+                        response_message += (
+                            f"\n{get_emoji('attention')} But I couldn't load it because the printer is not ready."
+                        )
+                    else:
+                        # Load the uploaded file
+                        try:
+                            file_to_select_abs_path = self.main._file_manager.path_on_disk(
+                                octoprint.filemanager.FileDestinations.LOCAL,
+                                added_files_relative_paths[0],
+                            )
+                            self._logger.debug(f"Selecting file: {file_to_select_abs_path}")
+                            self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
+
+                            # Ask the user whether to print the loaded file
+                            response_message += (
+                                f"\n{get_emoji('check')} And loaded it.\n"
+                                f"{get_emoji('question')} Do you want me to start printing it now?"
+                            )
+                            command_buttons = [
+                                [
+                                    [
+                                        f"{get_emoji('check')} Print",
+                                        "/print_s",
+                                    ],
+                                    [
+                                        f"{get_emoji('cancel')} Cancel",
+                                        "/print_x",
+                                    ],
+                                ]
+                            ]
+                        except Exception:
+                            response_message += f"\n{get_emoji('attention')} But I wasn't able to load the file."
             else:
                 response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
 
-            # If there are multiple files or the "select file after upload" settings is off
-            if len(added_files_relative_paths) != 1 or not self.main._settings.get(["selectFileUpload"]):
-                # Just send the message
-                self.main.send_msg(
-                    response_message,
-                    chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
-                )
-
-            # If instead only one file has been added and the "select file after upload" settings is off
-            else:
-                # Check if printer is ready
-                if not self.main._printer.is_ready():
-                    response_message += " but I can't load it because the printer is not ready"
-                    self.main.send_msg(
-                        response_message,
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                    return
-
-                # Load the uploaded file
-                try:
-                    file_to_select_abs_path = self.main._file_manager.path_on_disk(
-                        octoprint.filemanager.FileDestinations.LOCAL,
-                        added_files_relative_paths[0],
-                    )
-                    self._logger.debug(f"Selecting file: {file_to_select_abs_path}")
-                    self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
-                except Exception:
-                    response_message += " but I wasn't able to load the file"
-                    self.main.send_msg(
-                        response_message,
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                    return
-
-                # Ask the user whether to print the loaded file
-                response_message += (
-                    f" and it is loaded.\n\n{get_emoji('question')} Do you want me to start printing it now?"
-                )
-                self.main.send_msg(
-                    response_message,
-                    msg_id=self.main.get_update_msg_id(chat_id),
-                    responses=[
-                        [
-                            [
-                                f"{get_emoji('check')} Print",
-                                "/print_s",
-                            ],
-                            [
-                                f"{get_emoji('cancel')} Cancel",
-                                "/print_x",
-                            ],
-                        ]
-                    ],
-                    chatID=chat_id,
-                )
+            self.main.send_msg(
+                response_message,
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=saving_file_msg_id,
+            )
         except Exception:
             self._logger.exception("Caught an exception processing a file")
             self.main.send_msg(
@@ -457,18 +450,19 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def handle_text_message(self, message, chat_id, from_id):
+    def handle_text_message(self, message, chat_id, from_id, is_callback_query):
         # Separate command and parameter
-        command_text = message["message"]["text"].split("@")[0]
+        if is_callback_query:
+            command_text = message["callback_query"]["data"]
+        else:
+            command_text = message["message"]["text"].split("@")[0]
         parts = command_text.split("_")
         command = parts[0].lower()
         cmd_info = self.main.tcmd.commandDict.get(command, {})
         parameter = "_".join(parts[1:]) if cmd_info.get("param") else ""
 
         # Log received command
-        self._logger.info(
-            f"Received command '{command}' with parameter '{parameter}' in chat {self.get_chat_id(message)} from {self.get_from_id(message)}"
-        )
+        self._logger.info(f"Received command '{command}' with parameter '{parameter}' in chat {chat_id} from {from_id}")
 
         # Is command  known?
         if command not in self.main.tcmd.commandDict:
@@ -485,13 +479,11 @@ class TelegramListener(threading.Thread):
         if self.main.is_command_allowed(chat_id, from_id, command):
             # Identify user
             user = "Telegram - "
-
             try:
-                sender = (
-                    message.get("from")  # Callback query
-                    or message.get("message", {}).get("from")  # Other messages
-                    or {}
-                )
+                if is_callback_query:
+                    sender = message.get("callback_query", {}).get("from") or {}
+                else:
+                    sender = message.get("message", {}).get("from") or {}
 
                 username = sender.get("username")
 
@@ -511,12 +503,34 @@ class TelegramListener(threading.Thread):
                 user += "UNKNOWN"
 
             # Execute command
-            self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
+            msg_id_to_update = ""
+            if is_callback_query:
+                msg_id_to_update = message.get("callback_query", {}).get("message", {}).get("message_id", "")
+            try:
+                self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, msg_id_to_update, user)
+            except Exception:
+                self._logger.exception(f"Caught an exception executing command {command}")
+                self.main.send_msg(
+                    f"{get_emoji('attention')} Error executing your command! Please check logs.",
+                    chatID=chat_id,
+                    msg_id=msg_id_to_update,
+                )
+
+            # Answer callback query (to prevent inline buttons from continuing to blink)
+            try:
+                if is_callback_query:
+                    self.main.telegram_utils.send_telegram_request(
+                        f"{self.main.bot_url}/answerCallbackQuery",
+                        "post",
+                        data={"callback_query_id": message.get("callback_query", {}).get("id", 0)},
+                    )
+            except Exception:
+                self._logger.exception("Caught an exception sending answerCallbackQuery")
         else:
             # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.main.send_msg(
-                f"You are not allowed to do this! {get_emoji('notallowed')}",
+                f"{get_emoji('notallowed')} You are not allowed to do this!",
                 chatID=chat_id,
             )
 
@@ -659,7 +673,6 @@ class TelegramPlugin(
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
 
-        self.update_message_id = {}
         self.shut_up = set()
 
         self.telegram_utils = None
@@ -1415,17 +1428,14 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception in send_msg()")
 
-    # This method is used to update a message text of a sent message.
-    # The sent message had to have markup="off" when calling send_msg() (otherwise it would not work)
-    # by setting markup="off" we got a messagge_id on sending the message which is saved in self.update_message_id.
-    # If this message_id is passed in msg_id to send_msg() then this method will be called.
+    # Edits the text of an existing message (by msg_id) previously sent.
+    # Automatically called by send_msg() when a valid msg_id is provided.
     def _send_edit_msg(
         self,
         message="",
         msg_id="",
         chatID="",
         responses=None,
-        inline=True,
         markup="off",
         delay=0,
         **kwargs,
@@ -1446,7 +1456,7 @@ class TelegramPlugin(
                     data["parse_mode"] = markup
                 else:
                     self._logger.warning(f"Invalid markup: {markup}")
-            if responses and inline:
+            if responses:
                 my_arr = []
                 for k in responses:
                     my_arr.append([{"text": x[0], "callback_data": x[1]} for x in k])
@@ -1459,9 +1469,6 @@ class TelegramPlugin(
                 "post",
                 data=data,
             )
-
-            if inline:
-                self.update_message_id[chatID] = msg_id
 
         except Exception:
             self._logger.exception("Caught an exception in _send_edit_msg()")
@@ -1482,7 +1489,6 @@ class TelegramPlugin(
         with_gif=False,
         responses=None,
         delay=0,
-        inline=True,
         chatID="",
         markup="off",
         show_web=False,
@@ -1661,11 +1667,6 @@ class TelegramPlugin(
                         data=message_data,
                     )
 
-            # Inline handling
-            if inline:
-                if "message_id" in tlg_response["result"]:
-                    self.update_message_id[chatID] = tlg_response["result"]["message_id"]
-
         except Exception:
             self._logger.exception("Caught an exception in _send_msg()")
             self.thread.set_status("Exception sending a message")
@@ -1711,7 +1712,6 @@ class TelegramPlugin(
                 f"{get_emoji('warning')} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
                 "Please download it manually from the OctoPrint web interface.",
                 chatID=chat_id,
-                msg_id=self.get_update_msg_id(chat_id),
             )
             return
 
@@ -1892,15 +1892,6 @@ class TelegramPlugin(
                 return True
 
         return False
-
-    # Helper function to handle /editMessageText Telegram API commands
-    # See main._send_edit_msg()
-    def get_update_msg_id(self, id):
-        update_msg_id = ""
-        if id in self.update_message_id:
-            update_msg_id = self.update_message_id[id]
-            del self.update_message_id[id]
-        return update_msg_id
 
     def pre_image(self):
         method = self._settings.get(["PreImgMethod"])
