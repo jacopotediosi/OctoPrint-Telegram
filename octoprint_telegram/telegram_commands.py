@@ -126,6 +126,7 @@ class TCMD:
                 "desc": "Make the bot talk again (opposite of /shutup)",
             },
             "/help": {"cmd": self.cmdHelp, "bind_none": True, "desc": "Show available commands"},
+            "/start": {"cmd": self.cmdStart, "bind_none": True, "desc": "Start the bot"},
             "yes": {"cmd": self.cmdYes, "bind_none": True, "desc": "Confirm action"},
             "no": {"cmd": self.cmdNo, "bind_none": True, "desc": "Cancel action"},
         }
@@ -133,6 +134,9 @@ class TCMD:
     ############################################################################################
     # COMMAND HANDLERS
     ############################################################################################
+
+    def cmdStart(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
+        return
 
     def cmdYes(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
