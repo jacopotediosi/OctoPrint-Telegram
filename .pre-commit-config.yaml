@@ -11,6 +11,7 @@ repos:
     rev: v0.11.13
     hooks:
       - id: ruff-check
+        args: [--target-version=py37]
       - id: ruff-format
 
   - repo: https://github.com/standard/standard
