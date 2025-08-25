@@ -6,7 +6,7 @@ import operator
 import socket
 from abc import ABC, abstractmethod
 from itertools import islice
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from urllib.parse import urljoin
 
 import octoprint.filemanager
@@ -920,7 +920,7 @@ class TCMD:
             msg_id = self.main.get_update_msg_id(chat_id) if parameter == "back" else ""
             self.main.send_msg(message, chatID=chat_id, responses=keys, msg_id=msg_id)
 
-    def split_with_escape_handling(self, param_str: str, separator: str) -> list[str]:
+    def split_with_escape_handling(self, param_str: str, separator: str) -> List[str]:
         """
         Split a string by a separator while properly handling escaped characters.
 
@@ -933,7 +933,7 @@ class TCMD:
             separator (str): The character to split on
 
         Returns:
-            list[str]: List of split parts with escape sequences processed
+            List[str]: List of split parts with escape sequences processed
 
         Examples:
             >>> split_with_escape_handling("a,b,c", ',')
