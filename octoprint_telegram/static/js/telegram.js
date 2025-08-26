@@ -230,9 +230,9 @@ $(function () {
         'editChat',
         {
           chat_id: self.currChatID,
-          accept_commands: $('#telegram-acccmd-chkbox-box').prop('checked'),
-          send_notifications: $('#telegram-notify-chkbox-box').prop('checked'),
-          allow_users: $('#telegram-user-allowed-chkbox-box').prop('checked')
+          accept_commands: $('#telegram-editchat-acceptcommands-chkbox').prop('checked') || false,
+          send_notifications: $('#telegram-editchat-sendnotifications-chkbox').prop('checked') || false,
+          allow_users: $('#telegram-editchat-allowusers-chkbox').prop('checked') || false
         }
       ).done(function () {
         self.requestData()
@@ -288,32 +288,64 @@ $(function () {
       self.currChatTitle(data.title)
       self.currChatID = data.id
 
-      $('#telegram-acccmd-chkbox').empty()
-      $('#telegram-notify-chkbox').empty()
-      $('#telegram-user-allowed-chkbox').empty()
+      $('#telegram-edit-chat-form').empty()
 
-      if (!data.private) {
-        $('#telegram-acccmd-chkbox').append(`
-          <input
-            id="telegram-acccmd-chkbox-box"
-            type="checkbox"
-            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
-          >
-          Allow all group members to send enabled commands
-          <span class="help-block">
-            <small>
-              When enabled, <b>every user</b> in this group can send commands that have been enabled for the entire group chat. You must manually activate permissions for each command by clicking the blue command icon in the chat list. If 'Allow individual user command permissions' is also enabled, users can send commands enabled in their personal settings in addition to those enabled for the group.
-            </small>
-          </span>
-        `)
-        ko.applyBindings(self, $('#telegram-acccmd-chkbox-box')[0])
-
-        $('#telegram-user-allowed-chkbox').append(`
+      if (data.type === 'channel') {
+        // Allow individual user command permissions
+        $('#telegram-edit-chat-form').append(`
           <div class="control-group">
             <div class="controls">
               <label class="checkbox">
                 <input
-                  id="telegram-user-allowed-chkbox-box"
+                  id="telegram-editchat-allowusers-chkbox"
+                  type="checkbox"
+                  data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['allow_users']"
+                >
+                Allow individual user command permissions
+                <span class="help-block">
+                  <small>
+                    When enabled, channel administrators can send only the commands they have individually enabled in their personal settings.<br>
+                    For this to work, you must enable "Sign Messages" and "Show Authors' Profiles" in the channel settings.
+                  </small>
+                </span>
+              </label>
+            </div>
+          </div>
+        `)
+        ko.applyBindings(self, $('#telegram-editchat-allowusers-chkbox')[0])
+
+        // Allow all channel administrators to send enabled commands
+        $('#telegram-edit-chat-form').append(`
+            <div class="control-group">
+              <div class="controls">
+                <label class="checkbox">
+                  <input
+                    id="telegram-editchat-acceptcommands-chkbox"
+                    type="checkbox"
+                    data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
+                  >
+                  Allow all channel administrators to send enabled commands
+                  <span class="help-block">
+                    <small>
+                      When enabled, <b>any administrator</b> in this channel can send commands that have been enabled for the entire chat.<br>
+                      You must manually activate permissions for each command by clicking the blue "Command" icon in the chat list once this dialog is closed.<br>
+                      If 'Allow individual user command permissions' is also enabled, users can send commands enabled in their personal
+                      settings in addition to those enabled for the channel.
+                    </small>
+                  </span>
+                </label>
+              </div>
+            </div>
+        `)
+        ko.applyBindings(self, $('#telegram-editchat-acceptcommands-chkbox')[0])
+      } else if (['group', 'supergroup'].includes(data.type)) {
+        // Allow individual user command permissions
+        $('#telegram-edit-chat-form').append(`
+          <div class="control-group">
+            <div class="controls">
+              <label class="checkbox">
+                <input
+                  id="telegram-editchat-allowusers-chkbox"
                   type="checkbox"
                   data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['allow_users']"
                 >
@@ -327,47 +359,78 @@ $(function () {
             </div>
           </div>
         `)
-        ko.applyBindings(self, $('#telegram-user-allowed-chkbox-box')[0])
-      } else {
-        $('#telegram-acccmd-chkbox').append(`
-          <input
-            id="telegram-acccmd-chkbox-box"
-            type="checkbox"
-            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
-          >
-          Allow to send commands
-          <span class="help-block">
-            <small>
-              After enabling this option, enable or disable permissions for each command by clicking the blue command icon in the list once this dialog is closed.
-            </small>
-          </span>
-        `)
-        ko.applyBindings(self, $('#telegram-acccmd-chkbox-box')[0])
+        ko.applyBindings(self, $('#telegram-editchat-allowusers-chkbox')[0])
 
-        $('#telegram-user-allowed-chkbox').append(`
-          <input
-            id="telegram-user-allowed-chkbox-box"
-            style="display:none"
-            type="checkbox"
-            data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['allow_users']"
-          >
+        // Allow all group members to send enabled commands
+        $('#telegram-edit-chat-form').append(`
+            <div class="control-group">
+              <div class="controls">
+                <label class="checkbox">
+                  <input
+                    id="telegram-editchat-acceptcommands-chkbox"
+                    type="checkbox"
+                    data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
+                  >
+                  Allow all group members to send enabled commands
+                  <span class="help-block">
+                    <small>
+                      When enabled, <b>every user</b> in this group can send commands that have been enabled for the entire group chat.<br>
+                      You must manually activate permissions for each command by clicking the blue "Command" icon in the chat list once this dialog is closed.<br>
+                      If 'Allow individual user command permissions' is also enabled, users can send commands enabled in their personal
+                      settings in addition to those enabled for the group.
+                    </small>
+                  </span>
+                </label>
+              </div>
+            </div>
         `)
-        ko.applyBindings(self, $('#telegram-user-allowed-chkbox-box')[0])
+        ko.applyBindings(self, $('#telegram-editchat-acceptcommands-chkbox')[0])
+      } else if (data.type === 'private') {
+        // Allow to send commands
+        $('#telegram-edit-chat-form').append(`
+          <div class="control-group">
+            <div class="controls">
+              <label class="checkbox">
+                <input
+                  id="telegram-editchat-acceptcommands-chkbox"
+                  type="checkbox"
+                  data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['accept_commands']"
+                >
+                Allow to send commands
+                <span class="help-block">
+                  <small>
+                    After enabling this option, enable or disable permissions for each command by clicking the blue "Command"
+                    icon in the list once this dialog is closed.
+                  </small>
+                </span>
+              </label>
+            </div>
+          </div>
+      `)
+        ko.applyBindings(self, $('#telegram-editchat-acceptcommands-chkbox')[0])
       }
 
-      $('#telegram-notify-chkbox').append(`
-        <input
-          id="telegram-notify-chkbox-box"
-          type="checkbox"
-          data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['send_notifications']"
-        > Send notifications
-        <span class="help-block">
-          <small>
-            After enabling this option, enable or disable individual notifications by clicking the blue "Notify" button in the chat list once this dialog is closed.
-          </small>
-        </span>
+      // Send notifications
+      $('#telegram-edit-chat-form').append(`
+          <div class="control-group">
+            <div class="controls">
+              <label class="checkbox">
+                <input
+                  id="telegram-editchat-sendnotifications-chkbox"
+                  type="checkbox"
+                  data-bind="checked: settings.settings.plugins.telegram.chats['${data.id}']['send_notifications']"
+                > Send notifications
+                <span class="help-block">
+                  <small>
+                    After enabling this option, enable or disable individual notifications by clicking the blue "Notify"
+                    button in the chat list once this dialog is closed.
+                  </small>
+                </span>
+              </label>
+            </div>
+          </div>
       `)
-      ko.applyBindings(self, $('#telegram-notify-chkbox-box')[0])
+      ko.applyBindings(self, $('#telegram-editchat-sendnotifications-chkbox')[0])
 
       self.editChatDialog.modal('show')
     }

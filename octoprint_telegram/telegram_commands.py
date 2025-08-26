@@ -2064,10 +2064,9 @@ class TCMD:
             f"<b>Name:</b> {html.escape(chat_data['title'])}\n"
         )
 
-        if chat_data["private"]:
-            msg += "<b>Type:</b> Private\n\n"
-        else:
-            msg += "<b>Type:</b> Group\n"
+        chat_type = chat_data["type"]
+        msg += f"<b>Type:</b> {chat_type}\n\n"
+        if chat_type != "private":
             if chat_data["accept_commands"]:
                 msg += "<b>Accept-Commands:</b> All users\n\n"
             elif chat_data["allow_users"]:

@@ -68,9 +68,9 @@ class TelegramListener(threading.Thread):
         # Repeat fetching and processing messages until thread stopped
         while not self.do_stop:
             try:
-                self.loop()
+                self.process_updates()
             except Exception:
-                self._logger.exception("Caught and exception running the listener loop.")
+                self._logger.exception("Caught and exception calling process_updates.")
 
         self._logger.debug("Listener exits NOW.")
 
@@ -93,7 +93,7 @@ class TelegramListener(threading.Thread):
 
                 time.sleep(120)
 
-    def loop(self):
+    def process_updates(self):
         # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
             updates = self.get_updates()
@@ -106,9 +106,9 @@ class TelegramListener(threading.Thread):
             time.sleep(120)
             return
 
-        for message in updates:
+        for update in updates:
             try:
-                self.process_message(message)
+                self.process_update(update)
             except Exception:
                 self._logger.exception("Caught an exception processing a message")
 
@@ -136,67 +136,61 @@ class TelegramListener(threading.Thread):
                 f"Not changing update_offset - otherwise would reduce it from {self.update_offset} to {1 + new_value}"
             )
 
-    def process_message(self, message):
-        self._logger.debug(f"Processing message: {message}")
+    def process_update(self, update):
+        self._logger.debug(f"Processing update: {update}")
 
-        self.set_update_offset(message["update_id"])
+        self.set_update_offset(update["update_id"])
 
-        chat_id = self.get_chat_id(message)
+        chat_id = self.get_chat_id(update)
+        from_id = self.get_from_id(update)
 
-        is_chat_unknown = chat_id not in self.main._settings.get(["chats"])
+        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
         if is_chat_unknown:
             is_enrollment_allowed = (
                 self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
             )
             if not is_enrollment_allowed:
-                self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
+                self._logger.warning(f"Received an update from unknown chat {chat_id} while enrollment is disabled")
                 return
 
-        if "message" in message and message["message"].get("chat"):
-            message_message = message["message"]
+        if "message" in update or "channel_post" in update:
+            message = update.get("message", update.get("channel_post"))
 
             # We got a text message, likely a command
-            if "text" in message_message:
-                # If it is a new chat, add it to the known chats
-                if chat_id not in self.main._settings.get(["chats"]):
-                    chat = message_message["chat"]
+            if "text" in message:
+                if is_chat_unknown:
+                    chat = message["chat"]
                     chat_title = get_chat_title(chat)
                     chat_type = chat["type"]
                     self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
-
-                self.handle_text_message(message, is_callback_query=False)
+                else:
+                    self.handle_text_message(message, chat_id, from_id)
             # We got a document (file)
-            elif "document" in message_message:
-                self.handle_document_message(message)
+            elif "document" in message:
+                self.handle_document_message(message, chat_id, from_id)
             # We got message with notification for a new chat title so lets update it
-            elif "new_chat_title" in message_message:
-                self.handle_new_chat_title_message(message)
+            elif "new_chat_title" in message:
+                self.handle_new_chat_title_message(message, chat_id, from_id)
             # We got message with notification for a new chat title photo so lets download it
-            elif "new_chat_photo" in message_message:
-                self.handle_new_chat_photo_message(message)
-            # We got message with notification for a deleted chat title photo so we do the same
-            elif "delete_chat_photo" in message_message:
-                self.handle_new_chat_photo_message(message)
+            elif "new_chat_photo" in message or "delete_chat_photo" in message:
+                self.handle_new_chat_photo_message(update, chat_id, from_id)
             # At this point we don't know what message type it is, so we do nothing
             else:
-                self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
+                self._logger.debug(f"Got an unknown message. Doing nothing. Update was: {update}")
         # Triggered when the user clicks on inline buttons
-        elif "callback_query" in message:
-            self.handle_text_message(message, is_callback_query=True)
+        elif "callback_query" in update:
+            self.handle_callback_query(update["callback_query"], chat_id, from_id)
         # Triggered when the bot's role in a chat changes (e.g., added, removed, promoted to admin, blocked in private chat, etc.)
-        elif "my_chat_member" in message:
-            self.handle_my_chat_member(message)
+        elif "my_chat_member" in update:
+            self.handle_my_chat_member(update["my_chat_member"], chat_id, from_id)
         else:
-            self._logger.warning(
-                "Message is missing .message or .message.chat or .message.callback_query. Skipping it."
-            )
+            self._logger.debug(f"Got an unknown update. Doing nothing. Update was: {update}")
 
     def add_chat_to_known_chats(self, chat_id, chat_title, chat_type):
         self._logger.info(f"Adding new chat {chat_id} to known chats")
 
         new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
         new_chat_settings["type"] = chat_type
-        new_chat_settings["private"] = chat_type == "private"
         new_chat_settings["title"] = chat_title
         new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
 
@@ -215,21 +209,19 @@ class TelegramListener(threading.Thread):
             chatID=chat_id,
         )
 
-    def handle_my_chat_member(self, message):
-        new_status = message.get("my_chat_member", {}).get("new_chat_member", {}).get("status", "")
+    def handle_my_chat_member(self, my_chat_member, chat_id, from_id):
+        new_status = my_chat_member.get("new_chat_member", {}).get("status", "")
 
         if new_status in ("administrator", "member"):
             # If it is a new chat, add it to the known chats
-            chat_id = self.get_chat_id(message)
-            if chat_id not in self.main._settings.get(["chats"]):
-                chat = message["my_chat_member"]["chat"]
+            if self.main._settings.get(["chats", chat_id]) is None:
+                chat = my_chat_member["chat"]
                 chat_title = get_chat_title(chat)
                 chat_type = chat["type"]
                 self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
 
         elif new_status in ("left", "kicked"):
             # The bot left the chat, delete it from known chats
-            chat_id = self.get_chat_id(message)
             if self.main._settings.get(["chats", chat_id]) is not None:
                 self._logger.info(f"The bot left chat {chat_id}, removing it from settings...")
 
@@ -240,56 +232,40 @@ class TelegramListener(threading.Thread):
                     self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
                 )
 
-    def handle_new_chat_title_message(self, message):
-        chat_id = self.get_chat_id(message)
-
-        message_chat = message.get("message", {}).get("chat", {})
-        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
-
-        if is_chat_unknown or not message_chat:
-            return
-
+    def handle_new_chat_title_message(self, message, chat_id, from_id):
         self._logger.info(f"Chat {chat_id} changed title, updating it...")
 
-        self.main._settings.set(["chats", chat_id, "title"], get_chat_title(message_chat))
+        chat = message["chat"]
+
+        self.main._settings.set(["chats", chat_id, "title"], get_chat_title(chat))
         self.main._settings.save()
         self.main._plugin_manager.send_plugin_message(
             self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
         )
 
-    def handle_new_chat_photo_message(self, message):
-        chat_id = self.get_chat_id(message)
-
-        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
-        if is_chat_unknown:
-            return
-
+    def handle_new_chat_photo_message(self, message, chat_id, from_id):
         self._logger.info(f"Chat {chat_id} changed picture, updating it...")
 
         try:
 
             def update_chat_picture():
                 public_path = self.main.save_chat_picture(chat_id)
-                if public_path:
-                    self.main._settings.set(["chats", chat_id, "image"], public_path)
-                    self.main._settings.save()
-                    self.main._plugin_manager.send_plugin_message(
-                        self.main._identifier,
-                        {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])},
-                    )
+                self.main._settings.set(["chats", chat_id, "image"], public_path)
+                self.main._settings.save()
+                self.main._plugin_manager.send_plugin_message(
+                    self.main._identifier,
+                    {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])},
+                )
 
             threading.Thread(target=update_chat_picture, daemon=True).start()
         except Exception:
             self._logger.exception(f"Caught an exception updating chat picture for chat_id {chat_id}")
 
-    def handle_document_message(self, message):
+    def handle_document_message(self, message, chat_id, from_id):
         try:
-            self._logger.debug("Handling document message")
+            self._logger.debug(f"Handling document message: {message}")
 
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-
-            uploaded_file_filename = os.path.basename(message["message"]["document"]["file_name"])
+            uploaded_file_filename = os.path.basename(message["document"]["file_name"])
 
             # Check if upload command is allowed
             if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
@@ -327,7 +303,7 @@ class TelegramListener(threading.Thread):
             )
             saving_file_msg_id = saving_file_response["result"]["message_id"]
 
-            uploaded_file_content = self.main.get_file(message["message"]["document"]["file_id"])
+            uploaded_file_content = self.main.get_file(message["document"]["file_id"])
 
             # Prepare the destination folder
             destination_folder = self.main._file_manager.add_folder(
@@ -450,7 +426,7 @@ class TelegramListener(threading.Thread):
                 msg_id=saving_file_msg_id,
             )
         except Exception:
-            self._logger.exception("Caught an exception processing a file")
+            self._logger.exception("Caught an exception in handle_document_message")
             self.main.send_msg(
                 (
                     f"{get_emoji('attention')} Something went wrong during processing of your file.\n"
@@ -459,23 +435,50 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def handle_text_message(self, message, is_callback_query):
-        # Get chat_id and from_id
-        chat_id = self.get_chat_id(message)
-        from_id = self.get_from_id(message)
+    def handle_text_message(self, message, chat_id, from_id):
+        message_text = message["text"]
 
+        if not message_text.startswith("/"):
+            self._logger.debug(f"Ignoring text message '{message_text}' because it doesn't start with a slash")
+            return
+
+        # Remove bot username from commands like /command@botusername
+        command = message_text.split("@")[0]
+
+        self.handle_command(command, chat_id, from_id, message.get("from"))
+
+    def handle_callback_query(self, callback_query, chat_id, from_id):
+        command = callback_query["data"]
+        from_obj = callback_query["from"]
+        msg_id_to_update = callback_query.get("message", {}).get("message_id", "")
+
+        # Handle callback query data as if it was a text command
+        try:
+            self.handle_command(command, chat_id, from_id, from_obj, msg_id_to_update)
+        except Exception:
+            self._logger.exception("Caught an exception calling handle_text_message")
+
+        # Answer callback query (to prevent inline buttons from continuing to blink)
+        try:
+            self.main.telegram_utils.send_telegram_request(
+                f"{self.main.bot_url}/answerCallbackQuery",
+                "post",
+                data={"callback_query_id": callback_query["id"]},
+            )
+        except Exception:
+            self._logger.exception("Caught an exception sending answerCallbackQuery")
+
+    def handle_command(self, command, chat_id, from_id, from_obj, msg_id_to_update=""):
         # Separate command and parameter
-        if is_callback_query:
-            command_text = message["callback_query"]["data"]
-        else:
-            command_text = message["message"]["text"].split("@")[0]
-        parts = command_text.split("_")
+        parts = command.split("_")
         command = parts[0].lower()
         cmd_info = self.main.tcmd.commandDict.get(command, {})
         parameter = "_".join(parts[1:]) if cmd_info.get("param") else ""
 
         # Log received command
-        self._logger.info(f"Received command '{command}' with parameter '{parameter}' in chat {chat_id} from {from_id}")
+        self._logger.info(
+            f"Received command '{command}' with parameter '{parameter}' in chat '{chat_id}' from '{from_id}'"
+        )
 
         # Is command  known?
         if command not in self.main.tcmd.commandDict:
@@ -493,15 +496,10 @@ class TelegramListener(threading.Thread):
             # Identify user
             user = "Telegram - "
             try:
-                if is_callback_query:
-                    sender = message.get("callback_query", {}).get("from") or {}
-                else:
-                    sender = message.get("message", {}).get("from") or {}
+                username = from_obj.get("username")
 
-                username = sender.get("username")
-
-                first_name = sender.get("first_name")
-                last_name = sender.get("last_name")
+                first_name = from_obj.get("first_name")
+                last_name = from_obj.get("last_name")
                 fullname = " ".join(part for part in (first_name, last_name) if part).strip()
 
                 parts = []
@@ -516,9 +514,6 @@ class TelegramListener(threading.Thread):
                 user += "UNKNOWN"
 
             # Execute command
-            msg_id_to_update = ""
-            if is_callback_query:
-                msg_id_to_update = message.get("callback_query", {}).get("message", {}).get("message_id", "")
             try:
                 self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, msg_id_to_update, user)
             except Exception:
@@ -528,17 +523,6 @@ class TelegramListener(threading.Thread):
                     chatID=chat_id,
                     msg_id=msg_id_to_update,
                 )
-
-            # Answer callback query (to prevent inline buttons from continuing to blink)
-            try:
-                if is_callback_query:
-                    self.main.telegram_utils.send_telegram_request(
-                        f"{self.main.bot_url}/answerCallbackQuery",
-                        "post",
-                        data={"callback_query_id": message.get("callback_query", {}).get("id", 0)},
-                    )
-            except Exception:
-                self._logger.exception("Caught an exception sending answerCallbackQuery")
         else:
             # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
@@ -547,27 +531,33 @@ class TelegramListener(threading.Thread):
                 chatID=chat_id,
             )
 
-    def get_chat_id(self, message):
-        if "message" in message:
-            chat_id = message["message"]["chat"]["id"]
-        elif "callback_query" in message:
-            chat_id = message["callback_query"]["message"]["chat"]["id"]
-        elif "my_chat_member" in message:
-            chat_id = message["my_chat_member"]["chat"]["id"]
+    def get_chat_id(self, update):
+        if "message" in update:
+            chat_id = update["message"]["chat"]["id"]
+        elif "callback_query" in update:
+            chat_id = update["callback_query"]["message"]["chat"]["id"]
+        elif "my_chat_member" in update:
+            chat_id = update["my_chat_member"]["chat"]["id"]
+        elif "channel_post" in update:
+            chat_id = update["channel_post"]["chat"]["id"]
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' or 'my_chat_member' found")
+            raise ValueError(
+                "Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' or 'channel_post' found"
+            )
 
         return str(chat_id)
 
-    def get_from_id(self, message):
-        if "message" in message:
-            from_id = message["message"]["from"]["id"]
-        elif "callback_query" in message:
-            from_id = message["callback_query"]["from"]["id"]
-        elif "my_chat_member" in message:
-            from_id = message["my_chat_member"]["from"]["id"]
+    def get_from_id(self, update):
+        if "message" in update:
+            from_id = update.get("message", {}).get("from", {}).get("id", "")
+        elif "callback_query" in update:
+            from_id = update.get("callback_query", {}).get("from", {}).get("id", "")
+        elif "my_chat_member" in update:
+            from_id = update.get("my_chat_member", {}).get("from", {}).get("id", "")
+        elif "channel_post" in update:
+            from_id = update.get("channel_post", {}).get("from", {}).get("id", "")
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' or 'my_chat_member' found")
+            raise ValueError("Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' found")
 
         return str(from_id)
 
@@ -733,8 +723,7 @@ class TelegramPlugin(
                             continue
 
                         public_path = self.save_chat_picture(chat_id)
-                        if public_path:
-                            self._settings.set(["chats", chat_id, "image"], public_path)
+                        self._settings.set(["chats", chat_id, "image"], public_path)
 
                     self._settings.save()
                     self._plugin_manager.send_plugin_message(
@@ -835,11 +824,10 @@ class TelegramPlugin(
 
         # Initial settings for new chat.
         self.new_chat_settings = {
-            "private": True,
             "title": "[UNKNOWN]",
             "accept_commands": False,
             "send_notifications": False,
-            "type": "",
+            "type": "private",
             "image": "",
             "allow_users": False,
             "commands": {k: False for k, v in self.tcmd.commandDict.items() if "bind_none" not in v},
@@ -966,7 +954,6 @@ class TelegramPlugin(
                     )
 
                     chat = json_data["result"]["chat"]
-                    new_chat_settings["private"] = chat.get("type") == "private"
                     new_chat_settings["title"] = get_chat_title(chat)
                 except Exception:
                     self._logger.exception(
@@ -986,6 +973,13 @@ class TelegramPlugin(
                 "message_at_print_failed",
             ]:
                 self._settings.set([key], None)
+
+        # Migrate from plugin versions < 1.10.0
+        if current is None or current < 7:
+            # In previous versions, "type" was stored in uppercase
+            for chat_settings in chats.values():
+                if "type" in chat_settings and isinstance(chat_settings["type"], str):
+                    chat_settings["type"] = chat_settings["type"].lower()
 
         # General migration from all previous versions
         if current is None or current < target:
@@ -1771,9 +1765,6 @@ class TelegramPlugin(
 
         self._logger.debug(f"Saving chat picture for chat {chat_id}")
 
-        default_img = "/plugin/telegram/static/img/default.jpg"
-        group_img = "/plugin/telegram/static/img/group.jpg"
-
         try:
             is_group = is_group_or_channel(chat_id)
 
@@ -1807,7 +1798,7 @@ class TelegramPlugin(
                 except Exception:
                     pass
 
-                return group_img if is_group else default_img
+                return ""
 
             img_bytes = self.get_file(file_id)
             with Image.open(io.BytesIO(img_bytes)) as img:
@@ -1815,10 +1806,14 @@ class TelegramPlugin(
                 img.save(output_filename, format="JPEG")
 
             self._logger.info(f"Saved chat picture for chat id {chat_id}")
-            return f"/plugin/telegram/img/user/pic{chat_id}.jpg"
+
+            # Nocache is used to force image refresh in the known chats table
+            nocache = int(time.time())
+
+            return f"/plugin/telegram/img/user/pic{chat_id}.jpg?nocache={nocache}"
         except Exception:
             self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
-            return default_img
+            return ""
 
     @contextmanager
     def telegram_action_context(self, chat_id, action):

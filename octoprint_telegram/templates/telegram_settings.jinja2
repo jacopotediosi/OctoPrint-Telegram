@@ -707,19 +707,25 @@
                             <tr>
                                 <td class="settings_users_name" style="border-right:1px dashed #ddd">
                                     <div style="float:left;
-                                                padding:0px 5px 0px 0px;
-                                                margin:0px;
-                                                position:relative">
-                                        <img data-bind="attr: { src: image ? image : (type && ['group', 'supergroup'].includes(type.toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg'), __type: type }"
+                                                margin:0 5px 0 0;
+                                                position:relative;
+                                                width:40px;
+                                                height:40px;
+                                                background-color:#e0e0e0;
+                                                border-radius:50%;
+                                                display:flex;
+                                                align-items:center;
+                                                justify-content:center">
+                                        <img data-bind="attr: { src: image || (type === 'channel' ? '/plugin/telegram/static/img/channel.svg' : (['group','supergroup'].includes(type) ? '/plugin/telegram/static/img/group.svg' : '/plugin/telegram/static/img/default.svg')), __type: type }"
                                              width="40px"
                                              height="40px"
                                              class="img-circle teleUsrPic"
                                              alt="Chat profile photo"
                                              title="Chat profile photo"
-                                             onerror="this.src = (this.getAttribute('__type') && ['group','supergroup'].includes(this.getAttribute('__type').toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg')">
+                                             onerror="this.src = this.getAttribute('__type') === 'channel' ? '/plugin/telegram/static/img/channel.svg' : (['group','supergroup'].includes(this.getAttribute('__type')) ? '/plugin/telegram/static/img/group.svg' : '/plugin/telegram/static/img/default.svg')">
                                     </div>
                                     <div>
-                                        <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;
+                                        <i data-bind="css: type === 'channel' ? 'icon-bullhorn' : (['group', 'supergroup'].includes(type) ? 'icon-group' : 'icon-user')"></i>&nbsp;
                                         <span data-bind="text: title"></span>
                                         <span class="muted" data-bind="visible: true">
                                             <br>
@@ -845,29 +851,15 @@
 <!-- DIALOGS -->
 <!-- EDIT CHAT DIALOG -->
 <div id="settings-telegramDialogEditChat"
-     class="modal modal-full hide fade">
+     class="modal modal-full hide fade"
+     data-backdrop="static">
     <div class="modal-header">
         <h4>
             <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit chat: <span data-bind="text: currChatTitle"></span>
         </h4>
     </div>
     <div class="modal-body">
-        <form class="form-horizontal">
-            <span id="telegram-user-allowed-chkbox"></span>
-            <div class="control-group">
-                <div class="controls">
-                    <label class="checkbox">
-                        <span id="telegram-acccmd-chkbox"></span>
-                    </label>
-                </div>
-            </div>
-            <div class="control-group">
-                <div class="controls">
-                    <label class="checkbox">
-                        <span id="telegram-notify-chkbox"></span>
-                    </label>
-                </div>
-            </div>
+        <form class="form-horizontal" id="telegram-edit-chat-form">
         </form>
     </div>
     <div class="modal-footer">
