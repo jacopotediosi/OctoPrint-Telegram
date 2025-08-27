@@ -878,8 +878,6 @@ class TelegramPlugin(
             # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
             chats={"zBOTTOMOFCHATS": {}},
             send_icon=True,
-            image_not_connected=True,
-            gif_not_connected=False,
             send_gif=False,
             no_mistake=False,
             fileOrder=False,
@@ -988,6 +986,8 @@ class TelegramPlugin(
                 "message_at_print_started",
                 "message_at_print_done",
                 "message_at_print_failed",
+                "image_not_connected",
+                "gif_not_connected",
             ]
 
             # Update chats

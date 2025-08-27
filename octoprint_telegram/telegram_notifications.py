@@ -94,9 +94,17 @@ telegramMsgDict = {
         "no_setting": True,
         "desc": "Triggered on user request when no print is running",
     },
+    "StatusNotConnected": {
+        "text": "{emo:warning} Not connected to a printer. Use /con to connect.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "no_setting": True,
+        "desc": "Triggered on user request when printer is not connected",
+    },
     "StatusPrinting": {
         "bind_msg": "ZChange",
-        "no_setting": True,
         "desc": "Triggered on user request when a print is running",
     },
     "PausedForUser": {
@@ -125,7 +133,6 @@ telegramMsgDict = {
     },
     "plugin_octolapse_movie_done": {
         "bind_msg": "MovieDone",
-        "no_setting": True,
         "desc": "Triggered when the Octolapse plugin finishes rendering the movie",
     },
     "MovieDone": {
@@ -197,6 +204,7 @@ class TMSG:
             "ZChange": self.msgZChange,
             "PrintDone": self.msgPrintDone,
             "StatusNotPrinting": self.msgStatusNotPrinting,
+            "StatusNotConnected": self.msgStatusNotConnected,
             "StatusPrinting": self.msgStatusPrinting,
             "PausedForUser": self.msgPausedForUser,
             "gCode_M600": self.msgColorChangeRequested,
@@ -268,10 +276,13 @@ class TMSG:
     def msgStatusNotPrinting(self, payload, **kwargs):
         self._sendNotification(payload, **kwargs)
 
+    def msgStatusNotConnected(self, payload, **kwargs):
+        self._sendNotification(payload, **kwargs)
+
     def msgPausedForUser(self, payload, **kwargs):
         if payload is None:
             payload = {}
-        if not self.is_usernotification_necessary():  # 18/11/2019 try to not send this message too much
+        if not self.is_usernotification_necessary():
             return
         self._sendNotification(payload, **kwargs)
 

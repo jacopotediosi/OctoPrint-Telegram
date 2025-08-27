@@ -810,40 +810,6 @@
                 <div id="telegram-settings-msg-list">
                     <!-- Message settings get listed here -->
                 </div>
-                <label style="display: block; font-weight: bold; margin-bottom: 6px;">"Not connected" status</label>
-                <div style="display: flex;
-                            justify-content: space-around;
-                            margin-bottom: 10px">
-                    <div class="switch-container">
-                        <label class="switch-label"
-                               style="display: inline-flex;
-                                      align-items: center;
-                                      gap: 8px;
-                                      cursor: pointer">
-                            <span>Send camera photos &#x1F4F7;</span>
-                            <input type="checkbox"
-                                   style="display:none"
-                                   class="switch-input"
-                                   data-bind="checked: settings.settings.plugins.telegram.image_not_connected" />
-                            <span class="switch-slider"></span>
-                        </label>
-                    </div>
-                    <div class="switch-container">
-                        <label class="switch-label"
-                               style="display: inline-flex;
-                                      align-items: center;
-                                      gap: 8px;
-                                      cursor: pointer"
-                               data-bind="css: { 'disabled': !settings.settings.plugins.telegram.send_gif() }, attr: { title: !settings.settings.plugins.telegram.send_gif() ? 'Check \'Enable gifs\' setting to use this option' : null }">
-                            <span>Send camera gifs &#x1F3A5;</span>
-                            <input type="checkbox"
-                                   style="display:none"
-                                   class="switch-input"
-                                   data-bind="checked: settings.settings.plugins.telegram.gif_not_connected, enable: settings.settings.plugins.telegram.send_gif" />
-                            <span class="switch-slider"></span>
-                        </label>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
