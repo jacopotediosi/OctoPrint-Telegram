@@ -99,7 +99,7 @@ telegramMsgDict = {
         "no_setting": True,
         "desc": "Triggered on user request when a print is running",
     },
-    "plugin_pause_for_user_event_notify": {
+    "PausedForUser": {
         "text": "{emo:warning} User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
@@ -198,7 +198,7 @@ class TMSG:
             "PrintDone": self.msgPrintDone,
             "StatusNotPrinting": self.msgStatusNotPrinting,
             "StatusPrinting": self.msgStatusPrinting,
-            "plugin_pause_for_user_event_notify": self.msgPauseForUserEventNotify,
+            "PausedForUser": self.msgPausedForUser,
             "gCode_M600": self.msgColorChangeRequested,
             "Error": self.msgPrinterError,
             "MovieDone": self.msgMovieDone,
@@ -268,7 +268,7 @@ class TMSG:
     def msgStatusNotPrinting(self, payload, **kwargs):
         self._sendNotification(payload, **kwargs)
 
-    def msgPauseForUserEventNotify(self, payload, **kwargs):
+    def msgPausedForUser(self, payload, **kwargs):
         if payload is None:
             payload = {}
         if not self.is_usernotification_necessary():  # 18/11/2019 try to not send this message too much

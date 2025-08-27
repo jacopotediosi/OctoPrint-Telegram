@@ -978,6 +978,7 @@ class TelegramPlugin(
             notifications_to_rename = {
                 "TelegramSendNotPrintingStatus": "StatusNotPrinting",
                 "TelegramSendPrintingStatus": "StatusPrinting",
+                "plugin_pause_for_user_event_notify": "PausedForUser",
             }
 
             # Settings to delete
