@@ -926,7 +926,7 @@ class TelegramPlugin(
         self._logger.info(f"Migration - loaded chats: {chats}")
 
         messages = self._settings.get(["messages"])
-        self._logger.info(f"Migration - loaded messages: {messages}")
+        self._logger.info(f"Migration - loaded notification messages: {messages}")
 
         # Migrate from plugin versions < 1.3.0
         if current is None or current < 1:
@@ -964,16 +964,6 @@ class TelegramPlugin(
                 self._settings.set(["chat"], None)
                 chats[str(chat["id"])] = new_chat_settings
 
-            # Delete old settings
-            for key in [
-                "message_at_startup",
-                "message_at_shutdown",
-                "message_at_print_started",
-                "message_at_print_done",
-                "message_at_print_failed",
-            ]:
-                self._settings.set([key], None)
-
         # Migrate from plugin versions < 1.10.0
         if current is None or current < 7:
             # In previous versions, "type" was stored in uppercase
@@ -983,6 +973,22 @@ class TelegramPlugin(
 
         # General migration from all previous versions
         if current is None or current < target:
+            # Rename mappings (old:new)
+            commands_to_rename = {"/list": "/files", "/imsorrydontshutup": "/dontshutup", "/on": "/power"}
+            notifications_to_rename = {
+                "TelegramSendNotPrintingStatus": "StatusNotPrinting",
+                "TelegramSendPrintingStatus": "StatusPrinting",
+            }
+
+            # Settings to delete
+            settings_to_delete = [
+                "message_at_startup",
+                "message_at_shutdown",
+                "message_at_print_started",
+                "message_at_print_done",
+                "message_at_print_failed",
+            ]
+
             # Update chats
             for chat_settings in chats.values():
                 # Add new chat settings
@@ -995,10 +1001,9 @@ class TelegramPlugin(
                 chat_notifications = chat_settings["notifications"]
 
                 # Rename commands (copy, not move)
-                rename_commands = {"/list": "/files", "/imsorrydontshutup": "/dontshutup", "/on": "/power"}
-                for old_cmd, new_cmd in rename_commands.items():
-                    if old_cmd in chat_commands:
-                        chat_commands[new_cmd] = chat_commands[old_cmd]
+                for old_command, new_command in commands_to_rename.items():
+                    if old_command in chat_commands:
+                        chat_commands[new_command] = chat_commands[old_command]
 
                 # Remove obsolete commands (marked with 'bind_none' or no longer present in tcmd.commandDict)
                 for command in list(chat_commands):
@@ -1010,6 +1015,11 @@ class TelegramPlugin(
                     if command not in chat_commands and "bind_none" not in command_props:
                         chat_commands[command] = False
 
+                # Rename notifications (copy, not move)
+                for old_notification, new_notification in notifications_to_rename.items():
+                    if old_notification in chat_notifications:
+                        chat_notifications[new_notification] = chat_notifications[old_notification]
+
                 # Remove obsolete notifications (no longer present in telegramMsgDict)
                 for msg in list(chat_notifications):
                     if msg not in telegramMsgDict:
@@ -1020,20 +1030,16 @@ class TelegramPlugin(
                     if notification not in chat_notifications:
                         chat_notifications[notification] = False
 
-            # Rename messages (copy, not move)
-            rename_messages = {
-                "TelegramSendNotPrintingStatus": "StatusNotPrinting",
-                "TelegramSendPrintingStatus": "StatusPrinting",
-            }
+            # Rename notification messages (copy, not move)
             for message, message_props in list(messages.items()):
-                mapped_key = rename_messages.get(message, message)
+                mapped_key = notifications_to_rename.get(message, message)
                 messages[mapped_key] = (
                     message_props
                     if isinstance(message_props, dict)
                     else {**telegramMsgDict.get(mapped_key, {}), "text": str(message_props)}
                 )
 
-            # Remove obsolete messages (no longer present in telegramMsgDict)
+            # Remove obsolete notification messages (no longer present in telegramMsgDict)
             for message in list(messages):
                 if message not in telegramMsgDict:
                     messages.pop(message, None)
@@ -1043,11 +1049,15 @@ class TelegramPlugin(
                 if message not in messages:
                     messages[message] = message_props
 
+            # Delete old settings
+            for key in settings_to_delete:
+                self._settings.set([key], None)
+
         # Save the settings after migration is done
         self._settings.set(["chats"], chats)
         self._logger.info(f"Migration - chats set: {chats}")
         self._settings.set(["messages"], messages)
-        self._logger.info(f"Migration - messages set: {messages}")
+        self._logger.info(f"Migration - notification messages set: {messages}")
 
         self._logger.warning("Migration - end")
 
@@ -2337,7 +2347,7 @@ class TelegramPlugin(
         try:
             if line.startswith("echo:busy: paused for user") or line.startswith("// action:paused"):
                 if not self.user_pause_already_notified:
-                    self.on_event("plugin_pause_for_user_event_notify", {})
+                    self.on_event("PausedForUser", {})
                     self.user_pause_already_notified = True
             elif line.startswith("echo:UserNotif"):
                 self.on_event("UserNotif", {"UserNotif": line[15:]})
