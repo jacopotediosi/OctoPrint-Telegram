@@ -99,7 +99,7 @@ class TCMD:
             "/settings": {"cmd": self.cmdSettings, "param": True, "desc": "Show and change notification settings"},
             "/upload": {"cmd": self.cmdUpload, "desc": "Upload a file to OctoPrint library"},
             "/filament": {"cmd": self.cmdFilament, "param": True, "desc": "Manage filament spools"},
-            "/user": {"cmd": self.cmdUser, "desc": "Get user information"},
+            "/user": {"cmd": self.cmdUser, "desc": "Get information about chat, user and permissions"},
             "/gcode": {
                 "cmd": self.cmdGCode,
                 "param": True,
@@ -2056,48 +2056,60 @@ class TCMD:
                 )
 
     def cmdUser(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
-        chat_data = self.main._settings.get(["chats", chat_id])
+        # Gather data
+        chat_settings = self.main._settings.get(["chats", chat_id])
+        from_settings = self.main._settings.get(["chats", from_id])
+
+        # -- Chat and user information section --
 
         msg = (
-            f"{get_emoji('info')} <b>Your user settings:</b>\n\n"
-            f"<b>ID:</b> {html.escape(chat_id)}\n"
-            f"<b>Name:</b> {html.escape(chat_data['title'])}\n"
+            f"{get_emoji('info')} <b>Chat and user information:</b>\n\n"
+            f"<b>Chat title:</b> {html.escape(chat_settings['title'])}\n"
+            f"<b>Chat type:</b> {html.escape(chat_settings['type'])}\n"
+            f"<b>Chat id:</b> {html.escape(chat_id)}\n"
+            f"<b>User id:</b> {html.escape(from_id)}\n\n"
         )
 
-        chat_type = chat_data["type"]
-        msg += f"<b>Type:</b> {chat_type}\n\n"
-        if chat_type != "private":
-            if chat_data["accept_commands"]:
-                msg += "<b>Accept-Commands:</b> All users\n\n"
-            elif chat_data["allow_users"]:
-                msg += "<b>Accept-Commands:</b> Allowed users\n\n"
-            else:
-                msg += "<b>Accept-comands:</b> None\n\n"
+        # -- Commands allowed section --
 
-        msg += "<b>Allowed commands:</b>\n"
-        if chat_data["accept_commands"]:
-            enabled_commands = [key for key, enabled in chat_data["commands"].items() if enabled]
-            if enabled_commands:
-                escaped_commands = [html.escape(command) for command in enabled_commands]
-                msg += ", ".join(escaped_commands) + "\n\n"
-            else:
-                msg += "You are NOT allowed to send any command.\n\n"
-        elif chat_data["allow_users"]:
-            msg += "Allowed users ONLY. See specific user settings for details.\n\n"
+        enabled_group_commands = []
+        if chat_settings["accept_commands"]:
+            enabled_group_commands = [command for command, enabled in chat_settings["commands"].items() if enabled]
+
+        enabled_individual_commands = []
+        if chat_settings["allow_users"] and from_settings:
+            enabled_individual_commands = [command for command, enabled in from_settings["commands"].items() if enabled]
+
+        if enabled_group_commands:
+            msg += "<b>All chat members can use the following commands:</b>\n"
+            escaped_commands = [html.escape(command) for command in enabled_group_commands]
+            msg += ", ".join(escaped_commands) + "\n\n"
+
+        if enabled_individual_commands:
+            also_text = "also " if enabled_group_commands else ""
+            msg += f"<b>You can {also_text}use the following commands (individually enabled):</b>\n"
+            escaped_commands = [html.escape(command) for command in enabled_group_commands]
+            msg += ", ".join(escaped_commands) + "\n\n"
+
+        if not enabled_group_commands and not enabled_individual_commands:
+            msg += "No commands allowed\n\n"
+
+        # -- Notifications enabled section --
+
+        msg += "<b>Notifications enabled for this chat:</b>\n"
+
+        enabled_notifications = []
+        if chat_settings["send_notifications"]:
+            enabled_notifications = [
+                notification for notification, enabled in chat_settings["notifications"].items() if enabled
+            ]
+        if enabled_notifications:
+            escaped_notifications = [html.escape(notification) for notification in enabled_notifications]
+            msg += ", ".join(escaped_notifications) + "\n\n"
         else:
-            msg += "You are NOT allowed to send any command.\n\n"
+            msg += "No notifications enabled"
 
-        msg += "<b>Get notification on:</b>\n"
-        if chat_data["send_notifications"]:
-            enabled_notifications = [key for key, enabled in chat_data["notifications"].items() if enabled]
-            if enabled_notifications:
-                escaped_notifications = [html.escape(notification) for notification in enabled_notifications]
-                msg += ", ".join(escaped_notifications) + "\n\n"
-            else:
-                msg += "You will receive NO notifications.\n\n"
-        else:
-            msg += "You will receive NO notifications.\n\n"
-
+        # Send the message
         self.main.send_msg(
             msg,
             chatID=chat_id,
