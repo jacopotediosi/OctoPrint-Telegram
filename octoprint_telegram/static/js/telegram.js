@@ -689,6 +689,28 @@ $(function () {
       return `Disable (${timerEmoji} ${formatted})`
     })
 
+    self.resetNotificationMessages = function () {
+      const message = 'Do you really want to reset all notification messages to default?<br>Remember to save once this dialog is closed.'
+
+      showConfirmationDialog(message, function () {
+        OctoPrint.simpleApiGet(self.pluginIdentifier + '?default_messages')
+          .done((response) => {
+            Object.keys(self.settings.settings.plugins.telegram.messages).forEach((key) => {
+              const messageObservables = self.settings.settings.plugins.telegram.messages[key]
+              const defaultValues = response[key]
+
+              if (defaultValues) {
+                Object.keys(defaultValues).forEach((field) => {
+                  if (messageObservables[field] && ko.isObservable(messageObservables[field])) {
+                    messageObservables[field](defaultValues[field])
+                  }
+                })
+              }
+            })
+          })
+      })
+    }
+
     // Reveal password buttons
     $(function () {
       $('button[data-toggle="reveal"]').on('click', function () {

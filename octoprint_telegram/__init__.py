@@ -1189,6 +1189,10 @@ class TelegramPlugin(
                 }
             )
 
+        # /?default_messages
+        if request_args and "default_messages" in request_args:
+            return jsonify(telegramMsgDict)
+
         # /?requirements
         if request_args and "requirements" in request_args:
             settings_ffmpeg = self._settings.global_get(["webcam", "ffmpeg"])
