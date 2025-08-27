@@ -195,27 +195,27 @@ class TMSG:
         self._logger = main._logger.getChild("TMSG")
 
         self.msgCmdDict = {
-            "PrinterStart": self.msgPrinterStart_Shutdown,
-            "PrinterShutdown": self.msgPrinterStart_Shutdown,
-            "PrintStarted": self.msgPrintStarted,
-            "PrintFailed": self.msgPrintFailed,
-            "PrintPaused": self.msgPaused,
-            "PrintResumed": self.msgResumed,
-            "ZChange": self.msgZChange,
-            "PrintDone": self.msgPrintDone,
-            "StatusNotPrinting": self.msgStatusNotPrinting,
-            "StatusNotConnected": self.msgStatusNotConnected,
-            "StatusPrinting": self.msgStatusPrinting,
-            "PausedForUser": self.msgPausedForUser,
-            "gCode_M600": self.msgColorChangeRequested,
-            "Error": self.msgPrinterError,
-            "MovieDone": self.msgMovieDone,
-            "plugin_octolapse_movie_done": self.msgMovieDone,
-            "UserNotif": self.msgUserNotif,
-            "Connected": self.msgConnected,
-            "Disconnected": self.msgConnected,
-            "Alert": self.msgConnected,
-            "Home": self.msgConnected,
+            "PrinterStart": self._sendNotification,
+            "PrinterShutdown": self._sendNotification,
+            "PrintStarted": self._on_msgPrintStarted,
+            "PrintFailed": self._on_msgPrintFailed,
+            "PrintPaused": self._sendNotification,
+            "PrintResumed": self._sendNotification,
+            "ZChange": self._on_msgZChange,
+            "PrintDone": self._on_msgPrintDone,
+            "StatusNotPrinting": self._sendNotification,
+            "StatusNotConnected": self._sendNotification,
+            "StatusPrinting": self._sendNotification,
+            "PausedForUser": self._sendNotification,
+            "gCode_M600": self._sendNotification,
+            "Error": self._sendNotification,
+            "MovieDone": self._sendNotification,
+            "plugin_octolapse_movie_done": self._sendNotification,
+            "UserNotif": self._sendNotification,
+            "Connected": self._sendNotification,
+            "Disconnected": self._sendNotification,
+            "Alert": self._sendNotification,
+            "Home": self._sendNotification,
         }
 
     def startEvent(self, event, payload, **kwargs):
@@ -224,10 +224,7 @@ class TMSG:
         kwargs["event"] = event
         self.msgCmdDict[event](payload, **kwargs)
 
-    def msgPrinterStart_Shutdown(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgZChange(self, payload, **kwargs):
+    def _on_msgZChange(self, payload, **kwargs):
         status = self.main._printer.get_current_data()
         if not status["state"]["flags"]["printing"] or not self.is_notification_necessary(
             payload["new"], payload["old"]
@@ -244,61 +241,18 @@ class TMSG:
         )
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintStarted(self, payload, **kwargs):
+    def _on_msgPrintStarted(self, payload, **kwargs):
         self.last_z = 0.0
         self.last_notification_time = time.time()
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintDone(self, payload, **kwargs):
+    def _on_msgPrintDone(self, payload, **kwargs):
         self.main.shut_up = set()
         kwargs["delay"] = self.main._settings.get_int(["message_at_print_done_delay"])
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintFailed(self, payload, **kwargs):
+    def _on_msgPrintFailed(self, payload, **kwargs):
         self.main.shut_up = set()
-        self._sendNotification(payload, **kwargs)
-
-    def msgMovieDone(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPrinterError(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPaused(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgResumed(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgStatusPrinting(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgStatusNotPrinting(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgStatusNotConnected(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPausedForUser(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        if not self.is_usernotification_necessary():
-            return
-        self._sendNotification(payload, **kwargs)
-
-    def msgColorChangeRequested(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        self._sendNotification(payload, **kwargs)
-
-    def msgUserNotif(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        self._sendNotification(payload, **kwargs)
-
-    def msgConnected(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
         self._sendNotification(payload, **kwargs)
 
     def _sendNotification(self, payload, **kwargs):
@@ -735,15 +689,4 @@ class TMSG:
             if new_z >= self.last_z + zdiff or new_z < self.last_z:
                 self.last_z = new_z
                 return True
-        return False
-
-    def is_usernotification_necessary(self):
-        timediff = 30  # Force to every 30 seconds
-        # Check the timediff
-        self._logger.debug(
-            f"self.last_notification_time + timediff: {self.last_notification_time + timediff} <= time.time(): {time.time()}"
-        )
-        if self.last_notification_time + timediff <= time.time():
-            self.last_notification_time = time.time()
-            return True
         return False
