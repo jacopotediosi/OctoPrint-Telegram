@@ -708,7 +708,7 @@ class TelegramPlugin(
                                 timeout=5,
                             )
                         except Exception as e:
-                            if '"error_code":403' in str(e):
+                            if '"error_code":403' in getattr(e, "telegram_response_text", ""):
                                 self._logger.info(f"Chat {chat_id} is unreachable, removing it from settings...")
                                 self.remove_chat_from_known_chats(chat_id)
                                 continue
@@ -1463,7 +1463,7 @@ class TelegramPlugin(
             )
 
         except Exception as e:
-            if "Bad Request: message is not modified" not in str(e):
+            if "Bad Request: message is not modified" not in getattr(e, "telegram_response_text", ""):
                 self._logger.exception("Caught an exception in _send_edit_msg()")
                 self.thread.set_status("Exception sending a message")
                 self.telegram_utils.send_telegram_request(
