@@ -516,7 +516,7 @@ $(function () {
           self.pluginIdentifier,
           'delChat',
           { chat_id: data.id }
-        ).done(self.fromResponse)
+        )
       })
     }
 

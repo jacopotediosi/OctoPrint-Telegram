@@ -159,10 +159,11 @@ class TelegramListener(threading.Thread):
             # We got a text message, likely a command
             if "text" in message:
                 if is_chat_unknown:
+                    self._logger.info(f"Received a text message from unknown chat {chat_id}, enrolling it...")
                     chat = message["chat"]
                     chat_title = get_chat_title(chat)
                     chat_type = chat["type"]
-                    self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+                    self.main.add_chat_to_known_chats(chat_id, chat_title, chat_type)
                 else:
                     self.handle_text_message(message, chat_id, from_id)
             # We got a document (file)
@@ -186,51 +187,23 @@ class TelegramListener(threading.Thread):
         else:
             self._logger.debug(f"Got an unknown update. Doing nothing. Update was: {update}")
 
-    def add_chat_to_known_chats(self, chat_id, chat_title, chat_type):
-        self._logger.info(f"Adding new chat {chat_id} to known chats")
-
-        new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
-        new_chat_settings["type"] = chat_type
-        new_chat_settings["title"] = chat_title
-        new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
-
-        settings_chats = self.main._settings.get(["chats"])
-        settings_chats[chat_id] = new_chat_settings
-        self.main._settings.set(["chats"], settings_chats)
-        self.main._settings.save()
-
-        self.main._plugin_manager.send_plugin_message(
-            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-        )
-
-        self.main.send_msg(
-            f"{get_emoji('info')} Chat added to known chats. "
-            "Before you can do anything, please go to plugin settings and edit your permissions.",
-            chatID=chat_id,
-        )
-
     def handle_my_chat_member(self, my_chat_member, chat_id, from_id):
         new_status = my_chat_member.get("new_chat_member", {}).get("status", "")
 
         if new_status in ("administrator", "member"):
             # If it is a new chat, add it to the known chats
             if self.main._settings.get(["chats", chat_id]) is None:
+                self._logger.info(f"The bot has been added to the new chat {chat_id}, enrolling it...")
                 chat = my_chat_member["chat"]
                 chat_title = get_chat_title(chat)
                 chat_type = chat["type"]
-                self.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+                self.main.add_chat_to_known_chats(chat_id, chat_title, chat_type)
 
         elif new_status in ("left", "kicked"):
             # The bot left the chat, delete it from known chats
             if self.main._settings.get(["chats", chat_id]) is not None:
                 self._logger.info(f"The bot left chat {chat_id}, removing it from settings...")
-
-                self.main._settings.remove(["chats", chat_id])
-                self.main._settings.save()
-
-                self.main._plugin_manager.send_plugin_message(
-                    self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-                )
+                self.main.remove_chat_from_known_chats(chat_id)
 
     def handle_new_chat_title_message(self, message, chat_id, from_id):
         self._logger.info(f"Chat {chat_id} changed title, updating it...")
@@ -1327,17 +1300,11 @@ class TelegramPlugin(
                 return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
             try:
-                chat_picture_path = os.path.join(self.get_plugin_data_folder(), "img", "user", f"pic{int(chat_id)}.jpg")
-                os.remove(chat_picture_path)
-            except OSError:
-                pass
+                self.remove_chat_from_known_chats(chat_id)
+                self._logger.info(f"Chat {chat_id} has been deleted via API")
             except Exception:
-                return jsonify({"ok": False, "error": "Cannot delete chat picture"}), 500
-
-            self._settings.remove(["chats", chat_id])
-            self._settings.save()
-
-            self._logger.info(f"Chat {chat_id} deleted")
+                self._logger.exception("Caught an exception in delChat API command")
+                return jsonify({"ok": False, "error": "Cannot delete chat, please check logs"}), 500
 
             # Return updated chats settings
             return self.process_on_api_get()
@@ -1771,6 +1738,45 @@ class TelegramPlugin(
         file_req.raise_for_status()
 
         return file_req.content
+
+    def remove_chat_from_known_chats(self, chat_id):
+        self._logger.info(f"Removing chat {chat_id} from known chats")
+
+        try:
+            chat_picture_path = os.path.join(self.get_plugin_data_folder(), "img", "user", f"pic{int(chat_id)}.jpg")
+            os.remove(chat_picture_path)
+        except OSError:
+            pass
+
+        self._settings.remove(["chats", chat_id])
+        self._settings.save()
+
+        self._plugin_manager.send_plugin_message(
+            self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
+        )
+
+    def add_chat_to_known_chats(self, chat_id, chat_title, chat_type):
+        self._logger.info(f"Adding new chat {chat_id} to known chats")
+
+        new_chat_settings = copy.deepcopy(self.new_chat_settings)
+        new_chat_settings["type"] = chat_type
+        new_chat_settings["title"] = chat_title
+        new_chat_settings["image"] = self.save_chat_picture(chat_id)
+
+        settings_chats = self._settings.get(["chats"])
+        settings_chats[chat_id] = new_chat_settings
+        self._settings.set(["chats"], settings_chats)
+        self._settings.save()
+
+        self._plugin_manager.send_plugin_message(
+            self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
+        )
+
+        self.send_msg(
+            f"{get_emoji('info')} Chat added to known chats. "
+            "Before you can do anything, please go to plugin settings and edit your permissions.",
+            chatID=chat_id,
+        )
 
     def save_chat_picture(self, chat_id):
         if not self.bot_ready:
