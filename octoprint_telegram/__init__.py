@@ -853,7 +853,7 @@ class TelegramPlugin(
             send_icon=True,
             send_gif=False,
             no_mistake=False,
-            fileOrder=False,
+            sort_files_by_date=False,
             no_cpulimit=False,
             ffmpeg_preset="medium",
             PreImgMethod="None",
@@ -951,6 +951,7 @@ class TelegramPlugin(
                 "TelegramSendPrintingStatus": "StatusPrinting",
                 "plugin_pause_for_user_event_notify": "PausedForUser",
             }
+            settings_to_rename = {"fileOrder": "sort_files_by_date"}
 
             # Settings to delete
             settings_to_delete = [
@@ -1022,6 +1023,13 @@ class TelegramPlugin(
             for message, message_props in telegramMsgDict.items():
                 if message not in messages:
                     messages[message] = message_props
+
+            # Rename settings
+            for old_setting, new_setting in settings_to_rename.items():
+                old_setting_value = self._settings.get([old_setting])
+                if old_setting_value is not None:
+                    self._settings.set([new_setting], old_setting_value)
+                    self._settings.set([old_setting], None)
 
             # Delete old settings
             for key in settings_to_delete:

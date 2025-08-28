@@ -2,7 +2,6 @@ import base64
 import datetime
 import hashlib
 import html
-import operator
 import socket
 from abc import ABC, abstractmethod
 from itertools import islice
@@ -38,8 +37,7 @@ class TCMD:
         self.temp_target_temps = {}
         self.temp_connection_settings = []
 
-        self.dirHashDict = {}
-        self.tmpFileHash = ""
+        self.files_hash_path_map = {}
         self._spoolManagerPluginImplementation = None
 
         self.commandDict = {
@@ -58,7 +56,7 @@ class TCMD:
             "/files": {
                 "cmd": self.cmdFiles,
                 "param": True,
-                "desc": "List all available print files",
+                "desc": "List and manage print files",
             },
             "/print": {
                 "cmd": self.cmdPrint,
@@ -503,23 +501,22 @@ class TCMD:
                 self.main._printer.unselect_file()
                 self.cmdNo(chat_id, from_id, cmd, parameter, msg_id_to_update, user)
             else:  # prepare print (load and ask for confirm)
-                self._logger.debug(f"Looking for hash: {parameter}")
-                destination, file, f = self.find_file_by_hash(parameter)
-                if file is None:
-                    msg = f"{get_emoji('warning')} I'm sorry, but I couldn't find the file you wanted me to print. Perhaps you want to have a look at /files again?"
+                try:
+                    destination, file = self.find_path_by_hash(parameter)
+
+                    if destination == octoprint.filemanager.FileDestinations.SDCARD:
+                        self.main._printer.select_file(file, True, printAfterSelect=False)
+                    else:
+                        file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
+                        self.main._printer.select_file(file, False, printAfterSelect=False)
+                except Exception:
+                    msg = f"{get_emoji('attention')} I couldn't find the file you wanted to print. Perhaps you want to have a look at /files again?"
                     self.main.send_msg(
                         msg,
                         chatID=chat_id,
                         msg_id=msg_id_to_update,
                     )
                     return
-
-                if destination == octoprint.filemanager.FileDestinations.SDCARD:
-                    self.main._printer.select_file(file, True, printAfterSelect=False)
-                else:
-                    file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
-                    self._logger.debug(f"Using full path: {file}")
-                    self.main._printer.select_file(file, False, printAfterSelect=False)
 
                 current_data = self.main._printer.get_current_data()
                 job_file_name = current_data.get("job", {}).get("file", {}).get("name")
@@ -577,63 +574,91 @@ class TCMD:
                     msg_id=msg_id_to_update,
                 )
             else:
-                self.cmdFiles(chat_id, from_id, cmd, parameter, msg_id_to_update, user)
+                self.cmdFiles(chat_id, from_id, cmd, "", msg_id_to_update, user)
 
     def cmdFiles(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
+        """
+        Callback query format: /files_operation_pathHash_pageNumber_additionalArg1_additionalArg2
+
+        Parameter instructions:
+        - operation: max 8 chars
+        - pathHash: 20 chars
+        - pageNumber (optional): max 4 chars, it starts from 0 and defaults to 0 if omitted
+        - additionalArg1 (optional): max 20 chars (exactly 20 if it is a path hash)
+        - additionalArg2 (optional): 1 char
+
+        Operation usage:
+        - list:
+            - pathHash (optional): the hash of the folder path to list. If omitted, shows storage menu or local storage if it's the only one.
+            - pageNumber: the number of the page to display
+        - info:
+            - pathHash: the hash of the file path to display information about
+            - pageNumber: the number of the page to return to with the back button
+        - details:
+            - pathHash: the hash of the file path to display information about
+            - pageNumber: the number of the page to return to with the back button
+        - settings:
+            - pathHash: the hash of the path to return to with the back button
+            - pageNumber: the number of the page to return to with the back button
+            - additionalArg1 (optional): "name" = order by name, "date" = order by date, omitted = show selection menu
+        - download:
+            - pathHash: the hash of the path to download
+        - delete:
+            - pathHash: the hash of the path to delete
+            - pageNumber: the page number to return to after the delete operation
+            - additionalArg1 (optional): "yes" = deletion confirmed, omitted = show confirmation menu
+        - copy / move:
+            - pathHash: the hash of the path to copy/move
+            - pageNumber: the page number to return to after the copy/move operation
+            - additionalArg1 (optional): the currently selected target path. If omitted, shows storage menu or local storage if it's the only one.
+            - additionalArg2 (optional): "a" = ask for confirmation, "y" = copy/move confirmed, omitted = the user is just navigating target paths
+        """
+
         if parameter:
-            par = parameter.split("|")
-            pathHash = par[0]
-            page = int(par[1])
-            fileHash = par[2] if len(par) > 2 else ""
-            opt = par[3] if len(par) > 3 else ""
-            if fileHash == "" and opt == "":
-                self.fileList(pathHash, page, cmd, chat_id, msg_id_to_update)
-            elif opt == "":
-                self.fileDetails(pathHash, page, cmd, fileHash, chat_id, from_id, msg_id_to_update)
-            else:
-                if opt.startswith("dir"):
-                    self.fileList(fileHash, 0, cmd, chat_id, msg_id_to_update)
-                else:
-                    self.fileOption(pathHash, page, cmd, fileHash, opt, chat_id, from_id, msg_id_to_update)
-        else:
-            storages = self.main._file_manager.list_files(recursive=False)
-            if len(list(storages.keys())) < 2:
-                saving_file_response = self.main.telegram_utils.send_telegram_request(
-                    f"{self.main.bot_url}/sendMessage",
-                    "post",
-                    data={
-                        "text": "Loading files...",
-                        "chat_id": chat_id,
-                    },
-                )
-                msg_id_to_update = saving_file_response["result"]["message_id"]
-
-                self.generate_dir_hash_dict()
-
-                self.cmdFiles(
-                    chat_id,
-                    from_id,
-                    cmd,
-                    f"{self.hashMe(str(f'{list(storages.keys())[0]}/'), 8)}|0",
-                    msg_id_to_update,
-                    user,
-                )
-            else:
-                self.generate_dir_hash_dict()
-
-                msg = f"{get_emoji('save')} <b>Select Storage</b>"
-
-                command_buttons = []
-                command_buttons.extend([([k, (f"{cmd}_{self.hashMe(k, 8)}/|0")] for k in storages)])
-                command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
-
+            # The hash→path map may be empty if the user clicks an old button after restarting the bot.
+            # In that case, ask the user to run /files again.
+            if not self.files_hash_path_map:
+                msg = f"{get_emoji('attention')} This button is no longer valid. Please run /files again."
                 self.main.send_msg(
                     msg,
                     chatID=chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
                     msg_id=msg_id_to_update,
                 )
+                return
+
+            params = parameter.split("_")
+
+            operation = params[0]
+            path_hash = params[1] if len(params) > 1 else None
+            page_number = int(params[2] or 0) if len(params) > 2 else 0
+            additional_arg1 = params[3] if len(params) > 3 else None
+            additional_arg2 = params[4] if len(params) > 4 else None
+
+            if operation == "list":
+                self.fileList(path_hash, page_number, cmd, chat_id, msg_id_to_update)
+
+            elif operation == "info":
+                self.fileInfo(path_hash, page_number, cmd, chat_id, msg_id_to_update)
+
+            elif operation == "details":
+                self.fileDetails(path_hash, page_number, cmd, chat_id, msg_id_to_update)
+
+            elif operation == "settings":
+                self.fileSettings(path_hash, page_number, additional_arg1, cmd, chat_id, msg_id_to_update)
+
+            elif operation == "download":
+                self.fileDownload(path_hash, chat_id)
+
+            elif operation == "delete":
+                self.fileDelete(path_hash, page_number, additional_arg1, cmd, chat_id, msg_id_to_update)
+
+            elif operation in ("copy", "move"):
+                self.fileCopyMove(
+                    path_hash, page_number, additional_arg1, additional_arg2, operation, cmd, chat_id, msg_id_to_update
+                )
+
+        else:
+            self.fileList(None, 0, cmd, chat_id, msg_id_to_update)
 
     def cmdUpload(self, chat_id, from_id, cmd, parameter, msg_id_to_update="", user=""):
         self.main.send_msg(
@@ -2904,110 +2929,175 @@ class TCMD:
     # FILE HELPERS
     ############################################################################################
 
-    def fileList(self, pathHash, page, cmd, chat_id, msg_id_to_update="", wait=0):
+    def fileList(self, path_hash, page_number, cmd, chat_id, msg_id_to_update=""):
         try:
-            full_path = self.dirHashDict[pathHash]
-            path_parts = full_path.split("/")
-            destination_root = path_parts[0]
-            relative_path = "/".join(path_parts[1:])
-            path_without_root = relative_path if len(path_parts) > 1 else full_path
+            if msg_id_to_update:
+                self.main.send_msg(
+                    f"{get_emoji('loading')} Loading files...",
+                    chatID=chat_id,
+                    msg_id=msg_id_to_update,
+                )
+            else:
+                loading_files_response = self.main.telegram_utils.send_telegram_request(
+                    f"{self.main.bot_url}/sendMessage",
+                    "post",
+                    data={
+                        "text": f"{get_emoji('loading')} Loading files...",
+                        "chat_id": chat_id,
+                    },
+                )
+                msg_id_to_update = loading_files_response["result"]["message_id"]
+        except Exception:
+            pass
 
-            file_listing = self.main._file_manager.list_files(path=relative_path, recursive=False)
-            files_in_destination = file_listing.get(destination_root, {})
+        if not path_hash:  # Show storage selection
+            storages = self.main._file_manager.list_files(recursive=False)
+
+            # Update the file hash path map with the files currently listed, as they may have changed
+            self.update_files_hash_path_map(storages)
+
+            if len(storages) == 1:
+                storage_name = next(iter(storages))
+                storage_hash = self.hashMe(storage_name, 20)
+                self.fileList(storage_hash, page_number, cmd, chat_id, msg_id_to_update)
+            elif len(storages) > 1:
+                msg = f"{get_emoji('save')} <b>Select Storage</b>"
+
+                command_buttons = []
+                for storage_name in storages:
+                    storage_hash = self.hashMe(storage_name, 20)
+                    command_buttons.append([[f"{get_emoji('folder')} {storage_name}", f"{cmd}_list_{storage_hash}"]])
+                command_buttons.append([[f"{get_emoji('cancel')} Close", "no"]])
+
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
+                )
+
+        else:  # List files in path
+            path_with_storage = self.files_hash_path_map[path_hash]  # e.g.: local or local/foo
+            path_parts = path_with_storage.split("/")
+            storage_name = path_parts[0]  # e.g.: local
+            path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
+            path_is_storage_root = len(path_parts) < 2
+
+            try:
+                file_listing = self.main._file_manager.list_files(
+                    locations=storage_name, path=path_without_storage, recursive=False
+                )
+            except Exception:
+                msg = f"{get_emoji('attention')} The path you were browsing no longer exists. Perhaps you want to have a look at /files again?"
+                self.main.send_msg(msg, chatID=chat_id, msg_id=msg_id_to_update)
+                return
+
+            path_content = file_listing.get(storage_name, {})
+
+            # Update the file hash path map with the files currently listed, as they may have changed
+            self.update_files_hash_path_map(file_listing, storage_name, path_without_storage)
 
             # --- Get folders ---
-            folders = {name: data for name, data in files_in_destination.items() if data.get("type") == "folder"}
+            folders = {name: data for name, data in path_content.items() if data.get("type") == "folder"}
             folder_buttons = []
             for folder_name in sorted(folders):
-                folder_hash = self.hashMe(full_path + folder_name + "/", 8)
+                folder_hash = self.hashMe(f"{path_with_storage}/{folder_name}", 20)
                 folder_buttons.append(
                     [
                         f"{get_emoji('folder')} {folder_name}",
-                        f"{cmd}_{pathHash}|0|{folder_hash}|dir",
+                        f"{cmd}_list_{folder_hash}",
                     ]
                 )
 
             # --- Get files ---
-            files = {name: data for name, data in files_in_destination.items() if data.get("type") == "machinecode"}
+            files = {name: data for name, data in path_content.items() if data.get("type") == "machinecode"}
+
+            # Sort files
+            if self.main._settings.get_boolean(["sort_files_by_date"]):
+                files = sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True)
+            else:
+                files = sorted(files.items())
+
             file_buttons = []
-            for filename, file_data in sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True):
-                file_base_name = ".".join(filename.split(".")[:-1])
+            for filename, file_data in files:
+                file_base_name = filename.rsplit(".", 1)[0]
                 try:
-                    if "history" in file_data:
-                        history_list = file_data["history"]
-                        history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-                        latest_history = history_list[0] if history_list else None
-                        if latest_history and latest_history.get("success"):
-                            display_filename = f"{get_emoji('hooray')} {file_base_name}"
-                        elif latest_history:
-                            display_filename = f"{get_emoji('warning')} {file_base_name}"
-                        else:
-                            display_filename = f"{get_emoji('file')} {file_base_name}"
-                    else:
+                    if "history" not in file_data:
                         display_filename = f"{get_emoji('new')} {file_base_name}"
+                    else:
+                        history_list = file_data["history"]
+                        if not history_list:
+                            display_filename = f"{get_emoji('file')} {file_base_name}"
+                        else:
+                            history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+                            latest_history = history_list[0]
+
+                            if latest_history.get("success"):
+                                display_filename = f"{get_emoji('hooray')} {file_base_name}"
+                            else:
+                                display_filename = f"{get_emoji('warning')} {file_base_name}"
                 except Exception:
                     self._logger.exception(f"Error processing history for file '{filename}'")
                     display_filename = f"{get_emoji('file')} {file_base_name}"
 
-                file_hash = self.hashMe(path_without_root + filename)
-                if file_hash:
-                    command = f"{cmd}_{pathHash}|{page}|{file_hash}"
-                    file_buttons.append([display_filename, command])
+                file_hash = self.hashMe(f"{path_with_storage}/{filename}", 20)
+                command = f"{cmd}_info_{file_hash}_{page_number}"
+                file_buttons.append([display_filename, command])
 
-            # --- Combine folders and files and sort them ---
-            folder_buttons_sorted = sorted(folder_buttons)
-            if not self.main._settings.get_boolean(["fileOrder"]):
-                folder_and_file_buttons = folder_buttons_sorted + sorted(file_buttons)
-            else:
-                folder_and_file_buttons = folder_buttons_sorted + file_buttons
+            # --- Combine folder and file buttons ---
+            folder_and_file_buttons = sorted(folder_buttons) + file_buttons
 
             # --- Pagination ---
-            page_size = 10
-            total_pages = (len(folder_and_file_buttons) + page_size - 1) // page_size
-            previous_page = max(0, page - 1)
-            next_page = min(total_pages - 1, page + 1)
-            paginated_folder_and_file_buttons = folder_and_file_buttons[page * page_size : (page + 1) * page_size]
+            PAGE_SIZE = 10
+            total_items = len(folder_and_file_buttons)
+            total_pages = max(1, (total_items + PAGE_SIZE - 1) // PAGE_SIZE)
+
+            page_number = max(0, min(page_number, total_pages - 1))
+
+            start_index = page_number * PAGE_SIZE
+            end_index = start_index + PAGE_SIZE
+            paginated_folder_and_file_buttons = folder_and_file_buttons[start_index:end_index]
 
             # --- Create command buttons ---
             command_buttons = []
 
             # Folder and file buttons
-            folder_and_file_buttons_row = []
-            for i, button in enumerate(paginated_folder_and_file_buttons, start=1):
-                folder_and_file_buttons_row.append(button)
-                if i % 2 == 0:  # 2 file buttons per row
-                    command_buttons.append(folder_and_file_buttons_row)
-                    folder_and_file_buttons_row = []
-            if folder_and_file_buttons_row:
-                command_buttons.append(folder_and_file_buttons_row)
+            for i in range(0, len(paginated_folder_and_file_buttons), 2):
+                row = paginated_folder_and_file_buttons[i : i + 2]
+                command_buttons.append(row)
 
             # Last row: back, prev/next page, settings, close
             nav_and_actions_row = []
 
             # Back button (only within subfolders)
-            is_root_folder = len(path_parts) < 3
-            if not is_root_folder:
-                back_path = "/".join(full_path.split("/")[:-2]) + "/"
+            if not path_is_storage_root:
+                back_path = "/".join(path_parts[:-1])
+                back_path_hash = self.hashMe(back_path, 20)
                 nav_and_actions_row.append(
                     [
                         f"{get_emoji('back')} Back",
-                        f"{cmd}_{self.hashMe(back_path, 8)}|0",
+                        f"{cmd}_list_{back_path_hash}",
                     ]
                 )
 
             # Prev/next page
-            if previous_page != next_page:
-                if previous_page != page:
-                    nav_and_actions_row.append([f"{get_emoji('up')} Prev page", f"{cmd}_{pathHash}|{previous_page}"])
-                if next_page != page:
-                    nav_and_actions_row.append([f"{get_emoji('down')} Next page", f"{cmd}_{pathHash}|{next_page}"])
+            if total_pages > 1:
+                if page_number > 0:
+                    nav_and_actions_row.append(
+                        [f"{get_emoji('up')} Prev page", f"{cmd}_list_{path_hash}_{page_number - 1}"]
+                    )
+                if page_number + 1 < total_pages:
+                    nav_and_actions_row.append(
+                        [f"{get_emoji('down')} Next page", f"{cmd}_list_{path_hash}_{page_number + 1}"]
+                    )
 
             # Settings and close
             nav_and_actions_row.extend(
                 [
                     [
                         f"{get_emoji('settings')} Settings",
-                        f"{cmd}_{pathHash}|{page}|0|s",
+                        f"{cmd}_settings_{path_hash}_{page_number}",
                     ],
                     [
                         f"{get_emoji('cancel')} Close",
@@ -3019,8 +3109,8 @@ class TCMD:
             command_buttons.append(nav_and_actions_row)
 
             # --- Create message ---
-            page_str = f"{page + 1} / {total_pages}"
-            msg = f"{get_emoji('save')} Files in <code>/{html.escape(path_without_root[:-1])}</code>    [{page_str}]"
+            page_str = f"{page_number + 1} / {total_pages}"
+            msg = f"{get_emoji('save')} Files in <code>/{html.escape(path_with_storage)}</code>    [{page_str}]"
 
             # --- Send message ---
             self.main.send_msg(
@@ -3029,31 +3119,38 @@ class TCMD:
                 markup="HTML",
                 responses=command_buttons,
                 msg_id=msg_id_to_update,
-                delay=wait,
             )
-        except Exception:
-            self._logger.exception("Caught an exception in fileList")
 
-    def fileDetails(self, pathHash, page, cmd, fileHash, chat_id, from_id, msg_id_to_update="", wait=0):
+    def fileInfo(self, path_hash, page_number, cmd, chat_id, msg_id_to_update=""):
         # Lookup file data and metadata
-        dest, path, file = self.find_file_by_hash(fileHash)
-        self.tmpFileHash = ""
-        meta = self.main._file_manager.get_metadata(dest, path)
-        analysis = meta.get("analysis", {})
+        try:
+            storage_name, file_path = self.find_path_by_hash(path_hash)
+            _, filename = self.main._file_manager.split_path(storage_name, file_path)
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
+            analysis = file_metadata.get("analysis", {})
+            history = file_metadata.get("history", [])
+        except Exception:
+            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at /files again?"
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+                msg_id=msg_id_to_update,
+            )
+            return
 
         # Message header
         msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(path)}</code>"
+        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(filename)}</code>"
 
         # Upload timestamp
         try:
-            dt = datetime.datetime.fromtimestamp(file["date"])
+            lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
+            dt = datetime.datetime.fromtimestamp(lastmodified)
             msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}"
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
         # Print history
-        history = file.get("history", [])
         if not history:
             msg += f"\n{get_emoji('new')} <b>Number of Print:</b> 0"
         else:
@@ -3067,22 +3164,26 @@ class TCMD:
             msg += f"\n{icon} <b>Number of Print:</b> {len(history)}"
 
         # File size
-        msg += f"\n{get_emoji('filesize')} <b>Size:</b> {self.formatSize(file['size'])}"
+        filesize = self.main._file_manager.get_size(storage_name, file_path)
+        msg += f"\n{get_emoji('filesize')} <b>Size:</b> {self.formatSize(filesize)}"
 
         # Filament info
         filament_length = 0
-        filament = analysis.get("filament", {})
-        if filament:
-            msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
-            if len(filament) == 1 and "length" in filament.get("tool0", {}):
-                msg += self.formatFilament(filament["tool0"])
-                filament_length += float(filament["tool0"]["length"])
-            else:
-                for tool in sorted(filament):
-                    length = filament[tool].get("length")
-                    if length is not None:
-                        msg += f"\n      {html.escape(tool)}: {self.formatFilament(filament[tool])}"
-                        filament_length += float(length)
+        try:
+            filament = analysis.get("filament", {})
+            if filament:
+                msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
+                if len(filament) == 1 and "length" in filament.get("tool0", {}):
+                    msg += self.formatFilament(filament["tool0"])
+                    filament_length += float(filament["tool0"]["length"])
+                else:
+                    for tool in sorted(filament):
+                        length = filament[tool].get("length")
+                        if length is not None:
+                            msg += f"\n      {html.escape(tool)}: {self.formatFilament(filament[tool])}"
+                            filament_length += float(length)
+        except Exception:
+            self._logger.exception("Caught an exception getting filament info")
 
         # Print time
         print_time = analysis.get("estimatedPrintTime")
@@ -3110,12 +3211,11 @@ class TCMD:
         # Upload the thumbnail image to imgbb to get a public URL
         try:
             api_key = self.main._settings.get(["imgbbApiKey"])
-            self._logger.info(f"Get thumbnail url for path={path}")
-
-            meta = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
-            thumbnail_path = meta.get("thumbnail")
+            thumbnail_path = file_metadata.get("thumbnail")
 
             if api_key and thumbnail_path:
+                self._logger.info(f"Get thumbnail url for path={file_path}")
+
                 thumbnail_url = f"http://localhost:{self.port}/{thumbnail_path}"
                 thumbnail_response = requests.get(thumbnail_url)
 
@@ -3134,31 +3234,34 @@ class TCMD:
         # Create command buttons
         command_buttons = []
 
-        # First row: Print (if allowed) + Details
-        first_row = []
-        if self.main.is_command_allowed(chat_id, from_id, "/print"):
-            first_row.append([f"{get_emoji('play')} Print", f"/print_{fileHash}"])
-        first_row.append([f"{get_emoji('search')} Details", f"{cmd}_{pathHash}|{page}|{fileHash}|inf"])
+        # First row: Print + Details
+        first_row = [
+            [f"{get_emoji('play')} Print", f"/print_{path_hash}"],
+            [f"{get_emoji('search')} Details", f"{cmd}_details_{path_hash}_{page_number}"],
+        ]
         command_buttons.append(first_row)
 
-        # Second row: File ops if allowed
-        if self.main.is_command_allowed(chat_id, from_id, "/files"):
-            second_row = [
-                [f"{get_emoji('cut')} Move", f"{cmd}_{pathHash}|{page}|{fileHash}|m"],
-                [f"{get_emoji('copy')} Copy", f"{cmd}_{pathHash}|{page}|{fileHash}|c"],
-                [f"{get_emoji('delete')} Delete", f"{cmd}_{pathHash}|{page}|{fileHash}|d"],
-            ]
-            command_buttons.append(second_row)
+        # Second row: File ops
+        second_row = [
+            [f"{get_emoji('cut')} Move", f"{cmd}_move_{path_hash}_{page_number}"],
+            [f"{get_emoji('copy')} Copy", f"{cmd}_copy_{path_hash}_{page_number}"],
+            [f"{get_emoji('delete')} Delete", f"{cmd}_delete_{path_hash}_{page_number}"],
+        ]
+        command_buttons.append(second_row)
 
-            # Third row: Download + Back
-            third_row = []
-            if self.dirHashDict[pathHash].split("/")[0] == octoprint.filemanager.FileDestinations.LOCAL:
-                third_row.append([f"{get_emoji('download')} Download", f"{cmd}_{pathHash}|{page}|{fileHash}|dl"])
-            third_row.append([f"{get_emoji('back')} Back", f"{cmd}_{pathHash}|{page}"])
-            command_buttons.append(third_row)
-        else:
-            # If file commands not allowed, just add Back alone
-            command_buttons.append([[f"{get_emoji('back')} Back", f"{cmd}_{pathHash}|{page}"]])
+        # Third row
+        third_row = []
+        # Download button
+        if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
+            third_row.append([f"{get_emoji('download')} Download", f"{cmd}_download_{path_hash}"])
+        # Back button
+        path_parts = file_path.split("/")
+        parent_path = "/".join(path_parts[:-1])
+        back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
+        back_path_hash = self.hashMe(back_path, 20)
+        third_row.append([f"{get_emoji('back')} Back", f"{cmd}_list_{back_path_hash}_{page_number}"])
+        # Append
+        command_buttons.append(third_row)
 
         # Send the message
         self.main.send_msg(
@@ -3167,37 +3270,45 @@ class TCMD:
             markup="HTML",
             responses=command_buttons,
             msg_id=msg_id_to_update,
-            delay=wait,
         )
 
-    def fileOption(self, loc, page, cmd, hash, opt, chat_id, from_id, msg_id_to_update=""):
-        if opt != "m_m" and opt != "c_c" and not opt.startswith("s"):
-            # Lookup file data and metadata
-            dest, path, file = self.find_file_by_hash(hash)
-            meta = self.main._file_manager.get_metadata(dest, path)
+    def fileDetails(self, path_hash, page_number, cmd, chat_id, msg_id_to_update):
+        # Lookup file data and metadata
+        try:
+            storage_name, file_path = self.find_path_by_hash(path_hash)
+            _, filename = self.main._file_manager.split_path(storage_name, file_path)
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
+            analysis = file_metadata.get("analysis", {})
+            statistics = file_metadata.get("statistics", {})
+            history = file_metadata.get("history", {})
+        except Exception:
+            msg = f"{get_emoji('attention')} I couldn't find the file you wanted me to print. Perhaps you want to have a look at /files again?"
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+                msg_id=msg_id_to_update,
+            )
+            return
 
-        if opt.startswith("inf"):
-            # Lookup additional file data
-            analysis = meta.get("analysis", {})
-            statistics = meta.get("statistics", {})
-            history = meta.get("history", {})
+        # Message header
+        msg = f"{get_emoji('info')} <b>File information</b>\n\n"
+        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(filename)}</code>"
 
-            # Message header
-            msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-            msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(path)}</code>"
+        # Upload timestamp
+        try:
+            lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
+            dt = datetime.datetime.fromtimestamp(lastmodified)
+            msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+        except Exception:
+            self._logger.exception("Caught an exception getting file date")
 
-            # Upload timestamp
-            try:
-                dt = datetime.datetime.fromtimestamp(file["date"])
-                msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}"
-            except Exception:
-                self._logger.exception("Caught an exception getting file date")
+        # File size
+        filesize = self.main._file_manager.get_size(storage_name, file_path)
+        msg += f"\n{get_emoji('filesize')} <b>Size:</b> {self.formatSize(filesize)}"
 
-            # File size
-            msg += f"\n {get_emoji('filesize')} <b>Size:</b> {self.formatSize(file['size'])}"
-
-            # Filament info
-            filament_length = 0
+        # Filament info
+        filament_length = 0
+        try:
             filament = analysis.get("filament", {})
             if filament:
                 msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
@@ -3210,122 +3321,421 @@ class TCMD:
                         if length is not None:
                             msg += f"\n      {html.escape(tool)}: {self.formatFilament(filament[tool])}"
                             filament_length += float(length)
+        except Exception:
+            self._logger.exception("Caught an exception getting filament info")
 
-            # Print time
-            print_time = analysis.get("estimatedPrintTime")
-            if print_time:
-                msg += f"\n{get_emoji('stopwatch')} <b>Print Time:</b> {self.formatFuzzyPrintTime(print_time)}"
+        # Print time
+        print_time = analysis.get("estimatedPrintTime")
+        if print_time:
+            msg += f"\n{get_emoji('stopwatch')} <b>Print Time:</b> {self.formatFuzzyPrintTime(print_time)}"
 
-                # ETA
-                try:
-                    time_finish = self.main.calculate_ETA(print_time)
-                    msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {html.escape(time_finish)}"
-                except Exception:
-                    self._logger.exception("Caught an exception calculating ETA")
-
-                # Cost calculation (if plugin active)
-                if self.main._plugin_manager.get_plugin("cost", True) and filament_length:
-                    try:
-                        cp_h = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
-                        cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
-                        curr = self.main._settings.global_get(["plugins", "cost", "currency"])
-                        cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
-                        msg += f"\n{get_emoji('cost')} <b>Cost:</b> {html.escape(curr)}{cost:.02f}"
-                    except Exception:
-                        self._logger.exception("Caught an exception calculating cost")
-
-            # Average print times
+            # ETA
             try:
-                average_print_times = statistics.get("averagePrintTime")
-                if average_print_times:
-                    msg += "\n\n<b>Average Print Time:</b>"
-                    for profile_id, average_print_time in islice(average_print_times.items(), 5):
-                        try:
-                            profile = self.main._printer_profile_manager.get(profile_id)
-                            msg += f"\n      {html.escape(profile['name'])}: {self.formatDuration(average_print_time)}"
-                        except Exception:
-                            self._logger.exception(f"Error processing average print time for profile '{profile_id}'")
+                time_finish = self.main.calculate_ETA(print_time)
+                msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {html.escape(time_finish)}"
             except Exception:
-                self._logger.exception("Caught an exception retrieving average print times")
+                self._logger.exception("Caught an exception calculating ETA")
 
-            # Last print times
-            last_print_times = statistics.get("lastPrintTime")
-            if last_print_times:
-                msg += "\n\n<b>Last Print Time:</b>"
-                for profile_id, last_print_time in islice(last_print_times.items(), 5):
+            # Cost calculation (if plugin active)
+            if self.main._plugin_manager.get_plugin("cost", True) and filament_length:
+                try:
+                    cp_h = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+                    cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+                    curr = self.main._settings.global_get(["plugins", "cost", "currency"])
+                    cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
+                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> {html.escape(curr)}{cost:.02f}"
+                except Exception:
+                    self._logger.exception("Caught an exception calculating cost")
+
+        # Average print times
+        try:
+            average_print_times = statistics.get("averagePrintTime")
+            if average_print_times:
+                msg += "\n\n<b>Average Print Time:</b>"
+                for profile_id, average_print_time in islice(average_print_times.items(), 5):
                     try:
                         profile = self.main._printer_profile_manager.get(profile_id)
-                        msg += f"\n      {html.escape(profile['name'])}: {self.formatDuration(last_print_time)}"
+                        msg += f"\n      {html.escape(profile['name'])}: {self.formatDuration(average_print_time)}"
                     except Exception:
-                        self._logger.exception(
-                            f"Caught an exception processing last print time for profile '{profile_id}'"
-                        )
+                        self._logger.exception(f"Error processing average print time for profile '{profile_id}'")
+        except Exception:
+            self._logger.exception("Caught an exception retrieving average print times")
 
-            # Prints history
-            if history:
-                msg += "\n\n<b>Print History:</b>"
-                for history_entry in islice(history, 5):
-                    try:
-                        timestamp = history_entry.get("timestamp")
-                        if timestamp:
-                            formatted_ts = datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-                            msg += f"\n      Timestamp: {formatted_ts}"
+        # Last print times
+        last_print_times = statistics.get("lastPrintTime")
+        if last_print_times:
+            msg += "\n\n<b>Last Print Time:</b>"
+            for profile_id, last_print_time in islice(last_print_times.items(), 5):
+                try:
+                    profile = self.main._printer_profile_manager.get(profile_id)
+                    msg += f"\n      {html.escape(profile['name'])}: {self.formatDuration(last_print_time)}"
+                except Exception:
+                    self._logger.exception(f"Caught an exception processing last print time for profile '{profile_id}'")
 
-                        print_time = history_entry.get("printTime")
-                        if print_time is not None:
-                            msg += f"\n      Print Time: {self.formatDuration(print_time)}"
+        # Prints history
+        if history:
+            msg += "\n\n<b>Print History:</b>"
+            for history_entry in islice(history, 5):
+                try:
+                    timestamp = history_entry.get("timestamp")
+                    if timestamp:
+                        formatted_ts = datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                        msg += f"\n      Timestamp: {formatted_ts}"
 
-                        profile_id = history_entry.get("printerProfile")
-                        if profile_id:
-                            try:
-                                profile = self.main._printer_profile_manager.get(profile_id)
-                                msg += f"\n      Printer Profile: {html.escape(profile['name'])}"
-                            except Exception:
-                                self._logger.exception(f"Failed to get printer profile '{profile_id}'")
+                    print_time = history_entry.get("printTime")
+                    if print_time is not None:
+                        msg += f"\n      Print Time: {self.formatDuration(print_time)}"
 
-                        success = history_entry.get("success")
-                        if success is not None:
-                            msg += "\n      Successfully printed" if success else "\n      Print failed"
+                    profile_id = history_entry.get("printerProfile")
+                    if profile_id:
+                        try:
+                            profile = self.main._printer_profile_manager.get(profile_id)
+                            msg += f"\n      Printer Profile: {html.escape(profile['name'])}"
+                        except Exception:
+                            self._logger.exception(f"Failed to get printer profile '{profile_id}'")
 
-                        msg += "\n"
-                    except Exception:
-                        self._logger.exception("Caught an exception processing history")
+                    success = history_entry.get("success")
+                    if success is not None:
+                        msg += "\n      Successfully printed" if success else "\n      Print failed"
 
-            # Upload the thumbnail image to imgbb to get a public URL
+                    msg += "\n"
+                except Exception:
+                    self._logger.exception("Caught an exception processing history")
+
+        # Upload the thumbnail image to imgbb to get a public URL
+        try:
+            api_key = self.main._settings.get(["imgbbApiKey"])
+            thumbnail_path = file_metadata.get("thumbnail")
+
+            if api_key and thumbnail_path:
+                self._logger.info(f"Get thumbnail url for path={file_path}")
+
+                thumbnail_url = f"http://localhost:{self.port}/{thumbnail_path}"
+                thumbnail_response = requests.get(thumbnail_url)
+
+                if thumbnail_response.ok:
+                    encoded_img = base64.b64encode(thumbnail_response.content)
+                    upload_url = "https://api.imgbb.com/1/upload"
+                    payload = {"key": api_key, "image": encoded_img}
+
+                    res = requests.post(upload_url, payload)
+                    if res.ok:
+                        image_url = res.json()["data"]["url"]
+                        msg = f"<a href='{image_url}'>&#8199;</a>\n{msg}"
+        except Exception:
+            self._logger.exception("Caught an exception uploading thumbnail to imgbb")
+
+        # Create command buttons
+        command_buttons = [
+            [
+                [
+                    f"{get_emoji('back')} Back",
+                    f"{cmd}_info_{path_hash}_{page_number}",
+                ]
+            ]
+        ]
+
+        # Send the message
+        self.main.send_msg(
+            msg,
+            chatID=chat_id,
+            markup="HTML",
+            responses=command_buttons,
+            msg_id=msg_id_to_update,
+        )
+
+    def fileSettings(self, path_hash, page_number, selection, cmd, chat_id, msg_id_to_update=""):
+        if selection in ("name", "date"):
+            sort_by_date = selection == "date"
+            self.main._settings.set_boolean(["sort_files_by_date"], sort_by_date)
+            self.main._settings.save()
+            self.fileList(path_hash, page_number, cmd, chat_id, msg_id_to_update)
+            return
+
+        msg = f"{get_emoji('question')} <b>Choose sorting order of files</b>"
+
+        command_buttons = [
+            [
+                [
+                    f"{get_emoji('name')} By name",
+                    f"{cmd}_settings_{path_hash}_{page_number}_name",
+                ],
+                [
+                    f"{get_emoji('calendar')} By date",
+                    f"{cmd}_settings_{path_hash}_{page_number}_date",
+                ],
+            ],
+            [
+                [
+                    f"{get_emoji('back')} Back",
+                    f"{cmd}_list_{path_hash}_{page_number}",
+                ]
+            ],
+        ]
+
+        self.main.send_msg(
+            msg,
+            chatID=chat_id,
+            markup="HTML",
+            responses=command_buttons,
+            msg_id=msg_id_to_update,
+        )
+
+    def fileCopyMove(self, from_hash, page_number, to_hash, confirmation, operation, cmd, chat_id, msg_id_to_update=""):
+        try:
+            if msg_id_to_update:
+                self.main.send_msg(
+                    f"{get_emoji('loading')} Loading files...",
+                    chatID=chat_id,
+                    msg_id=msg_id_to_update,
+                )
+            else:
+                loading_files_response = self.main.telegram_utils.send_telegram_request(
+                    f"{self.main.bot_url}/sendMessage",
+                    "post",
+                    data={
+                        "text": f"{get_emoji('loading')} Loading files...",
+                        "chat_id": chat_id,
+                    },
+                )
+                msg_id_to_update = loading_files_response["result"]["message_id"]
+        except Exception:
+            pass
+
+        if operation not in ("copy", "move"):
+            raise RuntimeError("Unknown operation")
+
+        try:
+            from_storage_name, from_path = self.find_path_by_hash(from_hash)
+            full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
+        except Exception:
+            msg = f"{get_emoji('attention')} The file you chose no longer exists. Perhaps you want to have a look at /files again?"
+            self.main.send_msg(msg, chatID=chat_id, msg_id=msg_id_to_update)
+            return
+
+        if to_hash and confirmation == "a":  # Ask for confirmation
             try:
-                api_key = self.main._settings.get(["imgbbApiKey"])
-                self._logger.info(f"Get thumbnail url for path={path}")
-
-                meta = self.main._file_manager.get_metadata(octoprint.filemanager.FileDestinations.LOCAL, path)
-                thumbnail_path = meta.get("thumbnail")
-
-                if api_key and thumbnail_path:
-                    thumbnail_url = f"http://localhost:{self.port}/{thumbnail_path}"
-                    thumbnail_response = requests.get(thumbnail_url)
-
-                    if thumbnail_response.ok:
-                        encoded_img = base64.b64encode(thumbnail_response.content)
-                        upload_url = "https://api.imgbb.com/1/upload"
-                        payload = {"key": api_key, "image": encoded_img}
-
-                        res = requests.post(upload_url, payload)
-                        if res.ok:
-                            image_url = res.json()["data"]["url"]
-                            msg = f"<a href='{image_url}'>&#8199;</a>\n{msg}"
+                to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
             except Exception:
-                self._logger.exception("Caught an exception uploading thumbnail to imgbb")
+                msg = f"{get_emoji('attention')} The destination path you chose is unavailable. Perhaps you want to have a look at /files again?"
+                self.main.send_msg(msg, chatID=chat_id, msg_id=msg_id_to_update)
+                return
 
-            # Create command buttons
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('back')} Back",
-                        f"{cmd}_{loc}|{page}|{hash}",
-                    ]
+                        f"{get_emoji('check')} Yes",
+                        f"{cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_y",
+                    ],
+                    [
+                        f"{get_emoji('cancel')} No",
+                        f"{cmd}_{operation}_{from_hash}_{page_number}_{to_hash}",
+                    ],
                 ]
             ]
 
-            # Send the message
+            self.main.send_msg(
+                f"{get_emoji('warning')} {operation.capitalize()} <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>?",
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=msg_id_to_update,
+            )
+        elif to_hash and confirmation == "y":  # Run the copy/move
+            # Copy/move code is adapted from the filemanager plugin: https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
+            try:
+                to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
+            except Exception:
+                msg = f"{get_emoji('attention')} The destination path you chose is unavailable. Perhaps you want to have a look at /files again?"
+                self.main.send_msg(msg, chatID=chat_id, msg_id=msg_id_to_update)
+                return
+
+            failure_reason = None
+            try:
+                from octoprint.server.api.files import (
+                    _getCurrentFile,
+                    _isBusy,
+                    _verifyFileExists,
+                    _verifyFolderExists,
+                )
+
+                if not _verifyFileExists(from_storage_name, from_path):
+                    failure_reason = "Source does not exist or isn't a file"
+                elif not _verifyFolderExists(to_storage_name, to_path):
+                    failure_reason = "Destination doesn't exist or it isn't a folder"
+                else:
+                    _, from_filename = self.main._file_manager.split_path(from_storage_name, from_path)
+                    final_to_path = self.main._file_manager.join_path(to_storage_name, to_path, from_filename)
+
+                    if _verifyFileExists(to_storage_name, final_to_path) or _verifyFolderExists(
+                        to_storage_name, final_to_path
+                    ):
+                        failure_reason = "Destination already exists"
+                    else:
+                        if operation == "copy":
+                            # Copy the file
+                            self.main._file_manager.copy_file(to_storage_name, from_path, final_to_path)
+                        elif operation == "move":
+                            if _isBusy(from_storage_name, from_path):
+                                failure_reason = "Source is currently in use"
+
+                            # Deselect source file if currently selected
+                            _, currentFilename = _getCurrentFile()
+                            if currentFilename == from_path:
+                                self.main._printer.unselect_file()
+
+                            # Move the file
+                            self.main._file_manager.move_file(to_storage_name, from_path, final_to_path)
+                        else:
+                            failure_reason = "Unknown operation"
+
+            except Exception:
+                self._logger.exception(f"Caught an exception copying/moving file {full_to_file_path_to_display}")
+                failure_reason = "Internal error, please check logs"
+
+            if failure_reason:
+                msg = (
+                    f"{get_emoji('attention')} Cannot {operation} file <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>"
+                    f"\nReason: {failure_reason}"
+                )
+
+                command_buttons = [
+                    [
+                        [
+                            f"{get_emoji('back')} Back",
+                            f"{cmd}_list_{from_hash}_{page_number}",
+                        ]
+                    ]
+                ]
+
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
+                )
+            else:
+                if operation == "copy":
+                    action_done = "copied"
+                elif operation == "move":
+                    action_done = "moved"
+
+                msg = f"{get_emoji('check')} File <code>{html.escape(full_from_file_path_to_display)}</code> {action_done} to <code>{html.escape(full_to_file_path_to_display)}</code>"
+
+                back_path = f"{to_storage_name}/{to_path}" if to_path else to_storage_name
+                parent_folder_hash = self.hashMe(back_path, 20)
+                command_buttons = [
+                    [
+                        [
+                            f"{get_emoji('back')} Back",
+                            f"{cmd}_list_{parent_folder_hash}_{page_number}",
+                        ]
+                    ]
+                ]
+
+                self.main.send_msg(
+                    msg,
+                    chatID=chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=msg_id_to_update,
+                )
+        else:  # Navigate folders
+            storages = self.main._file_manager.list_files(recursive=False)
+
+            # Update the file hash path map with the files currently listed, as they may have changed
+            self.update_files_hash_path_map(storages)
+
+            msg = f"{get_emoji('question')} Where do you want to {operation} the file <code>{html.escape(full_from_file_path_to_display)}</code>?"
+
+            command_buttons = []
+
+            if to_hash:  # Start navigation from target_path
+                try:
+                    to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                    full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
+
+                    msg += f"\nCurrent selection: <code>{html.escape(full_to_file_path_to_display)}</code>"
+
+                    # Up button
+                    if to_path:
+                        to_path_parts = [to_storage_name] + to_path.split("/")
+                        parent_folder_path = "/".join(to_path_parts[:-1])
+                        parent_folder_hash = self.hashMe(parent_folder_path, 20)
+                        command_buttons.append(
+                            [
+                                [
+                                    f"{get_emoji('up')} Parent",
+                                    f"{cmd}_{operation}_{from_hash}_{page_number}_{parent_folder_hash}",
+                                ]
+                            ]
+                        )
+                    elif len(storages) > 1:
+                        command_buttons.append(
+                            [
+                                [
+                                    f"{get_emoji('up')} Parent",
+                                    f"{cmd}_{operation}_{from_hash}_{page_number}",
+                                ]
+                            ]
+                        )
+
+                    # Folder buttons
+                    to_path_listing = self.main._file_manager.list_files(
+                        locations=to_storage_name,
+                        path=to_path,
+                        filter=lambda node: node["type"] == "folder",
+                        recursive=False,
+                    )
+                    # Update the file hash path map with the files currently listed, as they may have changed
+                    self.update_files_hash_path_map(to_path_listing, to_storage_name, to_path)
+                    to_path_folders = to_path_listing.get(to_storage_name, {})
+                    for folder_name in sorted(to_path_folders):
+                        folder_path = "/".join(filter(None, [to_storage_name, to_path, folder_name]))
+                        folder_hash = self.hashMe(folder_path, 20)
+                        command_buttons.append(
+                            [
+                                [
+                                    f"{get_emoji('folder')} {folder_name}",
+                                    f"{cmd}_{operation}_{from_hash}_{page_number}_{folder_hash}",
+                                ]
+                            ]
+                        )
+
+                    # Copy/Move here button
+                    command_buttons.append(
+                        [
+                            [
+                                f"{get_emoji('check')} {operation.capitalize()} here",
+                                f"{cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_a",
+                            ]
+                        ]
+                    )
+                except Exception:
+                    msg = f"{get_emoji('attention')} The path you were browsing no longer exists. Perhaps you want to have a look at /files again?"
+                    self.main.send_msg(msg, chatID=chat_id, msg_id=msg_id_to_update)
+                    return
+            else:  # Select storage
+                if len(storages) == 1:
+                    storage_name = next(iter(storages))
+                    storage_hash = self.hashMe(storage_name, 20)
+                    self.fileCopyMove(
+                        from_hash, page_number, storage_hash, confirmation, operation, cmd, chat_id, msg_id_to_update
+                    )
+                    return
+
+                for storage_name in storages:
+                    storage_hash = self.hashMe(storage_name, 20)
+                    command_buttons.append(
+                        [[storage_name, f"{cmd}_{operation}_{from_hash}_{page_number}_{storage_hash}"]]
+                    )
+
+            # Back button
+            command_buttons.append([[f"{get_emoji('back')} Back", f"{cmd}_info_{from_hash}_{page_number}"]])
+
             self.main.send_msg(
                 msg,
                 chatID=chat_id,
@@ -3334,330 +3744,182 @@ class TCMD:
                 msg_id=msg_id_to_update,
             )
 
-        elif opt.startswith("dl"):
+    def fileDownload(self, path_hash, chat_id):
+        try:
+            storage_name, file_path = self.find_path_by_hash(path_hash)
+            file_path_on_disk = self.main._file_manager.path_on_disk(storage_name, file_path)
+            self.main.send_file(chat_id, file_path_on_disk)
+        except Exception:
+            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at /files again?"
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+            )
+
+    def fileDelete(self, path_hash, page_number, confirm, cmd, chat_id, msg_id_to_update=""):
+        try:
+            storage_name, file_path = self.find_path_by_hash(path_hash)
+            full_file_path_to_display = f"/{storage_name}/{file_path}"
+        except Exception:
+            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at /files again?"
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+            )
+            return
+
+        if confirm == "yes":
+            # Deletion code is adapted from the filemanager plugin: https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
+            failure_reason = None
             try:
-                self.main.send_file(chat_id, self.main._file_manager.path_on_disk(dest, path))
+                from octoprint.server.api.files import (
+                    _getCurrentFile,
+                    _isBusy,
+                    _verifyFileExists,
+                )
+
+                if not _verifyFileExists(storage_name, file_path):
+                    failure_reason = "File doesn't exist or isn't a file"
+                elif _isBusy(storage_name, file_path):
+                    failure_reason = "File is currently in use"
+                else:
+                    # Deselect file if currently selected
+                    _, currentFilename = _getCurrentFile()
+                    if currentFilename == file_path:
+                        self.main._printer.unselect_file()
+
+                    # Delete the file
+                    if storage_name == octoprint.filemanager.FileDestinations.SDCARD:
+                        self.main._printer.delete_sd_file(file_path)
+                    else:
+                        self.main._file_manager.remove_file(storage_name, file_path)
             except Exception:
-                self._logger.exception(f"Caught an exception sending file {path} to {chat_id}")
-                self.main.send_msg(
-                    f"{get_emoji('warning')} An error occurred sending your file. Please check logs.",
-                    chatID=chat_id,
-                    msg_id=msg_id_to_update,
+                self._logger.exception(f"Caught an exception deleting file {file_path}")
+                failure_reason = "Internal error, please check logs"
+
+            if failure_reason:
+                msg = (
+                    f"{get_emoji('attention')} Cannot delete <code>{html.escape(full_file_path_to_display)}</code>!\n"
+                    f"Reason: {failure_reason}"
                 )
-
-        elif opt.startswith("m"):
-            if opt == "m_m":
-                destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
-                targetPath = self.dirHashDict[hash]
-                cpRes = self.fileCopyMove(destM, "move", pathM, "/".join(targetPath.split("/")[1:]))
-                self._logger.debug(f"OUT MOVE: {cpRes}")
-                if cpRes == "GOOD":
-                    msg = f"{get_emoji('info')} File <code>{html.escape(pathM)}</code> moved to <code>{html.escape(targetPath)}</code>"
-                    self.main.send_msg(
-                        msg,
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
-                else:
-                    msg = f"{get_emoji('warning')} FAILED: Move file <code>{html.escape(pathM)}</code>\nReason: {html.escape(cpRes)}"
-                    self.main.send_msg(
-                        msg,
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, msg_id_to_update, wait=3)
             else:
-                msg = f"{get_emoji('question')} Where do you want to move the file <code>{html.escape(path)}</code>?"
+                msg = f"{get_emoji('check')} File <code>{html.escape(full_file_path_to_display)}</code> deleted!"
 
-                self.tmpFileHash = hash
-
-                command_buttons = [
+            path_parts = file_path.split("/")
+            parent_path = "/".join(path_parts[:-1])
+            back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
+            back_path_hash = self.hashMe(back_path, 20)
+            command_buttons = [
+                [
                     [
-                        [
-                            f"{get_emoji('back')} Back",
-                            f"{cmd}_{loc}|{page}|{hash}",
-                        ]
+                        f"{get_emoji('back')} Back",
+                        f"{cmd}_list_{back_path_hash}_{page_number}",
                     ]
                 ]
-                for key, val in sorted(list(self.dirHashDict.items()), key=operator.itemgetter(1)):
-                    command_buttons.append(
-                        [
-                            [
-                                f"{get_emoji('folder')} {self.dirHashDict[key]}",
-                                f"{cmd}_{loc}|{page}|{key}|m_m",
-                            ]
-                        ]
-                    )
+            ]
 
-                self.main.send_msg(
-                    msg,
-                    chatID=chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=msg_id_to_update,
-                )
-
-        elif opt.startswith("c"):
-            if opt == "c_c":
-                destM, pathM, fileM = self.find_file_by_hash(self.tmpFileHash)
-                targetPath = self.dirHashDict[hash]
-                cpRes = self.fileCopyMove(destM, "copy", pathM, "/".join(targetPath.split("/")[1:]))
-                if cpRes == "GOOD":
-                    self.main.send_msg(
-                        f"{get_emoji('info')} File <code>{html.escape(pathM)}</code> copied to <code>{html.escape(targetPath)}</code>",
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
-                else:
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} FAILED: Copy file <code>{html.escape(pathM)}</code>\nReason: {cpRes}",
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileDetails(loc, page, cmd, self.tmpFileHash, chat_id, from_id, msg_id_to_update, wait=3)
-            else:
-                msg = f"{get_emoji('question')} Where do you want to copy the file <code>{html.escape(path)}</code>?"
-
-                self.tmpFileHash = hash
-
-                command_buttons = [
+            self.main.send_msg(
+                msg,
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=msg_id_to_update,
+            )
+        else:
+            command_buttons = [
+                [
                     [
-                        [
-                            f"{get_emoji('back')} Back",
-                            f"{cmd}_{loc}|{page}|{hash}",
-                        ]
-                    ]
-                ]
-                for key, val in sorted(list(self.dirHashDict.items()), key=operator.itemgetter(1)):
-                    command_buttons.append(
-                        [
-                            [
-                                f"{get_emoji('folder')} {self.dirHashDict[key]}",
-                                f"{cmd}_{loc}|{page}|{key}|c_c",
-                            ]
-                        ]
-                    )
-
-                self.main.send_msg(
-                    msg,
-                    chatID=chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=msg_id_to_update,
-                )
-
-        elif opt.startswith("d"):
-            if opt == "d_d":
-                delRes = self.fileDelete(dest, path)
-                if delRes == "GOOD":
-                    self.main.send_msg(
-                        f"{get_emoji('info')} File <code>{html.escape(path)}</code> deleted",
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
-                else:
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} FAILED: Delete file <code>{html.escape(path)}</code>\nReason: {delRes}",
-                        chatID=chat_id,
-                        markup="HTML",
-                        msg_id=msg_id_to_update,
-                    )
-                    self.fileList(loc, page, cmd, chat_id, msg_id_to_update, wait=3)
-            else:
-                command_buttons = [
-                    [
-                        [
-                            f"{get_emoji('check')} Yes",
-                            f"{cmd}_{loc}|{page}|{hash}|d_d",
-                        ],
-                        [
-                            f"{get_emoji('cancel')} No",
-                            f"{cmd}_{loc}|{page}|{hash}",
-                        ],
-                    ]
-                ]
-                self.main.send_msg(
-                    f"{get_emoji('warning')} Delete <code>{html.escape(path)}</code> ?",
-                    chatID=chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=msg_id_to_update,
-                )
-        elif opt.startswith("s"):
-            if opt == "s_n":
-                self.main._settings.set_boolean(["fileOrder"], False)
-                self.main._settings.save()
-                self.fileList(loc, page, cmd, chat_id, msg_id_to_update)
-            elif opt == "s_d":
-                self.main._settings.set_boolean(["fileOrder"], True)
-                self.main._settings.save()
-                self.fileList(loc, page, cmd, chat_id, msg_id_to_update)
-            else:
-                msg = f"{get_emoji('question')} <b>Choose sorting order of files</b>"
-
-                command_buttons = [
-                    [
-                        [
-                            f"{get_emoji('name')} By name",
-                            f"{cmd}_{loc}|{page}|{hash}|s_n",
-                        ],
-                        [
-                            f"{get_emoji('calendar')} By date",
-                            f"{cmd}_{loc}|{page}|{hash}|s_d",
-                        ],
+                        f"{get_emoji('check')} Yes",
+                        f"{cmd}_delete_{path_hash}_{page_number}_yes",
                     ],
                     [
-                        [
-                            f"{get_emoji('back')} Back",
-                            f"{cmd}_{loc}|{page}",
-                        ]
+                        f"{get_emoji('cancel')} No",
+                        f"{cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
+            ]
+            self.main.send_msg(
+                f"{get_emoji('warning')} Delete <code>{html.escape(full_file_path_to_display)}</code>?",
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=msg_id_to_update,
+            )
 
-                self.main.send_msg(
-                    msg,
-                    chatID=chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=msg_id_to_update,
-                )
+    def update_files_hash_path_map(self, file_listing, locations=None, path=None):
+        """
+        Updates the internal hash-to-path mapping for OctoPrint files and folders.
 
-    ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
-    def fileCopyMove(self, target, command, source, destination):
-        from octoprint.server.api.files import _verifyFileExists, _verifyFolderExists
+        This method creates a mapping between short hash keys and full file/folder paths
+        to overcome Telegram's 64-byte callback query data limitation. Each path gets
+        a unique 20-character hash that can be used in Telegram inline keyboard callbacks.
 
-        if not _verifyFileExists(target, source) and not _verifyFolderExists(target, source):
-            return "Source does not exist"
+        Args:
+            file_listing (dict): Dictionary returned by OctoPrint's FileManager.list_files()
+            locations (str or list, optional): Storage location(s) that were passed to list_files().
+                Can be a single storage name (e.g., "local") or a list of storage names.
+            path (str, optional): Folder path that was passed to list_files().
+                Represents the folder within the storage location (e.g., "models/prints").
 
-        if _verifyFolderExists(target, destination):
-            path, name = self.main._file_manager.split_path(target, source)
-            destination = self.main._file_manager.join_path(target, destination, name)
+        Examples:
+            Update for all storages:
+            >>> file_listing = self.main._file_manager.list_files()
+            >>> self.update_files_hash_path_map(file_listing)
 
-        if _verifyFileExists(target, destination) or _verifyFolderExists(target, destination):
-            return "Destination already exists"
+            Update for specific storage:
+            >>> file_listing = self.main._file_manager.list_files(locations="local")
+            >>> self.update_files_hash_path_map(file_listing, locations="local")
 
-        if command == "copy":
-            if self.main._file_manager.file_exists(target, source):
-                self.main._file_manager.copy_file(target, source, destination)
-            elif self.main._file_manager.folder_exists(target, source):
-                self.main._file_manager.copy_folder(target, source, destination)
-        elif command == "move":
-            from octoprint.server.api.files import _isBusy
+            Update for specific folder:
+            >>> file_listing = self.main._file_manager.list_files(
+            ...     locations="local", path="models/prints"
+            ... )
+            >>> self.update_files_hash_path_map(file_listing, locations="local", path="models/prints")
+        """
 
-            if _isBusy(target, source):
-                return "You can't move a file while it is in use"
+        def _process_tree(tree, current_path=""):
+            for node_name, node_data in tree.items():
+                is_folder = node_data.get("type") == "folder"
+                full_node_path = f"{current_path}{node_name}"
 
-            # deselect the file if it's currently selected
-            from octoprint.server.api.files import _getCurrentFile
+                path_hash = self.hashMe(full_node_path, 20)
+                self.files_hash_path_map[path_hash] = full_node_path
 
-            currentOrigin, currentFilename = _getCurrentFile()
-            if currentFilename is not None and source == currentFilename:
-                self.main._printer.unselect_file()
+                if is_folder and "children" in node_data:
+                    _process_tree(node_data["children"], f"{full_node_path}/")
 
-            if self.main._file_manager.file_exists(target, source):
-                self.main._file_manager.move_file(target, source, destination)
-            elif self.main._file_manager.folder_exists(target, source):
-                self.main._file_manager.move_folder(target, source, destination)
-        return "GOOD"
+        if isinstance(locations, str):
+            locations = [locations]
 
-    ### From filemanager plugin - https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
-    def fileDelete(self, target, source):
-        # prohibit deleting or moving files that are currently in use
-        from octoprint.server.api.files import (
-            _getCurrentFile,
-            _isBusy,
-            _verifyFileExists,
-            _verifyFolderExists,
-        )
+        if not locations:
+            # Process all storage locations
+            for storage_name, storage_tree in file_listing.items():
+                path_hash = self.hashMe(storage_name, 20)
+                self.files_hash_path_map[path_hash] = storage_name
 
-        currentOrigin, currentFilename = _getCurrentFile()
+                _process_tree(storage_tree, f"{storage_name}/")
+        else:
+            # Process specific location(s)
+            for location in locations:
+                if location in file_listing:
+                    full_path = f"{location}/{path}" if path else location
 
-        if _verifyFileExists(target, source):
-            from octoprint.server.api.files import _isBusy
+                    path_hash = self.hashMe(full_path, 20)
+                    self.files_hash_path_map[path_hash] = full_path
 
-            if _isBusy(target, source):
-                return "Trying to delete a file that is currently in use"
+                    _process_tree(file_listing[location], f"{full_path}/")
+                else:
+                    self._logger.warning(f"Parameter mismatch: location {location} not found in file listing")
 
-            # deselect the file if it's currently selected
-            if currentFilename is not None and source == currentFilename:
-                self.main._printer.unselect_file()
+    def find_path_by_hash(self, path_hash):
+        if path_hash not in self.files_hash_path_map:
+            raise Exception("File not found")
 
-            # delete it
-            if target == octoprint.filemanager.FileDestinations.SDCARD:
-                self.main._printer.delete_sd_file(source)
-            else:
-                self.main._file_manager.remove_file(target, source)
-        elif _verifyFolderExists(target, source):
-            if target not in [octoprint.filemanager.FileDestinations.LOCAL]:
-                return "Unknown target"
-
-            folderpath = source
-            if _isBusy(target, folderpath):
-                return "Trying to delete a folder that contains a file that is currently in use"
-
-            # deselect the file if it's currently selected
-            if currentFilename is not None and self.main._file_manager.file_in_path(
-                target, folderpath, currentFilename
-            ):
-                self.main._printer.unselect_file()
-
-            # delete it
-            self.main._file_manager.remove_folder(target, folderpath)
-        return "GOOD"
-
-    def generate_dir_hash_dict(self):
-        try:
-            self.dirHashDict = {}
-            tree = self.main._file_manager.list_files(recursive=True)
-            for key in tree:
-                self.dirHashDict.update({str(self.hashMe(f"{key}/", 8)): f"{key}/"})
-                self.dirHashDict.update(self.generate_dir_hash_dict_recursively(tree[key], f"{key}/"))
-            self._logger.debug(f"{self.dirHashDict}")
-        except Exception:
-            self._logger.exception("Caught an exception in generate_dir_hash_dict")
-
-    def generate_dir_hash_dict_recursively(self, tree, loc):
-        try:
-            myDict = {}
-            for key in tree:
-                if tree[key]["type"] == "folder":
-                    myDict.update({self.hashMe(f"{loc + key}/", 8): f"{loc + key}/"})
-                    self.dirHashDict.update(
-                        self.generate_dir_hash_dict_recursively(tree[key]["children"], f"{loc + key}/")
-                    )
-        except Exception:
-            self._logger.exception("Caught an exception in generate_dir_hash_dict_recursively")
-        return myDict
-
-    def find_file_by_hash(self, hash):
-        try:
-            tree = self.main._file_manager.list_files(recursive=True)
-            for key in tree:
-                result, file = self.find_file_by_hash_recursively(tree[key], hash)
-                if result is not None:
-                    return key, result, file
-        except Exception:
-            self._logger.exception("Caught an exception in find_file_by_hash")
-        return None, None, None
-
-    def find_file_by_hash_recursively(self, tree, hash, base=""):
-        for key in tree:
-            if tree[key]["type"] == "folder":
-                result, file = self.find_file_by_hash_recursively(tree[key]["children"], hash, base=f"{base + key}/")
-                if result is not None:
-                    return result, file
-                continue
-            if self.hashMe(base + tree[key]["name"]).startswith(hash):
-                return base + key, tree[key]
-        return None, None
+        path_with_storage = self.files_hash_path_map[path_hash]  # e.g.: local or local/foo
+        path_parts = path_with_storage.split("/")
+        storage_name = path_parts[0]  # e.g.: local
+        path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
+        return storage_name, path_without_storage
 
     ############################################################################################
     # CONTROL HELPERS
@@ -3697,11 +3959,7 @@ class TCMD:
         return array
 
     def hashMe(self, text, length=32):
-        try:
-            return hashlib.md5(text.encode()).hexdigest()[0:length]
-        except Exception:
-            self._logger.exception("Caught an exception in hashMe")
-            return ""
+        return hashlib.md5(text.encode()).hexdigest()[0:length]
 
     ############################################################################################
     # CONNECTION HELPERS

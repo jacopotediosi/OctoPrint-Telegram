@@ -23,6 +23,7 @@ class Emoji:
         "settings": "\u2699\ufe0f",
         "star": "\u2b50",
         "lamp": "\U0001f4a1",
+        "loading": "\u23f3",
         # Menu navigation
         "back": "\u21a9\ufe0f",
         "up": "\u2b06\ufe0f",
