@@ -685,27 +685,47 @@ class TelegramPlugin(
             except Exception:
                 self._logger.exception("Caught an exception setting bot commands")
 
-            # Update chat pictures
+            # Update chats
             try:
 
-                def update_chat_pictures():
-                    settings_chats = self._settings.get(["chats"])
-
-                    for chat_id in settings_chats:
+                def _update_chats():
+                    for chat_id, chat_settings in self._settings.get(["chats"]).items():
                         if chat_id == "zBOTTOMOFCHATS":
                             continue
 
+                        # Delete unreachable chats
+                        if chat_settings.get("type") == "private":
+                            endpoint = f"{self.bot_url}/sendChatAction"
+                            params = {"chat_id": chat_id, "action": "typing"}
+                        else:
+                            endpoint = f"{self.bot_url}/getChat"
+                            params = {"chat_id": chat_id}
+                        try:
+                            self.telegram_utils.send_telegram_request(
+                                endpoint,
+                                "get",
+                                params=params,
+                                timeout=5,
+                            )
+                        except Exception as e:
+                            if '"error_code":403' in str(e):
+                                self._logger.info(f"Chat {chat_id} is unreachable, removing it from settings...")
+                                self.remove_chat_from_known_chats(chat_id)
+                                continue
+
+                        # Update chat pictures
                         public_path = self.save_chat_picture(chat_id)
                         self._settings.set(["chats", chat_id, "image"], public_path)
 
+                    # Save settings and update known chats table
                     self._settings.save()
                     self._plugin_manager.send_plugin_message(
                         self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
                     )
 
-                threading.Thread(target=update_chat_pictures, daemon=True).start()
+                threading.Thread(target=_update_chats, daemon=True).start()
             except Exception:
-                self._logger.exception("Caught an exception updating chat pictures")
+                self._logger.exception("Caught an exception updating chats")
 
     # Stops the telegram bot
     def stop_bot(self):
@@ -810,26 +830,6 @@ class TelegramPlugin(
         # Create / clean tmpgif folder
         shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
         os.makedirs(self.get_tmpgif_dir(), exist_ok=True)
-
-        # Delete chat pictures if chat isn't known anymore
-        try:
-            existing_chat_ids = set(self._settings.get(["chats"]).keys())
-
-            img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
-            for filename in os.listdir(img_user_dir):
-                file_path = os.path.join(img_user_dir, filename)
-                try:
-                    if not os.path.isfile(file_path):
-                        continue
-
-                    filename_chat_id = filename[3:].rsplit(".", 1)[0]
-                    if filename_chat_id not in existing_chat_ids:
-                        os.remove(file_path)
-                        self._logger.info(f"Deleted obsolete chat picture {file_path}")
-                except Exception:
-                    self._logger.exception(f"Caught an exception deleting obsolete chat picture {file_path}")
-        except Exception:
-            self._logger.exception("Caught an exception deleting obsolete chat pictures")
 
         self.start_bot()
 
