@@ -2866,6 +2866,13 @@ class TCMD:
         if parameter and parameter != "back":
             params = parameter.split("_")
             self.main._printer.commands(params[0])
+            message = f"{get_emoji('check')} Command sent!"
+            self.main.send_msg(
+                message,
+                chatID=chat_id,
+                markup="HTML",
+                msg_id=msg_id_to_update,
+            )
         else:
             message = f"{get_emoji('info')} Use <code>{cmd}_XXX</code> to call the command, where <code>XXX</code> is the G-code you want to execute"
             self.main.send_msg(
