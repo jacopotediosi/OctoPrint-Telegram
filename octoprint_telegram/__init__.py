@@ -28,12 +28,9 @@ from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
 from werkzeug.utils import secure_filename
 
-from .emoji.emoji import Emoji
-from .telegram_commands import TCMD
-from .telegram_notifications import (
-    TMSG,
-    telegramMsgDict,
-)  # Dict of known notification messages
+from .commands.commands import Commands
+from .emoji import Emoji
+from .telegram_notifications import TMSG, telegramMsgDict
 from .telegram_utils import TOKEN_REGEX, TelegramUtils, get_chat_title, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -378,11 +375,11 @@ class TelegramListener(threading.Thread):
                                 [
                                     [
                                         f"{get_emoji('check')} Print",
-                                        "/print_s",
+                                        "/print_y",
                                     ],
                                     [
-                                        f"{get_emoji('cancel')} Cancel",
-                                        "/print_x",
+                                        f"{get_emoji('cancel')} Close",
+                                        "close",
                                     ],
                                 ]
                             ]
@@ -445,7 +442,7 @@ class TelegramListener(threading.Thread):
         # Separate command and parameter
         parts = command.split("_")
         command = parts[0].lower()
-        cmd_info = self.main.tcmd.commandDict.get(command, {})
+        cmd_info = self.main.commands.commands_dict.get(command, {})
         parameter = "_".join(parts[1:]) if cmd_info.get("param") else ""
 
         # Log received command
@@ -454,7 +451,7 @@ class TelegramListener(threading.Thread):
         )
 
         # Is command  known?
-        if command not in self.main.tcmd.commandDict:
+        if command not in self.main.commands.commands_dict:
             # we dont know the command so skip the message
             self._logger.warning("Previous command was an unknown command.")
             if not self.main._settings.get(["no_mistake"]):
@@ -488,7 +485,7 @@ class TelegramListener(threading.Thread):
 
             # Execute command
             try:
-                self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, msg_id_to_update, user)
+                self.main.commands.run_command(command, chat_id, from_id, parameter, msg_id_to_update, user)
             except Exception:
                 self._logger.exception(f"Caught an exception executing command {command}")
                 self.main.send_msg(
@@ -653,8 +650,8 @@ class TelegramPlugin(
 
         self.shut_up = set()
 
+        self.commands = Commands(self)
         self.telegram_utils = None
-        self.tcmd = None
         self.tmsg = None
 
         self.new_chat_settings = {}  # Initial settings for new chat. See on_after_startup()
@@ -810,7 +807,6 @@ class TelegramPlugin(
         app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
 
         self.telegram_utils = TelegramUtils(self)
-        self.tcmd = TCMD(self)
 
         # Notification Message Handler class. Called only by on_event()
         self.tmsg = TMSG(self)
@@ -823,7 +819,7 @@ class TelegramPlugin(
             "type": "private",
             "image": "",
             "allow_users": False,
-            "commands": {k: False for k, v in self.tcmd.commandDict.items() if "bind_none" not in v},
+            "commands": {k: False for k, v in self.commands.commands_dict.items() if "bind_none" not in v},
             "notifications": {k: False for k, v in telegramMsgDict.items()},
         }
 
@@ -890,8 +886,6 @@ class TelegramPlugin(
 
     def on_settings_migrate(self, target, current=None):
         self._logger.warning(f"Migration - start migration from {current} to {target}")
-
-        tcmd = TCMD(self)
 
         chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
         self._logger.info(f"Migration - loaded chats: {chats}")
@@ -980,13 +974,15 @@ class TelegramPlugin(
                     if old_command in chat_commands:
                         chat_commands[new_command] = chat_commands[old_command]
 
-                # Remove obsolete commands (marked with 'bind_none' or no longer present in tcmd.commandDict)
+                # Remove obsolete commands (marked with 'bind_none' or no longer present in commands_dict)
                 for command in list(chat_commands):
-                    if command not in tcmd.commandDict or "bind_none" in tcmd.commandDict.get(command, {}):
+                    if command not in self.commands.commands_dict or "bind_none" in self.commands.commands_dict.get(
+                        command, {}
+                    ):
                         chat_commands.pop(command, None)
 
                 # Add new commands
-                for command, command_props in tcmd.commandDict.items():
+                for command, command_props in self.commands.commands_dict.items():
                     if command not in chat_commands and "bind_none" not in command_props:
                         chat_commands[command] = False
 
@@ -1115,7 +1111,7 @@ class TelegramPlugin(
                 self._logger.debug(f"Received a known event: {event} - Payload: {payload}")
                 self.tmsg.startEvent(event, payload, **kwargs)
         except Exception:
-            self._logger.exception("Caught exception handling an event")
+            self._logger.exception("Caught an exception handling an event")
 
     ##########
     ### TemplatePlugin mixin
@@ -1157,7 +1153,7 @@ class TelegramPlugin(
                 {
                     "bind_cmd": {
                         k: v.get("desc", "No description provided")
-                        for k, v in self.tcmd.commandDict.items()
+                        for k, v in self.commands.commands_dict.items()
                         if "bind_none" not in v
                     },
                     "bind_msg": {
@@ -1538,12 +1534,7 @@ class TelegramPlugin(
             if thumbnail:
                 try:
                     self._logger.debug(f"Get thumbnail: {thumbnail}")
-
-                    url = f"http://localhost:{self.port}/{thumbnail}"
-
-                    thumbnail_response = requests.get(url)
-                    thumbnail_response.raise_for_status()
-
+                    thumbnail_response = self.send_octoprint_request(f"/{thumbnail}")
                     images_to_send.append(thumbnail_response.content)
                 except Exception:
                     self._logger.exception("Caught an exception getting thumbnail")
@@ -1679,26 +1670,6 @@ class TelegramPlugin(
                     "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
                 },
             )
-
-    def humanbytes(self, B):
-        "Return the given bytes as a human friendly KB, MB, GB, or TB string"
-        B = float(B)
-
-        KB = float(1024)
-        MB = float(KB**2)
-        GB = float(KB**3)
-        TB = float(KB**4)
-
-        if B < KB:
-            return f"{B} {'Bytes' if B != 1 else 'Byte'}"
-        elif KB <= B < MB:
-            return f"{B / KB:.2f} KB"
-        elif MB <= B < GB:
-            return f"{B / MB:.2f} MB"
-        elif GB <= B < TB:
-            return f"{B / GB:.2f} GB"
-        elif TB <= B:
-            return f"{B / TB:.2f} TB"
 
     def send_file(self, chat_id, path, caption=""):
         if not self.bot_ready:
@@ -1888,7 +1859,7 @@ class TelegramPlugin(
             return
 
         commands = []
-        for cmd_name, cmd_info in self.tcmd.commandDict.items():
+        for cmd_name, cmd_info in self.commands.commands_dict.items():
             if cmd_name.startswith("/"):
                 commands.append(
                     {"command": cmd_name.lstrip("/"), "description": cmd_info.get("desc", "No description provided")}
@@ -1920,7 +1891,7 @@ class TelegramPlugin(
         from_accept_this_command = from_settings.get("commands", {}).get(command, False)
 
         # Always allowed commands (e.g., /help, etc)
-        if "bind_none" in self.tcmd.commandDict[command]:
+        if "bind_none" in self.commands.commands_dict.get(command, {}):
             return True
 
         # Commands allowed for all chat members (both in private chat and in groups)
@@ -2284,24 +2255,21 @@ class TelegramPlugin(
         return gif_path
 
     def get_layer_progress_values(self):
-        layers = None
+        layer_progress_values = None
+
         try:
-            if self._plugin_manager.get_plugin("DisplayLayerProgress", True):
-                headers = {
-                    "X-Api-Key": self._settings.global_get(["api", "key"]),
-                }
-                r = requests.get(
-                    f"http://localhost:{self.port}/plugin/DisplayLayerProgress/values",
-                    headers=headers,
-                    timeout=3,
+            displaylayerprogress_plugin_id = "DisplayLayerProgress"
+            if self._plugin_manager.get_plugin(displaylayerprogress_plugin_id, True):
+                values_request = self.send_octoprint_request(
+                    f"/plugin/{displaylayerprogress_plugin_id}/values", timeout=3
                 )
-                r.raise_for_status
-                layers = r.json()
+                layer_progress_values = values_request.json()
             else:
                 self._logger.debug("DisplayLayerProgress plugin not installed or disabled")
         except Exception:
             self._logger.exception("Caught an exception in get_layer_progress_values")
-        return layers
+
+        return layer_progress_values
 
     def calculate_ETA(self, printTime):
         current_time = datetime.now()
@@ -2376,6 +2344,125 @@ class TelegramPlugin(
             self._logger.exception("Caught an exception on hook_gcode_received")
 
         return line
+
+    def send_octoprint_simpleapi_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a SimpleAPI command to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            command (str): The command string to send to the plugin.
+            parameters (dict, optional): Additional parameters to include in the request body.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the POST request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        payload = {"command": command}
+        if parameters:
+            payload.update(parameters)
+
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
+            "POST",
+            headers={
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=timeout,
+        )
+
+    def send_octoprint_simpleapi_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            parameters (dict, optional): Query parameters to include in the request.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the GET request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
+            params=parameters or {},
+            timeout=timeout,
+        )
+
+    def send_octoprint_request(self, url: str, method: str = "GET", **kwargs):
+        """
+        Sends an HTTP request to the OctoPrint API with default authentication headers.
+
+        Args:
+            url (str): Full or relative URL (e.g., "/api/plugin/...").
+            method (str): The HTTP method to use (e.g., "GET", "POST", "PUT", "PATCH", "DELETE", ...). Defaults to "GET".
+            **kwargs: Additional arguments passed to the underlying requests library (e.g., 'data', 'params', 'files').
+
+        Returns:
+            requests.Response: The response object from the HTTP request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        url = urljoin(f"http://localhost:{self.port}/", url)
+
+        method = method.lower()
+
+        default_headers = {
+            "X-Api-Key": self._settings.global_get(["api", "key"]),
+        }
+        headers = {**default_headers, **(kwargs.get("headers") or {})}
+        kwargs.pop("headers", None)
+
+        default_kwargs = {
+            "headers": headers,
+            "timeout": 5,
+        }
+        request_kwargs = {**default_kwargs, **kwargs}
+
+        loggable_kwargs = {}
+        for k, v in request_kwargs.items():
+            if k == "headers" and "X-Api-Key" in v:
+                loggable_kwargs[k] = {**v, "X-Api-Key": "REDACTED"}
+            elif k == "files":
+                loggable_kwargs[k] = "<binary data>"
+            else:
+                loggable_kwargs[k] = v
+        self._logger.debug(f"Sending OctoPrint request: method={method}, url={url}, kwargs={loggable_kwargs}.")
+
+        response = requests.request(method, url, **request_kwargs)
+
+        # Check if response content should be logged
+        content_type = response.headers.get("content-type", "").lower()
+        content_length = len(response.content)
+        textual_content_types = [
+            "application/json",
+            "text/plain",
+            "text/html",
+            "text/xml",
+            "application/xml",
+            "text/javascript",
+            "application/javascript",
+        ]
+        is_textual = any(ct in content_type for ct in textual_content_types)
+        is_reasonable_size = content_length < 10 * 1024  # 10KB limit
+        if is_textual and is_reasonable_size:
+            self._logger.debug(f"Received OctoPrint response: status={response.status_code}, text={response.text}")
+        else:
+            self._logger.debug(
+                f"Received OctoPrint response: status={response.status_code}, "
+                f"content-type={content_type}, size={content_length} bytes"
+            )
+
+        response.raise_for_status()
+        return response
 
 
 # Check that we are running on OctoPrint >= 1.4.0, which introduced the granular permissions system

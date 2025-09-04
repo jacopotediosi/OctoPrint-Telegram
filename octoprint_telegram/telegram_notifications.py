@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import octoprint.util
 
-from .emoji.emoji import Emoji
+from .emoji import Emoji
 from .telegram_utils import escape_markdown
 
 if TYPE_CHECKING:
@@ -13,12 +13,59 @@ if TYPE_CHECKING:
 
 get_emoji = Emoji.get_emoji
 
-##########################################################################################################################
-# Here you find the known notification messages and their handles.
-# The only way to start a messageHandle should be via on_event() in __init__.py
-# If you want to add/remove notifications read the following:
-# SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
-##########################################################################################################################
+# telegramMsgDict contains message settings.
+# Each entry has the following structure:
+#
+#   <messageName>: {fields}
+#
+# - messageName (str):
+#     The name of the message. You can hook into OctoPrint events by choosing the event name as the messageName.
+#     See: http://docs.octoprint.org/en/master/events/index.html#sec-events-available-events
+#
+# Fields:
+#
+# - 'text' (str):
+#     The default text sent with the notification. Supports both emoji and variables,
+#     using the same format as the text that can be set from the plugin settings.
+#
+# - 'image' (bool):
+#     The default message configuration. If true, the message will also include webcam snapshots.
+#
+# - 'gif' (bool):
+#     The default message configuration. If true, the message will also include short webcam videos.
+#
+# - 'silent' (bool):
+#     The default message configuration. If true, the notification will be sent silently.
+#
+# - 'markup' (str):
+#     The default message configuration.  Controls markup for message text:
+#       - 'HTML'      : use HTML markup
+#       - 'Markdown'  : use Markdown markup
+#       - 'MarkdownV2': use MarkdownV2 markup
+#       - 'off'       : no markup
+#
+# - 'desc' (str):
+#     Human-readable description shown in settings/help.
+#
+# - 'no_setting' (bool, optional):
+#     If True, no checkbox will be shown in the plugin's notification settings.
+#     Typically used for user-triggered messages. You must pass chat_id when sending them;
+#     otherwise they will be sent to all users with notifications enabled.
+#     Defaults to off.
+#     Example: StatusNotPrinting and StatusNotConnected use this.
+#
+# - 'bind_msg' (str, optional):
+#     Binds this message to another message by name. It shares text and other settings
+#     with the bound message. When this notification is sent, it contains the same content
+#     as the bound message, and no extra edit box is shown in the settings UI.
+#     Examples: StatusPrinting and ZChange.
+#
+# IMPORTANT:
+# If you add a new message to telegramMsgDict, you must also add its messageName
+# to msgCmdDict in class TMSG to link it with its handler.
+#
+# Each time you add/remove a command or notification, please remember to increment the
+# settings version number in `get_settings_version`.
 
 telegramMsgDict = {
     "PrinterStart": {
@@ -219,6 +266,9 @@ class TMSG:
         }
 
     def startEvent(self, event, payload, **kwargs):
+        # Not all events have payload
+        payload = payload or {}
+
         status = self.main._printer.get_current_data()
         self.z = status["currentZ"] or 0.0
         kwargs["event"] = event
