@@ -15,6 +15,9 @@ get_emoji = Emoji.get_emoji
 
 
 class CmdFiles(BaseCommand):
+    # Number of items (folders + files) to display per page
+    PAGE_SIZE = 14
+
     # HASH_PATH_LENGTH cannot exceed 20 characters in the current implementation
     # because Telegram callback query data is limited to 64 bytes.
     HASH_PATH_LENGTH = 20
@@ -182,10 +185,25 @@ class CmdFiles(BaseCommand):
 
             path_content = file_listing.get(storage_name, {})
 
-            # --- Get folders ---
+            # --- Calculate pagination ---
             folders = {name: data for name, data in path_content.items() if data.get("type") == "folder"}
+            files = {name: data for name, data in path_content.items() if data.get("type") == "machinecode"}
+
+            total_folders = len(folders)
+            total_files = len(files)
+            total_items = total_folders + total_files
+            total_pages = max(1, (total_items + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
+
+            page_number = max(0, min(page_number, total_pages - 1))
+            start_index = page_number * self.PAGE_SIZE
+            end_index = start_index + self.PAGE_SIZE
+
+            # --- Create folder buttons (paginated) ---
+            sorted_folder_names = sorted(folders.keys())
+            paginated_folder_names = sorted_folder_names[start_index : min(len(sorted_folder_names), end_index)]
+
             folder_buttons = []
-            for folder_name in sorted(folders):
+            for folder_name in paginated_folder_names:
                 folder_hash = self.hash_path(f"{path_with_storage}/{folder_name}")
                 folder_buttons.append(
                     [
@@ -194,54 +212,51 @@ class CmdFiles(BaseCommand):
                     ]
                 )
 
-            # --- Get files ---
-            files = {name: data for name, data in path_content.items() if data.get("type") == "machinecode"}
-
-            # Sort files
-            if self.main._settings.get_boolean(["sort_files_by_date"]):
-                files = sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True)
-            else:
-                files = sorted(files.items())
+            # --- Create file buttons (paginated) ---
+            # Calculate remaining slots for files after folders
+            remaining_slots = end_index - len(paginated_folder_names) - start_index
 
             file_buttons = []
-            for filename, file_data in files:
-                file_base_name = filename.rsplit(".", 1)[0]
-                try:
-                    if "history" not in file_data:
-                        display_filename = f"{get_emoji('new')} {file_base_name}"
-                    else:
-                        history_list = file_data["history"]
-                        if not history_list:
-                            display_filename = f"{get_emoji('file')} {file_base_name}"
+            if remaining_slots > 0:
+                remaining_start = max(0, start_index - len(sorted_folder_names))
+
+                # Sort files
+                if self.main._settings.get_boolean(["sort_files_by_date"]):
+                    sorted_files = sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True)
+                else:
+                    sorted_files = sorted(files.items())
+
+                # Get only the files for current page
+                paginated_files = sorted_files[remaining_start : remaining_start + remaining_slots]
+
+                # Create buttons only for paginated files
+                for filename, file_data in paginated_files:
+                    file_base_name = filename.rsplit(".", 1)[0]
+                    try:
+                        if "history" not in file_data:
+                            display_filename = f"{get_emoji('new')} {file_base_name}"
                         else:
-                            history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-                            latest_history = history_list[0]
-
-                            if latest_history.get("success"):
-                                display_filename = f"{get_emoji('hooray')} {file_base_name}"
+                            history_list = file_data["history"]
+                            if not history_list:
+                                display_filename = f"{get_emoji('file')} {file_base_name}"
                             else:
-                                display_filename = f"{get_emoji('warning')} {file_base_name}"
-                except Exception:
-                    self._logger.exception(f"Error processing history for file '{filename}'")
-                    display_filename = f"{get_emoji('file')} {file_base_name}"
+                                history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+                                latest_history = history_list[0]
 
-                file_hash = self.hash_path(f"{path_with_storage}/{filename}")
-                command = f"{context.cmd}_info_{file_hash}_{page_number}"
-                file_buttons.append([display_filename, command])
+                                if latest_history.get("success"):
+                                    display_filename = f"{get_emoji('hooray')} {file_base_name}"
+                                else:
+                                    display_filename = f"{get_emoji('warning')} {file_base_name}"
+                    except Exception:
+                        self._logger.exception(f"Error processing history for file '{filename}'")
+                        display_filename = f"{get_emoji('file')} {file_base_name}"
 
-            # --- Combine folder and file buttons ---
-            folder_and_file_buttons = sorted(folder_buttons) + file_buttons
+                    file_hash = self.hash_path(f"{path_with_storage}/{filename}")
+                    command = f"{context.cmd}_info_{file_hash}_{page_number}"
+                    file_buttons.append([display_filename, command])
 
-            # --- Pagination ---
-            PAGE_SIZE = 10
-            total_items = len(folder_and_file_buttons)
-            total_pages = max(1, (total_items + PAGE_SIZE - 1) // PAGE_SIZE)
-
-            page_number = max(0, min(page_number, total_pages - 1))
-
-            start_index = page_number * PAGE_SIZE
-            end_index = start_index + PAGE_SIZE
-            paginated_folder_and_file_buttons = folder_and_file_buttons[start_index:end_index]
+            # --- Combine paginated folder and file buttons ---
+            paginated_folder_and_file_buttons = folder_buttons + file_buttons
 
             # --- Create command buttons ---
             command_buttons = []
