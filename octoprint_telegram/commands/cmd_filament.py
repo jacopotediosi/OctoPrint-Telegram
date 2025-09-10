@@ -220,20 +220,22 @@ class CmdFilament(BaseCommand):
             spool_id = params[4] if len(params) > 4 else None
 
             if tool_index is None:  # Show tool selection menu
+                printer_profile = self.main._printer_profile_manager.get_current()
+                printer_profile_extruder = printer_profile["extruder"]
+                tool_counts = printer_profile_extruder.get("count", 1)
+
                 msg = f"{get_emoji('question')} For which tool do you want to select the spool?"
 
                 try:
                     selected_spools = plugin_handler.get_selected_spools()
-                    if selected_spools:
-                        msg += "\n\nCurrently selected spools:\n"
-                        for tool_index, description in selected_spools.items():
-                            msg += f" - Tool {html.escape(str(tool_index))}: <code>{html.escape(description)}</code>\n"
+
+                    msg += "\n\nCurrently selected spools:\n"
+                    for i in range(tool_counts):
+                        selected_spool = selected_spools.get(i) or "No spool selected"
+                        msg += f"- Tool {html.escape(str(i))}: <code>{html.escape(selected_spool)}</code>\n"
                 except Exception:
                     self._logger.exception("Caught an exception getting selected spools")
 
-                printer_profile = self.main._printer_profile_manager.get_current()
-                printer_profile_extruder = printer_profile["extruder"]
-                tool_counts = printer_profile_extruder.get("count", 1)
                 command_buttons = [
                     [
                         [f"{get_emoji('tool')} Tool {i}", f"{context.cmd}_{plugin_handler.plugin_id}_select_{i}"]
@@ -254,7 +256,7 @@ class CmdFilament(BaseCommand):
                 return
 
             if spool_id is None:  # Show spool selection menu
-                spools = list(plugin_handler.list_spool().items())
+                spools = [("deselect", "Deselect")] + list(plugin_handler.list_spool().items())
 
                 total_spools = len(spools)
                 total_pages = max(1, (total_spools + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
@@ -303,9 +305,8 @@ class CmdFilament(BaseCommand):
                     msg = f"{get_emoji('question')} Which spool do you want to select for <code>Tool {html.escape(tool_index)}</code>? {page_str}"
                     try:
                         selected_spools = plugin_handler.get_selected_spools()
-                        selected_spool = selected_spools.get(int(tool_index))
-                        if selected_spool:
-                            msg += f"\n\nCurrently selected: <code>{html.escape(selected_spool)}</code>."
+                        selected_spool = selected_spools.get(int(tool_index)) or "No spool selected"
+                        msg += f"\n\nCurrently selected: <code>{html.escape(selected_spool)}</code>."
                     except Exception:
                         self._logger.exception("Caught an exception getting selected spools")
                 else:
@@ -320,10 +321,15 @@ class CmdFilament(BaseCommand):
                 )
 
             else:  # Select
-                plugin_handler.select_spool(tool_index, spool_id)
+                if spool_id == "deselect":
+                    plugin_handler.deselect_spool(tool_index)
 
-                spool_title = plugin_handler.list_spool()[spool_id]
-                msg = f"{get_emoji('check')} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
+                    msg = f"{get_emoji('check')} Successfully deselected spool for <code>Tool {html.escape(tool_index)}</code>!"
+                else:
+                    plugin_handler.select_spool(tool_index, spool_id)
+
+                    spool_title = plugin_handler.list_spool()[spool_id]
+                    msg = f"{get_emoji('check')} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
 
                 command_buttons = [[[f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}_select"]]]
 
@@ -398,6 +404,10 @@ class CmdFilament(BaseCommand):
 
         @abstractmethod
         def select_spool(self, tool_index, spool_id):
+            pass
+
+        @abstractmethod
+        def deselect_spool(self, tool_index):
             pass
 
         @abstractmethod
@@ -509,6 +519,13 @@ class CmdFilament(BaseCommand):
                 f"/plugin/{self.plugin_id}/selections/{tool_index}",
                 "PATCH",
                 json={"selection": {"tool": tool_index, "spool": {"id": spool_id}, "updateui": True}},
+            )
+
+        def deselect_spool(self, tool_index):
+            self.parent.main.send_octoprint_request(
+                f"/plugin/{self.plugin_id}/selections/{tool_index}",
+                "PATCH",
+                json={"selection": {"tool": tool_index, "spool": {"id": None}, "updateui": True}},
             )
 
         def get_selected_spools(self):
@@ -694,6 +711,13 @@ class CmdFilament(BaseCommand):
                 f"/plugin/{self.plugin_id}/self/spool",
                 "POST",
                 json={"spoolId": spool_id, "toolIdx": tool_index},
+            )
+
+        def deselect_spool(self, tool_index):
+            self.parent.main.send_octoprint_request(
+                f"/plugin/{self.plugin_id}/self/spool",
+                "POST",
+                json={"toolIdx": tool_index},
             )
 
         def get_selected_spools(self):
@@ -919,6 +943,11 @@ class CmdFilament(BaseCommand):
         def select_spool(self, tool_index, spool_id):
             self.parent.main.send_octoprint_request(
                 f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": spool_id, "toolIndex": tool_index}
+            )
+
+        def deselect_spool(self, tool_index):
+            self.parent.main.send_octoprint_request(
+                f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": -1, "toolIndex": tool_index}
             )
 
         def get_selected_spools(self):
