@@ -308,8 +308,8 @@ class CmdFiles(BaseCommand):
             command_buttons.append(nav_and_actions_row)
 
             # --- Create message ---
-            page_str = f"{page_number + 1} / {total_pages}"
-            msg = f"{get_emoji('save')} Files in <code>/{html.escape(path_with_storage)}</code>    [{page_str}]"
+            page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
+            msg = f"{get_emoji('save')} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}"
 
             # --- Send message ---
             self.main.send_msg(
