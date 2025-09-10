@@ -24,6 +24,8 @@ class Emoji:
         "star": "\u2b50",
         "lamp": "\U0001f4a1",
         "loading": "\u23f3",
+        "view": "\U0001f441\ufe0f",
+        "pointer": "\U0001f449",
         # Menu navigation
         "back": "\u21a9\ufe0f",
         "up": "\u2b06\ufe0f",
