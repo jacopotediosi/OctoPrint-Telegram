@@ -516,6 +516,11 @@
                                 "id": "enclosure",
                                 "name": "Enclosure",
                                 "description": "Allows adjusting the enclosure target temperature via the <code>/tune</code> command. Enables managing outputs via the <code>/power</code> command. Allows retrieving sensor temperatures through the <code>{enclosure}</code> variable in notification messages."
+                            },
+                            {
+                                "id": "prusammu",
+                                "name": "Prusa MMU",
+                                "description": "Allows receiving notifications about Prusa MMU status updates or errors. Enables retrieving Prusa MMU data through the <code>{prusammu}</code> variable in notification messages."
                             }
                         ]
                     },
@@ -941,6 +946,11 @@
                 "var": "{enclosure}",
                 "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
                     "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{prusammu}",
+                "desc": "A dictionary containing the current state of the Prusa MMU, provided by the <a href='https://plugins.octoprint.org/plugins/prusammu/'>Prusa MMU</a> plugin. "
+                    "It's a dictionary you can navigate like: <code>prusammu[state]</code> or <code>prusammu[tool]</code>. Print it in a notification to explore its structure."
             },
             {
                 "var": "{owner} {user}",

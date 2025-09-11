@@ -230,39 +230,59 @@ telegramMsgDict = {
         "markup": "off",
         "desc": "Triggered when the printer sends 'echo:UserNotif TEXT' over serial, e.g. from a G-code like 'M118 E1 UserNotif TEXT'",
     },
+    "PrusaMMU_Status": {
+        "text": "Prusa MMU reported an update. Its status is: {prusammu[state]}. Previous tool: {prusammu[previousTool]}. Current tool: {prusammu[tool]}.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "desc": "Triggered when the Prusa MMU plugin reports a status / tool change",
+    },
+    "PrusaMMU_Error": {
+        "text": "{emo:warning} Prusa MMU reported an error. Its status is: {prusammu[state]}.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "desc": "Triggered when the Prusa MMU plugin reports an error",
+    },
 }
 
 
 class TMSG:
     def __init__(self, main: "TelegramPlugin"):
         self.main = main
-        self.last_z = 0.0
-        self.last_notification_time = 0
-        self.z = ""
         self._logger = main._logger.getChild("TMSG")
 
+        self.z = ""
+        self.last_z = 0.0
+        self.last_notification_time = 0
+        self.last_prusammu_state = ""
+
         self.msgCmdDict = {
-            "PrinterStart": self._sendNotification,
+            "Alert": self._sendNotification,
+            "Connected": self._sendNotification,
+            "Disconnected": self._sendNotification,
+            "Error": self._sendNotification,
+            "gCode_M600": self._sendNotification,
+            "Home": self._sendNotification,
+            "MovieDone": self._sendNotification,
+            "PausedForUser": self._sendNotification,
+            "plugin_octolapse_movie_done": self._sendNotification,
+            "PrintDone": self._on_msgPrintDone,
             "PrinterShutdown": self._sendNotification,
-            "PrintStarted": self._on_msgPrintStarted,
+            "PrinterStart": self._sendNotification,
             "PrintFailed": self._on_msgPrintFailed,
             "PrintPaused": self._sendNotification,
             "PrintResumed": self._sendNotification,
-            "ZChange": self._on_msgZChange,
-            "PrintDone": self._on_msgPrintDone,
-            "StatusNotPrinting": self._sendNotification,
+            "PrintStarted": self._on_msgPrintStarted,
+            "PrusaMMU_Error": self._on_msgPrusaMMU,
+            "PrusaMMU_Status": self._on_msgPrusaMMU,
             "StatusNotConnected": self._sendNotification,
+            "StatusNotPrinting": self._sendNotification,
             "StatusPrinting": self._sendNotification,
-            "PausedForUser": self._sendNotification,
-            "gCode_M600": self._sendNotification,
-            "Error": self._sendNotification,
-            "MovieDone": self._sendNotification,
-            "plugin_octolapse_movie_done": self._sendNotification,
             "UserNotif": self._sendNotification,
-            "Connected": self._sendNotification,
-            "Disconnected": self._sendNotification,
-            "Alert": self._sendNotification,
-            "Home": self._sendNotification,
+            "ZChange": self._on_msgZChange,
         }
 
     def startEvent(self, event, payload, **kwargs):
@@ -304,6 +324,12 @@ class TMSG:
     def _on_msgPrintFailed(self, payload, **kwargs):
         self.main.shut_up = set()
         self._sendNotification(payload, **kwargs)
+
+    def _on_msgPrusaMMU(self, payload, **kwargs):
+        state = payload.get("state", "")
+        if state != self.last_prusammu_state:
+            self.last_prusammu_state = state
+            self._sendNotification(payload, **kwargs)
 
     def _sendNotification(self, payload, **kwargs):
         try:
@@ -534,6 +560,15 @@ class TMSG:
                 def UserNotif_Text(self):
                     """The text received via the serial message echo:UserNotif TEXT, which is triggered by printing a G-code like: M118 E1 UserNotif TEXT."""
                     return self._get_cached("UserNotif_Text", lambda: self.payload.get("UserNotif", ""))
+
+                @property
+                def prusammu(self):
+                    """A dictionary containing the current state of the Prusa MMU, provided by the Prusa MMU plugin."""
+
+                    def calculate_prusammu():
+                        return self.parent.main.send_octoprint_simpleapi_command("prusammu", "getmmu").json()
+
+                    return self._get_cached("prusammu", calculate_prusammu)
 
                 @property
                 def enclosure(self):

@@ -1106,6 +1106,12 @@ class TelegramPlugin(
                 self._logger.warning("Received an event, but bot is not ready")
                 return
 
+            if event == "plugin_prusammu_mmu_changed":
+                if payload["state"] in ("NOT_FOUND", "PAUSED_USER", "ATTENTION"):
+                    event = "PrusaMMU_Error"
+                elif payload["state"] in ("UNLOADING", "UNLOADING_FINAL", "LOADING", "LOADED", "CUTTING", "EJECTING"):
+                    event = "PrusaMMU_Status"
+
             # If we know the event, start handler
             if event in self.tmsg.msgCmdDict:
                 self._logger.debug(f"Received a known event: {event} - Payload: {payload}")
@@ -1208,6 +1214,7 @@ class TelegramPlugin(
                 "octolightHA",
                 "octorelay",
                 "orvibos20",
+                "prusammu",
                 "prusaslicerthumbnails",
                 "psucontrol",
                 "Spoolman",
