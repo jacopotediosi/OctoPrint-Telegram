@@ -500,6 +500,11 @@
                                 "id": "prusaslicerthumbnails",
                                 "name": "Slicer Thumbnails",
                                 "description": "Extracts embedded slicer thumbnails from G-code files and makes them available in start print notifications and file details."
+                            },
+                            {
+                                "id": "SlicerSettingsParser",
+                                "name": "SlicerSettingsParser",
+                                "description": "Enriches the metadata retrievable through the <code>{metadata}</code> variable in notification messages."
                             }
                         ]
                     },
@@ -917,6 +922,11 @@
                 "var": "{status}",
                 "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data'><code>get_current_data()</code></a> OctoPrint function. "
                     "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{metadata}",
+                "desc": "Metadata of the file being printed. It's a dictionary you can navigate like: <code>metadata[analysis][printingArea][maxZ]</code> or <code>metadata[analysis][dimensions][height]</code>. "
+                    "<small class='muted'>It can be enriched by the <a href='https://plugins.octoprint.org/plugins/SlicerSettingsParser/'>SlicerSettingsParser</a> plugin.</small> <small class='muted'>Only useful while printing.</small>"
             },
             {
                 "var": "{z}",

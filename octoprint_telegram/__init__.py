@@ -1218,6 +1218,7 @@ class TelegramPlugin(
                 "prusaslicerthumbnails",
                 "psucontrol",
                 "resource_monitor",
+                "SlicerSettingsParser",
                 "Spoolman",
                 "SpoolManager",
                 "tasmota_mqtt",

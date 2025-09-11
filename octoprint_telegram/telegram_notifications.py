@@ -552,6 +552,17 @@ class TMSG:
                     return self._get_cached("path", lambda: self.status.get("job", {}).get("file", {}).get("path", ""))
 
                 @property
+                def metadata(self):
+                    """A dictionary containing metadata of the file currently being printed"""
+
+                    def calulate_metadata():
+                        return self.parent.main._file_manager.get_metadata(
+                            octoprint.filemanager.FileDestinations.LOCAL, self.path
+                        )
+
+                    return self._get_cached("metadata", calulate_metadata)
+
+                @property
                 def error_msg(self):
                     """The error message string. Only useful for 'Error' event notifications."""
                     return self._get_cached("error_msg", lambda: self.payload.get("error", ""))
