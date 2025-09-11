@@ -521,6 +521,11 @@
                                 "id": "prusammu",
                                 "name": "Prusa MMU",
                                 "description": "Allows receiving notifications about Prusa MMU status updates or errors. Enables retrieving Prusa MMU data through the <code>{prusammu}</code> variable in notification messages."
+                            },
+                            {
+                                "id": "resource_monitor",
+                                "name": "Resource Monitor",
+                                "description": "Enables retrieving system resource usage data through the <code>{resource_monitor}</code> variable in notification messages."
                             }
                         ]
                     },
@@ -951,6 +956,11 @@
                 "var": "{prusammu}",
                 "desc": "A dictionary containing the current state of the Prusa MMU, provided by the <a href='https://plugins.octoprint.org/plugins/prusammu/'>Prusa MMU</a> plugin. "
                     "It's a dictionary you can navigate like: <code>prusammu[state]</code> or <code>prusammu[tool]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{resource_monitor}",
+                "desc": "A dictionary containing your system resource usage data, provided by the <a href='https://plugins.octoprint.org/plugins/resource_monitor/'>Resource Monitor</a> plugin. "
+                    "It's a dictionary you can navigate like: <code>resource_monitor[cpu][average]</code> or <code>resource_monitor[temp][celsius][current]</code>. Print it in a notification to explore its structure."
             },
             {
                 "var": "{owner} {user}",

@@ -1217,6 +1217,7 @@ class TelegramPlugin(
                 "prusammu",
                 "prusaslicerthumbnails",
                 "psucontrol",
+                "resource_monitor",
                 "Spoolman",
                 "SpoolManager",
                 "tasmota_mqtt",

@@ -571,6 +571,15 @@ class TMSG:
                     return self._get_cached("prusammu", calculate_prusammu)
 
                 @property
+                def resource_monitor(self):
+                    """A dictionary containing data provided by the Resource Monitor plugin."""
+
+                    def calculate_resource_monitor():
+                        return self.parent.main.send_octoprint_request("/plugin/resource_monitor/stats").json()
+
+                    return self._get_cached("resource_monitor", calculate_resource_monitor)
+
+                @property
                 def enclosure(self):
                     """A dictionary containing the data provided by the Enclosure plugin, such as the temperatures measured by the sensors or the configured target temperature."""
 
