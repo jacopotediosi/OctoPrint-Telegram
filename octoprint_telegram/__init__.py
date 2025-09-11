@@ -2416,8 +2416,14 @@ class TelegramPlugin(
 
         method = method.lower()
 
+        api_key = self._settings.global_get(["api", "key"])
+        if not api_key:
+            self._logger.error(
+                "Global API Key not enabled. Most integrations with third-party plugins require enabling the Global API Key in OctoPrint Settings -> API -> Global API Key."
+            )
+
         default_headers = {
-            "X-Api-Key": self._settings.global_get(["api", "key"]),
+            "X-Api-Key": api_key,
         }
         headers = {**default_headers, **(kwargs.get("headers") or {})}
         kwargs.pop("headers", None)
