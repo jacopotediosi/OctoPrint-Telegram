@@ -136,7 +136,7 @@ class CmdCtrl(BaseCommand):
                     controls.extend(self.get_controls(key["children"], key_name))
                 else:
                     if key.get("input"):
-                        self._logger.warning(f"Skipping {key_name} Control because it requires input.")
+                        self._logger.warning("Skipping %s Control because it requires input.", key_name)
                         continue
 
                     control = {}
@@ -156,7 +156,7 @@ class CmdCtrl(BaseCommand):
                         if not isinstance(command, list):
                             command = [command]
                     else:
-                        self._logger.warning(f"Skipping {key_name} Control because it's not a script nor a command.")
+                        self._logger.warning("Skipping %s Control because it's not a script nor a command.", key_name)
                         continue
 
                     command_str = ",".join(command) if isinstance(command, list) else str(command)

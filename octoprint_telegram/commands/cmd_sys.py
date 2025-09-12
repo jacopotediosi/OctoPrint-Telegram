@@ -61,7 +61,7 @@ class CmdSys(BaseCommand):
                             returncode = str(process.returncode)
                             stderr_text = str(process.stderr.text)
 
-                            self._logger.warning(f"Command failed with return code {returncode}: {stderr_text}")
+                            self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
 
                             msg = f"{get_emoji('attention')} Command failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
                         else:
@@ -148,7 +148,7 @@ class CmdSys(BaseCommand):
                             returncode = str(process.returncode)
                             stderr_text = str(process.stderr.text)
 
-                            self._logger.warning(f"Command failed with return code {returncode}: {stderr_text}")
+                            self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
 
                             msg = f"{get_emoji('attention')} Command <code>{html.escape(command['name'])}</code> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
                     except Exception:

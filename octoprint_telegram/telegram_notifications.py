@@ -672,7 +672,7 @@ class TMSG:
                 "kwargs": kwargs,
                 "accessed_lazy_vars": list(lazy_vars._cache.keys()) if hasattr(lazy_vars, "_cache") else [],
             }
-            self._logger.debug(f"_sendNotification debug info: {debug_info}")
+            self._logger.debug("_sendNotification debug info: %s", debug_info)
 
             # Format the message
             try:

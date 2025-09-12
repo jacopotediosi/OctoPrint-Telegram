@@ -248,7 +248,7 @@ class CmdFiles(BaseCommand):
                                 else:
                                     display_filename = f"{get_emoji('warning')} {file_base_name}"
                     except Exception:
-                        self._logger.exception(f"Error processing history for file '{filename}'")
+                        self._logger.exception("Error processing history for file '%s'", filename)
                         display_filename = f"{get_emoji('file')} {file_base_name}"
 
                     file_hash = self.hash_path(f"{path_with_storage}/{filename}")
@@ -540,7 +540,7 @@ class CmdFiles(BaseCommand):
                             f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(average_print_time)}"
                         )
                     except Exception:
-                        self._logger.exception(f"Error processing average print time for profile '{profile_id}'")
+                        self._logger.exception("Error processing average print time for profile '%s'", profile_id)
         except Exception:
             self._logger.exception("Caught an exception retrieving average print times")
 
@@ -553,7 +553,9 @@ class CmdFiles(BaseCommand):
                     profile = self.main._printer_profile_manager.get(profile_id)
                     msg += f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(last_print_time)}"
                 except Exception:
-                    self._logger.exception(f"Caught an exception processing last print time for profile '{profile_id}'")
+                    self._logger.exception(
+                        "Caught an exception processing last print time for profile '%s'", profile_id
+                    )
 
         # Prints history
         if history:
@@ -575,7 +577,7 @@ class CmdFiles(BaseCommand):
                             profile = self.main._printer_profile_manager.get(profile_id)
                             msg += f"\n      Printer Profile: {html.escape(profile['name'])}"
                         except Exception:
-                            self._logger.exception(f"Failed to get printer profile '{profile_id}'")
+                            self._logger.exception("Failed to get printer profile '%s'", profile_id)
 
                     success = history_entry.get("success")
                     if success is not None:
@@ -757,7 +759,7 @@ class CmdFiles(BaseCommand):
                             failure_reason = "Unknown operation"
 
             except Exception:
-                self._logger.exception(f"Caught an exception copying/moving file {full_to_file_path_to_display}")
+                self._logger.exception("Caught an exception copying/moving file %s", full_to_file_path_to_display)
                 failure_reason = "Internal error, please check logs"
 
             if failure_reason:
@@ -1035,7 +1037,7 @@ class CmdFiles(BaseCommand):
                     else:
                         self.main._file_manager.remove_file(storage_name, file_path)
             except Exception:
-                self._logger.exception(f"Caught an exception deleting file {file_path}")
+                self._logger.exception("Caught an exception deleting file %s", file_path)
                 failure_reason = "Internal error, please check logs"
 
             if failure_reason:
@@ -1150,7 +1152,7 @@ class CmdFiles(BaseCommand):
 
                     _process_tree(file_listing[location], f"{full_path}/")
                 else:
-                    self._logger.warning(f"Parameter mismatch: location {location} not found in file listing")
+                    self._logger.warning("Parameter mismatch: location %s not found in file listing", location)
 
     def list_files(self, locations=None, path=None, filter=None, recursive=True, level=0, force_refresh=False):
         """
@@ -1202,13 +1204,13 @@ class CmdFiles(BaseCommand):
             if not thumbnail_path:
                 return
 
-            self._logger.info(f"Get thumbnail: {thumbnail_path}")
+            self._logger.info("Get thumbnail: %s", thumbnail_path)
 
             thumbnail_response = self.main.send_octoprint_request(f"/{thumbnail_path}")
             if not thumbnail_response.ok:
                 return
 
-            self._logger.info(f"Uploading thumbnail to imgbb: {thumbnail_path}")
+            self._logger.info("Uploading thumbnail to imgbb: %s", thumbnail_path)
 
             encoded_img = base64.b64encode(thumbnail_response.content)
             payload = {"key": api_key, "image": encoded_img}

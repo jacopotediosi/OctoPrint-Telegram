@@ -80,7 +80,7 @@ class CmdPower(BaseCommand):
 
                         plug_buttons.append([f"{status_emoji} {label}", command])
                 except Exception:
-                    self._logger.exception(f"Caught an exception getting {plugin_handler.plugin_id} plugs")
+                    self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
             max_per_row = 3
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
@@ -168,7 +168,7 @@ class CmdPower(BaseCommand):
                         action_methods[action](plug_data)
                         message = f"{get_emoji('check')} Command sent!"
                     except Exception:
-                        self._logger.exception(f"Caught an exception sending action to {plugin_id}")
+                        self._logger.exception("Caught an exception sending action to %s", plugin_id)
                         message = f"{get_emoji('attention')} Something went wrong!"
 
                 original_command = f"{context.cmd}_{context.parameter.rsplit('_', 1)[0]}"
@@ -257,7 +257,7 @@ class CmdPower(BaseCommand):
                             response = requests.get(str_url, timeout=10, verify=False)
                         is_on = response.json()["result"][0]["Status"].lower() == "on"
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     escaped_ip = ip.replace("|", "\\|")
                     escaped_idx = idx.replace("|", "\\|")
@@ -265,7 +265,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -324,7 +324,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_index})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -357,7 +357,7 @@ class CmdPower(BaseCommand):
                 statuses = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
                 statuses = []
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+                self.parent._logger.exception("Caught an exception getting %s plugs statuses", self.plugin_id)
 
             plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "gpio_configurations"])
             for index, configuration in enumerate(plugs):
@@ -367,7 +367,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": index})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -407,11 +407,11 @@ class CmdPower(BaseCommand):
                         )
                         is_on = response.json().get("currentState", "").lower() == "on"
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_id})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -444,7 +444,7 @@ class CmdPower(BaseCommand):
                 response = requests.get(f"http://{ip}/report", headers={"Token": token}, timeout=5)
                 is_on = response.json().get("relay", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # Mystromswitch is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -473,7 +473,7 @@ class CmdPower(BaseCommand):
                 response = self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, "getstate")
                 is_on = response.json().get("on", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # Octohue is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -502,7 +502,7 @@ class CmdPower(BaseCommand):
                 response = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id)
                 is_on = response.json().get("state", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # Octolight is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -531,7 +531,7 @@ class CmdPower(BaseCommand):
                 response = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id, dict(action="getState"))
                 is_on = response.json().get("state", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # OctolightHA is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -566,7 +566,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_id})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -607,11 +607,11 @@ class CmdPower(BaseCommand):
                         plugin_module = self.parent.main._plugin_manager.get_plugin(self.plugin_id, True)
                         is_on = plugin_module.Orvibo.discover(plug_ip).on
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -639,7 +639,7 @@ class CmdPower(BaseCommand):
                 response = self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, "getPSUState")
                 is_on = response.json().get("isPSUOn", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # Psucontrol is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -681,7 +681,7 @@ class CmdPower(BaseCommand):
                         )
                         is_on = response.json().get("currentState", "").lower() == "on"
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     escaped_ip = plug_ip.replace("|", "\\|")
                     escaped_idx = plug_idx.replace("|", "\\|")
@@ -689,7 +689,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -728,7 +728,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": data})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -765,7 +765,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -803,11 +803,11 @@ class CmdPower(BaseCommand):
                         plugin_implementation = self.parent.main._plugin_manager.plugins[self.plugin_id].implementation
                         is_on = plugin_implementation.is_turned_on(pluglabel=label)
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": label})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -838,7 +838,7 @@ class CmdPower(BaseCommand):
                 statuses = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
                 statuses = []
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+                self.parent._logger.exception("Caught an exception getting %s plugs statuses", self.plugin_id)
 
             plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "usbrelay_configurations"])
             for index, configuration in enumerate(plugs):
@@ -848,7 +848,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": index})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -888,11 +888,11 @@ class CmdPower(BaseCommand):
                         chk = plugin_implementation.sendCommand("info", plug_ip)
                         is_on = chk == 1 or chk == 8
                     except Exception:
-                        self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plug status")
+                        self.parent._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 
@@ -920,7 +920,7 @@ class CmdPower(BaseCommand):
                 response = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id)
                 is_on = response.json().get("lights_on", False)
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} status")
+                self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
 
             # Wled is single plug, so data below is dummy
             return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
@@ -952,7 +952,7 @@ class CmdPower(BaseCommand):
             try:
                 statuses = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id).json()
             except Exception:
-                self.parent._logger.exception(f"Caught an exception getting {self.plugin_id} plugs statuses")
+                self.parent._logger.exception("Caught an exception getting %s plugs statuses", self.plugin_id)
 
             for plug_name in plugs_names:
                 try:
@@ -961,7 +961,7 @@ class CmdPower(BaseCommand):
 
                     plugs_data.append({"label": label, "is_on": is_on, "data": plug_name})
                 except Exception:
-                    self.parent._logger.exception(f"Caught an exception processing {self.plugin_id} plug data")
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
 
             return plugs_data
 

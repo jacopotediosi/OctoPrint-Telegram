@@ -55,11 +55,11 @@ class TelegramUtils:
         request_kwargs = {**default_kwargs, **kwargs}
 
         loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
-        _logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}.")
+        _logger.debug("Sending Telegram request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)
 
         try:
             response = requests.request(method, url, **request_kwargs)
-            _logger.debug(f"Received Telegram response: {response.text}.")
+            _logger.debug("Received Telegram response: %s", response.text)
         except Exception:
             raise Exception(f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}.")
 
