@@ -3,7 +3,7 @@ import html
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdCancelObject(BaseCommand):
@@ -11,7 +11,9 @@ class CmdCancelObject(BaseCommand):
         cancelobject_id = "cancelobject"
 
         if not self.main._plugin_manager.get_plugin(cancelobject_id, True):
-            msg = f"{get_emoji('attention')} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
+            msg = render_emojis(
+                f"{{emo:attention}} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -26,8 +28,8 @@ class CmdCancelObject(BaseCommand):
             id = params[0]
             self.main.send_octoprint_simpleapi_command(cancelobject_id, "cancel", dict(cancelled=id))
 
-            msg = f"{get_emoji('check')} Command sent!"
-            command_buttons = [[[f"{get_emoji('back')} Back", context.cmd]]]
+            msg = render_emojis("{emo:check} Command sent!")
+            command_buttons = [[[render_emojis("{emo:back} Back"), context.cmd]]]
 
             self.main.send_msg(
                 msg,
@@ -39,7 +41,7 @@ class CmdCancelObject(BaseCommand):
         else:
             objlist = self.main.send_octoprint_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
             if objlist:
-                msg = f"{get_emoji('question')} Which object do you want to cancel?"
+                msg = render_emojis("{emo:question} Which object do you want to cancel?")
 
                 cancelled_objects = [obj["object"] for obj in objlist if obj.get("cancelled", False)]
                 if cancelled_objects:
@@ -51,7 +53,7 @@ class CmdCancelObject(BaseCommand):
                     for obj in objlist
                     if not obj.get("cancelled", False)
                 ]
-                command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
                 self.main.send_msg(
                     msg,
@@ -61,7 +63,7 @@ class CmdCancelObject(BaseCommand):
                     msg_id=context.msg_id_to_update,
                 )
             else:
-                msg = f"{get_emoji('attention')} No objects found. Please make sure you've loaded the gcode."
+                msg = render_emojis("{emo:attention} No objects found. Please make sure you've loaded the gcode.")
                 self.main.send_msg(
                     msg,
                     chatID=context.chat_id,

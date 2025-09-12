@@ -1,16 +1,16 @@
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdGif(BaseCommand):
     def execute(self, context: CommandContext):
         if self.main._settings.get(["send_gif"]):
-            msg = f"{get_emoji('video')} Here are your GIF(s)"
+            msg = render_emojis("{emo:video} Here are your GIF(s)")
             with_gif = True
         else:
-            msg = f"{get_emoji('notallowed')} Sending GIFs is disabled in plugin settings"
+            msg = render_emojis("{emo:notallowed} Sending GIFs is disabled in plugin settings")
             with_gif = False
 
         self.main.send_msg(

@@ -7,7 +7,7 @@ import sarge
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdSys(BaseCommand):
@@ -26,16 +26,18 @@ class CmdSys(BaseCommand):
                     if params[1] not in command_mapping:
                         return
 
-                    msg = f"{get_emoji('question')} Execute System Command <b>{html.escape(command_mapping[params[1]])}</b>?"
+                    msg = render_emojis(
+                        f"{{emo:question}} Execute System Command <b>{html.escape(command_mapping[params[1]])}</b>?"
+                    )
 
                     command_buttons = [
                         [
                             [
-                                f"{get_emoji('check')} Execute",
+                                render_emojis("{emo:check} Execute"),
                                 f"{context.cmd}_sys_do_{params[1]}",
                             ],
                             [
-                                f"{get_emoji('back')} Back",
+                                render_emojis("{emo:back} Back"),
                                 context.cmd,
                             ],
                         ]
@@ -63,12 +65,14 @@ class CmdSys(BaseCommand):
 
                             self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
 
-                            msg = f"{get_emoji('attention')} Command failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                            msg = render_emojis(
+                                f"{{emo:attention}} Command failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                            )
                         else:
-                            msg = f"{get_emoji('check')} System Command executed."
+                            msg = render_emojis("{emo:check} System Command executed.")
                     except Exception:
                         self._logger.exception("Caught an exception executing system command")
-                        msg = f"{get_emoji('attention')} Command failed, please check log files."
+                        msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
                     self.main.send_msg(
                         msg,
@@ -96,26 +100,26 @@ class CmdSys(BaseCommand):
 
                 if not command:
                     self.main.send_msg(
-                        f"{get_emoji('attention')} Sorry, I don't know this System Command.",
+                        render_emojis("{emo:attention} Sorry, I don't know this System Command."),
                         chatID=context.chat_id,
                         msg_id=context.msg_id_to_update,
                     )
                     return
 
                 if "confirm" in command and params[0] != "do":  # Command requires confirmation, ask for it
-                    msg = (
-                        f"{get_emoji('question')} Execute System Command <code>{html.escape(command['name'])}</code>?\n"
-                        f"{get_emoji('info')} Confirmation message: <code>{html.escape(command['confirm'])}</code>"
+                    msg = render_emojis(
+                        f"{{emo:question}} Execute System Command <code>{html.escape(command['name'])}</code>?\n"
+                        f"{{emo:info}} Confirmation message: <code>{html.escape(command['confirm'])}</code>"
                     )
 
                     command_buttons = [
                         [
                             [
-                                f"{get_emoji('check')} Execute",
+                                render_emojis("{emo:check} Execute"),
                                 f"{context.cmd}_do_{action_hash}",
                             ],
                             [
-                                f"{get_emoji('back')} Back",
+                                render_emojis("{emo:back} Back"),
                                 context.cmd,
                             ],
                         ]
@@ -140,8 +144,8 @@ class CmdSys(BaseCommand):
                             async_=async_,
                         )
 
-                        msg = (
-                            f"{get_emoji('check')} System Command <code>{html.escape(command['name'])}</code> executed."
+                        msg = render_emojis(
+                            f"{{emo:check}} System Command <code>{html.escape(command['name'])}</code> executed."
                         )
 
                         if not async_ and process.returncode != 0:
@@ -150,10 +154,12 @@ class CmdSys(BaseCommand):
 
                             self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
 
-                            msg = f"{get_emoji('attention')} Command <code>{html.escape(command['name'])}</code> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                            msg = render_emojis(
+                                f"{{emo:attention}} Command <code>{html.escape(command['name'])}</code> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                            )
                     except Exception:
                         self._logger.exception("Caught an exception executing system command")
-                        msg = f"{get_emoji('attention')} Command failed, please check log files."
+                        msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
                     self.main.send_msg(
                         msg,
@@ -197,10 +203,10 @@ class CmdSys(BaseCommand):
                 command_buttons.append(server_commands_buttons[i : i + 2])
 
             if command_buttons:
-                msg = f"{get_emoji('question')} Which System Command do you want to activate?"
+                msg = render_emojis("{emo:question} Which System Command do you want to activate?")
             else:
-                msg = (
-                    f"{get_emoji('warning')} No System Commands found.\n"
+                msg = render_emojis(
+                    "{emo:warning} No System Commands found.\n"
                     "You can add custom commands from the OctoPrint web GUI using the "
                     "<a href='https://plugins.octoprint.org/plugins/systemcommandeditor/'>System Command Editor</a> plugin."
                 )
@@ -211,11 +217,11 @@ class CmdSys(BaseCommand):
                     port = self.main._settings.global_get(["server", "onlineCheck", "port"])
                     s.connect((host, port))
                     server_ip = s.getsockname()[0]
-                msg += f"\n\n{get_emoji('info')} IP: {server_ip}:{self.main.port}"
+                msg += render_emojis(f"\n\n{{emo:info}} IP: {server_ip}:{self.main.port}")
             except Exception:
                 self._logger.exception("Caught an exception retrieving IP address")
 
-            command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
             self.main.send_msg(
                 msg,

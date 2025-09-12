@@ -1,16 +1,16 @@
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdShutup(BaseCommand):
     def execute(self, context: CommandContext):
         self.main.shut_up.add(context.chat_id)
 
-        msg = (
-            f"{get_emoji('nonotify')} Okay, shutting up until the next print is finished.\n"
-            f"Use /dontshutup to let me talk again before that."
+        msg = render_emojis(
+            "{emo:nonotify} Okay, shutting up until the next print is finished.\n"
+            "Use /dontshutup to let me talk again before that."
         )
 
         self.main.send_msg(

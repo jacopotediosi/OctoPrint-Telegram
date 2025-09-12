@@ -1,7 +1,7 @@
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdSettings(BaseCommand):
@@ -32,15 +32,18 @@ class CmdSettings(BaseCommand):
                         self.execute(context)
                         return
 
-                msg = (
-                    f"{get_emoji('height')} Set new height.\n"
+                msg = render_emojis(
+                    "{emo:height} Set new height.\n"
                     f"Current: <b>{self.temp_notification_settings['notification_height']:.2f}mm</b>"
                 )
 
                 command_buttons = [
                     [[f"+{step}", f"{context.cmd}_h_+{step}"] for step in self.HEIGHT_STEPS],
                     [[f"-{step}", f"{context.cmd}_h_-{step}"] for step in self.HEIGHT_STEPS],
-                    [[f"{get_emoji('save')} Save", f"{context.cmd}_h_s"], [f"{get_emoji('back')} Back", context.cmd]],
+                    [
+                        [render_emojis("{emo:save} Save"), f"{context.cmd}_h_s"],
+                        [render_emojis("{emo:back} Back"), context.cmd],
+                    ],
                 ]
 
                 self.main.send_msg(
@@ -66,15 +69,18 @@ class CmdSettings(BaseCommand):
                         self.execute(context)
                         return
 
-                msg = (
-                    f"{get_emoji('alarmclock')} Set new time.\n"
+                msg = render_emojis(
+                    "{emo:alarmclock} Set new time.\n"
                     f"Current: <b>{self.temp_notification_settings['notification_time']}min</b>"
                 )
 
                 command_buttons = [
                     [[f"+{step}", f"{context.cmd}_t_+{step}"] for step in self.TIME_STEPS],
                     [[f"-{step}", f"{context.cmd}_t_-{step}"] for step in self.TIME_STEPS],
-                    [[f"{get_emoji('save')} Save", f"{context.cmd}_t_s"], [f"{get_emoji('back')} Back", context.cmd]],
+                    [
+                        [render_emojis("{emo:save} Save"), f"{context.cmd}_t_s"],
+                        [render_emojis("{emo:back} Back"), context.cmd],
+                    ],
                 ]
 
                 self.main.send_msg(
@@ -92,24 +98,24 @@ class CmdSettings(BaseCommand):
                 notification_height=notification_height, notification_time=notification_time
             )
 
-            msg = (
-                f"{get_emoji('settings')} <b>Current notification settings are:</b>\n\n"
-                f"{get_emoji('height')} Height: {notification_height:.2f}mm\n\n"
-                f"{get_emoji('alarmclock')} Time: {notification_time:d}min\n\n"
+            msg = render_emojis(
+                "{emo:settings} <b>Current notification settings are:</b>\n\n"
+                f"{{emo:height}} Height: {notification_height:.2f}mm\n\n"
+                f"{{emo:alarmclock}} Time: {notification_time:d}min\n\n"
             )
 
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('height')} Set height",
+                        render_emojis("{emo:height} Set height"),
                         f"{context.cmd}_h",
                     ],
                     [
-                        f"{get_emoji('alarmclock')} Set time",
+                        render_emojis("{emo:alarmclock} Set time"),
                         f"{context.cmd}_t",
                     ],
                 ],
-                [[f"{get_emoji('cancel')} Close", "close"]],
+                [[render_emojis("{emo:cancel} Close"), "close"]],
             ]
             self.main.send_msg(
                 msg,

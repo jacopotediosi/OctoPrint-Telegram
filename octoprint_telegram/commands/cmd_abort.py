@@ -1,7 +1,7 @@
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdAbort(BaseCommand):
@@ -9,7 +9,7 @@ class CmdAbort(BaseCommand):
         if context.parameter == "stop":
             self.main._printer.cancel_print(user=context.user)
 
-            msg = f"{get_emoji('check')} Aborting the print."
+            msg = render_emojis("{emo:check} Aborting the print.")
 
             self.main.send_msg(
                 msg,
@@ -18,15 +18,15 @@ class CmdAbort(BaseCommand):
             )
         else:
             if self.main._printer.is_printing() or self.main._printer.is_pausing() or self.main._printer.is_paused():
-                msg = f"{get_emoji('question')} Really abort the currently running print?"
+                msg = render_emojis("{emo:question} Really abort the currently running print?")
 
                 command_buttons = [
                     [
                         [
-                            f"{get_emoji('check')} Stop print",
+                            render_emojis("{emo:check} Stop print"),
                             f"{context.cmd}_stop",
                         ],
-                        [f"{get_emoji('cancel')} Close", "close"],
+                        [render_emojis("{emo:cancel} Close"), "close"],
                     ]
                 ]
 
@@ -37,7 +37,7 @@ class CmdAbort(BaseCommand):
                     msg_id=context.msg_id_to_update,
                 )
             else:
-                msg = f"{get_emoji('warning')} Currently I'm not printing, so there is nothing to stop."
+                msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 
                 self.main.send_msg(
                     msg,

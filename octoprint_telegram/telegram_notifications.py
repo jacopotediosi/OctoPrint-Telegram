@@ -11,7 +11,7 @@ from .telegram_utils import escape_markdown
 if TYPE_CHECKING:
     from . import TelegramPlugin
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 # telegramMsgDict contains message settings.
 # Each entry has the following structure:
@@ -677,11 +677,6 @@ class TMSG:
             # Format the message
             try:
 
-                class EmojiFormatter:
-                    def __format__(self, fmt):
-                        # Replace with corresponding emoji
-                        return get_emoji(fmt)
-
                 class MarkupEscapedValue:
                     """
                     Wrapper for template variable values that applies markup escaping at string conversion time.
@@ -727,9 +722,8 @@ class TMSG:
                     Unknown or not allowed variables are returned as literal placeholders.
                     """
 
-                    def __init__(self, lazy_vars, emoji_formatter, markup):
+                    def __init__(self, lazy_vars, markup):
                         self.lazy_vars = lazy_vars
-                        self.emoji_formatter = emoji_formatter
                         self.markup = markup
 
                         # Only variables of lazy_vars decorated with @property are allowed
@@ -738,10 +732,6 @@ class TMSG:
                         }
 
                     def __getitem__(self, key):
-                        # If it is an emoji, format it with emoji_formatter
-                        if key == "emo":
-                            return self.emoji_formatter
-
                         # If variable is not in allowed_vars, return it as a literal
                         if key not in self.allowed_vars:
                             return "{" + key + "}"
@@ -755,15 +745,18 @@ class TMSG:
                             # Return an error placeholder if getting the lazy_vars property raised an exception
                             return "[ERROR]"
 
-                emoji_formatter = EmojiFormatter()
-                context = SecureTemplateContext(lazy_vars, emoji_formatter, markup)
-
                 message_template = self.main._settings.get(["messages", event, "text"])
-                message = message_template.format_map(context)
+
+                # Render emojis
+                message = render_emojis(message_template)
+
+                # Render lazy vars
+                context = SecureTemplateContext(lazy_vars, markup)
+                message = message.format_map(context)
             except Exception:
                 self._logger.exception("Caught an exception while formatting the message")
-                message = (
-                    f"{get_emoji('attention')} I was not able to format the Notification for the event '{event}' properly.\n"
+                message = render_emojis(
+                    f"{{emo:attention}} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
 

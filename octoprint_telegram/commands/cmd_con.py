@@ -5,7 +5,7 @@ import time
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdCon(BaseCommand):
@@ -34,8 +34,8 @@ class CmdCon(BaseCommand):
         profile_str = str(profile.get("name")) if profile is not None else "None"
         autoconnect_str = str(connection_options.get("autoconnect"))
 
-        msg = (
-            f"{get_emoji('info')} <b>Connection information</b>\n\n"
+        msg = render_emojis(
+            "{emo:info} <b>Connection information</b>\n\n"
             f"<b>Status</b>: {html.escape(status_str)}\n\n"
             f"<b>Port</b>: {html.escape(port_str)}\n"
             f"<b>Baud</b>: {html.escape(baud_str)}\n"
@@ -43,18 +43,18 @@ class CmdCon(BaseCommand):
             f"<b>AutoConnect</b>: {html.escape(autoconnect_str)}\n\n"
         )
 
-        btn_defaults = [f"{get_emoji('star')} Defaults", f"{context.cmd}_s"]
-        btn_close = [f"{get_emoji('cancel')} Close", "close"]
+        btn_defaults = [render_emojis("{emo:star} Defaults"), f"{context.cmd}_s"]
+        btn_close = [render_emojis("{emo:cancel} Close"), "close"]
 
         if self.main._printer.is_operational():
             if not self.main._printer.is_ready():
-                msg += f"{get_emoji('warning')} You can't disconnect while printing."
+                msg += render_emojis("{emo:warning} You can't disconnect while printing.")
                 command_buttons = [[btn_defaults, btn_close]]
             else:
-                btn_disconnect = [f"{get_emoji('offline')} Disconnect", f"{context.cmd}_d"]
+                btn_disconnect = [render_emojis("{emo:offline} Disconnect"), f"{context.cmd}_d"]
                 command_buttons = [[btn_disconnect, btn_defaults, btn_close]]
         else:
-            btn_connect = [f"{get_emoji('online')} Connect", f"{context.cmd}_c"]
+            btn_connect = [render_emojis("{emo:online} Connect"), f"{context.cmd}_c"]
             command_buttons = [[btn_connect, btn_defaults, btn_close]]
 
         self.main.send_msg(
@@ -85,27 +85,27 @@ class CmdCon(BaseCommand):
             profile_name_str = str(profile.get("name")) if profile is not None else "None"
             autoconnect_str = str(connection_options.get("autoconnect"))
 
-            msg = (
-                f"{get_emoji('settings')} Default connection settings\n"
-                f"\n{get_emoji('port')} <b>Port</b>: {html.escape(port_str)}"
-                f"\n{get_emoji('speed')} <b>Baud</b>: {html.escape(baud_str)}"
-                f"\n{get_emoji('profile')} <b>Profile</b>: {html.escape(profile_name_str)}"
-                f"\n{get_emoji('lamp')} <b>AutoConnect</b>: {html.escape(autoconnect_str)}"
+            msg = render_emojis(
+                "{emo:settings} Default connection settings\n"
+                f"\n{{emo:port}} <b>Port</b>: {html.escape(port_str)}"
+                f"\n{{emo:speed}} <b>Baud</b>: {html.escape(baud_str)}"
+                f"\n{{emo:profile}} <b>Profile</b>: {html.escape(profile_name_str)}"
+                f"\n{{emo:lamp}} <b>AutoConnect</b>: {html.escape(autoconnect_str)}"
             )
 
             command_buttons = [
                 [
-                    [f"{get_emoji('port')} Port", f"{context.cmd}_s_p"],
-                    [f"{get_emoji('speed')} Baud", f"{context.cmd}_s_b"],
+                    [render_emojis("{emo:port} Port"), f"{context.cmd}_s_p"],
+                    [render_emojis("{emo:speed} Baud"), f"{context.cmd}_s_b"],
                     [
-                        f"{get_emoji('profile')} Profile",
+                        render_emojis("{emo:profile} Profile"),
                         f"{context.cmd}_s_pr",
                     ],
-                    [f"{get_emoji('lamp')} AutoConnect", f"{context.cmd}_s_a"],
+                    [render_emojis("{emo:lamp} AutoConnect"), f"{context.cmd}_s_a"],
                 ],
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         context.cmd,
                     ]
                 ],
@@ -137,17 +137,16 @@ class CmdCon(BaseCommand):
             con = self.main._printer.get_connection_options()
 
             current_setting = str(con.get("portPreference") or "AUTO")
-            msg = (
-                f"{get_emoji('question')} Select default port.\n"
-                f"Current setting: <code>{html.escape(current_setting)}</code>"
+            msg = render_emojis(
+                f"{{emo:question}} Select default port.\nCurrent setting: <code>{html.escape(current_setting)}</code>"
             )
 
             command_buttons = []
 
-            port_buttons = [[f"{get_emoji('lamp')} AUTO", f"{context.cmd}_{parent}_p_AUTO"]]
+            port_buttons = [[render_emojis("{emo:lamp} AUTO"), f"{context.cmd}_{parent}_p_AUTO"]]
             for port in con["ports"]:
                 port_buttons.append(
-                    [f"{get_emoji('port')} {port}", f"{context.cmd}_{parent}_p_{self.hash_parameter(port)}"]
+                    [render_emojis(f"{{emo:port}} {port}"), f"{context.cmd}_{parent}_p_{self.hash_parameter(port)}"]
                 )
             for i in range(0, len(port_buttons), 3):
                 command_buttons.append(port_buttons[i : i + 3])
@@ -155,7 +154,7 @@ class CmdCon(BaseCommand):
             command_buttons.append(
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_{parent}",
                     ]
                 ]
@@ -187,18 +186,18 @@ class CmdCon(BaseCommand):
             con = self.main._printer.get_connection_options()
 
             current_setting = str(con.get("baudratePreference") or "AUTO")
-            msg = (
-                f"{get_emoji('question')} Select default baudrate.\n"
+            msg = render_emojis(
+                "{emo:question} Select default baudrate.\n"
                 f"Current setting: <code>{html.escape(current_setting)}</code>"
             )
 
             command_buttons = []
 
-            baud_buttons = [[f"{get_emoji('lamp')} AUTO", f"{context.cmd}_{parent}_b_AUTO"]]
+            baud_buttons = [[render_emojis("{emo:lamp} AUTO"), f"{context.cmd}_{parent}_b_AUTO"]]
             for baudrate in con["baudrates"]:
                 baud_buttons.append(
                     [
-                        f"{get_emoji('speed')} {baudrate}",
+                        render_emojis(f"{{emo:speed}} {baudrate}"),
                         f"{context.cmd}_{parent}_b_{self.hash_parameter(baudrate)}",
                     ]
                 )
@@ -208,7 +207,7 @@ class CmdCon(BaseCommand):
             command_buttons.append(
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_{parent}",
                     ]
                 ]
@@ -238,8 +237,8 @@ class CmdCon(BaseCommand):
             default_profile = self.main._printer_profile_manager.get_default()
 
             current_setting = str(default_profile["name"])
-            msg = (
-                f"{get_emoji('question')} Select default profile.\n"
+            msg = render_emojis(
+                "{emo:question} Select default profile.\n"
                 f"Current setting: <code>{html.escape(current_setting)}</code>"
             )
 
@@ -249,7 +248,7 @@ class CmdCon(BaseCommand):
             for profile in all_profiles.values():
                 profile_buttons.append(
                     [
-                        f"{get_emoji('profile')} {profile['name']}",
+                        render_emojis(f"{{emo:profile}} {profile['name']}"),
                         f"{context.cmd}_{parent}_pr_{self.hash_parameter(profile['id'])}",
                     ]
                 )
@@ -259,7 +258,7 @@ class CmdCon(BaseCommand):
             command_buttons.append(
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_{parent}",
                     ]
                 ]
@@ -282,19 +281,19 @@ class CmdCon(BaseCommand):
             connection_options = self.main._printer.get_connection_options()
 
             current_setting = str(connection_options["autoconnect"])
-            msg = (
-                f"{get_emoji('question')} AutoConnect on startup?\n"
+            msg = render_emojis(
+                "{emo:question} AutoConnect on startup?\n"
                 f"Current setting: <code>{html.escape(current_setting)}</code>"
             )
 
             command_buttons = [
                 [
-                    [f"{get_emoji('check')} ON", f"{context.cmd}_s_a_true"],
-                    [f"{get_emoji('cancel')} OFF", f"{context.cmd}_s_a_false"],
+                    [render_emojis("{emo:check} ON"), f"{context.cmd}_s_a_true"],
+                    [render_emojis("{emo:cancel} OFF"), f"{context.cmd}_s_a_false"],
                 ],
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_{parent}",
                     ]
                 ],
@@ -358,7 +357,7 @@ class CmdCon(BaseCommand):
                 self.temp_connection_settings["profile"] = profile_id
 
             self.main.send_msg(
-                f"{get_emoji('info')} Connecting...",
+                render_emojis("{emo:info} Connecting..."),
                 chatID=context.chat_id,
                 msg_id=context.msg_id_to_update,
             )
@@ -396,17 +395,17 @@ class CmdCon(BaseCommand):
                 time.sleep(1)
 
             if current_state == "Operational":
-                msg = f"{get_emoji('check')} Connection established."
+                msg = render_emojis("{emo:check} Connection established.")
             else:
-                msg = (
-                    f"{get_emoji('attention')} Failed to start connection.\n"
+                msg = render_emojis(
+                    "{emo:attention} Failed to start connection.\n"
                     f"Current state: <code>{html.escape(current_state)}</code>."
                 )
 
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}",
                     ]
                 ]
@@ -420,17 +419,17 @@ class CmdCon(BaseCommand):
                 msg_id=context.msg_id_to_update,
             )
         else:
-            msg = f"{get_emoji('question')} Select connection option."
+            msg = render_emojis("{emo:question} Select connection option.")
 
             command_buttons = [
                 [
-                    [f"{get_emoji('lamp')} AUTO", f"{context.cmd}_c_a"],
-                    [f"{get_emoji('star')} Default", f"{context.cmd}_c_d"],
+                    [render_emojis("{emo:lamp} AUTO"), f"{context.cmd}_c_a"],
+                    [render_emojis("{emo:star} Default"), f"{context.cmd}_c_d"],
                 ],
                 [
-                    [f"{get_emoji('edit')} Manual", f"{context.cmd}_c_p"],
+                    [render_emojis("{emo:edit} Manual"), f"{context.cmd}_c_p"],
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         context.cmd,
                     ],
                 ],
@@ -446,12 +445,12 @@ class CmdCon(BaseCommand):
     def disconnect(self, context: CommandContext, params):
         self.main._printer.disconnect()
 
-        msg = f"{get_emoji('info')} Printer disconnected."
+        msg = render_emojis("{emo:info} Printer disconnected.")
 
         command_buttons = [
             [
                 [
-                    f"{get_emoji('back')} Back",
+                    render_emojis("{emo:back} Back"),
                     f"{context.cmd}",
                 ]
             ]

@@ -3,7 +3,7 @@ import html
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdTune(BaseCommand):
@@ -36,14 +36,14 @@ class CmdTune(BaseCommand):
             elif params[0] == "enc":
                 self._handle_enclosure_control(context)
         else:
-            msg = f"{get_emoji('settings')} <b>Tune print settings</b>"
+            msg = render_emojis("{emo:settings} <b>Tune print settings</b>")
 
             profile = self.main._printer_profile_manager.get_current()
 
             command_buttons = [
                 [
-                    [f"{get_emoji('feedrate')} Feedrate", f"{context.cmd}_feed"],
-                    [f"{get_emoji('flowrate')} Flowrate", f"{context.cmd}_flow"],
+                    [render_emojis("{emo:feedrate} Feedrate"), f"{context.cmd}_feed"],
+                    [render_emojis("{emo:flowrate} Flowrate"), f"{context.cmd}_flow"],
                 ]
             ]
 
@@ -55,14 +55,14 @@ class CmdTune(BaseCommand):
                 count = extruder.get("count", 1)
 
                 if shared_nozzle:
-                    tool_command_buttons.append([f"{get_emoji('tool')} Tool", f"{context.cmd}_e_0"])
+                    tool_command_buttons.append([render_emojis("{emo:tool} Tool"), f"{context.cmd}_e_0"])
                 else:
                     tool_command_buttons.extend(
-                        [[f"{get_emoji('tool')} Tool {i}", f"{context.cmd}_e_{i}"] for i in range(count)]
+                        [[render_emojis(f"{{emo:tool}} Tool {i}"), f"{context.cmd}_e_{i}"] for i in range(count)]
                     )
 
                 if profile["heatedBed"]:
-                    tool_command_buttons.append([f"{get_emoji('hotbed')} Bed", f"{context.cmd}_b"])
+                    tool_command_buttons.append([render_emojis("{emo:hotbed} Bed"), f"{context.cmd}_b"])
 
                 if tool_command_buttons:
                     command_buttons.append(tool_command_buttons)
@@ -79,7 +79,7 @@ class CmdTune(BaseCommand):
                             index_id = rpi_output["index_id"]
                             label = rpi_output["label"]
                             enclosure_buttons.append(
-                                [f"{get_emoji('plugin')} {label}", f"{context.cmd}_enc_{index_id}"]
+                                [render_emojis(f"{{emo:plugin}} {label}"), f"{context.cmd}_enc_{index_id}"]
                             )
 
                     if enclosure_buttons:
@@ -87,7 +87,7 @@ class CmdTune(BaseCommand):
             except Exception:
                 self._logger.exception("Caught an exception getting enclosure data")
 
-            command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
             self.main.send_msg(
                 msg,
@@ -121,7 +121,7 @@ class CmdTune(BaseCommand):
 
         buttons.append(
             [
-                [f"{get_emoji('back')} Back", f"{context.cmd}_back"],
+                [render_emojis("{emo:back} Back"), f"{context.cmd}_back"],
             ]
         )
 
@@ -138,9 +138,9 @@ class CmdTune(BaseCommand):
             decrement_row.append([f"-{inc}", f"{context.cmd}_{tool_identifier}_-{inc}"])
         buttons.extend([increment_row, decrement_row])
 
-        action_buttons = [[f"{get_emoji('check')} Set", f"{context.cmd}_{tool_identifier}_s"]]
-        action_buttons.append([f"{get_emoji('cooldown')} Off", f"{context.cmd}_{tool_identifier}_off"])
-        action_buttons.append([f"{get_emoji('back')} Back", f"{context.cmd}_back"])
+        action_buttons = [[render_emojis("{emo:check} Set"), f"{context.cmd}_{tool_identifier}_s"]]
+        action_buttons.append([render_emojis("{emo:cooldown} Off"), f"{context.cmd}_{tool_identifier}_off"])
+        action_buttons.append([render_emojis("{emo:back} Back"), f"{context.cmd}_back"])
         buttons.append(action_buttons)
 
         return buttons
@@ -156,7 +156,7 @@ class CmdTune(BaseCommand):
 
         if not enclosure_module:
             self.main.send_msg(
-                f"{get_emoji('attention')} Enclosure plugin not available",
+                render_emojis("{emo:attention} Enclosure plugin not available"),
                 chatID=context.chat_id,
                 markup="HTML",
                 msg_id=context.msg_id_to_update,
@@ -173,7 +173,7 @@ class CmdTune(BaseCommand):
 
         if not selected_rpi_output:
             self.main.send_msg(
-                f"{get_emoji('attention')} Enclosure plugin output not found",
+                render_emojis("{emo:attention} Enclosure plugin output not found"),
                 chatID=context.chat_id,
                 markup="HTML",
                 msg_id=context.msg_id_to_update,
@@ -205,8 +205,8 @@ class CmdTune(BaseCommand):
                 current_sensor = rpi_input["temp_sensor_temp"]
                 break
 
-        msg = (
-            f"{get_emoji('plugin')} Set temperature for <code>{html.escape(selected_rpi_output['label'])}</code>.\n"
+        msg = render_emojis(
+            f"{{emo:plugin}} Set temperature for <code>{html.escape(selected_rpi_output['label'])}</code>.\n"
             + (f"Sensor reading: {current_sensor}°C\n" if current_sensor is not None else "")
             + f"Current target: {current_target}°C\n"
             + f"Pending selection: <b>{pending_selection}°C</b>"
@@ -223,9 +223,9 @@ class CmdTune(BaseCommand):
 
         command_buttons.append(
             [
-                [f"{get_emoji('check')} Set", f"{context.cmd}_enc_{params[1]}_s"],
-                [f"{get_emoji('cooldown')} Off", f"{context.cmd}_enc_{params[1]}_off"],
-                [f"{get_emoji('back')} Back", f"{context.cmd}_back"],
+                [render_emojis("{emo:check} Set"), f"{context.cmd}_enc_{params[1]}_s"],
+                [render_emojis("{emo:cooldown} Off"), f"{context.cmd}_enc_{params[1]}_off"],
+                [render_emojis("{emo:back} Back"), f"{context.cmd}_back"],
             ]
         )
 
@@ -237,7 +237,7 @@ class CmdTune(BaseCommand):
             msg_id=context.msg_id_to_update,
         )
 
-    def _handle_rate_control(self, context, rate_type, rate_key, emoji_key):
+    def _handle_rate_control(self, context, rate_type, rate_key, emoji_name):
         """Handle feedrate and flowrate controls"""
         params = context.parameter.split("_")
 
@@ -250,7 +250,9 @@ class CmdTune(BaseCommand):
                 getattr(self.main._printer, f"{rate_type}_rate")(int(self.temp_tune_rates[rate_key]))
                 return self._go_back(context)
 
-        msg = f"{get_emoji(emoji_key)} Set {rate_type}rate.\nCurrent: <b>{self.temp_tune_rates[rate_key]}%</b>"
+        msg = render_emojis(
+            f"{{emo:{emoji_name}}} Set {rate_type}rate.\nCurrent: <b>{self.temp_tune_rates[rate_key]}%</b>"
+        )
 
         command_buttons = self._create_rate_buttons(rate_type, context)
 
@@ -262,7 +264,7 @@ class CmdTune(BaseCommand):
             msg_id=context.msg_id_to_update,
         )
 
-    def _handle_temp_control(self, context, tool_key, tool_display_name, emoji_key, tool_identifier):
+    def _handle_temp_control(self, context, tool_key, tool_display_name, emoji_name, tool_identifier):
         """Handle temperature controls"""
         params = context.parameter.split("_")
         temps = self.main._printer.get_current_temperatures()
@@ -285,8 +287,8 @@ class CmdTune(BaseCommand):
         current_temp = temps[tool_key]["actual"]
         target_temp = self.temp_target_temps[tool_key]
 
-        msg = (
-            f"{get_emoji(emoji_key)} Set temperature for <code>{html.escape(tool_display_name)}</code>.\n"
+        msg = render_emojis(
+            f"{{emo:{emoji_name}}} Set temperature for <code>{html.escape(tool_display_name)}</code>.\n"
             f"Current: {current_temp:.02f}/<b>{target_temp}°C</b>"
         )
 

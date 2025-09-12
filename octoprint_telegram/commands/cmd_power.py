@@ -7,7 +7,7 @@ from ..emoji import Emoji
 from ..utils import StringUtils
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdPower(BaseCommand):
@@ -41,9 +41,8 @@ class CmdPower(BaseCommand):
         ]
 
         if not available_plugins:
-            message = (
-                f"{get_emoji('warning')} No power manager plugin installed. "
-                "Please install one of the following plugins:\n"
+            message = render_emojis(
+                "{emo:warning} No power manager plugin installed. Please install one of the following plugins:\n"
             )
             for plugin_handler in supported_plugins:
                 message += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_handler.plugin_id)}/'>{html.escape(plugin_handler.plugin_name)}</a>\n"
@@ -58,7 +57,7 @@ class CmdPower(BaseCommand):
             return
 
         if not context.parameter:  # Command was /power, show plugs list
-            message = f"{get_emoji('question')} Which plug do you want to manage?"
+            message = render_emojis("{emo:question} Which plug do you want to manage?")
 
             plug_buttons = []
             for plugin_handler in available_plugins:
@@ -67,7 +66,7 @@ class CmdPower(BaseCommand):
                         label = plug_data["label"]
 
                         is_on = plug_data["is_on"]
-                        status_emoji = get_emoji("online" if is_on else "offline")
+                        status_emoji_name = "online" if is_on else "offline"
 
                         data = plug_data["data"]
                         command = (
@@ -78,13 +77,13 @@ class CmdPower(BaseCommand):
                             + str(data).replace("_", "\\_")
                         )
 
-                        plug_buttons.append([f"{status_emoji} {label}", command])
+                        plug_buttons.append([render_emojis(f"{{emo:{status_emoji_name}}} {label}"), command])
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
             max_per_row = 3
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
-            command_buttons = plug_button_rows + [[[f"{get_emoji('cancel')} Close", "close"]]]
+            command_buttons = plug_button_rows + [[[render_emojis("{emo:cancel} Close"), "close"]]]
 
             self.main.send_msg(
                 message,
@@ -101,9 +100,11 @@ class CmdPower(BaseCommand):
             plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
 
             if plugin_handler is None:
-                message = f"{get_emoji('attention')} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
+                message = render_emojis(
+                    f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
+                )
                 command_buttons = [
-                    [[f"{get_emoji('back')} Back", context.cmd], [f"{get_emoji('cancel')} Close", "close"]]
+                    [[render_emojis("{emo:back} Back"), context.cmd], [render_emojis("{emo:cancel} Close"), "close"]]
                 ]
                 self.main.send_msg(
                     message,
@@ -119,9 +120,12 @@ class CmdPower(BaseCommand):
                 selected_plug = next((plug for plug in plugs if str(plug["data"]) == plug_data), None)
 
                 if selected_plug is None:
-                    message = f"{get_emoji('attention')} Selected plug not found!"
+                    message = render_emojis("{emo:attention} Selected plug not found!")
                     command_buttons = [
-                        [[f"{get_emoji('back')} Back", context.cmd], [f"{get_emoji('cancel')} Close", "close"]]
+                        [
+                            [render_emojis("{emo:back} Back"), context.cmd],
+                            [render_emojis("{emo:cancel} Close"), "close"],
+                        ]
                     ]
                     self.main.send_msg(
                         message,
@@ -135,20 +139,20 @@ class CmdPower(BaseCommand):
                 label = selected_plug["label"]
                 is_on = selected_plug["is_on"]
                 status_text = "ON" if is_on else "OFF"
-                status_emoji = get_emoji("online" if is_on else "offline")
+                status_emoji_name = "online" if is_on else "offline"
 
-                message = (
-                    f"{get_emoji('info')} Plug <code>{html.escape(label)}</code> is {status_emoji} {status_text}.\n"
-                    f"{get_emoji('question')} What do you want to do?"
+                message = render_emojis(
+                    f"{{emo:info}} Plug <code>{html.escape(label)}</code> is {{emo:{status_emoji_name}}} {status_text}.\n"
+                    "{emo:question} What do you want to do?"
                 )
 
                 original_command = f"{context.cmd}_{context.parameter}"
                 command_buttons = [
                     [
-                        [f"{get_emoji('online')} Turn ON", f"{original_command}_on"],
-                        [f"{get_emoji('offline')} Turn OFF", f"{original_command}_off"],
+                        [render_emojis("{emo:online} Turn ON"), f"{original_command}_on"],
+                        [render_emojis("{emo:offline} Turn OFF"), f"{original_command}_off"],
                     ],
-                    [[f"{get_emoji('back')} Back", context.cmd], [f"{get_emoji('cancel')} Close", "close"]],
+                    [[render_emojis("{emo:back} Back"), context.cmd], [render_emojis("{emo:cancel} Close"), "close"]],
                 ]
 
                 self.main.send_msg(
@@ -162,18 +166,21 @@ class CmdPower(BaseCommand):
                 action_methods = {"on": plugin_handler.turn_on, "off": plugin_handler.turn_off}
 
                 if action not in action_methods:
-                    message = f"{get_emoji('attention')} Action not supported!"
+                    message = render_emojis("{emo:attention} Action not supported!")
                 else:
                     try:
                         action_methods[action](plug_data)
-                        message = f"{get_emoji('check')} Command sent!"
+                        message = render_emojis("{emo:check} Command sent!")
                     except Exception:
                         self._logger.exception("Caught an exception sending action to %s", plugin_id)
-                        message = f"{get_emoji('attention')} Something went wrong!"
+                        message = render_emojis("{emo:attention} Something went wrong!")
 
                 original_command = f"{context.cmd}_{context.parameter.rsplit('_', 1)[0]}"
                 command_buttons = [
-                    [[f"{get_emoji('back')} Back", original_command], [f"{get_emoji('cancel')} Close", "close"]],
+                    [
+                        [render_emojis("{emo:back} Back"), original_command],
+                        [render_emojis("{emo:cancel} Close"), "close"],
+                    ],
                 ]
 
                 self.main.send_msg(

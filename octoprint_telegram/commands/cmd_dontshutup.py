@@ -1,14 +1,14 @@
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdDontShutup(BaseCommand):
     def execute(self, context: CommandContext):
         self.main.shut_up.discard(context.chat_id)
 
-        msg = f"{get_emoji('notify')} Yay, I can talk again."
+        msg = render_emojis("{emo:notify} Yay, I can talk again.")
 
         self.main.send_msg(
             msg,

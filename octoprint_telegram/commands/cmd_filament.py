@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdFilament(BaseCommand):
@@ -44,7 +44,9 @@ class CmdFilament(BaseCommand):
         ]
 
         if not available_plugins:
-            msg = f"{get_emoji('warning')} No filament plugin installed. Please install one of the following plugins:\n"
+            msg = render_emojis(
+                "{emo:warning} No filament plugin installed. Please install one of the following plugins:\n"
+            )
             for plugin_handler in supported_plugins:
                 msg += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_handler.plugin_id)}/'>{html.escape(plugin_handler.plugin_name)}</a>\n"
 
@@ -60,7 +62,7 @@ class CmdFilament(BaseCommand):
         if (
             not context.parameter and len(available_plugins) > 1
         ):  # Command was /filament and there are multiple available plugins, show plugin selection
-            msg = f"{get_emoji('question')} Please choose a filament manager plugin"
+            msg = render_emojis("{emo:question} Please choose a filament manager plugin")
 
             command_buttons = []
             for i in range(0, len(available_plugins), 2):
@@ -68,7 +70,7 @@ class CmdFilament(BaseCommand):
                 for plugin in available_plugins[i : i + 2]:
                     row.append([f"{plugin.plugin_name}", f"{context.cmd}_{plugin.plugin_id}"])
                 command_buttons.append(row)
-            command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
             self.main.send_msg(
                 msg,
@@ -90,9 +92,9 @@ class CmdFilament(BaseCommand):
             plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
 
             if plugin_handler is None:
-                msg = f"{get_emoji('attention')} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
+                msg = render_emojis(f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!")
                 command_buttons = [
-                    [[f"{get_emoji('back')} Back", context.cmd], [f"{get_emoji('cancel')} Close", "close"]]
+                    [[render_emojis("{emo:back} Back"), context.cmd], [render_emojis("{emo:cancel} Close"), "close"]]
                 ]
                 self.main.send_msg(
                     msg,
@@ -104,18 +106,20 @@ class CmdFilament(BaseCommand):
                 return
 
         if len(params) < 2:  # Show operation selection
-            msg = f"{get_emoji('question')} What do you want to do with <code>{html.escape(plugin_handler.plugin_name)}</code>?"
+            msg = render_emojis(
+                f"{{emo:question}} What do you want to do with <code>{html.escape(plugin_handler.plugin_name)}</code>?"
+            )
 
             command_buttons = [
                 [
-                    [f"{get_emoji('view')} Show spools", f"{context.cmd}_{plugin_handler.plugin_id}_show"],
-                    [f"{get_emoji('pointer')} Select spool", f"{context.cmd}_{plugin_handler.plugin_id}_select"],
+                    [render_emojis("{emo:view} Show spools"), f"{context.cmd}_{plugin_handler.plugin_id}_show"],
+                    [render_emojis("{emo:pointer} Select spool"), f"{context.cmd}_{plugin_handler.plugin_id}_select"],
                 ]
             ]
             if len(available_plugins) > 1:
-                command_buttons.append([[f"{get_emoji('back')} Back", f"{context.cmd}"]])
+                command_buttons.append([[render_emojis("{emo:back} Back"), f"{context.cmd}"]])
             else:
-                command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
             self.main.send_msg(
                 msg,
@@ -128,7 +132,7 @@ class CmdFilament(BaseCommand):
             return
 
         self.main.send_msg(
-            f"{get_emoji('loading')} Loading spools...",
+            render_emojis("{emo:loading} Loading spools..."),
             chatID=context.chat_id,
             msg_id=context.msg_id_to_update,
         )
@@ -162,29 +166,31 @@ class CmdFilament(BaseCommand):
                     if page_number > 0:
                         last_row.append(
                             [
-                                f"{get_emoji('up')} Prev page",
+                                render_emojis("{emo:up} Prev page"),
                                 f"{context.cmd}_{plugin_handler.plugin_id}_show_{page_number - 1}",
                             ]
                         )
                     if page_number + 1 < total_pages:
                         last_row.append(
                             [
-                                f"{get_emoji('down')} Next page",
+                                render_emojis("{emo:down} Next page"),
                                 f"{context.cmd}_{plugin_handler.plugin_id}_show_{page_number + 1}",
                             ]
                         )
-                last_row.append([f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}"])
+                last_row.append([render_emojis("{emo:back} Back"), f"{context.cmd}_{plugin_handler.plugin_id}"])
 
                 command_buttons = spool_buttons + [last_row]
 
                 if spools:
                     page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
-                    msg = (
-                        f"{get_emoji('info')} These are the spools available in <code>{html.escape(plugin_handler.plugin_name)}</code>.{page_str}\n"
+                    msg = render_emojis(
+                        f"{{emo:info}} These are the spools available in <code>{html.escape(plugin_handler.plugin_name)}</code>.{page_str}\n"
                         "Click one for more information."
                     )
                 else:
-                    msg = f"{get_emoji('warning')} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
+                    msg = render_emojis(
+                        f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
+                    )
 
                 self.main.send_msg(
                     msg,
@@ -197,13 +203,13 @@ class CmdFilament(BaseCommand):
             else:  # Show spool details
                 spool_details = plugin_handler.get_spool_details_msg(spool_id)
 
-                msg = (
-                    f"{get_emoji('info')} Spool information from <code>{html.escape(plugin_handler.plugin_name)}</code>:\n\n"
+                msg = render_emojis(
+                    f"{{emo:info}} Spool information from <code>{html.escape(plugin_handler.plugin_name)}</code>:\n\n"
                     f"{spool_details}"
                 )
 
                 command_buttons = [
-                    [[f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}_show_{page_number}"]]
+                    [[render_emojis("{emo:back} Back"), f"{context.cmd}_{plugin_handler.plugin_id}_show_{page_number}"]]
                 ]
 
                 self.main.send_msg(
@@ -224,7 +230,7 @@ class CmdFilament(BaseCommand):
                 printer_profile_extruder = printer_profile["extruder"]
                 tool_counts = printer_profile_extruder.get("count", 1)
 
-                msg = f"{get_emoji('question')} For which tool do you want to select the spool?"
+                msg = render_emojis("{emo:question} For which tool do you want to select the spool?")
 
                 try:
                     selected_spools = plugin_handler.get_selected_spools()
@@ -238,12 +244,17 @@ class CmdFilament(BaseCommand):
 
                 command_buttons = [
                     [
-                        [f"{get_emoji('tool')} Tool {i}", f"{context.cmd}_{plugin_handler.plugin_id}_select_{i}"]
+                        [
+                            render_emojis(f"{{emo:tool}} Tool {i}"),
+                            f"{context.cmd}_{plugin_handler.plugin_id}_select_{i}",
+                        ]
                         for i in range(j, min(j + 2, tool_counts))
                     ]
                     for j in range(0, tool_counts, 2)
                 ]
-                command_buttons.append([[f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}"]])
+                command_buttons.append(
+                    [[render_emojis("{emo:back} Back"), f"{context.cmd}_{plugin_handler.plugin_id}"]]
+                )
 
                 self.main.send_msg(
                     msg,
@@ -283,18 +294,18 @@ class CmdFilament(BaseCommand):
                     if page_number > 0:
                         last_row.append(
                             [
-                                f"{get_emoji('up')} Prev page",
+                                render_emojis("{emo:up} Prev page"),
                                 f"{context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number - 1}",
                             ]
                         )
                     if page_number + 1 < total_pages:
                         last_row.append(
                             [
-                                f"{get_emoji('down')} Next page",
+                                render_emojis("{emo:down} Next page"),
                                 f"{context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number + 1}",
                             ]
                         )
-                last_row.append([f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}_select"])
+                last_row.append([render_emojis("{emo:back} Back"), f"{context.cmd}_{plugin_handler.plugin_id}_select"])
 
                 command_buttons = []
                 command_buttons.extend(spool_buttons)
@@ -302,7 +313,9 @@ class CmdFilament(BaseCommand):
 
                 if spools:
                     page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
-                    msg = f"{get_emoji('question')} Which spool do you want to select for <code>Tool {html.escape(tool_index)}</code>? {page_str}"
+                    msg = render_emojis(
+                        f"{{emo:question}} Which spool do you want to select for <code>Tool {html.escape(tool_index)}</code>? {page_str}"
+                    )
                     try:
                         selected_spools = plugin_handler.get_selected_spools()
                         selected_spool = selected_spools.get(int(tool_index)) or "No spool selected"
@@ -310,7 +323,9 @@ class CmdFilament(BaseCommand):
                     except Exception:
                         self._logger.exception("Caught an exception getting selected spools")
                 else:
-                    msg = f"{get_emoji('warning')} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
+                    msg = render_emojis(
+                        f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
+                    )
 
                 self.main.send_msg(
                     msg,
@@ -324,14 +339,20 @@ class CmdFilament(BaseCommand):
                 if spool_id == "deselect":
                     plugin_handler.deselect_spool(tool_index)
 
-                    msg = f"{get_emoji('check')} Successfully deselected spool for <code>Tool {html.escape(tool_index)}</code>!"
+                    msg = render_emojis(
+                        f"{{emo:check}} Successfully deselected spool for <code>Tool {html.escape(tool_index)}</code>!"
+                    )
                 else:
                     plugin_handler.select_spool(tool_index, spool_id)
 
                     spool_title = plugin_handler.list_spool()[spool_id]
-                    msg = f"{get_emoji('check')} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
+                    msg = render_emojis(
+                        f"{{emo:check}} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
+                    )
 
-                command_buttons = [[[f"{get_emoji('back')} Back", f"{context.cmd}_{plugin_handler.plugin_id}_select"]]]
+                command_buttons = [
+                    [[render_emojis("{emo:back} Back"), f"{context.cmd}_{plugin_handler.plugin_id}_select"]]
+                ]
 
                 self.main.send_msg(
                     msg,
@@ -704,7 +725,7 @@ class CmdFilament(BaseCommand):
 
                     return "\n\n".join(sections)
 
-            return f"{get_emoji('attention')} Spool not found"
+            return render_emojis("{emo:attention} Spool not found")
 
         def select_spool(self, tool_index, spool_id):
             self.parent.main.send_octoprint_request(
@@ -938,7 +959,7 @@ class CmdFilament(BaseCommand):
 
                     return "\n\n".join(sections)
 
-            return f"{get_emoji('attention')} Spool not found"
+            return render_emojis("{emo:attention} Spool not found")
 
         def select_spool(self, tool_index, spool_id):
             self.parent.main.send_octoprint_request(

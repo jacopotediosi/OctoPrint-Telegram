@@ -4,14 +4,14 @@ import html
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdCtrl(BaseCommand):
     def execute(self, context: CommandContext):
         if not self.main._printer.is_operational():
             self.main.send_msg(
-                f"{get_emoji('attention')} Printer not connected. You can't trigger any control.",
+                render_emojis("{emo:attention} Printer not connected. You can't trigger any control."),
                 chatID=context.chat_id,
                 msg_id=context.msg_id_to_update,
             )
@@ -27,26 +27,26 @@ class CmdCtrl(BaseCommand):
 
             if not control:
                 self.main.send_msg(
-                    f"{get_emoji('attention')} Control Command not found.",
+                    render_emojis("{emo:attention} Control Command not found."),
                     chatID=context.chat_id,
                     msg_id=context.msg_id_to_update,
                 )
                 return
 
             if "confirm" in control and params[0] != "do":  # Control requires confirmation, ask for it
-                msg = (
-                    f"{get_emoji('question')} Execute control command <code>{html.escape(control['name'])}</code>?\n"
-                    f"{get_emoji('info')} Confirmation message: <code>{html.escape(control['confirm'])}</code>"
+                msg = render_emojis(
+                    f"{{emo:question}} Execute control command <code>{html.escape(control['name'])}</code>?\n"
+                    f"{{emo:info}} Confirmation message: <code>{html.escape(control['confirm'])}</code>"
                 )
 
                 command_buttons = [
                     [
                         [
-                            f"{get_emoji('check')} Execute",
+                            render_emojis("{emo:check} Execute"),
                             f"{context.cmd}_do_{control_hash}",
                         ],
                         [
-                            f"{get_emoji('back')} Back",
+                            render_emojis("{emo:back} Back"),
                             context.cmd,
                         ],
                     ]
@@ -67,17 +67,19 @@ class CmdCtrl(BaseCommand):
                         for command in control["command"]:
                             self.main._printer.commands(command)
 
-                    msg = f"{get_emoji('check')} Control Command <code>{html.escape(control['name'])}</code> executed."
+                    msg = render_emojis(
+                        f"{{emo:check}} Control Command <code>{html.escape(control['name'])}</code> executed."
+                    )
                 except Exception:
                     self._logger.exception("Caught an exception executing a Control Command")
-                    msg = (
-                        f"{get_emoji('attention')} Control Command <code>{html.escape(control['name'])}</code> failed."
+                    msg = render_emojis(
+                        f"{{emo:attention}} Control Command <code>{html.escape(control['name'])}</code> failed."
                     )
 
                 command_buttons = [
                     [
                         [
-                            f"{get_emoji('back')} Back",
+                            render_emojis("{emo:back} Back"),
                             context.cmd,
                         ],
                     ]
@@ -92,7 +94,7 @@ class CmdCtrl(BaseCommand):
                 )
 
         else:  # Display all available commands
-            message = f"{get_emoji('question')} Which Printer Control do you want to trigger?"
+            message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
 
             try:
                 command_buttons = [
@@ -103,13 +105,13 @@ class CmdCtrl(BaseCommand):
                 command_buttons = []
 
             if not command_buttons:
-                message += (
-                    f"\n\n{get_emoji('warning')} No Printer Controls found.\n"
+                message += render_emojis(
+                    "\n\n{emo:warning} No Printer Controls found.\n"
                     "You can add custom controls from the OctoPrint web GUI using the "
                     "<a href='http://plugins.octoprint.org/plugins/customControl/'>Custom Control Editor</a> plugin."
                 )
 
-            command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
             self.main.send_msg(
                 message,

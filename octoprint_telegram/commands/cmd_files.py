@@ -11,7 +11,7 @@ from ..emoji import Emoji
 from ..utils import Formatters
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdFiles(BaseCommand):
@@ -72,7 +72,9 @@ class CmdFiles(BaseCommand):
             # The hash→path map may be empty if the user clicks an old button after restarting the bot.
             # In that case, ask the user to run /files again.
             if not self.files_hash_path_map:
-                msg = f"{get_emoji('attention')} This button is no longer valid. Please run {context.cmd} again."
+                msg = render_emojis(
+                    f"{{emo:attention}} This button is no longer valid. Please run {context.cmd} again."
+                )
                 self.main.send_msg(
                     msg,
                     chatID=context.chat_id,
@@ -126,7 +128,7 @@ class CmdFiles(BaseCommand):
         try:
             if context.msg_id_to_update:
                 self.main.send_msg(
-                    f"{get_emoji('loading')} Loading files...",
+                    render_emojis("{emo:loading} Loading files..."),
                     chatID=context.chat_id,
                     msg_id=context.msg_id_to_update,
                 )
@@ -135,7 +137,7 @@ class CmdFiles(BaseCommand):
                     f"{self.main.bot_url}/sendMessage",
                     "post",
                     data={
-                        "text": f"{get_emoji('loading')} Loading files...",
+                        "text": render_emojis("{emo:loading} Loading files..."),
                         "chat_id": context.chat_id,
                     },
                 )
@@ -151,15 +153,15 @@ class CmdFiles(BaseCommand):
                 storage_hash = self.hash_path(storage_name)
                 self.file_list(context, storage_hash, page_number)
             elif len(storages) > 1:
-                msg = f"{get_emoji('save')} <b>Select Storage</b>"
+                msg = render_emojis("{emo:save} <b>Select Storage</b>")
 
                 command_buttons = []
                 for storage_name in storages:
                     storage_hash = self.hash_path(storage_name)
                     command_buttons.append(
-                        [[f"{get_emoji('folder')} {storage_name}", f"{context.cmd}_list_{storage_hash}"]]
+                        [[render_emojis(f"{{emo:folder}} {storage_name}"), f"{context.cmd}_list_{storage_hash}"]]
                     )
-                command_buttons.append([[f"{get_emoji('cancel')} Close", "close"]])
+                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
                 self.main.send_msg(
                     msg,
@@ -179,7 +181,9 @@ class CmdFiles(BaseCommand):
             try:
                 file_listing = self.list_files(locations=storage_name, path=path_without_storage, recursive=False)
             except Exception:
-                msg = f"{get_emoji('attention')} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                msg = render_emojis(
+                    f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                )
                 self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
                 return
 
@@ -207,7 +211,7 @@ class CmdFiles(BaseCommand):
                 folder_hash = self.hash_path(f"{path_with_storage}/{folder_name}")
                 folder_buttons.append(
                     [
-                        f"{get_emoji('folder')} {folder_name}",
+                        render_emojis(f"{{emo:folder}} {folder_name}"),
                         f"{context.cmd}_list_{folder_hash}",
                     ]
                 )
@@ -234,22 +238,22 @@ class CmdFiles(BaseCommand):
                     file_base_name = filename.rsplit(".", 1)[0]
                     try:
                         if "history" not in file_data:
-                            display_filename = f"{get_emoji('new')} {file_base_name}"
+                            display_filename = render_emojis(f"{{emo:new}} {file_base_name}")
                         else:
                             history_list = file_data["history"]
                             if not history_list:
-                                display_filename = f"{get_emoji('file')} {file_base_name}"
+                                display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
                             else:
                                 history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
                                 latest_history = history_list[0]
 
                                 if latest_history.get("success"):
-                                    display_filename = f"{get_emoji('hooray')} {file_base_name}"
+                                    display_filename = render_emojis(f"{{emo:hooray}} {file_base_name}")
                                 else:
-                                    display_filename = f"{get_emoji('warning')} {file_base_name}"
+                                    display_filename = render_emojis(f"{{emo:warning}} {file_base_name}")
                     except Exception:
                         self._logger.exception("Error processing history for file '%s'", filename)
-                        display_filename = f"{get_emoji('file')} {file_base_name}"
+                        display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
 
                     file_hash = self.hash_path(f"{path_with_storage}/{filename}")
                     command = f"{context.cmd}_info_{file_hash}_{page_number}"
@@ -275,7 +279,7 @@ class CmdFiles(BaseCommand):
                 back_path_hash = self.hash_path(back_path)
                 nav_and_actions_row.append(
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_list_{back_path_hash}",
                     ]
                 )
@@ -284,22 +288,22 @@ class CmdFiles(BaseCommand):
             if total_pages > 1:
                 if page_number > 0:
                     nav_and_actions_row.append(
-                        [f"{get_emoji('up')} Prev page", f"{context.cmd}_list_{path_hash}_{page_number - 1}"]
+                        [render_emojis("{emo:up} Prev page"), f"{context.cmd}_list_{path_hash}_{page_number - 1}"]
                     )
                 if page_number + 1 < total_pages:
                     nav_and_actions_row.append(
-                        [f"{get_emoji('down')} Next page", f"{context.cmd}_list_{path_hash}_{page_number + 1}"]
+                        [render_emojis("{emo:down} Next page"), f"{context.cmd}_list_{path_hash}_{page_number + 1}"]
                     )
 
             # Settings and close
             nav_and_actions_row.extend(
                 [
                     [
-                        f"{get_emoji('settings')} Settings",
+                        render_emojis("{emo:settings} Settings"),
                         f"{context.cmd}_settings_{path_hash}_{page_number}",
                     ],
                     [
-                        f"{get_emoji('cancel')} Close",
+                        render_emojis("{emo:cancel} Close"),
                         "close",
                     ],
                 ]
@@ -309,7 +313,7 @@ class CmdFiles(BaseCommand):
 
             # --- Create message ---
             page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
-            msg = f"{get_emoji('save')} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}"
+            msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
 
             # --- Send message ---
             self.main.send_msg(
@@ -329,7 +333,9 @@ class CmdFiles(BaseCommand):
             analysis = file_metadata.get("analysis", {})
             history = file_metadata.get("history", [])
         except Exception:
-            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -338,40 +344,41 @@ class CmdFiles(BaseCommand):
             return
 
         # Message header
-        msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(filename)}</code>"
+        msg = render_emojis(
+            f"{{emo:info}} <b>File information</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
+        )
 
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
             dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
         # Print history
         if not history:
-            msg += f"\n{get_emoji('new')} <b>Number of Print:</b> 0"
+            msg += render_emojis("\n{emo:new} <b>Number of Print:</b> 0")
         else:
             try:
                 history.sort(key=lambda x: x["timestamp"], reverse=True)
                 success = history[0].get("success", False)
-                icon = get_emoji("hooray") if success else get_emoji("warning")
+                icon_name = "hooray" if success else "warning"
             except Exception:
                 self._logger.exception("Caught an exception reading history list")
-                icon = get_emoji("file")
-            msg += f"\n{icon} <b>Number of Print:</b> {len(history)}"
+                icon_name = "file"
+            msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
 
         # File size
         filesize = self.main._file_manager.get_size(storage_name, file_path)
-        msg += f"\n{get_emoji('filesize')} <b>Size:</b> {Formatters.format_size(filesize)}"
+        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
 
         # Filament info
         filament_length = 0
         try:
             filament = analysis.get("filament", {})
             if filament:
-                msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
+                msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
                 if len(filament) == 1 and "length" in filament.get("tool0", {}):
                     msg += Formatters.format_filament(filament["tool0"])
                     filament_length += float(filament["tool0"]["length"])
@@ -387,12 +394,14 @@ class CmdFiles(BaseCommand):
         # Print time
         print_time = analysis.get("estimatedPrintTime")
         if print_time:
-            msg += f"\n{get_emoji('stopwatch')} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
+            msg += render_emojis(
+                f"\n{{emo:stopwatch}} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
+            )
 
             # ETA
             try:
                 time_finish = self.main.calculate_ETA(print_time)
-                msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {html.escape(time_finish)}"
+                msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
 
@@ -403,7 +412,7 @@ class CmdFiles(BaseCommand):
                     cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
                     curr = self.main._settings.global_get(["plugins", "cost", "currency"])
                     cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
-                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> {html.escape(curr)}{cost:.02f}"
+                    msg += render_emojis(f"\n{{emo:cost}} <b>Cost:</b> {html.escape(curr)}{cost:.02f}")
                 except Exception:
                     self._logger.exception("Caught an exception calculating cost")
 
@@ -417,16 +426,16 @@ class CmdFiles(BaseCommand):
 
         # First row: Print + Details
         first_row = [
-            [f"{get_emoji('play')} Print", f"{context.cmd}_print_{path_hash}_{page_number}"],
-            [f"{get_emoji('search')} Details", f"{context.cmd}_details_{path_hash}_{page_number}"],
+            [render_emojis("{emo:play} Print"), f"{context.cmd}_print_{path_hash}_{page_number}"],
+            [render_emojis("{emo:search} Details"), f"{context.cmd}_details_{path_hash}_{page_number}"],
         ]
         command_buttons.append(first_row)
 
         # Second row: File ops
         second_row = [
-            [f"{get_emoji('cut')} Move", f"{context.cmd}_move_{path_hash}_{page_number}"],
-            [f"{get_emoji('copy')} Copy", f"{context.cmd}_copy_{path_hash}_{page_number}"],
-            [f"{get_emoji('delete')} Delete", f"{context.cmd}_delete_{path_hash}_{page_number}"],
+            [render_emojis("{emo:cut} Move"), f"{context.cmd}_move_{path_hash}_{page_number}"],
+            [render_emojis("{emo:copy} Copy"), f"{context.cmd}_copy_{path_hash}_{page_number}"],
+            [render_emojis("{emo:delete} Delete"), f"{context.cmd}_delete_{path_hash}_{page_number}"],
         ]
         command_buttons.append(second_row)
 
@@ -434,13 +443,13 @@ class CmdFiles(BaseCommand):
         third_row = []
         # Download button
         if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
-            third_row.append([f"{get_emoji('download')} Download", f"{context.cmd}_download_{path_hash}"])
+            third_row.append([render_emojis("{emo:download} Download"), f"{context.cmd}_download_{path_hash}"])
         # Back button
         path_parts = file_path.split("/")
         parent_path = "/".join(path_parts[:-1])
         back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
         back_path_hash = self.hash_path(back_path)
-        third_row.append([f"{get_emoji('back')} Back", f"{context.cmd}_list_{back_path_hash}_{page_number}"])
+        third_row.append([render_emojis("{emo:back} Back"), f"{context.cmd}_list_{back_path_hash}_{page_number}"])
         # Append
         command_buttons.append(third_row)
 
@@ -463,7 +472,9 @@ class CmdFiles(BaseCommand):
             statistics = file_metadata.get("statistics", {})
             history = file_metadata.get("history", {})
         except Exception:
-            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -472,27 +483,28 @@ class CmdFiles(BaseCommand):
             return
 
         # Message header
-        msg = f"{get_emoji('info')} <b>File information</b>\n\n"
-        msg += f"{get_emoji('name')} <b>Name:</b> <code>{html.escape(filename)}</code>"
+        msg = render_emojis(
+            f"{{emo:info}} <b>File information</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
+        )
 
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
             dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += f"\n{get_emoji('calendar')} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
         # File size
         filesize = self.main._file_manager.get_size(storage_name, file_path)
-        msg += f"\n{get_emoji('filesize')} <b>Size:</b> {Formatters.format_size(filesize)}"
+        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
 
         # Filament info
         filament_length = 0
         try:
             filament = analysis.get("filament", {})
             if filament:
-                msg += f"\n{get_emoji('filament')} <b>Filament:</b> "
+                msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
                 if len(filament) == 1 and "length" in filament.get("tool0", {}):
                     msg += Formatters.format_filament(filament["tool0"])
                     filament_length += float(filament["tool0"]["length"])
@@ -508,12 +520,14 @@ class CmdFiles(BaseCommand):
         # Print time
         print_time = analysis.get("estimatedPrintTime")
         if print_time:
-            msg += f"\n{get_emoji('stopwatch')} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
+            msg += render_emojis(
+                f"\n{{emo:stopwatch}} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
+            )
 
             # ETA
             try:
                 time_finish = self.main.calculate_ETA(print_time)
-                msg += f"\n{get_emoji('finish')} <b>Completed Time:</b> {html.escape(time_finish)}"
+                msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
 
@@ -524,7 +538,7 @@ class CmdFiles(BaseCommand):
                     cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
                     curr = self.main._settings.global_get(["plugins", "cost", "currency"])
                     cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
-                    msg += f"\n{get_emoji('cost')} <b>Cost:</b> {html.escape(curr)}{cost:.02f}"
+                    msg += render_emojis(f"\n{{emo:cost}} <b>Cost:</b> {html.escape(curr)}{cost:.02f}")
                 except Exception:
                     self._logger.exception("Caught an exception calculating cost")
 
@@ -596,7 +610,7 @@ class CmdFiles(BaseCommand):
         command_buttons = [
             [
                 [
-                    f"{get_emoji('back')} Back",
+                    render_emojis("{emo:back} Back"),
                     f"{context.cmd}_info_{path_hash}_{page_number}",
                 ]
             ]
@@ -619,22 +633,22 @@ class CmdFiles(BaseCommand):
             self.file_list(context, path_hash, page_number)
             return
 
-        msg = f"{get_emoji('question')} <b>Choose sorting order of files</b>"
+        msg = render_emojis("{emo:question} <b>Choose sorting order of files</b>")
 
         command_buttons = [
             [
                 [
-                    f"{get_emoji('name')} By name",
+                    render_emojis("{emo:name} By name"),
                     f"{context.cmd}_settings_{path_hash}_{page_number}_name",
                 ],
                 [
-                    f"{get_emoji('calendar')} By date",
+                    render_emojis("{emo:calendar} By date"),
                     f"{context.cmd}_settings_{path_hash}_{page_number}_date",
                 ],
             ],
             [
                 [
-                    f"{get_emoji('back')} Back",
+                    render_emojis("{emo:back} Back"),
                     f"{context.cmd}_list_{path_hash}_{page_number}",
                 ]
             ],
@@ -652,7 +666,7 @@ class CmdFiles(BaseCommand):
         try:
             if context.msg_id_to_update:
                 self.main.send_msg(
-                    f"{get_emoji('loading')} Loading files...",
+                    render_emojis("{emo:loading} Loading files..."),
                     chatID=context.chat_id,
                     msg_id=context.msg_id_to_update,
                 )
@@ -661,7 +675,7 @@ class CmdFiles(BaseCommand):
                     f"{self.main.bot_url}/sendMessage",
                     "post",
                     data={
-                        "text": f"{get_emoji('loading')} Loading files...",
+                        "text": render_emojis("{emo:loading} Loading files..."),
                         "chat_id": context.chat_id,
                     },
                 )
@@ -676,7 +690,9 @@ class CmdFiles(BaseCommand):
             from_storage_name, from_path = self.find_path_by_hash(from_hash)
             full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
         except Exception:
-            msg = f"{get_emoji('attention')} The file you chose no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} The file you chose no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
             return
 
@@ -685,25 +701,29 @@ class CmdFiles(BaseCommand):
                 to_storage_name, to_path = self.find_path_by_hash(to_hash)
                 full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
             except Exception:
-                msg = f"{get_emoji('attention')} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                msg = render_emojis(
+                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                )
                 self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
                 return
 
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('check')} Yes",
+                        render_emojis("{emo:check} Yes"),
                         f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_y",
                     ],
                     [
-                        f"{get_emoji('cancel')} No",
+                        render_emojis("{emo:cancel} No"),
                         f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}",
                     ],
                 ]
             ]
 
             self.main.send_msg(
-                f"{get_emoji('warning')} {operation.capitalize()} <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>?",
+                render_emojis(
+                    f"{{emo:warning}} {operation.capitalize()} <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>?"
+                ),
                 chatID=context.chat_id,
                 markup="HTML",
                 responses=command_buttons,
@@ -715,7 +735,9 @@ class CmdFiles(BaseCommand):
                 to_storage_name, to_path = self.find_path_by_hash(to_hash)
                 full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
             except Exception:
-                msg = f"{get_emoji('attention')} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                msg = render_emojis(
+                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                )
                 self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
                 return
 
@@ -763,15 +785,15 @@ class CmdFiles(BaseCommand):
                 failure_reason = "Internal error, please check logs"
 
             if failure_reason:
-                msg = (
-                    f"{get_emoji('attention')} Cannot {operation} file <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>"
+                msg = render_emojis(
+                    f"{{emo:attention}} Cannot {operation} file <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>"
                     f"\nReason: {failure_reason}"
                 )
 
                 command_buttons = [
                     [
                         [
-                            f"{get_emoji('back')} Back",
+                            render_emojis("{emo:back} Back"),
                             f"{context.cmd}_list_{from_hash}_{page_number}",
                         ]
                     ]
@@ -790,14 +812,16 @@ class CmdFiles(BaseCommand):
                 elif operation == "move":
                     action_done = "moved"
 
-                msg = f"{get_emoji('check')} File <code>{html.escape(full_from_file_path_to_display)}</code> {action_done} to <code>{html.escape(full_to_file_path_to_display)}</code>"
+                msg = render_emojis(
+                    f"{{emo:check}} File <code>{html.escape(full_from_file_path_to_display)}</code> {action_done} to <code>{html.escape(full_to_file_path_to_display)}</code>"
+                )
 
                 back_path = f"{to_storage_name}/{to_path}" if to_path else to_storage_name
                 parent_folder_hash = self.hash_path(back_path)
                 command_buttons = [
                     [
                         [
-                            f"{get_emoji('back')} Back",
+                            render_emojis("{emo:back} Back"),
                             f"{context.cmd}_list_{parent_folder_hash}_{page_number}",
                         ]
                     ]
@@ -813,7 +837,9 @@ class CmdFiles(BaseCommand):
         else:  # Navigate folders
             storages = self.list_files(recursive=False)
 
-            msg = f"{get_emoji('question')} Where do you want to {operation} the file <code>{html.escape(full_from_file_path_to_display)}</code>?"
+            msg = render_emojis(
+                f"{{emo:question}} Where do you want to {operation} the file <code>{html.escape(full_from_file_path_to_display)}</code>?"
+            )
 
             command_buttons = []
 
@@ -832,7 +858,7 @@ class CmdFiles(BaseCommand):
                         command_buttons.append(
                             [
                                 [
-                                    f"{get_emoji('up')} Parent",
+                                    render_emojis("{emo:up} Parent"),
                                     f"{context.cmd}_{operation}_{from_hash}_{page_number}_{parent_folder_hash}",
                                 ]
                             ]
@@ -841,7 +867,7 @@ class CmdFiles(BaseCommand):
                         command_buttons.append(
                             [
                                 [
-                                    f"{get_emoji('up')} Parent",
+                                    render_emojis("{emo:up} Parent"),
                                     f"{context.cmd}_{operation}_{from_hash}_{page_number}",
                                 ]
                             ]
@@ -861,7 +887,7 @@ class CmdFiles(BaseCommand):
                         command_buttons.append(
                             [
                                 [
-                                    f"{get_emoji('folder')} {folder_name}",
+                                    render_emojis(f"{{emo:folder}} {folder_name}"),
                                     f"{context.cmd}_{operation}_{from_hash}_{page_number}_{folder_hash}",
                                 ]
                             ]
@@ -871,13 +897,15 @@ class CmdFiles(BaseCommand):
                     command_buttons.append(
                         [
                             [
-                                f"{get_emoji('check')} {operation.capitalize()} here",
+                                render_emojis(f"{{emo:check}} {operation.capitalize()} here"),
                                 f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_a",
                             ]
                         ]
                     )
                 except Exception:
-                    msg = f"{get_emoji('attention')} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                    msg = render_emojis(
+                        f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                    )
                     self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
                     return
             else:  # Select storage
@@ -894,7 +922,9 @@ class CmdFiles(BaseCommand):
                     )
 
             # Back button
-            command_buttons.append([[f"{get_emoji('back')} Back", f"{context.cmd}_info_{from_hash}_{page_number}"]])
+            command_buttons.append(
+                [[render_emojis("{emo:back} Back"), f"{context.cmd}_info_{from_hash}_{page_number}"]]
+            )
 
             self.main.send_msg(
                 msg,
@@ -906,11 +936,11 @@ class CmdFiles(BaseCommand):
 
     def file_print(self, context: CommandContext, path_hash, page_number):
         if not self.main.is_command_allowed(context.chat_id, context.from_id, "/print"):
-            msg = f"{get_emoji('notallowed')} You are not allowed to print!"
+            msg = render_emojis("{emo:notallowed} You are not allowed to print!")
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
@@ -924,11 +954,13 @@ class CmdFiles(BaseCommand):
             return
 
         if not self.main._printer.is_ready():
-            msg = f"{get_emoji('warning')} Can't start a new print, printer is not ready. Printer status: {self.main._printer.get_state_string()}."
+            msg = render_emojis(
+                f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.main._printer.get_state_string()}."
+            )
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
@@ -950,7 +982,9 @@ class CmdFiles(BaseCommand):
                 file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
                 self.main._printer.select_file(file, False, printAfterSelect=False)
         except Exception:
-            msg = f"{get_emoji('attention')} I couldn't find the file you wanted to print. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -961,19 +995,19 @@ class CmdFiles(BaseCommand):
         current_data = self.main._printer.get_current_data()
         job_file_name = current_data.get("job", {}).get("file", {}).get("name", "")
 
-        msg = (
-            f"{get_emoji('info')} The file <code>{html.escape(job_file_name)}</code> is loaded.\n\n"
-            f"{get_emoji('question')} Do you want to start printing it now?"
+        msg = render_emojis(
+            f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is loaded.\n\n"
+            "{emo:question} Do you want to start printing it now?"
         )
 
         command_buttons = [
             [
                 [
-                    f"{get_emoji('play')} Print",
+                    render_emojis("{emo:play} Print"),
                     "/print_y",
                 ],
                 [
-                    f"{get_emoji('back')} Back",
+                    render_emojis("{emo:back} Back"),
                     f"{context.cmd}_info_{path_hash}_{page_number}",
                 ],
             ]
@@ -993,7 +1027,9 @@ class CmdFiles(BaseCommand):
             file_path_on_disk = self.main._file_manager.path_on_disk(storage_name, file_path)
             self.main.send_file(context.chat_id, file_path_on_disk)
         except Exception:
-            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -1004,7 +1040,9 @@ class CmdFiles(BaseCommand):
             storage_name, file_path = self.find_path_by_hash(path_hash)
             full_file_path_to_display = f"/{storage_name}/{file_path}"
         except Exception:
-            msg = f"{get_emoji('attention')} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            )
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
@@ -1041,12 +1079,14 @@ class CmdFiles(BaseCommand):
                 failure_reason = "Internal error, please check logs"
 
             if failure_reason:
-                msg = (
-                    f"{get_emoji('attention')} Cannot delete <code>{html.escape(full_file_path_to_display)}</code>!\n"
+                msg = render_emojis(
+                    f"{{emo:attention}} Cannot delete <code>{html.escape(full_file_path_to_display)}</code>!\n"
                     f"Reason: {failure_reason}"
                 )
             else:
-                msg = f"{get_emoji('check')} File <code>{html.escape(full_file_path_to_display)}</code> deleted!"
+                msg = render_emojis(
+                    f"{{emo:check}} File <code>{html.escape(full_file_path_to_display)}</code> deleted!"
+                )
 
             path_parts = file_path.split("/")
             parent_path = "/".join(path_parts[:-1])
@@ -1055,7 +1095,7 @@ class CmdFiles(BaseCommand):
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('back')} Back",
+                        render_emojis("{emo:back} Back"),
                         f"{context.cmd}_list_{back_path_hash}_{page_number}",
                     ]
                 ]
@@ -1072,17 +1112,17 @@ class CmdFiles(BaseCommand):
             command_buttons = [
                 [
                     [
-                        f"{get_emoji('check')} Yes",
+                        render_emojis("{emo:check} Yes"),
                         f"{context.cmd}_delete_{path_hash}_{page_number}_yes",
                     ],
                     [
-                        f"{get_emoji('cancel')} No",
+                        render_emojis("{emo:cancel} No"),
                         f"{context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
             ]
             self.main.send_msg(
-                f"{get_emoji('warning')} Delete <code>{html.escape(full_file_path_to_display)}</code>?",
+                render_emojis(f"{{emo:warning}} Delete <code>{html.escape(full_file_path_to_display)}</code>?"),
                 chatID=context.chat_id,
                 markup="HTML",
                 responses=command_buttons,

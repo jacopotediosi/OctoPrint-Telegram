@@ -35,7 +35,7 @@ from .telegram_utils import TOKEN_REGEX, TelegramUtils, get_chat_title, is_group
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 ####################################################
@@ -243,7 +243,7 @@ class TelegramListener(threading.Thread):
             if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
                 self._logger.warning("Received file %s from an unauthorized user", uploaded_file_filename)
                 self.main.send_msg(
-                    f"{get_emoji('notallowed')} You are not authorized to upload files!",
+                    render_emojis("{emo:notallowed} You are not authorized to upload files!"),
                     chatID=chat_id,
                 )
                 return
@@ -256,7 +256,9 @@ class TelegramListener(threading.Thread):
                 else:
                     self._logger.warning("Received file %s with invalid extension", uploaded_file_filename)
                     self.main.send_msg(
-                        f"{get_emoji('notallowed')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
+                        render_emojis(
+                            "{emo:notallowed} Sorry, I only accept files with .gcode, .gco or .g or .zip extension"
+                        ),
                         chatID=chat_id,
                     )
                     return
@@ -266,7 +268,9 @@ class TelegramListener(threading.Thread):
                 f"{self.main.bot_url}/sendMessage",
                 "post",
                 data={
-                    "text": f"{get_emoji('save')} Saving file <code>{html.escape(uploaded_file_filename)}</code>...",
+                    "text": render_emojis(
+                        f"{{emo:save}} Saving file <code>{html.escape(uploaded_file_filename)}</code>..."
+                    ),
                     "chat_id": chat_id,
                     "parse_mode": "HTML",
                 },
@@ -345,8 +349,8 @@ class TelegramListener(threading.Thread):
             # Update the "saving file" message
             command_buttons = None
             if added_files_relative_paths:
-                response_message = (
-                    f"{get_emoji('download')} I've successfully saved the file"
+                response_message = render_emojis(
+                    "{emo:download} I've successfully saved the file"
                     f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
                     f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
                 )
@@ -354,8 +358,8 @@ class TelegramListener(threading.Thread):
                 if self.main._settings.get(["selectFileUpload"]) and len(added_files_relative_paths) == 1:
                     # Check if printer is ready
                     if not self.main._printer.is_ready():
-                        response_message += (
-                            f"\n{get_emoji('attention')} But I couldn't load it because the printer is not ready."
+                        response_message += render_emojis(
+                            "\n{emo:attention} But I couldn't load it because the printer is not ready."
                         )
                     else:
                         # Load the uploaded file
@@ -368,26 +372,26 @@ class TelegramListener(threading.Thread):
                             self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
 
                             # Ask the user whether to print the loaded file
-                            response_message += (
-                                f"\n{get_emoji('check')} And loaded it.\n"
-                                f"{get_emoji('question')} Do you want me to start printing it now?"
+                            response_message += render_emojis(
+                                "\n{emo:check} The file has been loaded.\n"
+                                "{emo:question} Do you want to start printing it now?"
                             )
                             command_buttons = [
                                 [
                                     [
-                                        f"{get_emoji('check')} Print",
+                                        render_emojis("{emo:check} Print"),
                                         "/print_y",
                                     ],
                                     [
-                                        f"{get_emoji('cancel')} Close",
+                                        render_emojis("{emo:cancel} Close"),
                                         "close",
                                     ],
                                 ]
                             ]
                         except Exception:
-                            response_message += f"\n{get_emoji('attention')} But I wasn't able to load the file."
+                            response_message += render_emojis("\n{emo:attention} But I wasn't able to load the file.")
             else:
-                response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
+                response_message = render_emojis("{emo:warning} No files were added. Did you upload an empty zip?")
 
             self.main.send_msg(
                 response_message,
@@ -399,9 +403,9 @@ class TelegramListener(threading.Thread):
         except Exception:
             self._logger.exception("Caught an exception in handle_document_message")
             self.main.send_msg(
-                (
-                    f"{get_emoji('attention')} Something went wrong during processing of your file.\n"
-                    f"Sorry. More details are in log files."
+                render_emojis(
+                    "{emo:attention} Something went wrong during processing of your file.\n"
+                    "Sorry. More details are in log files."
                 ),
                 chatID=chat_id,
             )
@@ -457,7 +461,7 @@ class TelegramListener(threading.Thread):
             self._logger.warning("Previous command was an unknown command.")
             if not self.main._settings.get(["no_mistake"]):
                 self.main.send_msg(
-                    f"{get_emoji('notallowed')} I do not understand you!",
+                    render_emojis("{emo:notallowed} I do not understand you!"),
                     chatID=chat_id,
                 )
             return
@@ -490,7 +494,7 @@ class TelegramListener(threading.Thread):
             except Exception:
                 self._logger.exception("Caught an exception executing command %s", command)
                 self.main.send_msg(
-                    f"{get_emoji('attention')} Error executing your command! Please check logs.",
+                    render_emojis("{emo:attention} Error executing your command! Please check logs."),
                     chatID=chat_id,
                     msg_id=msg_id_to_update,
                 )
@@ -498,7 +502,7 @@ class TelegramListener(threading.Thread):
             # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.main.send_msg(
-                f"{get_emoji('notallowed')} You are not allowed to do this!",
+                render_emojis("{emo:notallowed} You are not allowed to do this!"),
                 chatID=chat_id,
             )
 
@@ -1692,8 +1696,10 @@ class TelegramPlugin(
             self._logger.warning("File '%s' not sent to chat %s: exceeds 50MB limit", path, chat_id)
 
             self.send_msg(
-                f"{get_emoji('warning')} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
-                "Please download it manually from the OctoPrint web interface.",
+                render_emojis(
+                    f"{{emo:warning}} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
+                    "Please download it manually from the OctoPrint web interface."
+                ),
                 chatID=chat_id,
             )
             return
@@ -1763,8 +1769,10 @@ class TelegramPlugin(
         )
 
         self.send_msg(
-            f"{get_emoji('info')} Chat added to known chats. "
-            "Before you can do anything, please go to plugin settings and edit your permissions.",
+            render_emojis(
+                "{emo:info} Chat added to known chats. "
+                "Before you can do anything, please go to plugin settings and edit your permissions."
+            ),
             chatID=chat_id,
         )
 

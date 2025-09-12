@@ -1,7 +1,4 @@
-from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
-
-get_emoji = Emoji.get_emoji
 
 
 class CmdClose(BaseCommand):

@@ -3,7 +3,7 @@ import html
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdHelp(BaseCommand):
@@ -15,7 +15,7 @@ class CmdHelp(BaseCommand):
         ]
         commands.sort()
 
-        msg = f"{get_emoji('info')} <b>The following commands are available:</b>\n\n"
+        msg = render_emojis("{emo:info} <b>The following commands are available:</b>\n\n")
         msg += "\n".join(f"{html.escape(cmd)} - {html.escape(desc)}" for cmd, desc in commands)
 
         self.main.send_msg(

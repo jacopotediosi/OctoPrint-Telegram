@@ -3,7 +3,7 @@ import html
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 class CmdUser(BaseCommand):
@@ -14,8 +14,8 @@ class CmdUser(BaseCommand):
 
         # -- Chat and user information section --
 
-        msg = (
-            f"{get_emoji('info')} <b>Chat and user information:</b>\n\n"
+        msg = render_emojis(
+            "{emo:info} <b>Chat and user information:</b>\n\n"
             f"<b>Chat title:</b> {html.escape(chat_settings['title'])}\n"
             f"<b>Chat type:</b> {html.escape(chat_settings['type'])}\n"
             f"<b>Chat id:</b> {html.escape(context.chat_id)}\n"
