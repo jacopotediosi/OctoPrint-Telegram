@@ -72,6 +72,7 @@ class Emoji:
         "feedrate": "\u23e9",
         "filament": "\U0001f9f5",
         "height": "\u2195\ufe0f",
+        "dimensions": "\U0001f4d0",
         "cost": "\U0001f4b0",
         # Notifications
         "notify": "\U0001f514",

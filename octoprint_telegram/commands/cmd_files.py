@@ -373,6 +373,18 @@ class CmdFiles(BaseCommand):
         filesize = self.main._file_manager.get_size(storage_name, file_path)
         msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
 
+        # Dimensions
+        dimensions = analysis.get("dimensions", {})
+        dimension_parts = []
+        if "width" in dimensions:
+            dimension_parts.append("{:.2f}mm (X)".format(dimensions["width"]))
+        if "depth" in dimensions:
+            dimension_parts.append("{:.2f}mm (Y)".format(dimensions["depth"]))
+        if "height" in dimensions:
+            dimension_parts.append("{:.2f}mm (Z)".format(dimensions["height"]))
+        if dimension_parts:
+            msg += render_emojis("\n{emo:dimensions} <b>Dimensions:</b> ") + " &#215; ".join(dimension_parts)
+
         # Filament info
         filament_length = 0
         try:
@@ -516,6 +528,18 @@ class CmdFiles(BaseCommand):
                             filament_length += float(length)
         except Exception:
             self._logger.exception("Caught an exception getting filament info")
+
+        # Dimensions
+        dimensions = analysis.get("dimensions", {})
+        dimension_parts = []
+        if "width" in dimensions:
+            dimension_parts.append("{:.2f}mm (X)".format(dimensions["width"]))
+        if "depth" in dimensions:
+            dimension_parts.append("{:.2f}mm (Y)".format(dimensions["depth"]))
+        if "height" in dimensions:
+            dimension_parts.append("{:.2f}mm (Z)".format(dimensions["height"]))
+        if dimension_parts:
+            msg += render_emojis("\n{emo:dimensions} <b>Dimensions:</b> ") + " &#215; ".join(dimension_parts)
 
         # Print time
         print_time = analysis.get("estimatedPrintTime")
