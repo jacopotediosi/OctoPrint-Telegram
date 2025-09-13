@@ -950,6 +950,7 @@ class TelegramPlugin(
                 "TelegramSendPrintingStatus": "StatusPrinting",
                 "plugin_pause_for_user_event_notify": "PausedForUser",
             }
+            notification_vars_to_rename = {"currentLayer": "current_layer", "totalLayer": "total_layer"}
             settings_to_rename = {"fileOrder": "sort_files_by_date"}
 
             # Settings to delete
@@ -1024,6 +1025,14 @@ class TelegramPlugin(
             for message, message_props in telegramMsgDict.items():
                 if message not in messages:
                     messages[message] = message_props
+
+            # Rename vars in notification messages
+            for message, message_props in messages.items():
+                message_text = message_props.get("text")
+                if message_text is not None:
+                    for old_var, new_var in notification_vars_to_rename.items():
+                        message_text = message_text.replace("{" + old_var + "}", "{" + new_var + "}")
+                    message_props["text"] = message_text
 
             # Rename settings
             for old_setting, new_setting in settings_to_rename.items():
@@ -2282,7 +2291,7 @@ class TelegramPlugin(
             displaylayerprogress_plugin_id = "DisplayLayerProgress"
             if self._plugin_manager.get_plugin(displaylayerprogress_plugin_id, True):
                 values_request = self.send_octoprint_request(
-                    f"/plugin/{displaylayerprogress_plugin_id}/values", timeout=3
+                    f"/plugin/{displaylayerprogress_plugin_id}/values", timeout=5
                 )
                 layer_progress_values = values_request.json()
             else:

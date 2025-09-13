@@ -494,7 +494,7 @@
                             {
                                 "id": "DisplayLayerProgress",
                                 "name": "DisplayLayerProgress",
-                                "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> variables in notification messages."
+                                "description": "Adds support for <code>{display_layer_progress}</code>, <code>{current_layer}</code>, <code>{total_layer}</code> and <code>{total_height}</code> variables in notification messages."
                             },
                                                         {
                                 "id": "prusaslicerthumbnails",
@@ -954,8 +954,17 @@
                 "desc": "Target temperatures of the bed and extruder X (where X ranges from 1 to 5)."
             },
             {
-                "var": "{currentLayer} {totalLayer}",
+                "var": "{display_layer_progress}",
+                "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin. "
+                    "It's a dictionary you can navigate like: <code>display_layer_progress[feedrate]</code>. Print it in a notification to explore its structure."
+            },
+            {
+                "var": "{current_layer} {total_layer}",
                 "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
+            },
+            {
+                "var": "{total_height}",
+                "desc": "Total height of the object being printed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
             },
             {
                 "var": "{enclosure}",

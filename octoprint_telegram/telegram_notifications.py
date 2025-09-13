@@ -500,26 +500,41 @@ class TMSG:
                     return self._get_cached("time_finish", _calculate_time_finish)
 
                 @property
-                def currentLayer(self):
-                    """Current layer number"""
-
-                    def calculate_current_layer():
-                        layer_data = self.parent.main.get_layer_progress_values() or {}
-                        layer_info = layer_data.get("layer") or {}
-                        return layer_info.get("current", "?")
-
-                    return self._get_cached("currentLayer", calculate_current_layer)
+                def display_layer_progress(self):
+                    """A dictionary containing data provided by the DisplayLayerProgress plugin"""
+                    return self._get_cached(
+                        "display_layer_progress", lambda: self.parent.main.get_layer_progress_values() or {}
+                    )
 
                 @property
-                def totalLayer(self):
-                    """Total number of layers"""
+                def current_layer(self):
+                    """Current layer number, provided by the DisplayLayerProgress plugin"""
+
+                    def calculate_current_layer():
+                        layer_info = self.display_layer_progress.get("layer") or {}
+                        return layer_info.get("current", "?")
+
+                    return self._get_cached("current_layer", calculate_current_layer)
+
+                @property
+                def total_layer(self):
+                    """Total number of layers, provided by the DisplayLayerProgress plugin"""
 
                     def calculate_total_layer():
-                        layer_data = self.parent.main.get_layer_progress_values() or {}
-                        layer_info = layer_data.get("layer") or {}
+                        layer_info = self.display_layer_progress.get("layer") or {}
                         return layer_info.get("total", "?")
 
-                    return self._get_cached("totalLayer", calculate_total_layer)
+                    return self._get_cached("total_layer", calculate_total_layer)
+
+                @property
+                def total_height(self):
+                    """Total height of the object being printed, provided by the DisplayLayerProgress plugin"""
+
+                    def calculate_total_layer():
+                        height_info = self.display_layer_progress.get("height") or {}
+                        return height_info.get("totalFormatted", "?")
+
+                    return self._get_cached("total_height", calculate_total_layer)
 
                 @property
                 def owner(self):
