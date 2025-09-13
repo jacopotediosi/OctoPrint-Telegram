@@ -342,7 +342,7 @@
                                 The ImgBB API key is required to display thumbnails while browsing files on Telegram.
                                 If you provide it, previews of your G-code files will be uploaded to ImgBB.
                                 It is recommended to set your ImgBB account to private and enable automatic deletion of files after 5 minutes.
-                                Refer to the <a href="https://imgbb.com/privacy">ImgBB Privacy Policy</a> for more information.
+                                Refer to the <a href="https://imgbb.com/privacy" target="_blank">ImgBB Privacy Policy</a> for more information.
                             </small>
                         </span>
                     </div>
@@ -911,113 +911,160 @@
         </nobr>
     </div>
     <div class="modal-body">
-        Use Variables by adding <code>{&lt;varName&gt;}</code> to your message text (e.g., <code>{bed_temp}</code>). Usable Variables are:
+        Use Variables by adding <code>{&lt;var_name&gt;}</code> to your message text (e.g., <code>{file}</code>). Usable Variables are:
+        <br>
         {# djlint:off #}
-        {% set variable_table = [
+        {% set variable_sections = [
             {
-                "var": "{file} {path}",
-                "desc": "File name and full path of the file currently being printed. <small class='muted'>Only useful while printing.</small>"
+                "title": "Printer data",
+                "subtitle": "useful only if a printer is connected",
+                "variables": [
+                    {
+                        "var": "{status}",
+                        "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data' target='_blank'><code>PrinterInterface.get_current_data()</code></a> OctoPrint function. "
+                            "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{temps}",
+                        "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_temperatures' target='_blank'><code>PrinterInterface.get_current_temperatures()</code></a> OctoPrint function. "
+                            "It's a dictionary you can navigate like: <code>temps[tool0][actual]</code> or <code>temps[bed][target]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{bed_target} {eX_target}",
+                        "desc": "Target temperatures of the bed and extruder X (where X ranges from 1 to 5)."
+                    },
+                    {
+                        "var": "{bed_temp} {eX_temp}",
+                        "desc": "Current temperatures of the bed and extruder X (where X ranges from 1 to 5)."
+                    }
+                ]
             },
             {
-                "var": "{status}",
-                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data'><code>get_current_data()</code></a> OctoPrint function. "
-                    "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+                "title": "File data",
+                "subtitle": "useful only if a file is loaded",
+                "variables": [
+                    {
+                        "var": "{file} {path}",
+                        "desc": "File name and full path of the file currently being printed."
+                    },
+                    {
+                        "var": "{metadata}",
+                        "desc": "Metadata of the file being printed. It's a dictionary you can navigate like: <code>metadata[analysis][printingArea][maxZ]</code> or <code>metadata[analysis][dimensions][height]</code>. "
+                            "<small class='muted'>It can be enriched by the <a href='https://plugins.octoprint.org/plugins/SlicerSettingsParser/' target='_blank'>SlicerSettingsParser</a> plugin.</small>"
+                    }
+                ]
             },
             {
-                "var": "{metadata}",
-                "desc": "Metadata of the file being printed. It's a dictionary you can navigate like: <code>metadata[analysis][printingArea][maxZ]</code> or <code>metadata[analysis][dimensions][height]</code>. "
-                    "<small class='muted'>It can be enriched by the <a href='https://plugins.octoprint.org/plugins/SlicerSettingsParser/'>SlicerSettingsParser</a> plugin.</small> <small class='muted'>Only useful while printing.</small>"
+                "title": "Print job data",
+                "subtitle": "useful only while printing",
+                "variables": [
+                    {
+                        "var": "{owner}",
+                        "desc": "The name of the user who started the print."
+                    },
+                    {
+                        "var": "{z}",
+                        "desc": "The current z value."
+                    },
+                    {
+                        "var": "{percent}",
+                        "desc": "Current percentage of the print progress."
+                    },
+                    {
+                        "var": "{time_done} {time_left} {time_finish}",
+                        "desc": "Elapsed / remaining / estimated finish time of the current print."
+                    },
+                    {
+                        "var": "{current_layer} {total_layer}",
+                        "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{total_height}",
+                        "desc": "Total height of the object being printed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    }
+                ]
             },
             {
-                "var": "{z}",
-                "desc": "The current z value."
+                "title": "Notification data",
+                "subtitle": "",
+                "variables": [
+                    {
+                        "var": "{user}",
+                        "desc": "The name of the user who performed the action that triggered the notification (e.g., paused or aborted the print)."
+                    },
+                    {
+                        "var": "{event}",
+                        "desc": "The name of the event which caused the notification, e.g., <code>MovieDone</code>."
+                    },
+                    {
+                        "var": "{error_msg}",
+                        "desc": "The error message string. <small class='muted'>Only useful for <code>Error</code> event notifications.</small>"
+                    },
+                    {
+                        "var": "{UserNotif_Text}",
+                        "desc": "The text received via the serial message <code>echo:UserNotif TEXT</code>, which is triggered by printing a G-code like: <code>M118 E1 UserNotif TEXT</code>. "
+                            "<small class='muted'>Only useful for <code>UserNotif</code> event notifications.</small>"
+                    }
+                ]
             },
             {
-                "var": "{percent}",
-                "desc": "Current percentage of the print progress. <small class='muted'>Only useful for height change notifications.</small>"
-            },
-            {
-                "var": "{time_done} {time_left} {time_finish}",
-                "desc": "Elapsed / remaining / estimated finish time of the current print. <small class='muted'>Only useful for height change events.</small>"
-            },
-            {
-                "var": "{temps}",
-                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_temperatures'><code>get_current_temperatures()</code></a> OctoPrint function. "
-                    "It's a dictionary you can navigate like: <code>temps[bed][actual]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{bed_temp} {eX_temp}",
-                "desc": "Current temperatures of the bed and extruder X (where X ranges from 1 to 5)."
-            },
-            {
-                "var": "{bed_target} {eX_target}",
-                "desc": "Target temperatures of the bed and extruder X (where X ranges from 1 to 5)."
-            },
-            {
-                "var": "{display_layer_progress}",
-                "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin. "
-                    "It's a dictionary you can navigate like: <code>display_layer_progress[feedrate]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{current_layer} {total_layer}",
-                "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
-            },
-            {
-                "var": "{total_height}",
-                "desc": "Total height of the object being printed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
-            },
-            {
-                "var": "{enclosure}",
-                "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
-                    "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{prusammu}",
-                "desc": "A dictionary containing the current state of the Prusa MMU, provided by the <a href='https://plugins.octoprint.org/plugins/prusammu/'>Prusa MMU</a> plugin. "
-                    "It's a dictionary you can navigate like: <code>prusammu[state]</code> or <code>prusammu[tool]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{resource_monitor}",
-                "desc": "A dictionary containing your system resource usage data, provided by the <a href='https://plugins.octoprint.org/plugins/resource_monitor/'>Resource Monitor</a> plugin. "
-                    "It's a dictionary you can navigate like: <code>resource_monitor[cpu][average]</code> or <code>resource_monitor[temp][celsius][current]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{owner} {user}",
-                "desc": "The name of the user who started the print / the name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)."
-            },
-            {
-                "var": "{event}",
-                "desc": "The name of the event which caused the notification."
-            },
-            {
-                "var": "{error_msg}",
-                "desc": "The error message string. <small class='muted'>Only useful for 'Error' event notifications.</small>"
-            },
-            {
-                "var": "{UserNotif_Text}",
-                "desc": "The text received via the serial message <code>echo:UserNotif TEXT</code>, which is triggered by printing a G-code like: <code>M118 E1 UserNotif TEXT</code>. "
-                    "<small class='muted'>Only useful for 'UserNotif' event notifications.</small>"
-            },
+                "title": "Plugins data",
+                "subtitle": "available only if the respective plugins are installed",
+                "variables": [
+                    {
+                        "var": "{display_layer_progress}",
+                        "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>display_layer_progress[feedrate]</code>. Print it in a notification or <a href='/plugin/DisplayLayerProgress/values' target='_blank'>click here</a> to explore its structure."
+                    },
+                    {
+                        "var": "{enclosure}",
+                        "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/' target='_blank'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
+                            "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{prusammu}",
+                        "desc": "A dictionary containing the current state of the Prusa MMU, provided by the <a href='https://plugins.octoprint.org/plugins/prusammu/' target='_blank'>Prusa MMU</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>prusammu[state]</code> or <code>prusammu[tool]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{resource_monitor}",
+                        "desc": "A dictionary containing your system resource usage data, provided by the <a href='https://plugins.octoprint.org/plugins/resource_monitor/' target='_blank'>Resource Monitor</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>resource_monitor[cpu][average]</code> or <code>resource_monitor[temp][celsius][current]</code>. Print it in a notification or <a href='/plugin/resource_monitor/stats' target='_blank'>click here</a> to explore its structure."
+                    }
+                ]
+            }
         ] %}
         {# djlint:on #}
-        <table class="table table-condensed table-striped"
-               style="table-layout: auto">
-            <thead>
-                <tr>
-                    <th style="border-right:1px dashed #ddd">Variable</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in variable_table %}
+        {% for section in variable_sections %}
+            <h5 style="margin-top: 20px; margin-bottom: 10px;">
+                {{ section.title }}
+                {% if section.subtitle %}
+                    <small class="muted" style="font-style: italic;">({{ section.subtitle }})</small>
+                {% endif %}
+            </h5>
+            <table class="table table-condensed table-striped"
+                   style="table-layout: auto;
+                          margin-bottom: 15px">
+                <thead>
                     <tr>
-                        <td style="vertical-align: middle; border-right:1px dashed #ddd">{{ row.var | safe }}</td>
-                        <td style="vertical-align: middle;">{{ row.desc | safe }}</td>
+                        <th style="border-right:1px dashed #ddd">Variable</th>
+                        <th>Description</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <b>Note:</b> On startup and a few moments after startup of OctoPrint the temperatures can't be retrieved from the printer and will be shown as '0.0'
+                </thead>
+                <tbody>
+                    {% for row in section.variables %}
+                        <tr>
+                            <td style="vertical-align: middle;
+                                       border-right:1px dashed #ddd;
+                                       width: 160px;
+                                       word-wrap: break-word;
+                                       word-break: break-word">{{ row.var | safe }}</td>
+                            <td style="vertical-align: middle; text-align: justify;">{{ row.desc | safe }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
     </div>
 </div>
 <!-- EMOJIS DIALOG -->
