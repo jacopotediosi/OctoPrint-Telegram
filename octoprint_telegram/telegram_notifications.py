@@ -336,7 +336,7 @@ class TMSG:
             _logger = self._logger
 
             # --- Defines all template variables available for notification messages ---
-            # To add new template variables, just add them as a @property in LazyVariables class
+            # To add new template variables, just add them as a @cached_property in LazyVariables class
 
             class LazyVariables:
                 """Context class that calculates template variables only when accessed"""
@@ -366,282 +366,239 @@ class TMSG:
                         self._cache[key] = calculator()
                     return self._cache[key]
 
-                @property
+                def cached_property(func):
+                    """Decorator that automatically uses function name as cache key"""
+
+                    def wrapper(self):
+                        property_name = func.__name__
+                        return self._get_cached(property_name, lambda: func(self))
+
+                    return property(wrapper)
+
+                @cached_property
                 def status(self):
                     """Current printer data from OctoPrint API"""
-                    return self._get_cached("status", lambda: self.parent.main._printer.get_current_data())
+                    return self.parent.main._printer.get_current_data()
 
-                @property
+                @cached_property
                 def event(self):
                     """Event that triggered the notification. If the event has an alias (bind_msg), it resolves to that."""
+                    event = str(self.kwargs.get("event"))
+                    event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
+                    return event_bind_msg if event_bind_msg else event
 
-                    def calculate_event():
-                        event = str(self.kwargs.get("event"))
-                        event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
-                        return event_bind_msg if event_bind_msg else event
-
-                    return self._get_cached("event", calculate_event)
-
-                @property
+                @cached_property
                 def z(self):
                     """Current Z value"""
-                    return self._get_cached("z", lambda: self.parent.z)
+                    return self.parent.z
 
-                @property
+                @cached_property
                 def temps(self):
                     """Full temperature data for all tools and bed from OctoPrint API"""
-                    return self._get_cached("temps", lambda: self.parent.main._printer.get_current_temperatures())
+                    return self.parent.main._printer.get_current_temperatures()
 
-                @property
+                @cached_property
                 def bed_temp(self):
                     """Current bed temperature"""
-                    return self._get_cached("bed_temp", lambda: self.temps.get("bed", {}).get("actual", 0.0))
+                    return self.temps.get("bed", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def bed_target(self):
                     """Target bed temperature"""
-                    return self._get_cached("bed_target", lambda: self.temps.get("bed", {}).get("target", 0.0))
+                    return self.temps.get("bed", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e1_temp(self):
                     """Current temperature of extruder 1 (tool0)"""
-                    return self._get_cached("e1_temp", lambda: self.temps.get("tool0", {}).get("actual", 0.0))
+                    return self.temps.get("tool0", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e1_target(self):
                     """Target temperature of extruder 1 (tool0)"""
-                    return self._get_cached("e1_target", lambda: self.temps.get("tool0", {}).get("target", 0.0))
+                    return self.temps.get("tool0", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e2_temp(self):
                     """Current temperature of extruder 2 (tool1)"""
-                    return self._get_cached("e2_temp", lambda: self.temps.get("tool1", {}).get("actual", 0.0))
+                    return self.temps.get("tool1", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e2_target(self):
                     """Target temperature of extruder 2 (tool1)"""
-                    return self._get_cached("e2_target", lambda: self.temps.get("tool1", {}).get("target", 0.0))
+                    return self.temps.get("tool1", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e3_temp(self):
                     """Current temperature of extruder 3 (tool2)"""
-                    return self._get_cached("e3_temp", lambda: self.temps.get("tool2", {}).get("actual", 0.0))
+                    return self.temps.get("tool2", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e3_target(self):
                     """Target temperature of extruder 3 (tool2)"""
-                    return self._get_cached("e3_target", lambda: self.temps.get("tool2", {}).get("target", 0.0))
+                    return self.temps.get("tool2", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e4_temp(self):
                     """Current temperature of extruder 4 (tool3)"""
-                    return self._get_cached("e4_temp", lambda: self.temps.get("tool3", {}).get("actual", 0.0))
+                    return self.temps.get("tool3", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e4_target(self):
                     """Target temperature of extruder 4 (tool3)"""
-                    return self._get_cached("e4_target", lambda: self.temps.get("tool3", {}).get("target", 0.0))
+                    return self.temps.get("tool3", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e5_temp(self):
                     """Current temperature of extruder 5 (tool4)"""
-                    return self._get_cached("e5_temp", lambda: self.temps.get("tool4", {}).get("actual", 0.0))
+                    return self.temps.get("tool4", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e5_target(self):
                     """Target temperature of extruder 5 (tool4)"""
-                    return self._get_cached("e5_target", lambda: self.temps.get("tool4", {}).get("target", 0.0))
+                    return self.temps.get("tool4", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def percent(self):
                     """Current percentage of the print progress"""
+                    progress = self.status.get("progress", {})
+                    completion = progress.get("completion")
+                    return int(completion if completion is not None else 0)
 
-                    def calculate_percent():
-                        progress = self.status.get("progress", {})
-                        completion = progress.get("completion")
-                        return int(completion if completion is not None else 0)
-
-                    return self._get_cached("percent", calculate_percent)
-
-                @property
+                @cached_property
                 def time_done(self):
                     """Elapsed time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time = progress.get("printTime") or 0
+                    return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
 
-                    def calculate_time_done():
-                        progress = self.status.get("progress", {})
-                        print_time = progress.get("printTime") or 0
-                        return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
-
-                    return self._get_cached("time_done", calculate_time_done)
-
-                @property
+                @cached_property
                 def time_left(self):
                     """Remaining time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time_left = progress.get("printTimeLeft")
+                    if print_time_left is not None:
+                        return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
+                    return "[Unknown]"
 
-                    def _calculate_time_left():
-                        progress = self.status.get("progress", {})
-                        print_time_left = progress.get("printTimeLeft")
-                        if print_time_left is not None:
-                            return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
-                        return "[Unknown]"
-
-                    return self._get_cached("time_left", _calculate_time_left)
-
-                @property
+                @cached_property
                 def time_finish(self):
                     """Estimated finish time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time_left = progress.get("printTimeLeft")
+                    if print_time_left is not None:
+                        return self.parent.main.calculate_ETA(print_time_left)
 
-                    def _calculate_time_finish():
-                        progress = self.status.get("progress", {})
-                        print_time_left = progress.get("printTimeLeft")
-                        if print_time_left is not None:
-                            return self.parent.main.calculate_ETA(print_time_left)
-
-                    return self._get_cached("time_finish", _calculate_time_finish)
-
-                @property
+                @cached_property
                 def display_layer_progress(self):
                     """A dictionary containing data provided by the DisplayLayerProgress plugin"""
-                    return self._get_cached(
-                        "display_layer_progress", lambda: self.parent.main.get_layer_progress_values() or {}
-                    )
+                    return self.parent.main.get_layer_progress_values() or {}
 
-                @property
+                @cached_property
                 def current_layer(self):
                     """Current layer number, provided by the DisplayLayerProgress plugin"""
+                    layer_info = self.display_layer_progress.get("layer") or {}
+                    return layer_info.get("current", "?")
 
-                    def calculate_current_layer():
-                        layer_info = self.display_layer_progress.get("layer") or {}
-                        return layer_info.get("current", "?")
-
-                    return self._get_cached("current_layer", calculate_current_layer)
-
-                @property
+                @cached_property
                 def total_layer(self):
                     """Total number of layers, provided by the DisplayLayerProgress plugin"""
+                    layer_info = self.display_layer_progress.get("layer") or {}
+                    return layer_info.get("total", "?")
 
-                    def calculate_total_layer():
-                        layer_info = self.display_layer_progress.get("layer") or {}
-                        return layer_info.get("total", "?")
-
-                    return self._get_cached("total_layer", calculate_total_layer)
-
-                @property
+                @cached_property
                 def total_height(self):
                     """Total height of the object being printed, provided by the DisplayLayerProgress plugin"""
+                    height_info = self.display_layer_progress.get("height") or {}
+                    return height_info.get("totalFormatted", "?")
 
-                    def calculate_total_layer():
-                        height_info = self.display_layer_progress.get("height") or {}
-                        return height_info.get("totalFormatted", "?")
-
-                    return self._get_cached("total_height", calculate_total_layer)
-
-                @property
+                @cached_property
                 def owner(self):
                     """The name of the user who started the print"""
-                    return self._get_cached("owner", lambda: self.status["job"].get("user") or "")
+                    return self.status["job"].get("user") or ""
 
-                @property
+                @cached_property
                 def user(self):
                     """The name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)"""
-                    return self._get_cached("user", lambda: self.payload.get("user") or "")
+                    return self.payload.get("user") or ""
 
-                @property
+                @cached_property
                 def file(self):
                     """File name of the file currently being printed"""
+                    file = self.status.get("job", {}).get("file", {}).get("name", "")
+                    for key in ("filename", "gcode", "file"):
+                        value = self.payload.get(key)
+                        if value:
+                            file = value
+                            break
+                    return file
 
-                    def calculate_file():
-                        file = self.status.get("job", {}).get("file", {}).get("name", "")
-                        for key in ("filename", "gcode", "file"):
-                            value = self.payload.get(key)
-                            if value:
-                                file = value
-                                break
-                        return file
-
-                    return self._get_cached("file", calculate_file)
-
-                @property
+                @cached_property
                 def path(self):
                     """Full path of the file currently being printed"""
-                    return self._get_cached("path", lambda: self.status.get("job", {}).get("file", {}).get("path", ""))
+                    return self.status.get("job", {}).get("file", {}).get("path", "")
 
-                @property
+                @cached_property
                 def metadata(self):
                     """A dictionary containing metadata of the file currently being printed"""
+                    return self.parent.main._file_manager.get_metadata(
+                        octoprint.filemanager.FileDestinations.LOCAL, self.path
+                    )
 
-                    def calulate_metadata():
-                        return self.parent.main._file_manager.get_metadata(
-                            octoprint.filemanager.FileDestinations.LOCAL, self.path
-                        )
-
-                    return self._get_cached("metadata", calulate_metadata)
-
-                @property
+                @cached_property
                 def error_msg(self):
                     """The error message string. Only useful for 'Error' event notifications."""
-                    return self._get_cached("error_msg", lambda: self.payload.get("error", ""))
+                    return self.payload.get("error", "")
 
-                @property
+                @cached_property
                 def UserNotif_Text(self):
                     """The text received via the serial message echo:UserNotif TEXT, which is triggered by printing a G-code like: M118 E1 UserNotif TEXT."""
-                    return self._get_cached("UserNotif_Text", lambda: self.payload.get("UserNotif", ""))
+                    return self.payload.get("UserNotif", "")
 
-                @property
+                @cached_property
                 def prusammu(self):
                     """A dictionary containing the current state of the Prusa MMU, provided by the Prusa MMU plugin."""
+                    return self.parent.main.send_octoprint_simpleapi_command("prusammu", "getmmu").json()
 
-                    def calculate_prusammu():
-                        return self.parent.main.send_octoprint_simpleapi_command("prusammu", "getmmu").json()
-
-                    return self._get_cached("prusammu", calculate_prusammu)
-
-                @property
+                @cached_property
                 def resource_monitor(self):
                     """A dictionary containing data provided by the Resource Monitor plugin."""
+                    return self.parent.main.send_octoprint_request("/plugin/resource_monitor/stats").json()
 
-                    def calculate_resource_monitor():
-                        return self.parent.main.send_octoprint_request("/plugin/resource_monitor/stats").json()
-
-                    return self._get_cached("resource_monitor", calculate_resource_monitor)
-
-                @property
+                @cached_property
                 def enclosure(self):
                     """A dictionary containing the data provided by the Enclosure plugin, such as the temperatures measured by the sensors or the configured target temperature."""
+                    enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
+                    enclosure_plugin_id = "enclosure"
+                    enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
 
-                    def _calculate_enclosure():
-                        enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
-                        enclosure_plugin_id = "enclosure"
-                        enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
-                        if enclosure_module:
-                            enclosure_implementation = self.parent.main._plugin_manager.plugins[
-                                enclosure_plugin_id
-                            ].implementation
+                    if enclosure_module:
+                        enclosure_implementation = self.parent.main._plugin_manager.plugins[
+                            enclosure_plugin_id
+                        ].implementation
 
-                            for rpi_input in enclosure_implementation.rpi_inputs:
-                                if rpi_input["input_type"] == "temperature_sensor":
-                                    index_id = str(rpi_input["index_id"])
-                                    label = rpi_input.get("label") or "Enclosure"
-                                    temp = rpi_input.get("temp_sensor_temp", "")
-                                    humidity = rpi_input.get("temp_sensor_humidity", "")
+                        for rpi_input in enclosure_implementation.rpi_inputs:
+                            if rpi_input["input_type"] == "temperature_sensor":
+                                index_id = str(rpi_input["index_id"])
+                                label = rpi_input.get("label") or "Enclosure"
+                                temp = rpi_input.get("temp_sensor_temp", "")
+                                humidity = rpi_input.get("temp_sensor_humidity", "")
 
-                                    if temp != "":
-                                        enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
+                                if temp != "":
+                                    enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
 
-                                    if humidity != "":
-                                        enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
+                                if humidity != "":
+                                    enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
 
-                            for rpi_output in enclosure_implementation.rpi_outputs:
-                                if rpi_output["output_type"] == "temp_hum_control":
-                                    index_id = str(rpi_output["index_id"])
-                                    label = rpi_output.get("label") or "Enclosure"
-                                    temp = rpi_output.get("temp_ctr_set_value", "")
+                        for rpi_output in enclosure_implementation.rpi_outputs:
+                            if rpi_output["output_type"] == "temp_hum_control":
+                                index_id = str(rpi_output["index_id"])
+                                label = rpi_output.get("label") or "Enclosure"
+                                temp = rpi_output.get("temp_ctr_set_value", "")
 
-                                    if temp != "":
-                                        enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
-                        return enclosure
+                                if temp != "":
+                                    enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
 
-                    return self._get_cached("enclosure", _calculate_enclosure)
+                    return enclosure
 
             lazy_vars = LazyVariables(self, payload, kwargs)
 
@@ -733,7 +690,7 @@ class TMSG:
                     """
                     Secure context for template variable access.
 
-                    Only `lazy_vars` attributes decorated with `@property` can be accessed from templates.
+                    Only `lazy_vars` attributes decorated with `@cached_property` can be accessed from templates.
                     Unknown or not allowed variables are returned as literal placeholders.
                     """
 
@@ -741,7 +698,7 @@ class TMSG:
                         self.lazy_vars = lazy_vars
                         self.markup = markup
 
-                        # Only variables of lazy_vars decorated with @property are allowed
+                        # Only variables of lazy_vars decorated with @cached_property are allowed
                         self.allowed_vars = {
                             name for name, attr in type(lazy_vars).__dict__.items() if isinstance(attr, property)
                         }
