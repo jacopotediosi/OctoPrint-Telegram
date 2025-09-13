@@ -512,6 +512,29 @@ class TMSG:
                     return height_info.get("totalFormatted", "?")
 
                 @cached_property
+                def fan_speed(self):
+                    """Fan speed, provided by the DisplayLayerProgress plugin"""
+                    return self.display_layer_progress.get("fanSpeed", "?")
+
+                @cached_property
+                def change_filament_count(self):
+                    """Number of filament changes occurred, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("changeFilamentCount", "?")
+
+                @cached_property
+                def change_filament_time_left(self):
+                    """Remaining time until the next filament change, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("changeFilamentTimeLeft", "?")
+
+                @cached_property
+                def change_filament_next_time(self):
+                    """Estimated time of the next filament change, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("estimatedChangedFilamentTime", "?")
+
+                @cached_property
                 def owner(self):
                     """The name of the user who started the print"""
                     return self.status["job"].get("user") or ""

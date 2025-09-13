@@ -494,7 +494,7 @@
                             {
                                 "id": "DisplayLayerProgress",
                                 "name": "DisplayLayerProgress",
-                                "description": "Adds support for <code>{display_layer_progress}</code>, <code>{current_layer}</code>, <code>{total_layer}</code> and <code>{total_height}</code> variables in notification messages."
+                                "description": "Adds support for <code>{display_layer_progress}</code>, <code>{current_layer}</code>, <code>{total_layer}</code>, <code>{total_height}</code>, <code>{fan_speed}</code>, and filament change variables in notification messages."
                             },
                                                         {
                                 "id": "prusaslicerthumbnails",
@@ -972,7 +972,7 @@
                     },
                     {
                         "var": "{time_done} {time_left} {time_finish}",
-                        "desc": "Elapsed / remaining / estimated finish time of the current print."
+                        "desc": "Elapsed / remaining time / ETA for current print."
                     },
                     {
                         "var": "{current_layer} {total_layer}",
@@ -981,6 +981,24 @@
                     {
                         "var": "{total_height}",
                         "desc": "Total height of the object being printed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{fan_speed}",
+                        "desc": "Fan speed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    }
+                ]
+            },
+            {
+                "title": "Filament change",
+                "subtitle": "useful only while printing",
+                "variables": [
+                    {
+                        "var": "{change_filament_count}",
+                        "desc": "Number of filament changes occurred. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{change_filament_time_left} {change_filament_next_time}",
+                        "desc": "Remaining time / ETA for next filament change. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
                     }
                 ]
             },
@@ -1056,7 +1074,7 @@
                         <tr>
                             <td style="vertical-align: middle;
                                        border-right:1px dashed #ddd;
-                                       width: 160px;
+                                       width: 190px;
                                        word-wrap: break-word;
                                        word-break: break-word">{{ row.var | safe }}</td>
                             <td style="vertical-align: middle; text-align: justify;">{{ row.desc | safe }}</td>
