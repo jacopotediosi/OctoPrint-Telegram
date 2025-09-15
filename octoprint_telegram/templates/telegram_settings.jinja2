@@ -412,12 +412,12 @@
                 </div>
                 <legend>File stuff</legend>
                 <div class="control-group">
-                    <label class="control-label">Select file on upload</label>
+                    <label class="control-label">Select file for printing on upload</label>
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
                                    data-bind="checked: settings.settings.plugins.telegram.selectFileUpload" />
-                            <span class="help-inline"><small>Check to select the file directly after upload.</small></span>
+                            <span class="help-inline"><small>Check to select the file for printing automatically after upload.</small></span>
                         </label>
                     </div>
                 </div>
@@ -941,7 +941,7 @@
             },
             {
                 "title": "File data",
-                "subtitle": "useful only if a file is loaded",
+                "subtitle": "useful only if a file is selected for printing",
                 "variables": [
                     {
                         "var": "{file} {path}",

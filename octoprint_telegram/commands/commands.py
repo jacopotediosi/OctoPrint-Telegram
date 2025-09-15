@@ -100,7 +100,7 @@ class Commands:
             "/print": {
                 "cmd": cmd_print,
                 "param": True,
-                "desc": "Print the loaded file (confirmation required) or browse files",
+                "desc": "Print the file selected for printing or browse files",
             },
             "/tune": {
                 "cmd": cmd_tune,

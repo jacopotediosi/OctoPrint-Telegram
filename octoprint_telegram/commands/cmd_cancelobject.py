@@ -63,7 +63,9 @@ class CmdCancelObject(BaseCommand):
                     msg_id=context.msg_id_to_update,
                 )
             else:
-                msg = render_emojis("{emo:attention} No objects found. Please make sure you've loaded the gcode.")
+                msg = render_emojis(
+                    "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."
+                )
                 self.main.send_msg(
                     msg,
                     chatID=context.chat_id,

@@ -359,10 +359,10 @@ class TelegramListener(threading.Thread):
                     # Check if printer is ready
                     if not self.main._printer.is_ready():
                         response_message += render_emojis(
-                            "\n{emo:attention} But I couldn't load it because the printer is not ready."
+                            "\n{emo:attention} But I couldn't select it for printing because the printer is not ready."
                         )
                     else:
-                        # Load the uploaded file
+                        # Select for printing the uploaded file
                         try:
                             file_to_select_abs_path = self.main._file_manager.path_on_disk(
                                 octoprint.filemanager.FileDestinations.LOCAL,
@@ -371,9 +371,9 @@ class TelegramListener(threading.Thread):
                             self._logger.debug("Selecting file: %s", file_to_select_abs_path)
                             self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
 
-                            # Ask the user whether to print the loaded file
+                            # Ask the user whether to print the file
                             response_message += render_emojis(
-                                "\n{emo:check} The file has been loaded.\n"
+                                "\n{emo:check} The file has been selected for printing.\n"
                                 "{emo:question} Do you want to start printing it now?"
                             )
                             command_buttons = [
@@ -389,7 +389,9 @@ class TelegramListener(threading.Thread):
                                 ]
                             ]
                         except Exception:
-                            response_message += render_emojis("\n{emo:attention} But I wasn't able to load the file.")
+                            response_message += render_emojis(
+                                "\n{emo:attention} But I wasn't able to select the file for printing."
+                            )
             else:
                 response_message = render_emojis("{emo:warning} No files were added. Did you upload an empty zip?")
 

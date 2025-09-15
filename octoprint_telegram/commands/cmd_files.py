@@ -65,7 +65,7 @@ class CmdFiles(BaseCommand):
             - additionalArg1 (optional): the currently selected target path. If omitted, shows storage menu or local storage if it's the only one.
             - additionalArg2 (optional): "a" = ask for confirmation, "y" = copy/move confirmed, omitted = the user is just navigating target paths
         - print:
-            - pathHash: the hash of the path to load and print
+            - pathHash: the hash of the path to select and print
         """
 
         if context.parameter:
@@ -1020,7 +1020,7 @@ class CmdFiles(BaseCommand):
         job_file_name = current_data.get("job", {}).get("file", {}).get("name", "")
 
         msg = render_emojis(
-            f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is loaded.\n\n"
+            f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is selected for printing.\n\n"
             "{emo:question} Do you want to start printing it now?"
         )
 
