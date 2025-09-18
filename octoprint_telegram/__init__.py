@@ -249,19 +249,23 @@ class TelegramListener(threading.Thread):
                 return
 
             # Check the file extension
-            is_zip_file = False
-            if not octoprint.filemanager.valid_file_type(uploaded_file_filename, "machinecode"):
-                if uploaded_file_filename.lower().endswith(".zip"):
-                    is_zip_file = True
-                else:
-                    self._logger.warning("Received file %s with invalid extension", uploaded_file_filename)
-                    self.main.send_msg(
-                        render_emojis(
-                            "{emo:notallowed} Sorry, I only accept files with .gcode, .gco or .g or .zip extension"
-                        ),
-                        chatID=chat_id,
-                    )
-                    return
+            is_zip_file = uploaded_file_filename.lower().endswith(".zip")
+
+            if not is_zip_file and not octoprint.filemanager.valid_file_type(uploaded_file_filename):
+                self._logger.warning("Received file %s with invalid extension", uploaded_file_filename)
+
+                supported_extensions = ", ".join(
+                    [f"<code>{html.escape(f'.{ext}')}</code>" for ext in octoprint.filemanager.get_all_extensions()]
+                )
+
+                msg = render_emojis(
+                    "{emo:notallowed} Sorry, I only accept the following file extensions: "
+                    f"{supported_extensions}, or a ZIP file containing them."
+                )
+
+                self.main.send_msg(msg, chatID=chat_id, markup="HTML")
+
+                return
 
             # Download the uploaded file
             saving_file_response = self.telegram_utils.send_telegram_request(
@@ -303,7 +307,7 @@ class TelegramListener(threading.Thread):
                                 continue
 
                             # Don't extract file with invalid extensions
-                            if not octoprint.filemanager.valid_file_type(member_filename, "machinecode"):
+                            if not octoprint.filemanager.valid_file_type(member_filename):
                                 self._logger.debug(
                                     "Ignoring file %s while extracting a zip because it has an invalid extension",
                                     member_filename,
@@ -355,45 +359,53 @@ class TelegramListener(threading.Thread):
                     f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
                 )
 
-                if self.main._settings.get(["selectFileUpload"]) and len(added_files_relative_paths) == 1:
-                    # Check if printer is ready
-                    if not self.main._printer.is_ready():
-                        response_message += render_emojis(
-                            "\n{emo:attention} But I couldn't select it for printing because the printer is not ready."
-                        )
-                    else:
-                        # Select for printing the uploaded file
-                        try:
-                            file_to_select_abs_path = self.main._file_manager.path_on_disk(
-                                octoprint.filemanager.FileDestinations.LOCAL,
-                                added_files_relative_paths[0],
+                if len(added_files_relative_paths) == 1:
+                    if (
+                        octoprint.filemanager.valid_file_type(added_files_relative_paths[0], "model")
+                        and self.main._slicing_manager.slicing_enabled
+                    ):
+                        response_message += render_emojis("\n\n{emo:slice} You can slice it using the /files command.")
+                    elif self.main._settings.get(["select_file_after_upload"]):
+                        # Check if printer is ready
+                        if not self.main._printer.is_ready():
+                            response_message += render_emojis(
+                                "\n\n{emo:attention} But I couldn't select it for printing because the printer is not ready."
                             )
-                            self._logger.debug("Selecting file: %s", file_to_select_abs_path)
-                            self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
+                        else:
+                            # Select for printing the uploaded file
+                            try:
+                                file_to_select_abs_path = self.main._file_manager.path_on_disk(
+                                    octoprint.filemanager.FileDestinations.LOCAL,
+                                    added_files_relative_paths[0],
+                                )
+                                self._logger.debug("Selecting file: %s", file_to_select_abs_path)
+                                self.main._printer.select_file(
+                                    file_to_select_abs_path, sd=False, printAfterSelect=False
+                                )
 
-                            # Ask the user whether to print the file
-                            response_message += render_emojis(
-                                "\n{emo:check} The file has been selected for printing.\n"
-                                "{emo:question} Do you want to start printing it now?"
-                            )
-                            command_buttons = [
-                                [
+                                # Ask the user whether to print the file
+                                response_message += render_emojis(
+                                    "\n\n{emo:check} The file has been selected for printing.\n"
+                                    "{emo:question} Do you want to start printing it now?"
+                                )
+                                command_buttons = [
                                     [
-                                        render_emojis("{emo:check} Print"),
-                                        "/print_y",
-                                    ],
-                                    [
-                                        render_emojis("{emo:cancel} Close"),
-                                        "close",
-                                    ],
+                                        [
+                                            render_emojis("{emo:check} Print"),
+                                            "/print_y",
+                                        ],
+                                        [
+                                            render_emojis("{emo:cancel} Close"),
+                                            "close",
+                                        ],
+                                    ]
                                 ]
-                            ]
-                        except Exception:
-                            response_message += render_emojis(
-                                "\n{emo:attention} But I wasn't able to select the file for printing."
-                            )
+                            except Exception:
+                                response_message += render_emojis(
+                                    "\n{emo:attention} But I wasn't able to select the file for printing."
+                                )
             else:
-                response_message = render_emojis("{emo:warning} No files were added. Did you upload an empty zip?")
+                response_message = render_emojis("{emo:warning} No files were saved. Did you upload an empty zip?")
 
             self.main.send_msg(
                 response_message,
@@ -405,10 +417,7 @@ class TelegramListener(threading.Thread):
         except Exception:
             self._logger.exception("Caught an exception in handle_document_message")
             self.main.send_msg(
-                render_emojis(
-                    "{emo:attention} Something went wrong during processing of your file.\n"
-                    "Sorry. More details are in log files."
-                ),
+                render_emojis("{emo:attention} Something went wrong processing your file. Please check logs."),
                 chatID=chat_id,
             )
 
@@ -851,12 +860,15 @@ class TelegramPlugin(
             notification_time=15,
             message_at_print_done_delay=0,
             messages=telegramMsgDict,
-            # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
-            chats={"zBOTTOMOFCHATS": {}},
+            chats={
+                "zBOTTOMOFCHATS": {}
+            },  # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
             send_icon=True,
             send_gif=False,
             no_mistake=False,
+            select_file_after_upload=False,
             sort_files_by_date=False,
+            show_models_in_files=True,
             no_cpulimit=False,
             ffmpeg_preset="medium",
             PreImgMethod="None",
@@ -953,7 +965,7 @@ class TelegramPlugin(
                 "plugin_pause_for_user_event_notify": "PausedForUser",
             }
             notification_vars_to_rename = {"currentLayer": "current_layer", "totalLayer": "total_layer"}
-            settings_to_rename = {"fileOrder": "sort_files_by_date"}
+            settings_to_rename = {"fileOrder": "sort_files_by_date", "selectFileUpload": "select_file_after_upload"}
 
             # Settings to delete
             settings_to_delete = [

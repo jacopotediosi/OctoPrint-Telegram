@@ -412,11 +412,11 @@
                 </div>
                 <legend>File stuff</legend>
                 <div class="control-group">
-                    <label class="control-label">Select file for printing on upload</label>
+                    <label class="control-label">Select file for printing after upload</label>
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.selectFileUpload" />
+                                   data-bind="checked: settings.settings.plugins.telegram.select_file_after_upload" />
                             <span class="help-inline"><small>Check to select the file for printing automatically after upload.</small></span>
                         </label>
                     </div>
@@ -434,6 +434,16 @@
                                     This setting can also be changed within the Telegram file dialog.
                                 </small>
                             </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Show models when listing files</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.show_models_in_files" />
+                            <span class="help-inline"><small>Check to show models (e.g., <code>.stl</code> files) when listing files in Telegram.</small></span>
                         </label>
                     </div>
                 </div>

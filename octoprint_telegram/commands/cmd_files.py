@@ -2,6 +2,7 @@ import base64
 import datetime
 import hashlib
 import html
+import os
 from itertools import islice
 
 import octoprint.filemanager
@@ -22,11 +23,17 @@ class CmdFiles(BaseCommand):
     # because Telegram callback query data is limited to 64 bytes.
     HASH_PATH_LENGTH = 20
 
-    # Mapping from short hash keys to full file/folder paths.
+    # HASH_SLICER_DATA_LENGTH cannot exceed 6 characters in the current implementation
+    HASH_SLICER_DATA_LENGTH = 6
+
+    # Mappings from short hash keys to full data.
     # Used to overcome Telegram's 64-byte callback query data limit.
-    # Each file or folder path gets a unique hash that can be sent in callback queries
-    # and later resolved back to the original full path.
-    files_hash_path_map = {}
+    # Each data gets a unique hash that can be sent in callback queries
+    # and later resolved back to the original data.
+    hash_file_path_map = {}  # Keys are hashes, values are full file/folder paths
+    hash_slicer_id_map = {}  # Keys are hashes, values are slicer ids
+    hash_slicer_profile_id_map = {}  # Keys are hashes, values are slicer profile ids
+    hash_printer_profile_id_map = {}  # Keys are hashes, values are printer profile ids
 
     def execute(self, context: CommandContext):
         """
@@ -52,7 +59,10 @@ class CmdFiles(BaseCommand):
         - settings:
             - pathHash: the hash of the path to return to with the back button
             - pageNumber: the number of the page to return to with the back button
-            - additionalArg1 (optional): "name" = order by name, "date" = order by date, omitted = show selection menu
+            - additionalArg1 (optional):
+                - omitted = show settings menu
+                - "sort" = show the menu to choose how to sort files, "byname" = sort by name, "bydate" = sort by date
+                - "models" = show the menu to choose whether to display models, "showmodels" = show models, "hidemodels" = hide models
         - download:
             - pathHash: the hash of the path to download
         - delete:
@@ -66,12 +76,23 @@ class CmdFiles(BaseCommand):
             - additionalArg2 (optional): "a" = ask for confirmation, "y" = copy/move confirmed, omitted = the user is just navigating target paths
         - print:
             - pathHash: the hash of the path to select and print
+            - pageNumber: the page number the user was on before starting printing
+        - slice:
+            - pathHash: the hash of the path to slice
+            - pageNumber: the page number the user was on before starting slicing
+            - additionalArg1 (optional): contains up to 3 concatenated arguments, each exactly HASH_SLICER_DATA_LENGTH characters long.
+            The string must be split into chunks of  characters to extract the arguments.
+            Depending on which arguments are present, a menu is shown to select the next.
+                - slicerNameHash: the hash of the slicer id to use
+                - profileNameHash: the hash of the slicer profile id to use
+                - printerProfileIdHash: the hash of the printer profile id to use
+            - additionalArg2 (optional): "y" = slicing confirmed, omitted = show confirmation menu
         """
 
         if context.parameter:
             # The hash→path map may be empty if the user clicks an old button after restarting the bot.
             # In that case, ask the user to run /files again.
-            if not self.files_hash_path_map:
+            if not self.hash_file_path_map:
                 msg = render_emojis(
                     f"{{emo:attention}} This button is no longer valid. Please run {context.cmd} again."
                 )
@@ -120,6 +141,9 @@ class CmdFiles(BaseCommand):
 
             elif operation == "print":
                 self.file_print(context, path_hash, page_number)
+
+            elif operation == "slice":
+                self.file_slice(context, path_hash, page_number, additional_arg1, additional_arg2)
 
         else:
             self.file_list(context, None, 0)
@@ -172,7 +196,7 @@ class CmdFiles(BaseCommand):
                 )
 
         else:  # List files in path
-            path_with_storage = self.files_hash_path_map[path_hash]  # e.g.: local or local/foo
+            path_with_storage = self.hash_file_path_map[path_hash]  # e.g.: local or local/foo
             path_parts = path_with_storage.split("/")
             storage_name = path_parts[0]  # e.g.: local
             path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
@@ -191,7 +215,13 @@ class CmdFiles(BaseCommand):
 
             # --- Calculate pagination ---
             folders = {name: data for name, data in path_content.items() if data.get("type") == "folder"}
-            files = {name: data for name, data in path_content.items() if data.get("type") == "machinecode"}
+
+            file_types_to_show = (
+                ("machinecode", "model")
+                if self.main._settings.get_boolean(["show_models_in_files"])
+                else ("machinecode",)
+            )
+            files = {name: data for name, data in path_content.items() if data.get("type") in file_types_to_show}
 
             total_folders = len(folders)
             total_files = len(files)
@@ -236,24 +266,27 @@ class CmdFiles(BaseCommand):
                 # Create buttons only for paginated files
                 for filename, file_data in paginated_files:
                     file_base_name = filename.rsplit(".", 1)[0]
-                    try:
-                        if "history" not in file_data:
-                            display_filename = render_emojis(f"{{emo:new}} {file_base_name}")
-                        else:
-                            history_list = file_data["history"]
-                            if not history_list:
-                                display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
+                    if file_data.get("type") == "model":
+                        display_filename = render_emojis(f"{{emo:model}} {file_base_name}")
+                    else:
+                        try:
+                            if "history" not in file_data:
+                                display_filename = render_emojis(f"{{emo:new}} {file_base_name}")
                             else:
-                                history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-                                latest_history = history_list[0]
-
-                                if latest_history.get("success"):
-                                    display_filename = render_emojis(f"{{emo:hooray}} {file_base_name}")
+                                history_list = file_data["history"]
+                                if not history_list:
+                                    display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
                                 else:
-                                    display_filename = render_emojis(f"{{emo:warning}} {file_base_name}")
-                    except Exception:
-                        self._logger.exception("Error processing history for file '%s'", filename)
-                        display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
+                                    history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+                                    latest_history = history_list[0]
+
+                                    if latest_history.get("success"):
+                                        display_filename = render_emojis(f"{{emo:hooray}} {file_base_name}")
+                                    else:
+                                        display_filename = render_emojis(f"{{emo:warning}} {file_base_name}")
+                        except Exception:
+                            self._logger.exception("Error processing history for file '%s'", filename)
+                            display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
 
                     file_hash = self.hash_path(f"{path_with_storage}/{filename}")
                     command = f"{context.cmd}_info_{file_hash}_{page_number}"
@@ -357,17 +390,18 @@ class CmdFiles(BaseCommand):
             self._logger.exception("Caught an exception getting file date")
 
         # Print history
-        if not history:
-            msg += render_emojis("\n{emo:new} <b>Number of Print:</b> 0")
-        else:
-            try:
-                history.sort(key=lambda x: x["timestamp"], reverse=True)
-                success = history[0].get("success", False)
-                icon_name = "hooray" if success else "warning"
-            except Exception:
-                self._logger.exception("Caught an exception reading history list")
-                icon_name = "file"
-            msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
+        if "model" not in octoprint.filemanager.get_file_type(filename):
+            if not history:
+                msg += render_emojis("\n{emo:new} <b>Number of Print:</b> 0")
+            else:
+                try:
+                    history.sort(key=lambda x: x["timestamp"], reverse=True)
+                    success = history[0].get("success", False)
+                    icon_name = "hooray" if success else "warning"
+                except Exception:
+                    self._logger.exception("Caught an exception reading history list")
+                    icon_name = "file"
+                msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
 
         # File size
         filesize = self.main._file_manager.get_size(storage_name, file_path)
@@ -436,11 +470,18 @@ class CmdFiles(BaseCommand):
         # Create command buttons
         command_buttons = []
 
-        # First row: Print + Details
-        first_row = [
-            [render_emojis("{emo:play} Print"), f"{context.cmd}_print_{path_hash}_{page_number}"],
-            [render_emojis("{emo:search} Details"), f"{context.cmd}_details_{path_hash}_{page_number}"],
-        ]
+        # First row
+        if "model" in octoprint.filemanager.get_file_type(filename):
+            # Slice
+            first_row = [
+                [render_emojis("{emo:slice} Slice"), f"{context.cmd}_slice_{path_hash}_{page_number}"],
+            ]
+        else:
+            # Print + Details
+            first_row = [
+                [render_emojis("{emo:play} Print"), f"{context.cmd}_print_{path_hash}_{page_number}"],
+                [render_emojis("{emo:search} Details"), f"{context.cmd}_details_{path_hash}_{page_number}"],
+            ]
         command_buttons.append(first_row)
 
         # Second row: File ops
@@ -496,7 +537,7 @@ class CmdFiles(BaseCommand):
 
         # Message header
         msg = render_emojis(
-            f"{{emo:info}} <b>File information</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
+            f"{{emo:info}} <b>File details</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
         )
 
         # Upload timestamp
@@ -650,33 +691,94 @@ class CmdFiles(BaseCommand):
         )
 
     def file_settings(self, context: CommandContext, path_hash, page_number, selection):
-        if selection in ("name", "date"):
-            sort_by_date = selection == "date"
-            self.main._settings.set_boolean(["sort_files_by_date"], sort_by_date)
-            self.main._settings.save()
-            self.file_list(context, path_hash, page_number)
-            return
+        command_buttons = None
 
-        msg = render_emojis("{emo:question} <b>Choose sorting order of files</b>")
+        if selection in ("sort", "byname", "bydate"):  # Menu to choose how to sort files
+            if selection in ("byname", "bydate"):
+                new_setting = selection == "bydate"
+                self.main._settings.set_boolean(["sort_files_by_date"], new_setting)
+                self.main._settings.save()
 
-        command_buttons = [
-            [
+            current_setting = self.main._settings.get_boolean(["sort_files_by_date"])
+            current_setting_str = "{emo:calendar} By date" if current_setting else "{emo:name} By name"
+
+            msg = render_emojis(
+                f"{{emo:question}} <b>Choose file sorting</b>\n\nCurrent setting: <code>{current_setting_str}</code>"
+            )
+
+            command_buttons = [
                 [
-                    render_emojis("{emo:name} By name"),
-                    f"{context.cmd}_settings_{path_hash}_{page_number}_name",
+                    [
+                        render_emojis("{emo:name} By name"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_byname",
+                    ],
+                    [
+                        render_emojis("{emo:calendar} By date"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_bydate",
+                    ],
                 ],
                 [
-                    render_emojis("{emo:calendar} By date"),
-                    f"{context.cmd}_settings_{path_hash}_{page_number}_date",
+                    [
+                        render_emojis("{emo:back} Back"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}",
+                    ]
                 ],
-            ],
-            [
+            ]
+
+        elif selection in ("models", "showmodels", "hidemodels"):  # Menu to choose whether to display models
+            if selection in ("showmodels", "hidemodels"):
+                new_setting = selection == "showmodels"
+                self.main._settings.set_boolean(["show_models_in_files"], new_setting)
+                self.main._settings.save()
+
+            current_setting = self.main._settings.get_boolean(["show_models_in_files"])
+            current_setting_str = "{emo:online} Show models" if current_setting else "{emo:offline} Hide models"
+
+            msg = render_emojis(
+                "{emo:question} <b>Choose whether to show the models</b>\n\n"
+                f"Current setting: <code>{current_setting_str}</code>"
+            )
+
+            command_buttons = [
                 [
-                    render_emojis("{emo:back} Back"),
-                    f"{context.cmd}_list_{path_hash}_{page_number}",
-                ]
-            ],
-        ]
+                    [
+                        render_emojis("{emo:online} Show models"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_showmodels",
+                    ],
+                    [
+                        render_emojis("{emo:offline} Hide models"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_hidemodels",
+                    ],
+                ],
+                [
+                    [
+                        render_emojis("{emo:back} Back"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}",
+                    ]
+                ],
+            ]
+
+        else:  # Show settings menu
+            msg = render_emojis("{emo:question} Which setting do you want to change?")
+
+            command_buttons = [
+                [
+                    [
+                        render_emojis("{emo:height} File sorting"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_sort",
+                    ],
+                    [
+                        render_emojis("{emo:model} Show models"),
+                        f"{context.cmd}_settings_{path_hash}_{page_number}_models",
+                    ],
+                ],
+                [
+                    [
+                        render_emojis("{emo:back} Back"),
+                        f"{context.cmd}_list_{path_hash}_{page_number}",
+                    ]
+                ],
+            ]
 
         self.main.send_msg(
             msg,
@@ -1045,6 +1147,298 @@ class CmdFiles(BaseCommand):
             msg_id=context.msg_id_to_update,
         )
 
+    def file_slice(self, context: CommandContext, path_hash, page_number, additional_arg1, additional_arg2):
+        # Check if there is at least one configured slicer available
+        if not self.main._slicing_manager.slicing_enabled:
+            msg = render_emojis(
+                "{emo:attention} No slicer plugin is installed. "
+                "Please install one of the plugins listed at the following link: "
+                "https://plugins.octoprint.org/by_tag/#tag-slicer"
+            )
+            self.main.send_msg(
+                msg,
+                chatID=context.chat_id,
+                msg_id=context.msg_id_to_update,
+            )
+            return
+
+        # Get selected file data
+        try:
+            storage_name, file_path = self.find_path_by_hash(path_hash)
+            full_file_path_to_display = f"/{storage_name}/{file_path}"
+        except Exception:
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+            )
+            self.main.send_msg(
+                msg,
+                chatID=context.chat_id,
+                msg_id=context.msg_id_to_update,
+            )
+            return
+
+        # Initialize msg
+        msg = render_emojis(f"{{emo:slice}} Slicing: <code>{html.escape(full_file_path_to_display)}</code>\n\n")
+
+        # Get params
+        hashes_chunks = (
+            [
+                additional_arg1[i : i + self.HASH_SLICER_DATA_LENGTH]
+                for i in range(0, len(additional_arg1), self.HASH_SLICER_DATA_LENGTH)
+            ]
+            if additional_arg1
+            else []
+        )
+        slicer_id_hash = hashes_chunks[0] if len(hashes_chunks) > 0 else None
+        slicer_profile_id_hash = hashes_chunks[1] if len(hashes_chunks) > 1 else None
+        printer_profile_id_hash = hashes_chunks[2] if len(hashes_chunks) > 2 else None
+
+        # Get slicer id
+        configured_slicers = self.main._slicing_manager.configured_slicers
+        if not slicer_id_hash:  # Params don't contain slicer id hash
+            if len(configured_slicers) == 1:  # If there is only one slicer, automatically select it
+                slicer = self.main._slicing_manager.get_slicer(configured_slicers[0])
+                slicer_id = slicer.get_slicer_properties().get("type")
+            else:  # If there are multiple slicers, ask to select one
+                msg += render_emojis("{emo:question} Which slicer do you want to use?")
+
+                command_buttons = []
+                for configured_slicer in configured_slicers:
+                    slicer = self.main._slicing_manager.get_slicer(configured_slicer)
+                    slicer_properties = slicer.get_slicer_properties()
+
+                    slicer_id = slicer_properties.get("type")
+                    slicer_id_hash = self.hash_slicer_data(slicer_id)
+                    self.hash_slicer_id_map[slicer_id_hash] = slicer_id
+
+                    slicer_name = slicer_properties.get("name")
+
+                    command_buttons.append(
+                        [[slicer_name, f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"]]
+                    )
+                command_buttons.append(
+                    [[render_emojis("{emo:back} Back"), f"{context.cmd}_info_{path_hash}_{page_number}"]]
+                )
+
+                self.main.send_msg(
+                    msg,
+                    chatID=context.chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=context.msg_id_to_update,
+                )
+                return
+        else:  # Use slicer id indicated by params
+            slicer_id = self.hash_slicer_id_map.get(slicer_id_hash)
+
+        # Get slicer and slicer properties by slicer id
+        if slicer_id is None or slicer_id not in configured_slicers:
+            msg = render_emojis("{emo:attention} The slicer you chose is not available")
+            self.main.send_msg(
+                msg,
+                chatID=context.chat_id,
+                msg_id=context.msg_id_to_update,
+            )
+            return
+        slicer = self.main._slicing_manager.get_slicer(slicer_id)
+        slicer_properties = slicer.get_slicer_properties()
+        slicer_name = slicer_properties.get("name", "").strip()
+
+        # Add slicer name to msg
+        msg += render_emojis(f"{{emo:settings}} Selected slicer: <code>{html.escape(slicer_name)}</code>\n")
+
+        # Get slicer profile id
+        slicer_profiles = list(self.main._slicing_manager.all_profiles(slicer_id).values())
+        if not slicer_profile_id_hash:  # Params don't contain slicer profile id hash
+            if len(slicer_profiles) == 1:  # If there is only one slicer profile, automatically select it
+                slicer_profile_id = slicer_profiles[0].name
+            else:  # If there are multiple slicer profiles, ask to select one
+                msg += render_emojis("\n{emo:question} Which slicer profile do you want to use?")
+
+                command_buttons = []
+                for slicer_profile in slicer_profiles:
+                    slicer_profile_id = slicer_profile.name
+                    slicer_profile_id_hash = self.hash_slicer_data(slicer_profile_id)
+                    self.hash_slicer_profile_id_map[slicer_profile_id_hash] = slicer_profile_id
+
+                    slicer_profile_name = slicer_profile.display_name
+
+                    command_buttons.append(
+                        [
+                            [
+                                slicer_profile_name,
+                                f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}",
+                            ]
+                        ]
+                    )
+                if len(configured_slicers) > 1:
+                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+                else:
+                    back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+                command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
+
+                self.main.send_msg(
+                    msg,
+                    chatID=context.chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=context.msg_id_to_update,
+                )
+                return
+        else:  # Use slicer profile id indicated by params
+            slicer_profile_id = self.hash_slicer_profile_id_map.get(slicer_profile_id_hash)
+
+        # Get slicer profile name by slicer profile id and add it to msg
+        slicer_profile_name = next((p.display_name.strip() for p in slicer_profiles if p.name == slicer_profile_id), "")
+        msg += render_emojis(
+            f"{{emo:settings}} Selected slicer profile: <code>{html.escape(slicer_profile_name)}</code>\n"
+        )
+
+        # Get printer profile id
+        printer_profiles = list(self.main._printer_profile_manager.get_all().values())
+        if not printer_profile_id_hash:  # Params don't contain printer profile id hash
+            if len(printer_profiles) == 1:  # If there is only one printer profile, automatically select it
+                printer_profile_id = printer_profiles[0].get("id")
+            else:  # If there are multiple printer profiles, ask to select one
+                msg += render_emojis("\n{emo:question} Which printer profile do you want to use?")
+
+                command_buttons = []
+                for printer_profile in printer_profiles:
+                    printer_profile_id = printer_profile.get("id")
+                    printer_profile_id_hash = self.hash_slicer_data(printer_profile_id)
+                    self.hash_printer_profile_id_map[printer_profile_id_hash] = printer_profile_id
+
+                    printer_profile_name = printer_profile.get("name")
+
+                    command_buttons.append(
+                        [
+                            [
+                                printer_profile_name,
+                                f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}",
+                            ]
+                        ]
+                    )
+                if len(slicer_profiles) > 1:
+                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
+                elif len(configured_slicers) > 1:
+                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+                else:
+                    back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+                command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
+
+                self.main.send_msg(
+                    msg,
+                    chatID=context.chat_id,
+                    markup="HTML",
+                    responses=command_buttons,
+                    msg_id=context.msg_id_to_update,
+                )
+                return
+        else:  # Use printer profile id indicated by params
+            printer_profile_id = self.hash_printer_profile_id_map.get(printer_profile_id_hash)
+
+        # Get printer profile name by printer profile id and add it to msg
+        printer_profile_name = self.main._printer_profile_manager.get(printer_profile_id).get("name", "").strip()
+        msg += render_emojis(
+            f"{{emo:settings}} Selected printer profile: <code>{html.escape(printer_profile_name)}</code>\n"
+        )
+
+        # Calculate destination path and add it to msg
+        dest_ext = (slicer_properties.get("destination_extensions") or ["gco"])[0]
+        file_path_root = os.path.splitext(file_path)[0]
+        dest_path = f"{file_path_root}.{dest_ext}"
+        dest_path_to_display = f"/{storage_name}/{dest_path}"
+        msg += render_emojis(f"\n{{emo:save}} Destination path: <code>{html.escape(dest_path_to_display)}</code>\n")
+
+        # Check confirmation
+        if additional_arg2 != "y":
+            msg += render_emojis("\n{emo:question} Do you want to confirm the slicing?")
+
+            if len(printer_profiles) > 1:
+                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}"
+            elif len(slicer_profiles) > 1:
+                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
+            elif len(configured_slicers) > 1:
+                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+            else:
+                back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+            command_buttons = [
+                [
+                    [render_emojis("{emo:back} Back"), back_cmd],
+                    [
+                        render_emojis("{emo:check} Confirm"),
+                        f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}_y",
+                    ],
+                ]
+            ]
+
+            self.main.send_msg(
+                msg,
+                chatID=context.chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=context.msg_id_to_update,
+            )
+            return
+
+        # Perform slicing
+        def slice_callback(*args, **kwargs):
+            _error = kwargs.get("_error")
+            _cancelled = kwargs.get("_cancelled")
+
+            if _cancelled:
+                msg = render_emojis(
+                    f"{{emo:warning}} Slicing of <code>{html.escape(full_file_path_to_display)}</code> has been cancelled"
+                )
+            elif _error:
+                msg = render_emojis(
+                    f"{{emo:attention}} Error while slicing <code>{html.escape(full_file_path_to_display)}</code>: {html.escape(str(_error))}"
+                )
+            else:
+                msg = render_emojis(
+                    f"{{emo:check}} <code>{html.escape(full_file_path_to_display)}</code> has been successfully sliced to <code>{html.escape(dest_path_to_display)}</code>"
+                )
+
+            command_buttons = [
+                [
+                    [render_emojis("{emo:back} Back"), f"{context.cmd}_info_{path_hash}_{page_number}"],
+                    [
+                        render_emojis("{emo:cancel} Close"),
+                        "close",
+                    ],
+                ]
+            ]
+
+            self.main.send_msg(
+                msg,
+                chatID=context.chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=context.msg_id_to_update,
+            )
+
+        self.main._file_manager.slice(
+            slicer_id,
+            octoprint.filemanager.FileDestinations.LOCAL,
+            file_path,
+            octoprint.filemanager.FileDestinations.LOCAL,
+            dest_path,
+            profile=slicer_profile_id,
+            printer_profile_id=printer_profile_id,
+            callback=slice_callback,
+        )
+        msg = render_emojis(
+            f"{{emo:loading}} Slicing <code>{html.escape(full_file_path_to_display)}</code> to <code>{html.escape(dest_path_to_display)}</code>..."
+        )
+
+        # Send msg
+        self.main.send_msg(
+            msg,
+            chatID=context.chat_id,
+            markup="HTML",
+            msg_id=context.msg_id_to_update,
+        )
+
     def file_download(self, context: CommandContext, path_hash):
         try:
             storage_name, file_path = self.find_path_by_hash(path_hash)
@@ -1057,6 +1451,7 @@ class CmdFiles(BaseCommand):
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
+                msg_id=context.msg_id_to_update,
             )
 
     def file_delete(self, context: CommandContext, path_hash, page_number, confirm):
@@ -1070,6 +1465,7 @@ class CmdFiles(BaseCommand):
             self.main.send_msg(
                 msg,
                 chatID=context.chat_id,
+                msg_id=context.msg_id_to_update,
             )
             return
 
@@ -1153,9 +1549,9 @@ class CmdFiles(BaseCommand):
                 msg_id=context.msg_id_to_update,
             )
 
-    def update_files_hash_path_map(self, file_listing, locations=None, path=None):
+    def update_hash_file_path_map(self, file_listing, locations=None, path=None):
         """
-        Updates the internal hash-to-path mapping for OctoPrint files and folders.
+        Updates the internal hash-to-file-path mapping for OctoPrint files and folders.
 
         This method creates a mapping between short hash keys and full file/folder paths
         to overcome Telegram's 64-byte callback query data limitation. Each path gets
@@ -1171,17 +1567,17 @@ class CmdFiles(BaseCommand):
         Examples:
             Update for all storages:
             >>> file_listing = self.main._file_manager.list_files()
-            >>> self.update_files_hash_path_map(file_listing)
+            >>> self.update_hash_file_path_map(file_listing)
 
             Update for specific storage:
             >>> file_listing = self.main._file_manager.list_files(locations="local")
-            >>> self.update_files_hash_path_map(file_listing, locations="local")
+            >>> self.update_hash_file_path_map(file_listing, locations="local")
 
             Update for specific folder:
             >>> file_listing = self.main._file_manager.list_files(
             ...     locations="local", path="models/prints"
             ... )
-            >>> self.update_files_hash_path_map(file_listing, locations="local", path="models/prints")
+            >>> self.update_hash_file_path_map(file_listing, locations="local", path="models/prints")
         """
 
         def _process_tree(tree, current_path=""):
@@ -1190,7 +1586,7 @@ class CmdFiles(BaseCommand):
                 full_node_path = f"{current_path}{node_name}"
 
                 path_hash = self.hash_path(full_node_path)
-                self.files_hash_path_map[path_hash] = full_node_path
+                self.hash_file_path_map[path_hash] = full_node_path
 
                 if is_folder and "children" in node_data:
                     _process_tree(node_data["children"], f"{full_node_path}/")
@@ -1202,7 +1598,7 @@ class CmdFiles(BaseCommand):
             # Process all storage locations
             for storage_name, storage_tree in file_listing.items():
                 path_hash = self.hash_path(storage_name)
-                self.files_hash_path_map[path_hash] = storage_name
+                self.hash_file_path_map[path_hash] = storage_name
 
                 _process_tree(storage_tree, f"{storage_name}/")
         else:
@@ -1212,7 +1608,7 @@ class CmdFiles(BaseCommand):
                     full_path = f"{location}/{path}" if path else location
 
                     path_hash = self.hash_path(full_path)
-                    self.files_hash_path_map[path_hash] = full_path
+                    self.hash_file_path_map[path_hash] = full_path
 
                     _process_tree(file_listing[location], f"{full_path}/")
                 else:
@@ -1228,17 +1624,17 @@ class CmdFiles(BaseCommand):
             locations=locations, path=path, filter=filter, recursive=recursive, level=level, force_refresh=force_refresh
         )
 
-        # Update the file hash path map with the files currently listed, as they may have changed
-        self.update_files_hash_path_map(file_listing, locations, path)
+        # Update the hash - file path map with the files currently listed, as they may have changed
+        self.update_hash_file_path_map(file_listing, locations, path)
 
         # Return file listing
         return file_listing
 
     def find_path_by_hash(self, path_hash):
-        if path_hash not in self.files_hash_path_map:
+        if path_hash not in self.hash_file_path_map:
             raise Exception("File not found")
 
-        path_with_storage = self.files_hash_path_map[path_hash]  # e.g.: local or local/foo
+        path_with_storage = self.hash_file_path_map[path_hash]  # e.g.: local or local/foo
         path_parts = path_with_storage.split("/")
         storage_name = path_parts[0]  # e.g.: local
         path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
@@ -1246,6 +1642,9 @@ class CmdFiles(BaseCommand):
 
     def hash_path(self, path):
         return hashlib.md5(path.encode()).hexdigest()[0 : self.HASH_PATH_LENGTH]
+
+    def hash_slicer_data(self, data):
+        return hashlib.md5(data.encode()).hexdigest()[0 : self.HASH_SLICER_DATA_LENGTH]
 
     def upload_thumbnail_to_imgbb(self, file_metadata):
         """

@@ -95,17 +95,17 @@ class Commands:
             "/files": {
                 "cmd": cmd_files,
                 "param": True,
-                "desc": "List and manage print files",
+                "desc": "Browse and manage files, select for printing, and slice models",
             },
             "/print": {
                 "cmd": cmd_print,
                 "param": True,
-                "desc": "Print the file selected for printing or browse files",
+                "desc": "Print the file selected for printing",
             },
             "/tune": {
                 "cmd": cmd_tune,
                 "param": True,
-                "desc": "Adjust feed rate, flow, and temperatures",
+                "desc": "Adjust feed rate, flow rate, and temperatures",
             },
             "/ctrl": {
                 "cmd": cmd_ctrl,

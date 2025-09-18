@@ -65,6 +65,8 @@ class Emoji:
         "port": "\U0001f50c",
         "speed": "\u26a1",
         # 3D printing terms
+        "model": "\U0001f5fc",
+        "slice": "\U0001f52a",
         "tool": "\U0001f527",
         "hotbed": "\u2668\ufe0f",
         "cooldown": "\u2744\ufe0f",
