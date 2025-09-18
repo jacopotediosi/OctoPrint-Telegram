@@ -342,7 +342,7 @@
                                 The ImgBB API key is required to display thumbnails while browsing files on Telegram.
                                 If you provide it, previews of your G-code files will be uploaded to ImgBB.
                                 It is recommended to set your ImgBB account to private and enable automatic deletion of files after 5 minutes.
-                                Refer to the <a href="https://imgbb.com/privacy">ImgBB Privacy Policy</a> for more information.
+                                Refer to the <a href="https://imgbb.com/privacy" target="_blank">ImgBB Privacy Policy</a> for more information.
                             </small>
                         </span>
                     </div>
@@ -412,12 +412,12 @@
                 </div>
                 <legend>File stuff</legend>
                 <div class="control-group">
-                    <label class="control-label">Select file on upload</label>
+                    <label class="control-label">Select file for printing after upload</label>
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.selectFileUpload" />
-                            <span class="help-inline"><small>Check to select the file directly after upload.</small></span>
+                                   data-bind="checked: settings.settings.plugins.telegram.select_file_after_upload" />
+                            <span class="help-inline"><small>Check to select the file for printing automatically after upload.</small></span>
                         </label>
                     </div>
                 </div>
@@ -426,7 +426,7 @@
                     <div class="controls">
                         <label class="checkbox">
                             <input type="checkbox"
-                                   data-bind="checked: settings.settings.plugins.telegram.fileOrder" />
+                                   data-bind="checked: settings.settings.plugins.telegram.sort_files_by_date" />
                             <span class="help-inline">
                                 <small>
                                     If enabled, files will be listed by upload time (newest first) when using the /files command in Telegram.
@@ -434,6 +434,16 @@
                                     This setting can also be changed within the Telegram file dialog.
                                 </small>
                             </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Show models when listing files</label>
+                    <div class="controls">
+                        <label class="checkbox">
+                            <input type="checkbox"
+                                   data-bind="checked: settings.settings.plugins.telegram.show_models_in_files" />
+                            <span class="help-inline"><small>Check to show models (e.g., <code>.stl</code> files) when listing files in Telegram.</small></span>
                         </label>
                     </div>
                 </div>
@@ -471,6 +481,11 @@
                                 "description": ""
                             },
                             {
+                                "id": "Spoolman",
+                                "name": "Spoolman",
+                                "description": ""
+                            },
+                            {
                                 "id": "SpoolManager",
                                 "name": "SpoolManager",
                                 "description": ""
@@ -489,12 +504,17 @@
                             {
                                 "id": "DisplayLayerProgress",
                                 "name": "DisplayLayerProgress",
-                                "description": "Adds support for <code>{currentLayer}</code> and <code>{totalLayer}</code> variables in notification messages."
+                                "description": "Adds support for <code>{display_layer_progress}</code>, <code>{current_layer}</code>, <code>{total_layer}</code>, <code>{total_height}</code>, <code>{fan_speed}</code>, and filament change variables in notification messages."
                             },
                                                         {
                                 "id": "prusaslicerthumbnails",
                                 "name": "Slicer Thumbnails",
                                 "description": "Extracts embedded slicer thumbnails from G-code files and makes them available in start print notifications and file details."
+                            },
+                            {
+                                "id": "SlicerSettingsParser",
+                                "name": "SlicerSettingsParser",
+                                "description": "Enriches the metadata retrievable through the <code>{metadata}</code> variable in notification messages."
                             }
                         ]
                     },
@@ -511,6 +531,16 @@
                                 "id": "enclosure",
                                 "name": "Enclosure",
                                 "description": "Allows adjusting the enclosure target temperature via the <code>/tune</code> command. Enables managing outputs via the <code>/power</code> command. Allows retrieving sensor temperatures through the <code>{enclosure}</code> variable in notification messages."
+                            },
+                            {
+                                "id": "prusammu",
+                                "name": "Prusa MMU",
+                                "description": "Allows receiving notifications about Prusa MMU status updates or errors. Enables retrieving Prusa MMU data through the <code>{prusammu}</code> variable in notification messages."
+                            },
+                            {
+                                "id": "resource_monitor",
+                                "name": "Resource Monitor",
+                                "description": "Enables retrieving system resource usage data through the <code>{resource_monitor}</code> variable in notification messages."
                             }
                         ]
                     },
@@ -707,19 +737,25 @@
                             <tr>
                                 <td class="settings_users_name" style="border-right:1px dashed #ddd">
                                     <div style="float:left;
-                                                padding:0px 5px 0px 0px;
-                                                margin:0px;
-                                                position:relative">
-                                        <img data-bind="attr: { src: image ? image : (type && ['group', 'supergroup'].includes(type.toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg'), __type: type }"
+                                                margin:0 5px 0 0;
+                                                position:relative;
+                                                width:40px;
+                                                height:40px;
+                                                background-color:#e0e0e0;
+                                                border-radius:50%;
+                                                display:flex;
+                                                align-items:center;
+                                                justify-content:center">
+                                        <img data-bind="attr: { src: image || (type === 'channel' ? '/plugin/telegram/static/img/channel.svg' : (['group','supergroup'].includes(type) ? '/plugin/telegram/static/img/group.svg' : '/plugin/telegram/static/img/default.svg')), __type: type }"
                                              width="40px"
                                              height="40px"
                                              class="img-circle teleUsrPic"
                                              alt="Chat profile photo"
                                              title="Chat profile photo"
-                                             onerror="this.src = (this.getAttribute('__type') && ['group','supergroup'].includes(this.getAttribute('__type').toLowerCase()) ? '/plugin/telegram/static/img/group.jpg' : '/plugin/telegram/static/img/default.jpg')">
+                                             onerror="this.src = this.getAttribute('__type') === 'channel' ? '/plugin/telegram/static/img/channel.svg' : (['group','supergroup'].includes(this.getAttribute('__type')) ? '/plugin/telegram/static/img/group.svg' : '/plugin/telegram/static/img/default.svg')">
                                     </div>
                                     <div>
-                                        <i data-bind="css: {'icon-user': private, 'icon-group': !private}"></i>&nbsp;
+                                        <i data-bind="css: type === 'channel' ? 'icon-bullhorn' : (['group', 'supergroup'].includes(type) ? 'icon-group' : 'icon-user')"></i>&nbsp;
                                         <span data-bind="text: title"></span>
                                         <span class="muted" data-bind="visible: true">
                                             <br>
@@ -804,39 +840,10 @@
                 <div id="telegram-settings-msg-list">
                     <!-- Message settings get listed here -->
                 </div>
-                <label style="display: block; font-weight: bold; margin-bottom: 6px;">"Not connected" status</label>
-                <div style="display: flex;
-                            justify-content: space-around;
-                            margin-bottom: 10px">
-                    <div class="switch-container">
-                        <label class="switch-label"
-                               style="display: inline-flex;
-                                      align-items: center;
-                                      gap: 8px;
-                                      cursor: pointer">
-                            <span>Send camera photos &#x1F4F7;</span>
-                            <input type="checkbox"
-                                   style="display:none"
-                                   class="switch-input"
-                                   data-bind="checked: settings.settings.plugins.telegram.image_not_connected" />
-                            <span class="switch-slider"></span>
-                        </label>
-                    </div>
-                    <div class="switch-container">
-                        <label class="switch-label"
-                               style="display: inline-flex;
-                                      align-items: center;
-                                      gap: 8px;
-                                      cursor: pointer"
-                               data-bind="css: { 'disabled': !settings.settings.plugins.telegram.send_gif() }, attr: { title: !settings.settings.plugins.telegram.send_gif() ? 'Check \'Enable gifs\' setting to use this option' : null }">
-                            <span>Send camera gifs &#x1F3A5;</span>
-                            <input type="checkbox"
-                                   style="display:none"
-                                   class="switch-input"
-                                   data-bind="checked: settings.settings.plugins.telegram.gif_not_connected, enable: settings.settings.plugins.telegram.send_gif" />
-                            <span class="switch-slider"></span>
-                        </label>
-                    </div>
+                <div class="text-center">
+                    <button class="btn" data-bind="click: resetNotificationMessages">
+                        &#x26A0;&#xFE0F; Reset all notification messages to default
+                    </button>
                 </div>
             </div>
         </div>
@@ -845,29 +852,15 @@
 <!-- DIALOGS -->
 <!-- EDIT CHAT DIALOG -->
 <div id="settings-telegramDialogEditChat"
-     class="modal modal-full hide fade">
+     class="modal modal-full hide fade"
+     data-backdrop="static">
     <div class="modal-header">
         <h4>
             <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit chat: <span data-bind="text: currChatTitle"></span>
         </h4>
     </div>
     <div class="modal-body">
-        <form class="form-horizontal">
-            <span id="telegram-user-allowed-chkbox"></span>
-            <div class="control-group">
-                <div class="controls">
-                    <label class="checkbox">
-                        <span id="telegram-acccmd-chkbox"></span>
-                    </label>
-                </div>
-            </div>
-            <div class="control-group">
-                <div class="controls">
-                    <label class="checkbox">
-                        <span id="telegram-notify-chkbox"></span>
-                    </label>
-                </div>
-            </div>
+        <form class="form-horizontal" id="telegram-edit-chat-form">
         </form>
     </div>
     <div class="modal-footer">
@@ -928,89 +921,178 @@
         </nobr>
     </div>
     <div class="modal-body">
-        Use Variables by adding <code>{&lt;varName&gt;}</code> to your message text (e.g., <code>{bed_temp}</code>). Usable Variables are:
+        Use Variables by adding <code>{&lt;var_name&gt;}</code> to your message text (e.g., <code>{file}</code>). Usable Variables are:
+        <br>
         {# djlint:off #}
-        {% set variable_table = [
+        {% set variable_sections = [
             {
-                "var": "{file} {path}",
-                "desc": "File name and full path of the file currently being printed. <small class='muted'>Only useful while printing.</small>"
+                "title": "Printer data",
+                "subtitle": "useful only if a printer is connected",
+                "variables": [
+                    {
+                        "var": "{status}",
+                        "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data' target='_blank'><code>PrinterInterface.get_current_data()</code></a> OctoPrint function. "
+                            "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{temps}",
+                        "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_temperatures' target='_blank'><code>PrinterInterface.get_current_temperatures()</code></a> OctoPrint function. "
+                            "It's a dictionary you can navigate like: <code>temps[tool0][actual]</code> or <code>temps[bed][target]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{bed_target} {eX_target}",
+                        "desc": "Target temperatures of the bed and extruder X (where X ranges from 1 to 5)."
+                    },
+                    {
+                        "var": "{bed_temp} {eX_temp}",
+                        "desc": "Current temperatures of the bed and extruder X (where X ranges from 1 to 5)."
+                    }
+                ]
             },
             {
-                "var": "{status}",
-                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_data'><code>get_current_data()</code></a> OctoPrint function. "
-                    "It's a dictionary you can navigate like: <code>status[state][text]</code>. Print it in a notification to explore its structure."
+                "title": "File data",
+                "subtitle": "useful only if a file is selected for printing",
+                "variables": [
+                    {
+                        "var": "{file} {path}",
+                        "desc": "File name and full path of the file currently being printed."
+                    },
+                    {
+                        "var": "{metadata}",
+                        "desc": "Metadata of the file being printed. It's a dictionary you can navigate like: <code>metadata[analysis][printingArea][maxZ]</code> or <code>metadata[analysis][dimensions][height]</code>. "
+                            "<small class='muted'>It can be enriched by the <a href='https://plugins.octoprint.org/plugins/SlicerSettingsParser/' target='_blank'>SlicerSettingsParser</a> plugin.</small>"
+                    }
+                ]
             },
             {
-                "var": "{z}",
-                "desc": "The current z value."
+                "title": "Print job data",
+                "subtitle": "useful only while printing",
+                "variables": [
+                    {
+                        "var": "{owner}",
+                        "desc": "The name of the user who started the print."
+                    },
+                    {
+                        "var": "{z}",
+                        "desc": "The current z value."
+                    },
+                    {
+                        "var": "{percent}",
+                        "desc": "Current percentage of the print progress."
+                    },
+                    {
+                        "var": "{time_done} {time_left} {time_finish}",
+                        "desc": "Elapsed / remaining time / ETA for current print."
+                    },
+                    {
+                        "var": "{current_layer} {total_layer}",
+                        "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{total_height}",
+                        "desc": "Total height of the object being printed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{fan_speed}",
+                        "desc": "Fan speed. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    }
+                ]
             },
             {
-                "var": "{percent}",
-                "desc": "Current percentage of the print progress. <small class='muted'>Only useful for height change notifications.</small>"
+                "title": "Filament change",
+                "subtitle": "useful only while printing",
+                "variables": [
+                    {
+                        "var": "{change_filament_count}",
+                        "desc": "Number of filament changes occurred. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    },
+                    {
+                        "var": "{change_filament_time_left} {change_filament_next_time}",
+                        "desc": "Remaining time / ETA for next filament change. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin required.</small>"
+                    }
+                ]
             },
             {
-                "var": "{time_done} {time_left} {time_finish}",
-                "desc": "Elapsed / remaining / estimated finish time of the current print. <small class='muted'>Only useful for height change events.</small>"
+                "title": "Notification data",
+                "subtitle": "",
+                "variables": [
+                    {
+                        "var": "{user}",
+                        "desc": "The name of the user who performed the action that triggered the notification (e.g., paused or aborted the print)."
+                    },
+                    {
+                        "var": "{event}",
+                        "desc": "The name of the event which caused the notification, e.g., <code>MovieDone</code>."
+                    },
+                    {
+                        "var": "{error_msg}",
+                        "desc": "The error message string. <small class='muted'>Only useful for <code>Error</code> event notifications.</small>"
+                    },
+                    {
+                        "var": "{UserNotif_Text}",
+                        "desc": "The text received via the serial message <code>echo:UserNotif TEXT</code>, which is triggered by printing a G-code like: <code>M118 E1 UserNotif TEXT</code>. "
+                            "<small class='muted'>Only useful for <code>UserNotif</code> event notifications.</small>"
+                    }
+                ]
             },
             {
-                "var": "{temps}",
-                "desc": "The raw output of <a href='https://docs.octoprint.org/en/master/modules/printer.html#octoprint.printer.PrinterInterface.get_current_temperatures'><code>get_current_temperatures()</code></a> OctoPrint function. "
-                    "It's a dictionary you can navigate like: <code>temps[bed][actual]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{bed_temp} {eX_temp}",
-                "desc": "Current temperatures of the bed and extruder X (where X ranges from 1 to 5)."
-            },
-            {
-                "var": "{bed_target} {eX_target}",
-                "desc": "Target temperatures of the bed and extruder X (where X ranges from 1 to 5)."
-            },
-            {
-                "var": "{currentLayer} {totalLayer}",
-                "desc": "Current and total number of layers. <small class='muted'><a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/'>DisplayLayerProgress</a> plugin required.</small>"
-            },
-            {
-                "var": "{enclosure}",
-                "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
-                    "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
-            },
-            {
-                "var": "{owner} {user}",
-                "desc": "The name of the user who started the print / the name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)."
-            },
-            {
-                "var": "{event}",
-                "desc": "The name of the event which caused the notification."
-            },
-            {
-                "var": "{error_msg}",
-                "desc": "The error message string. <small class='muted'>Only useful for 'Error' event notifications.</small>"
-            },
-            {
-                "var": "{UserNotif_Text}",
-                "desc": "The text received via the serial message <code>echo:UserNotif TEXT</code>, which is triggered by printing a G-code like: <code>M118 E1 UserNotif TEXT</code>. "
-                    "<small class='muted'>Only useful for 'UserNotif' event notifications.</small>"
-            },
+                "title": "Plugins data",
+                "subtitle": "available only if the respective plugins are installed",
+                "variables": [
+                    {
+                        "var": "{display_layer_progress}",
+                        "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/DisplayLayerProgress/' target='_blank'>DisplayLayerProgress</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>display_layer_progress[feedrate]</code>. Print it in a notification or <a href='/plugin/DisplayLayerProgress/values' target='_blank'>click here</a> to explore its structure."
+                    },
+                    {
+                        "var": "{enclosure}",
+                        "desc": "A dictionary containing the data provided by the <a href='https://plugins.octoprint.org/plugins/enclosure/' target='_blank'>Enclosure</a> plugin, such as the temperatures measured by the sensors or the configured target temperature. "
+                            "It's a dictionary you can navigate like: <code>enclosure[current_temps][1][temp]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{prusammu}",
+                        "desc": "A dictionary containing the current state of the Prusa MMU, provided by the <a href='https://plugins.octoprint.org/plugins/prusammu/' target='_blank'>Prusa MMU</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>prusammu[state]</code> or <code>prusammu[tool]</code>. Print it in a notification to explore its structure."
+                    },
+                    {
+                        "var": "{resource_monitor}",
+                        "desc": "A dictionary containing your system resource usage data, provided by the <a href='https://plugins.octoprint.org/plugins/resource_monitor/' target='_blank'>Resource Monitor</a> plugin. "
+                            "It's a dictionary you can navigate like: <code>resource_monitor[cpu][average]</code> or <code>resource_monitor[temp][celsius][current]</code>. Print it in a notification or <a href='/plugin/resource_monitor/stats' target='_blank'>click here</a> to explore its structure."
+                    }
+                ]
+            }
         ] %}
         {# djlint:on #}
-        <table class="table table-condensed table-striped"
-               style="table-layout: auto">
-            <thead>
-                <tr>
-                    <th style="border-right:1px dashed #ddd">Variable</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in variable_table %}
+        {% for section in variable_sections %}
+            <h5 style="margin-top: 20px; margin-bottom: 10px;">
+                {{ section.title }}
+                {% if section.subtitle %}
+                    <small class="muted" style="font-style: italic;">({{ section.subtitle }})</small>
+                {% endif %}
+            </h5>
+            <table class="table table-condensed table-striped"
+                   style="table-layout: auto;
+                          margin-bottom: 15px">
+                <thead>
                     <tr>
-                        <td style="vertical-align: middle; border-right:1px dashed #ddd">{{ row.var | safe }}</td>
-                        <td style="vertical-align: middle;">{{ row.desc | safe }}</td>
+                        <th style="border-right:1px dashed #ddd">Variable</th>
+                        <th>Description</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <b>Note:</b> On startup and a few moments after startup of OctoPrint the temperatures can't be retrieved from the printer and will be shown as '0.0'
+                </thead>
+                <tbody>
+                    {% for row in section.variables %}
+                        <tr>
+                            <td style="vertical-align: middle;
+                                       border-right:1px dashed #ddd;
+                                       width: 190px;
+                                       word-wrap: break-word;
+                                       word-break: break-word">{{ row.var | safe }}</td>
+                            <td style="vertical-align: middle; text-align: justify;">{{ row.desc | safe }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
     </div>
 </div>
 <!-- EMOJIS DIALOG -->

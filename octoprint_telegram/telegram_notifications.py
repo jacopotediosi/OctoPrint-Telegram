@@ -5,20 +5,67 @@ from typing import TYPE_CHECKING
 
 import octoprint.util
 
-from .emoji.emoji import Emoji
+from .emoji import Emoji
 from .telegram_utils import escape_markdown
 
 if TYPE_CHECKING:
     from . import TelegramPlugin
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
-##########################################################################################################################
-# Here you find the known notification messages and their handles.
-# The only way to start a messageHandle should be via on_event() in __init__.py
-# If you want to add/remove notifications read the following:
-# SEE DOCUMENTATION IN WIKI: https://github.com/jacopotediosi/OctoPrint-Telegram/wiki/Add%20commands%20and%20notifications
-##########################################################################################################################
+# telegramMsgDict contains message settings.
+# Each entry has the following structure:
+#
+#   <messageName>: {fields}
+#
+# - messageName (str):
+#     The name of the message. You can hook into OctoPrint events by choosing the event name as the messageName.
+#     See: http://docs.octoprint.org/en/master/events/index.html#sec-events-available-events
+#
+# Fields:
+#
+# - 'text' (str):
+#     The default text sent with the notification. Supports both emoji and variables,
+#     using the same format as the text that can be set from the plugin settings.
+#
+# - 'image' (bool):
+#     The default message configuration. If true, the message will also include webcam snapshots.
+#
+# - 'gif' (bool):
+#     The default message configuration. If true, the message will also include short webcam videos.
+#
+# - 'silent' (bool):
+#     The default message configuration. If true, the notification will be sent silently.
+#
+# - 'markup' (str):
+#     The default message configuration.  Controls markup for message text:
+#       - 'HTML'      : use HTML markup
+#       - 'Markdown'  : use Markdown markup
+#       - 'MarkdownV2': use MarkdownV2 markup
+#       - 'off'       : no markup
+#
+# - 'desc' (str):
+#     Human-readable description shown in settings/help.
+#
+# - 'no_setting' (bool, optional):
+#     If True, no checkbox will be shown in the plugin's notification settings.
+#     Typically used for user-triggered messages. You must pass chat_id when sending them;
+#     otherwise they will be sent to all users with notifications enabled.
+#     Defaults to off.
+#     Example: StatusNotPrinting and StatusNotConnected use this.
+#
+# - 'bind_msg' (str, optional):
+#     Binds this message to another message by name. It shares text and other settings
+#     with the bound message. When this notification is sent, it contains the same content
+#     as the bound message, and no extra edit box is shown in the settings UI.
+#     Examples: StatusPrinting and ZChange.
+#
+# IMPORTANT:
+# If you add a new message to telegramMsgDict, you must also add its messageName
+# to msgCmdDict in class TMSG to link it with its handler.
+#
+# Each time you add/remove a command or notification, please remember to increment the
+# settings version number in `get_settings_version`.
 
 telegramMsgDict = {
     "PrinterStart": {
@@ -94,18 +141,26 @@ telegramMsgDict = {
         "no_setting": True,
         "desc": "Triggered on user request when no print is running",
     },
+    "StatusNotConnected": {
+        "text": "{emo:warning} Not connected to a printer. Use /con to connect.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "no_setting": True,
+        "desc": "Triggered on user request when printer is not connected",
+    },
     "StatusPrinting": {
         "bind_msg": "ZChange",
-        "no_setting": True,
         "desc": "Triggered on user request when a print is running",
     },
-    "plugin_pause_for_user_event_notify": {
+    "PausedForUser": {
         "text": "{emo:warning} User interaction required.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
         "image": True,
         "silent": False,
         "gif": False,
         "markup": "off",
-        "desc": "Triggered when the printer requests user interaction, via 'echo:busy: paused for user' or '//action:paused' on the serial line",
+        "desc": "Triggered when the printer requests user interaction, via 'echo:busy: paused for user' or '// action:paused' on the serial line",
     },
     "gCode_M600": {
         "text": "{emo:warning} Color change requested.\nBed {bed_temp}/{bed_target}, Extruder {e1_temp}/{e1_target}.",
@@ -125,7 +180,6 @@ telegramMsgDict = {
     },
     "plugin_octolapse_movie_done": {
         "bind_msg": "MovieDone",
-        "no_setting": True,
         "desc": "Triggered when the Octolapse plugin finishes rendering the movie",
     },
     "MovieDone": {
@@ -176,50 +230,71 @@ telegramMsgDict = {
         "markup": "off",
         "desc": "Triggered when the printer sends 'echo:UserNotif TEXT' over serial, e.g. from a G-code like 'M118 E1 UserNotif TEXT'",
     },
+    "PrusaMMU_Status": {
+        "text": "Prusa MMU reported an update. Its status is: {prusammu[state]}. Previous tool: {prusammu[previousTool]}. Current tool: {prusammu[tool]}.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "desc": "Triggered when the Prusa MMU plugin reports a status / tool change",
+    },
+    "PrusaMMU_Error": {
+        "text": "{emo:warning} Prusa MMU reported an error. Its status is: {prusammu[state]}.",
+        "image": True,
+        "silent": False,
+        "gif": False,
+        "markup": "off",
+        "desc": "Triggered when the Prusa MMU plugin reports an error",
+    },
 }
 
 
 class TMSG:
     def __init__(self, main: "TelegramPlugin"):
         self.main = main
-        self.last_z = 0.0
-        self.last_notification_time = 0
-        self.z = ""
         self._logger = main._logger.getChild("TMSG")
 
+        self.z = ""
+        self.last_z = 0.0
+        self.last_notification_time = 0
+        self.last_prusammu_state = ""
+
         self.msgCmdDict = {
-            "PrinterStart": self.msgPrinterStart_Shutdown,
-            "PrinterShutdown": self.msgPrinterStart_Shutdown,
-            "PrintStarted": self.msgPrintStarted,
-            "PrintFailed": self.msgPrintFailed,
-            "PrintPaused": self.msgPaused,
-            "PrintResumed": self.msgResumed,
-            "ZChange": self.msgZChange,
-            "PrintDone": self.msgPrintDone,
-            "StatusNotPrinting": self.msgStatusNotPrinting,
-            "StatusPrinting": self.msgStatusPrinting,
-            "plugin_pause_for_user_event_notify": self.msgPauseForUserEventNotify,
-            "gCode_M600": self.msgColorChangeRequested,
-            "Error": self.msgPrinterError,
-            "MovieDone": self.msgMovieDone,
-            "plugin_octolapse_movie_done": self.msgMovieDone,
-            "UserNotif": self.msgUserNotif,
-            "Connected": self.msgConnected,
-            "Disconnected": self.msgConnected,
-            "Alert": self.msgConnected,
-            "Home": self.msgConnected,
+            "Alert": self._sendNotification,
+            "Connected": self._sendNotification,
+            "Disconnected": self._sendNotification,
+            "Error": self._sendNotification,
+            "gCode_M600": self._sendNotification,
+            "Home": self._sendNotification,
+            "MovieDone": self._sendNotification,
+            "PausedForUser": self._sendNotification,
+            "plugin_octolapse_movie_done": self._sendNotification,
+            "PrintDone": self._on_msgPrintDone,
+            "PrinterShutdown": self._sendNotification,
+            "PrinterStart": self._sendNotification,
+            "PrintFailed": self._on_msgPrintFailed,
+            "PrintPaused": self._sendNotification,
+            "PrintResumed": self._sendNotification,
+            "PrintStarted": self._on_msgPrintStarted,
+            "PrusaMMU_Error": self._on_msgPrusaMMU,
+            "PrusaMMU_Status": self._on_msgPrusaMMU,
+            "StatusNotConnected": self._sendNotification,
+            "StatusNotPrinting": self._sendNotification,
+            "StatusPrinting": self._sendNotification,
+            "UserNotif": self._sendNotification,
+            "ZChange": self._on_msgZChange,
         }
 
     def startEvent(self, event, payload, **kwargs):
+        # Not all events have payload
+        payload = payload or {}
+
         status = self.main._printer.get_current_data()
         self.z = status["currentZ"] or 0.0
         kwargs["event"] = event
         self.msgCmdDict[event](payload, **kwargs)
 
-    def msgPrinterStart_Shutdown(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgZChange(self, payload, **kwargs):
+    def _on_msgZChange(self, payload, **kwargs):
         status = self.main._printer.get_current_data()
         if not status["state"]["flags"]["printing"] or not self.is_notification_necessary(
             payload["new"], payload["old"]
@@ -236,66 +311,32 @@ class TMSG:
         )
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintStarted(self, payload, **kwargs):
+    def _on_msgPrintStarted(self, payload, **kwargs):
         self.last_z = 0.0
         self.last_notification_time = time.time()
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintDone(self, payload, **kwargs):
+    def _on_msgPrintDone(self, payload, **kwargs):
         self.main.shut_up = set()
         kwargs["delay"] = self.main._settings.get_int(["message_at_print_done_delay"])
         self._sendNotification(payload, **kwargs)
 
-    def msgPrintFailed(self, payload, **kwargs):
+    def _on_msgPrintFailed(self, payload, **kwargs):
         self.main.shut_up = set()
         self._sendNotification(payload, **kwargs)
 
-    def msgMovieDone(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPrinterError(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPaused(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgResumed(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgStatusPrinting(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgStatusNotPrinting(self, payload, **kwargs):
-        self._sendNotification(payload, **kwargs)
-
-    def msgPauseForUserEventNotify(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        if not self.is_usernotification_necessary():  # 18/11/2019 try to not send this message too much
-            return
-        self._sendNotification(payload, **kwargs)
-
-    def msgColorChangeRequested(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        self._sendNotification(payload, **kwargs)
-
-    def msgUserNotif(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        self._sendNotification(payload, **kwargs)
-
-    def msgConnected(self, payload, **kwargs):
-        if payload is None:
-            payload = {}
-        self._sendNotification(payload, **kwargs)
+    def _on_msgPrusaMMU(self, payload, **kwargs):
+        state = payload.get("state", "")
+        if state != self.last_prusammu_state:
+            self.last_prusammu_state = state
+            self._sendNotification(payload, **kwargs)
 
     def _sendNotification(self, payload, **kwargs):
         try:
             _logger = self._logger
 
             # --- Defines all template variables available for notification messages ---
-            # To add new template variables, just add them as a @property in LazyVariables class
+            # To add new template variables, just add them as a @cached_property in LazyVariables class
 
             class LazyVariables:
                 """Context class that calculates template variables only when accessed"""
@@ -325,238 +366,262 @@ class TMSG:
                         self._cache[key] = calculator()
                     return self._cache[key]
 
-                @property
+                def cached_property(func):
+                    """Decorator that automatically uses function name as cache key"""
+
+                    def wrapper(self):
+                        property_name = func.__name__
+                        return self._get_cached(property_name, lambda: func(self))
+
+                    return property(wrapper)
+
+                @cached_property
                 def status(self):
                     """Current printer data from OctoPrint API"""
-                    return self._get_cached("status", lambda: self.parent.main._printer.get_current_data())
+                    return self.parent.main._printer.get_current_data()
 
-                @property
+                @cached_property
                 def event(self):
                     """Event that triggered the notification. If the event has an alias (bind_msg), it resolves to that."""
+                    event = str(self.kwargs.get("event"))
+                    event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
+                    return event_bind_msg if event_bind_msg else event
 
-                    def calculate_event():
-                        event = str(self.kwargs.get("event"))
-                        event_bind_msg = telegramMsgDict.get(event, {}).get("bind_msg")
-                        return event_bind_msg if event_bind_msg else event
-
-                    return self._get_cached("event", calculate_event)
-
-                @property
+                @cached_property
                 def z(self):
                     """Current Z value"""
-                    return self._get_cached("z", lambda: self.parent.z)
+                    return self.parent.z
 
-                @property
+                @cached_property
                 def temps(self):
                     """Full temperature data for all tools and bed from OctoPrint API"""
-                    return self._get_cached("temps", lambda: self.parent.main._printer.get_current_temperatures())
+                    return self.parent.main._printer.get_current_temperatures()
 
-                @property
+                @cached_property
                 def bed_temp(self):
                     """Current bed temperature"""
-                    return self._get_cached("bed_temp", lambda: self.temps.get("bed", {}).get("actual", 0.0))
+                    return self.temps.get("bed", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def bed_target(self):
                     """Target bed temperature"""
-                    return self._get_cached("bed_target", lambda: self.temps.get("bed", {}).get("target", 0.0))
+                    return self.temps.get("bed", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e1_temp(self):
                     """Current temperature of extruder 1 (tool0)"""
-                    return self._get_cached("e1_temp", lambda: self.temps.get("tool0", {}).get("actual", 0.0))
+                    return self.temps.get("tool0", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e1_target(self):
                     """Target temperature of extruder 1 (tool0)"""
-                    return self._get_cached("e1_target", lambda: self.temps.get("tool0", {}).get("target", 0.0))
+                    return self.temps.get("tool0", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e2_temp(self):
                     """Current temperature of extruder 2 (tool1)"""
-                    return self._get_cached("e2_temp", lambda: self.temps.get("tool1", {}).get("actual", 0.0))
+                    return self.temps.get("tool1", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e2_target(self):
                     """Target temperature of extruder 2 (tool1)"""
-                    return self._get_cached("e2_target", lambda: self.temps.get("tool1", {}).get("target", 0.0))
+                    return self.temps.get("tool1", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e3_temp(self):
                     """Current temperature of extruder 3 (tool2)"""
-                    return self._get_cached("e3_temp", lambda: self.temps.get("tool2", {}).get("actual", 0.0))
+                    return self.temps.get("tool2", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e3_target(self):
                     """Target temperature of extruder 3 (tool2)"""
-                    return self._get_cached("e3_target", lambda: self.temps.get("tool2", {}).get("target", 0.0))
+                    return self.temps.get("tool2", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e4_temp(self):
                     """Current temperature of extruder 4 (tool3)"""
-                    return self._get_cached("e4_temp", lambda: self.temps.get("tool3", {}).get("actual", 0.0))
+                    return self.temps.get("tool3", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e4_target(self):
                     """Target temperature of extruder 4 (tool3)"""
-                    return self._get_cached("e4_target", lambda: self.temps.get("tool3", {}).get("target", 0.0))
+                    return self.temps.get("tool3", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def e5_temp(self):
                     """Current temperature of extruder 5 (tool4)"""
-                    return self._get_cached("e5_temp", lambda: self.temps.get("tool4", {}).get("actual", 0.0))
+                    return self.temps.get("tool4", {}).get("actual", 0.0)
 
-                @property
+                @cached_property
                 def e5_target(self):
                     """Target temperature of extruder 5 (tool4)"""
-                    return self._get_cached("e5_target", lambda: self.temps.get("tool4", {}).get("target", 0.0))
+                    return self.temps.get("tool4", {}).get("target", 0.0)
 
-                @property
+                @cached_property
                 def percent(self):
                     """Current percentage of the print progress"""
+                    progress = self.status.get("progress", {})
+                    completion = progress.get("completion")
+                    return int(completion if completion is not None else 0)
 
-                    def calculate_percent():
-                        progress = self.status.get("progress", {})
-                        completion = progress.get("completion")
-                        return int(completion if completion is not None else 0)
-
-                    return self._get_cached("percent", calculate_percent)
-
-                @property
+                @cached_property
                 def time_done(self):
                     """Elapsed time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time = progress.get("printTime") or 0
+                    return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
 
-                    def calculate_time_done():
-                        progress = self.status.get("progress", {})
-                        print_time = progress.get("printTime") or 0
-                        return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time))
-
-                    return self._get_cached("time_done", calculate_time_done)
-
-                @property
+                @cached_property
                 def time_left(self):
                     """Remaining time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time_left = progress.get("printTimeLeft")
+                    if print_time_left is not None:
+                        return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
+                    return "[Unknown]"
 
-                    def _calculate_time_left():
-                        progress = self.status.get("progress", {})
-                        print_time_left = progress.get("printTimeLeft")
-                        if print_time_left is not None:
-                            return octoprint.util.get_formatted_timedelta(datetime.timedelta(seconds=print_time_left))
-                        return "[Unknown]"
-
-                    return self._get_cached("time_left", _calculate_time_left)
-
-                @property
+                @cached_property
                 def time_finish(self):
                     """Estimated finish time of the current print"""
+                    progress = self.status.get("progress", {})
+                    print_time_left = progress.get("printTimeLeft")
+                    if print_time_left is not None:
+                        return self.parent.main.calculate_ETA(print_time_left)
 
-                    def _calculate_time_finish():
-                        progress = self.status.get("progress", {})
-                        print_time_left = progress.get("printTimeLeft")
-                        if print_time_left is not None:
-                            return self.parent.main.calculate_ETA(print_time_left)
+                @cached_property
+                def display_layer_progress(self):
+                    """A dictionary containing data provided by the DisplayLayerProgress plugin"""
+                    return self.parent.main.get_layer_progress_values() or {}
 
-                    return self._get_cached("time_finish", _calculate_time_finish)
+                @cached_property
+                def current_layer(self):
+                    """Current layer number, provided by the DisplayLayerProgress plugin"""
+                    layer_info = self.display_layer_progress.get("layer") or {}
+                    return layer_info.get("current", "?")
 
-                @property
-                def currentLayer(self):
-                    """Current layer number"""
+                @cached_property
+                def total_layer(self):
+                    """Total number of layers, provided by the DisplayLayerProgress plugin"""
+                    layer_info = self.display_layer_progress.get("layer") or {}
+                    return layer_info.get("total", "?")
 
-                    def calculate_current_layer():
-                        layer_data = self.parent.main.get_layer_progress_values() or {}
-                        layer_info = layer_data.get("layer") or {}
-                        return layer_info.get("current", "?")
+                @cached_property
+                def total_height(self):
+                    """Total height of the object being printed, provided by the DisplayLayerProgress plugin"""
+                    height_info = self.display_layer_progress.get("height") or {}
+                    return height_info.get("totalFormatted", "?")
 
-                    return self._get_cached("currentLayer", calculate_current_layer)
+                @cached_property
+                def fan_speed(self):
+                    """Fan speed, provided by the DisplayLayerProgress plugin"""
+                    return self.display_layer_progress.get("fanSpeed", "?")
 
-                @property
-                def totalLayer(self):
-                    """Total number of layers"""
+                @cached_property
+                def change_filament_count(self):
+                    """Number of filament changes occurred, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("changeFilamentCount", "?")
 
-                    def calculate_total_layer():
-                        layer_data = self.parent.main.get_layer_progress_values() or {}
-                        layer_info = layer_data.get("layer") or {}
-                        return layer_info.get("total", "?")
+                @cached_property
+                def change_filament_time_left(self):
+                    """Remaining time until the next filament change, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("changeFilamentTimeLeft", "?")
 
-                    return self._get_cached("totalLayer", calculate_total_layer)
+                @cached_property
+                def change_filament_next_time(self):
+                    """Estimated time of the next filament change, provided by the DisplayLayerProgress plugin"""
+                    print_info = self.display_layer_progress.get("print") or {}
+                    return print_info.get("estimatedChangedFilamentTime", "?")
 
-                @property
+                @cached_property
                 def owner(self):
                     """The name of the user who started the print"""
-                    return self._get_cached("owner", lambda: self.status["job"].get("user") or "")
+                    return self.status["job"].get("user") or ""
 
-                @property
+                @cached_property
                 def user(self):
                     """The name of the user who performed the action that triggered the notification (e.g., paused or canceled the print)"""
-                    return self._get_cached("user", lambda: self.payload.get("user") or "")
+                    return self.payload.get("user") or ""
 
-                @property
+                @cached_property
                 def file(self):
                     """File name of the file currently being printed"""
+                    file = self.status.get("job", {}).get("file", {}).get("name", "")
+                    for key in ("filename", "gcode", "file"):
+                        value = self.payload.get(key)
+                        if value:
+                            file = value
+                            break
+                    return file
 
-                    def calculate_file():
-                        file = self.status.get("job", {}).get("file", {}).get("name", "")
-                        for key in ("filename", "gcode", "file"):
-                            value = self.payload.get(key)
-                            if value:
-                                file = value
-                                break
-                        return file
-
-                    return self._get_cached("file", calculate_file)
-
-                @property
+                @cached_property
                 def path(self):
                     """Full path of the file currently being printed"""
-                    return self._get_cached("path", lambda: self.status.get("job", {}).get("file", {}).get("path", ""))
+                    return self.status.get("job", {}).get("file", {}).get("path", "")
 
-                @property
+                @cached_property
+                def metadata(self):
+                    """A dictionary containing metadata of the file currently being printed"""
+                    return self.parent.main._file_manager.get_metadata(
+                        octoprint.filemanager.FileDestinations.LOCAL, self.path
+                    )
+
+                @cached_property
                 def error_msg(self):
                     """The error message string. Only useful for 'Error' event notifications."""
-                    return self._get_cached("error_msg", lambda: self.payload.get("error", ""))
+                    return self.payload.get("error", "")
 
-                @property
+                @cached_property
                 def UserNotif_Text(self):
                     """The text received via the serial message echo:UserNotif TEXT, which is triggered by printing a G-code like: M118 E1 UserNotif TEXT."""
-                    return self._get_cached("UserNotif_Text", lambda: self.payload.get("UserNotif", ""))
+                    return self.payload.get("UserNotif", "")
 
-                @property
+                @cached_property
+                def prusammu(self):
+                    """A dictionary containing the current state of the Prusa MMU, provided by the Prusa MMU plugin."""
+                    return self.parent.main.send_octoprint_simpleapi_command("prusammu", "getmmu").json()
+
+                @cached_property
+                def resource_monitor(self):
+                    """A dictionary containing data provided by the Resource Monitor plugin."""
+                    return self.parent.main.send_octoprint_request("/plugin/resource_monitor/stats").json()
+
+                @cached_property
                 def enclosure(self):
                     """A dictionary containing the data provided by the Enclosure plugin, such as the temperatures measured by the sensors or the configured target temperature."""
+                    enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
+                    enclosure_plugin_id = "enclosure"
+                    enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
 
-                    def _calculate_enclosure():
-                        enclosure = {"current_temps": {}, "humidity": {}, "target_temps": {}}
-                        enclosure_plugin_id = "enclosure"
-                        enclosure_module = self.parent.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
-                        if enclosure_module:
-                            enclosure_implementation = self.parent.main._plugin_manager.plugins[
-                                enclosure_plugin_id
-                            ].implementation
+                    if enclosure_module:
+                        enclosure_implementation = self.parent.main._plugin_manager.plugins[
+                            enclosure_plugin_id
+                        ].implementation
 
-                            for rpi_input in enclosure_implementation.rpi_inputs:
-                                if rpi_input["input_type"] == "temperature_sensor":
-                                    index_id = str(rpi_input["index_id"])
-                                    label = rpi_input.get("label") or "Enclosure"
-                                    temp = rpi_input.get("temp_sensor_temp", "")
-                                    humidity = rpi_input.get("temp_sensor_humidity", "")
+                        for rpi_input in enclosure_implementation.rpi_inputs:
+                            if rpi_input["input_type"] == "temperature_sensor":
+                                index_id = str(rpi_input["index_id"])
+                                label = rpi_input.get("label") or "Enclosure"
+                                temp = rpi_input.get("temp_sensor_temp", "")
+                                humidity = rpi_input.get("temp_sensor_humidity", "")
 
-                                    if temp != "":
-                                        enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
+                                if temp != "":
+                                    enclosure["current_temps"][index_id] = {"label": label, "temp": temp}
 
-                                    if humidity != "":
-                                        enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
+                                if humidity != "":
+                                    enclosure["humidity"][index_id] = {"label": label, "humidity": humidity}
 
-                            for rpi_output in enclosure_implementation.rpi_outputs:
-                                if rpi_output["output_type"] == "temp_hum_control":
-                                    index_id = str(rpi_output["index_id"])
-                                    label = rpi_output.get("label") or "Enclosure"
-                                    temp = rpi_output.get("temp_ctr_set_value", "")
+                        for rpi_output in enclosure_implementation.rpi_outputs:
+                            if rpi_output["output_type"] == "temp_hum_control":
+                                index_id = str(rpi_output["index_id"])
+                                label = rpi_output.get("label") or "Enclosure"
+                                temp = rpi_output.get("temp_ctr_set_value", "")
 
-                                    if temp != "":
-                                        enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
-                        return enclosure
+                                if temp != "":
+                                    enclosure["target_temps"][index_id] = {"label": label, "temp": temp}
 
-                    return self._get_cached("enclosure", _calculate_enclosure)
+                    return enclosure
 
             lazy_vars = LazyVariables(self, payload, kwargs)
 
@@ -595,8 +660,6 @@ class TMSG:
             markup = self.main._settings.get(["messages", event, "markup"]) or "off"
             kwargs["markup"] = markup
 
-            kwargs["inline"] = False
-
             # Log locals for debugging (only accessed variables to avoid triggering lazy calculation)
             debug_info = {
                 "event": event,
@@ -604,15 +667,10 @@ class TMSG:
                 "kwargs": kwargs,
                 "accessed_lazy_vars": list(lazy_vars._cache.keys()) if hasattr(lazy_vars, "_cache") else [],
             }
-            self._logger.debug(f"_sendNotification debug info: {debug_info}")
+            self._logger.debug("_sendNotification debug info: %s", debug_info)
 
             # Format the message
             try:
-
-                class EmojiFormatter:
-                    def __format__(self, fmt):
-                        # Replace with corresponding emoji
-                        return get_emoji(fmt)
 
                 class MarkupEscapedValue:
                     """
@@ -655,25 +713,20 @@ class TMSG:
                     """
                     Secure context for template variable access.
 
-                    Only `lazy_vars` attributes decorated with `@property` can be accessed from templates.
+                    Only `lazy_vars` attributes decorated with `@cached_property` can be accessed from templates.
                     Unknown or not allowed variables are returned as literal placeholders.
                     """
 
-                    def __init__(self, lazy_vars, emoji_formatter, markup):
+                    def __init__(self, lazy_vars, markup):
                         self.lazy_vars = lazy_vars
-                        self.emoji_formatter = emoji_formatter
                         self.markup = markup
 
-                        # Only variables of lazy_vars decorated with @property are allowed
+                        # Only variables of lazy_vars decorated with @cached_property are allowed
                         self.allowed_vars = {
                             name for name, attr in type(lazy_vars).__dict__.items() if isinstance(attr, property)
                         }
 
                     def __getitem__(self, key):
-                        # If it is an emoji, format it with emoji_formatter
-                        if key == "emo":
-                            return self.emoji_formatter
-
                         # If variable is not in allowed_vars, return it as a literal
                         if key not in self.allowed_vars:
                             return "{" + key + "}"
@@ -687,15 +740,18 @@ class TMSG:
                             # Return an error placeholder if getting the lazy_vars property raised an exception
                             return "[ERROR]"
 
-                emoji_formatter = EmojiFormatter()
-                context = SecureTemplateContext(lazy_vars, emoji_formatter, markup)
-
                 message_template = self.main._settings.get(["messages", event, "text"])
-                message = message_template.format_map(context)
+
+                # Render emojis
+                message = render_emojis(message_template)
+
+                # Render lazy vars
+                context = SecureTemplateContext(lazy_vars, markup)
+                message = message.format_map(context)
             except Exception:
                 self._logger.exception("Caught an exception while formatting the message")
-                message = (
-                    f"{get_emoji('attention')} I was not able to format the Notification for the event '{event}' properly.\n"
+                message = render_emojis(
+                    f"{{emo:attention}} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self.main._plugin_name} and check message settings for the event '{event}'."
                 )
 
@@ -726,15 +782,4 @@ class TMSG:
             if new_z >= self.last_z + zdiff or new_z < self.last_z:
                 self.last_z = new_z
                 return True
-        return False
-
-    def is_usernotification_necessary(self):
-        timediff = 30  # Force to every 30 seconds
-        # Check the timediff
-        self._logger.debug(
-            f"self.last_notification_time + timediff: {self.last_notification_time + timediff} <= time.time(): {time.time()}"
-        )
-        if self.last_notification_time + timediff <= time.time():
-            self.last_notification_time = time.time()
-            return True
         return False

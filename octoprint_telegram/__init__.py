@@ -1,4 +1,5 @@
 import copy
+import html
 import io
 import json
 import logging
@@ -27,17 +28,14 @@ from octoprint.util.version import is_octoprint_compatible
 from PIL import Image
 from werkzeug.utils import secure_filename
 
-from .emoji.emoji import Emoji
-from .telegram_commands import TCMD
-from .telegram_notifications import (
-    TMSG,
-    telegramMsgDict,
-)  # Dict of known notification messages
+from .commands.commands import Commands
+from .emoji import Emoji
+from .telegram_notifications import TMSG, telegramMsgDict
 from .telegram_utils import TOKEN_REGEX, TelegramUtils, get_chat_title, is_group_or_channel
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-get_emoji = Emoji.get_emoji
+render_emojis = Emoji.render_emojis
 
 
 ####################################################
@@ -67,9 +65,9 @@ class TelegramListener(threading.Thread):
         # Repeat fetching and processing messages until thread stopped
         while not self.do_stop:
             try:
-                self.loop()
+                self.process_updates()
             except Exception:
-                self._logger.exception("Caught and exception running the listener loop.")
+                self._logger.exception("Caught and exception calling process_updates.")
 
         self._logger.debug("Listener exits NOW.")
 
@@ -92,7 +90,7 @@ class TelegramListener(threading.Thread):
 
                 time.sleep(120)
 
-    def loop(self):
+    def process_updates(self):
         # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
             updates = self.get_updates()
@@ -105,9 +103,9 @@ class TelegramListener(threading.Thread):
             time.sleep(120)
             return
 
-        for message in updates:
+        for update in updates:
             try:
-                self.process_message(message)
+                self.process_update(update)
             except Exception:
                 self._logger.exception("Caught an exception processing a message")
 
@@ -132,189 +130,158 @@ class TelegramListener(threading.Thread):
             self.update_offset = 1 + new_value
         else:
             self._logger.debug(
-                f"Not changing update_offset - otherwise would reduce it from {self.update_offset} to {1 + new_value}"
+                "Not changing update_offset - otherwise would reduce it from %s to %s",
+                self.update_offset,
+                1 + new_value,
             )
 
-    def process_message(self, message):
-        self._logger.debug(f"Processing message: {message}")
+    def process_update(self, update):
+        self._logger.debug("Processing update: %s", update)
 
-        self.set_update_offset(message["update_id"])
+        self.set_update_offset(update["update_id"])
 
-        if "message" in message and message["message"].get("chat"):
-            settings_chats = self.main._settings.get(["chats"])
-
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-
-            message_chat = message["message"]["chat"]
-
-            is_chat_unknown = chat_id not in settings_chats
-            if is_chat_unknown:
-                is_enrollment_allowed = (
-                    self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
-                )
-                if not is_enrollment_allowed:
-                    self._logger.warning(f"Received a message from unknown chat {chat_id} while enrollment is disabled")
-                    return
-
-                self._logger.info(f"Adding chat {chat_id} to known chats")
-
-                new_chat_settings = copy.deepcopy(self.main.new_chat_settings)
-                new_chat_settings["type"] = message_chat["type"]
-                new_chat_settings["private"] = message_chat["type"] == "private"
-                new_chat_settings["title"] = get_chat_title(message_chat)
-                new_chat_settings["image"] = self.main.save_chat_picture(chat_id)
-
-                settings_chats[chat_id] = new_chat_settings
-                self.main._settings.set(["chats"], settings_chats)
-                self.main._settings.save()
-                self.main._plugin_manager.send_plugin_message(
-                    self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-                )
-
-                self.main.send_msg(
-                    f"{get_emoji('info')} Chat added to known chats. "
-                    "Before you can do anything, please go to plugin settings and edit your permissions.",
-                    chatID=chat_id,
-                )
-
-                return
-
-            message_message = message["message"]
-
-            # If message is a text message, we probably got a command.
-            # When the command is not known, the following handler will discard it.
-            if "text" in message_message:
-                self.handle_text_message(message, chat_id, from_id)
-            # We got no message with text (command) so lets check if we got a file.
-            # The following handler will check file and saves it to disk.
-            elif "document" in message_message:
-                self.handle_document_message(message)
-            # We got message with notification for a new chat title so lets update it
-            elif "new_chat_title" in message_message:
-                self.handle_new_chat_title_message(message)
-            # We got message with notification for a new chat title photo so lets download it
-            elif "new_chat_photo" in message_message:
-                self.handle_new_chat_photo_message(message)
-            # We got message with notification for a deleted chat title photo so we do the same
-            elif "delete_chat_photo" in message_message:
-                self.handle_new_chat_photo_message(message)
-            # A member was removed from a group, so lets check if it's our bot and
-            # delete the group from our chats if it is
-            elif "left_chat_member" in message_message:
-                self.handle_left_chat_member_message(message)
-            # At this point we don't know what message type it is, so we do nothing
-            else:
-                self._logger.warning(f"Got an unknown message. Doing nothing. Data: {message}")
-        elif "callback_query" in message:
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-            self.handle_callback_query(message, chat_id, from_id)
-        else:
-            self._logger.warning(
-                "Message is missing .message or .message.chat or .message.callback_query. Skipping it."
-            )
-
-    def handle_callback_query(self, message, chat_id, from_id):
-        message["callback_query"]["message"]["text"] = message["callback_query"]["data"]
-        self.handle_text_message(message["callback_query"], chat_id, from_id)
-
-    def handle_left_chat_member_message(self, message):
-        chat_id = self.get_chat_id(message)
-
-        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
-        username = message["message"]["left_chat_member"]["username"]
-
-        if is_chat_unknown or username != self.username[1:]:
-            return
-
-        self._logger.info(f"Chat {chat_id} kicked the bot out, removing it from settings...")
-
-        self.main._settings.remove(["chats", chat_id])
-        self.main._settings.save()
-        self.main._plugin_manager.send_plugin_message(
-            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-        )
-
-    def handle_new_chat_title_message(self, message):
-        chat_id = self.get_chat_id(message)
-
-        message_chat = message.get("message", {}).get("chat", {})
-        is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
-
-        if is_chat_unknown or not message_chat:
-            return
-
-        self._logger.info(f"Chat {chat_id} changed title, updating it...")
-
-        self.main._settings.set(["chats", chat_id, "title"], get_chat_title(message_chat))
-        self.main._settings.save()
-        self.main._plugin_manager.send_plugin_message(
-            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
-        )
-
-    def handle_new_chat_photo_message(self, message):
-        chat_id = self.get_chat_id(message)
+        chat_id = self.get_chat_id(update)
+        from_id = self.get_from_id(update)
 
         is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
         if is_chat_unknown:
-            return
+            is_enrollment_allowed = (
+                self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
+            )
+            if not is_enrollment_allowed:
+                self._logger.warning("Received an update from unknown chat %s while enrollment is disabled", chat_id)
+                return
 
-        self._logger.info(f"Chat {chat_id} changed picture, updating it...")
+        if "message" in update or "channel_post" in update:
+            message = update.get("message", update.get("channel_post"))
+
+            # We got a text message, likely a command
+            if "text" in message:
+                if is_chat_unknown:
+                    self._logger.info("Received a text message from unknown chat %s, enrolling it...", chat_id)
+                    chat = message["chat"]
+                    chat_title = get_chat_title(chat)
+                    chat_type = chat["type"]
+                    self.main.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+                else:
+                    self.handle_text_message(message, chat_id, from_id)
+            # We got a document (file)
+            elif "document" in message:
+                self.handle_document_message(message, chat_id, from_id)
+            # We got message with notification for a new chat title so lets update it
+            elif "new_chat_title" in message:
+                self.handle_new_chat_title_message(message, chat_id, from_id)
+            # We got message with notification for a new chat title photo so lets download it
+            elif "new_chat_photo" in message or "delete_chat_photo" in message:
+                self.handle_new_chat_photo_message(update, chat_id, from_id)
+            # At this point we don't know what message type it is, so we do nothing
+            else:
+                self._logger.debug("Got an unknown message. Doing nothing. Update was: %s", update)
+        # Triggered when the user clicks on inline buttons
+        elif "callback_query" in update:
+            self.handle_callback_query(update["callback_query"], chat_id, from_id)
+        # Triggered when the bot's role in a chat changes (e.g., added, removed, promoted to admin, blocked in private chat, etc.)
+        elif "my_chat_member" in update:
+            self.handle_my_chat_member(update["my_chat_member"], chat_id, from_id)
+        else:
+            self._logger.debug("Got an unknown update. Doing nothing. Update was: %s", update)
+
+    def handle_my_chat_member(self, my_chat_member, chat_id, from_id):
+        new_status = my_chat_member.get("new_chat_member", {}).get("status", "")
+
+        if new_status in ("administrator", "member"):
+            # If it is a new chat, add it to the known chats
+            if self.main._settings.get(["chats", chat_id]) is None:
+                self._logger.info("The bot has been added to the new chat %s, enrolling it...", chat_id)
+                chat = my_chat_member["chat"]
+                chat_title = get_chat_title(chat)
+                chat_type = chat["type"]
+                self.main.add_chat_to_known_chats(chat_id, chat_title, chat_type)
+
+        elif new_status in ("left", "kicked"):
+            # The bot left the chat, delete it from known chats
+            if self.main._settings.get(["chats", chat_id]) is not None:
+                self._logger.info("The bot left chat %s, removing it from settings...", chat_id)
+                self.main.remove_chat_from_known_chats(chat_id)
+
+    def handle_new_chat_title_message(self, message, chat_id, from_id):
+        self._logger.info("Chat %s changed title, updating it...", chat_id)
+
+        chat = message["chat"]
+
+        self.main._settings.set(["chats", chat_id, "title"], get_chat_title(chat))
+        self.main._settings.save()
+        self.main._plugin_manager.send_plugin_message(
+            self.main._identifier, {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])}
+        )
+
+    def handle_new_chat_photo_message(self, message, chat_id, from_id):
+        self._logger.info("Chat %s changed picture, updating it...", chat_id)
 
         try:
 
             def update_chat_picture():
                 public_path = self.main.save_chat_picture(chat_id)
-                if public_path:
-                    self.main._settings.set(["chats", chat_id, "image"], public_path)
-                    self.main._settings.save()
-                    self.main._plugin_manager.send_plugin_message(
-                        self.main._identifier,
-                        {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])},
-                    )
+                self.main._settings.set(["chats", chat_id, "image"], public_path)
+                self.main._settings.save()
+                self.main._plugin_manager.send_plugin_message(
+                    self.main._identifier,
+                    {"type": "update_known_chats", "chats": self.main._settings.get(["chats"])},
+                )
 
             threading.Thread(target=update_chat_picture, daemon=True).start()
         except Exception:
-            self._logger.exception(f"Caught an exception updating chat picture for chat_id {chat_id}")
+            self._logger.exception("Caught an exception updating chat picture for chat_id %s", chat_id)
 
-    def handle_document_message(self, message):
+    def handle_document_message(self, message, chat_id, from_id):
         try:
-            self._logger.debug("Handling document message")
+            self._logger.debug("Handling document message: %s", message)
 
-            chat_id = self.get_chat_id(message)
-            from_id = self.get_from_id(message)
-
-            uploaded_file_filename = os.path.basename(message["message"]["document"]["file_name"])
+            uploaded_file_filename = os.path.basename(message["document"]["file_name"])
 
             # Check if upload command is allowed
             if not self.main.is_command_allowed(chat_id, from_id, "/upload"):
-                self._logger.warning(f"Received file {uploaded_file_filename} from an unauthorized user")
+                self._logger.warning("Received file %s from an unauthorized user", uploaded_file_filename)
                 self.main.send_msg(
-                    f"{get_emoji('warning')} You are not authorized to upload files",
+                    render_emojis("{emo:notallowed} You are not authorized to upload files!"),
                     chatID=chat_id,
                 )
                 return
 
             # Check the file extension
-            is_zip_file = False
-            if not octoprint.filemanager.valid_file_type(uploaded_file_filename, "machinecode"):
-                if uploaded_file_filename.lower().endswith(".zip"):
-                    is_zip_file = True
-                else:
-                    self._logger.warning(f"Received file {uploaded_file_filename} with invalid extension")
-                    self.main.send_msg(
-                        f"{get_emoji('warning')} Sorry, I only accept files with .gcode, .gco or .g or .zip extension",
-                        chatID=chat_id,
-                    )
-                    return
+            is_zip_file = uploaded_file_filename.lower().endswith(".zip")
+
+            if not is_zip_file and not octoprint.filemanager.valid_file_type(uploaded_file_filename):
+                self._logger.warning("Received file %s with invalid extension", uploaded_file_filename)
+
+                supported_extensions = ", ".join(
+                    [f"<code>{html.escape(f'.{ext}')}</code>" for ext in octoprint.filemanager.get_all_extensions()]
+                )
+
+                msg = render_emojis(
+                    "{emo:notallowed} Sorry, I only accept the following file extensions: "
+                    f"{supported_extensions}, or a ZIP file containing them."
+                )
+
+                self.main.send_msg(msg, chatID=chat_id, markup="HTML")
+
+                return
 
             # Download the uploaded file
-            self.main.send_msg(
-                f"{get_emoji('save')} Saving file {uploaded_file_filename}...",
-                chatID=chat_id,
+            saving_file_response = self.telegram_utils.send_telegram_request(
+                f"{self.main.bot_url}/sendMessage",
+                "post",
+                data={
+                    "text": render_emojis(
+                        f"{{emo:save}} Saving file <code>{html.escape(uploaded_file_filename)}</code>..."
+                    ),
+                    "chat_id": chat_id,
+                    "parse_mode": "HTML",
+                },
             )
-            uploaded_file_content = self.main.get_file(message["message"]["document"]["file_id"])
+            saving_file_msg_id = saving_file_response["result"]["message_id"]
+
+            uploaded_file_content = self.main.get_file(message["document"]["file_id"])
 
             # Prepare the destination folder
             destination_folder = self.main._file_manager.add_folder(
@@ -335,14 +302,15 @@ class TelegramListener(threading.Thread):
                             # Don't extract folders
                             if member.is_dir():
                                 self._logger.debug(
-                                    f"Ignoring file {member_filename} while extracting a zip because it's a folder"
+                                    "Ignoring file %s while extracting a zip because it's a folder", member_filename
                                 )
                                 continue
 
                             # Don't extract file with invalid extensions
-                            if not octoprint.filemanager.valid_file_type(member_filename, "machinecode"):
+                            if not octoprint.filemanager.valid_file_type(member_filename):
                                 self._logger.debug(
-                                    f"Ignoring file {member_filename} while extracting a zip because it has an invalid extension"
+                                    "Ignoring file %s while extracting a zip because it has an invalid extension",
+                                    member_filename,
                                 )
                                 continue
 
@@ -359,12 +327,12 @@ class TelegramListener(threading.Thread):
                                 stream_wrapper,
                                 allow_overwrite=True,
                             )
-                            self._logger.info(f"Added file to {added_file_relative_path}")
+                            self._logger.info("Added file to %s", added_file_relative_path)
 
                             added_files_relative_paths.append(destination_file_relative_path)
                         except Exception:
                             self._logger.exception(
-                                f"Exception while extracting file {member_filename} contained in the zip"
+                                "Exception while extracting file %s contained in the zip", member_filename
                             )
             else:
                 destination_file_relative_path = os.path.join(destination_folder, uploaded_file_filename)
@@ -378,105 +346,133 @@ class TelegramListener(threading.Thread):
                     stream_wrapper,
                     allow_overwrite=True,
                 )
-                self._logger.info(f"Added file to {added_file_relative_path}")
+                self._logger.info("Added file to %s", added_file_relative_path)
 
                 added_files_relative_paths.append(added_file_relative_path)
 
-            # Prepare the response message
+            # Update the "saving file" message
+            command_buttons = None
             if added_files_relative_paths:
-                response_message = f"{get_emoji('download')} I've successfully saved the file(s) you sent me as {', '.join(added_files_relative_paths)}"
+                response_message = render_emojis(
+                    "{emo:download} I've successfully saved the file"
+                    f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
+                    f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
+                )
+
+                if len(added_files_relative_paths) == 1:
+                    if (
+                        octoprint.filemanager.valid_file_type(added_files_relative_paths[0], "model")
+                        and self.main._slicing_manager.slicing_enabled
+                    ):
+                        response_message += render_emojis("\n\n{emo:slice} You can slice it using the /files command.")
+                    elif self.main._settings.get(["select_file_after_upload"]):
+                        # Check if printer is ready
+                        if not self.main._printer.is_ready():
+                            response_message += render_emojis(
+                                "\n\n{emo:attention} But I couldn't select it for printing because the printer is not ready."
+                            )
+                        else:
+                            # Select for printing the uploaded file
+                            try:
+                                file_to_select_abs_path = self.main._file_manager.path_on_disk(
+                                    octoprint.filemanager.FileDestinations.LOCAL,
+                                    added_files_relative_paths[0],
+                                )
+                                self._logger.debug("Selecting file: %s", file_to_select_abs_path)
+                                self.main._printer.select_file(
+                                    file_to_select_abs_path, sd=False, printAfterSelect=False
+                                )
+
+                                # Ask the user whether to print the file
+                                response_message += render_emojis(
+                                    "\n\n{emo:check} The file has been selected for printing.\n"
+                                    "{emo:question} Do you want to start printing it now?"
+                                )
+                                command_buttons = [
+                                    [
+                                        [
+                                            render_emojis("{emo:check} Print"),
+                                            "/print_y",
+                                        ],
+                                        [
+                                            render_emojis("{emo:cancel} Close"),
+                                            "close",
+                                        ],
+                                    ]
+                                ]
+                            except Exception:
+                                response_message += render_emojis(
+                                    "\n{emo:attention} But I wasn't able to select the file for printing."
+                                )
             else:
-                response_message = f"{get_emoji('warning')} No files were added. Did you upload an empty zip?"
+                response_message = render_emojis("{emo:warning} No files were saved. Did you upload an empty zip?")
 
-            # If there are multiple files or the "select file after upload" settings is off
-            if len(added_files_relative_paths) != 1 or not self.main._settings.get(["selectFileUpload"]):
-                # Just send the message
-                self.main.send_msg(
-                    response_message,
-                    chatID=chat_id,
-                    msg_id=self.main.get_update_msg_id(chat_id),
-                )
-
-            # If instead only one file has been added and the "select file after upload" settings is off
-            else:
-                # Check if printer is ready
-                if not self.main._printer.is_ready():
-                    response_message += " but I can't load it because the printer is not ready"
-                    self.main.send_msg(
-                        response_message,
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                    return
-
-                # Load the uploaded file
-                try:
-                    file_to_select_abs_path = self.main._file_manager.path_on_disk(
-                        octoprint.filemanager.FileDestinations.LOCAL,
-                        added_files_relative_paths[0],
-                    )
-                    self._logger.debug(f"Selecting file: {file_to_select_abs_path}")
-                    self.main._printer.select_file(file_to_select_abs_path, sd=False, printAfterSelect=False)
-                except Exception:
-                    response_message += " but I wasn't able to load the file"
-                    self.main.send_msg(
-                        response_message,
-                        chatID=chat_id,
-                        msg_id=self.main.get_update_msg_id(chat_id),
-                    )
-                    return
-
-                # Ask the user whether to print the loaded file
-                response_message += (
-                    f" and it is loaded.\n\n{get_emoji('question')} Do you want me to start printing it now?"
-                )
-                self.main.send_msg(
-                    response_message,
-                    msg_id=self.main.get_update_msg_id(chat_id),
-                    responses=[
-                        [
-                            [
-                                f"{get_emoji('check')} Print",
-                                "/print_s",
-                            ],
-                            [
-                                f"{get_emoji('cancel')} Cancel",
-                                "/print_x",
-                            ],
-                        ]
-                    ],
-                    chatID=chat_id,
-                )
-        except Exception:
-            self._logger.exception("Caught an exception processing a file")
             self.main.send_msg(
-                (
-                    f"{get_emoji('attention')} Something went wrong during processing of your file.\n"
-                    f"Sorry. More details are in log files."
-                ),
+                response_message,
+                chatID=chat_id,
+                markup="HTML",
+                responses=command_buttons,
+                msg_id=saving_file_msg_id,
+            )
+        except Exception:
+            self._logger.exception("Caught an exception in handle_document_message")
+            self.main.send_msg(
+                render_emojis("{emo:attention} Something went wrong processing your file. Please check logs."),
                 chatID=chat_id,
             )
 
     def handle_text_message(self, message, chat_id, from_id):
+        message_text = message["text"]
+
+        if not message_text.startswith("/"):
+            self._logger.debug("Ignoring text message '%s' because it doesn't start with a slash", message_text)
+            return
+
+        # Remove bot username from commands like /command@botusername
+        command = message_text.split("@")[0]
+
+        self.handle_command(command, chat_id, from_id, message.get("from"))
+
+    def handle_callback_query(self, callback_query, chat_id, from_id):
+        command = callback_query["data"]
+        from_obj = callback_query["from"]
+        msg_id_to_update = callback_query.get("message", {}).get("message_id", "")
+
+        # Handle callback query data as if it was a text command
+        try:
+            self.handle_command(command, chat_id, from_id, from_obj, msg_id_to_update)
+        except Exception:
+            self._logger.exception("Caught an exception calling handle_text_message")
+
+        # Answer callback query (to prevent inline buttons from continuing to blink)
+        try:
+            self.main.telegram_utils.send_telegram_request(
+                f"{self.main.bot_url}/answerCallbackQuery",
+                "post",
+                data={"callback_query_id": callback_query["id"]},
+            )
+        except Exception:
+            self._logger.exception("Caught an exception sending answerCallbackQuery")
+
+    def handle_command(self, command, chat_id, from_id, from_obj, msg_id_to_update=""):
         # Separate command and parameter
-        command_text = message["message"]["text"].split("@")[0]
-        parts = command_text.split("_")
+        parts = command.split("_")
         command = parts[0].lower()
-        cmd_info = self.main.tcmd.commandDict.get(command, {})
+        cmd_info = self.main.commands.commands_dict.get(command, {})
         parameter = "_".join(parts[1:]) if cmd_info.get("param") else ""
 
         # Log received command
         self._logger.info(
-            f"Received command '{command}' with parameter '{parameter}' in chat {self.get_chat_id(message)} from {self.get_from_id(message)}"
+            "Received command '%s' with parameter '%s' in chat '%s' from '%s'", command, parameter, chat_id, from_id
         )
 
         # Is command  known?
-        if command not in self.main.tcmd.commandDict:
+        if command not in self.main.commands.commands_dict:
             # we dont know the command so skip the message
             self._logger.warning("Previous command was an unknown command.")
             if not self.main._settings.get(["no_mistake"]):
                 self.main.send_msg(
-                    f"{get_emoji('notallowed')} I do not understand you!",
+                    render_emojis("{emo:notallowed} I do not understand you!"),
                     chatID=chat_id,
                 )
             return
@@ -485,18 +481,11 @@ class TelegramListener(threading.Thread):
         if self.main.is_command_allowed(chat_id, from_id, command):
             # Identify user
             user = "Telegram - "
-
             try:
-                sender = (
-                    message.get("from")  # Callback query
-                    or message.get("message", {}).get("from")  # Other messages
-                    or {}
-                )
+                username = from_obj.get("username")
 
-                username = sender.get("username")
-
-                first_name = sender.get("first_name")
-                last_name = sender.get("last_name")
+                first_name = from_obj.get("first_name")
+                last_name = from_obj.get("last_name")
                 fullname = " ".join(part for part in (first_name, last_name) if part).strip()
 
                 parts = []
@@ -511,34 +500,50 @@ class TelegramListener(threading.Thread):
                 user += "UNKNOWN"
 
             # Execute command
-            self.main.tcmd.commandDict[command]["cmd"](chat_id, from_id, command, parameter, user)
+            try:
+                self.main.commands.run_command(command, chat_id, from_id, parameter, msg_id_to_update, user)
+            except Exception:
+                self._logger.exception("Caught an exception executing command %s", command)
+                self.main.send_msg(
+                    render_emojis("{emo:attention} Error executing your command! Please check logs."),
+                    chatID=chat_id,
+                    msg_id=msg_id_to_update,
+                )
         else:
             # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.main.send_msg(
-                f"You are not allowed to do this! {get_emoji('notallowed')}",
+                render_emojis("{emo:notallowed} You are not allowed to do this!"),
                 chatID=chat_id,
             )
 
-    def get_chat_id(self, message):
-        if "message" in message:
-            chat = message["message"]["chat"]
-        elif "callback_query" in message:
-            chat = message["callback_query"]["message"]["chat"]
+    def get_chat_id(self, update):
+        if "message" in update:
+            chat_id = update["message"]["chat"]["id"]
+        elif "callback_query" in update:
+            chat_id = update["callback_query"]["message"]["chat"]["id"]
+        elif "my_chat_member" in update:
+            chat_id = update["my_chat_member"]["chat"]["id"]
+        elif "channel_post" in update:
+            chat_id = update["channel_post"]["chat"]["id"]
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
-
-        chat_id = chat["id"]
+            raise ValueError(
+                "Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' or 'channel_post' found"
+            )
 
         return str(chat_id)
 
-    def get_from_id(self, message):
-        if "message" in message:
-            from_id = message["message"]["from"]["id"]
-        elif "callback_query" in message:
-            from_id = message["callback_query"]["from"]["id"]
+    def get_from_id(self, update):
+        if "message" in update:
+            from_id = update.get("message", {}).get("from", {}).get("id", "")
+        elif "callback_query" in update:
+            from_id = update.get("callback_query", {}).get("from", {}).get("id", "")
+        elif "my_chat_member" in update:
+            from_id = update.get("my_chat_member", {}).get("from", {}).get("id", "")
+        elif "channel_post" in update:
+            from_id = update.get("channel_post", {}).get("from", {}).get("id", "")
         else:
-            raise ValueError("Unsupported message type: no 'message' or 'callback_query' found")
+            raise ValueError("Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' found")
 
         return str(from_id)
 
@@ -589,10 +594,10 @@ class TelegramListener(threading.Thread):
             return
 
         if self.do_stop:
-            self._logger.debug(f"Would set status but do_stop is True: {status}")
+            self._logger.debug("Would set status but do_stop is True: %s", status)
             return
 
-        self._logger.debug(f"Setting status: {status}")
+        self._logger.debug("Setting status: %s", status)
         self.connection_ok = ok
         self.main.connection_state_str = status
 
@@ -659,16 +664,17 @@ class TelegramPlugin(
         self.connection_state_str = "Disconnected."
         self.connection_ok = False
 
-        self.update_message_id = {}
         self.shut_up = set()
 
+        self.commands = Commands(self)
         self.telegram_utils = None
-        self.tcmd = None
         self.tmsg = None
 
         self.new_chat_settings = {}  # Initial settings for new chat. See on_after_startup()
 
         self.enrollment_countdown_end = None
+
+        self.user_pause_already_notified = False
 
     # Starts the telegram bot
     def start_bot(self):
@@ -692,28 +698,47 @@ class TelegramPlugin(
             except Exception:
                 self._logger.exception("Caught an exception setting bot commands")
 
-            # Update chat pictures
+            # Update chats
             try:
 
-                def update_chat_pictures():
-                    settings_chats = self._settings.get(["chats"])
-
-                    for chat_id in settings_chats:
+                def _update_chats():
+                    for chat_id, chat_settings in self._settings.get(["chats"]).items():
                         if chat_id == "zBOTTOMOFCHATS":
                             continue
 
-                        public_path = self.save_chat_picture(chat_id)
-                        if public_path:
-                            self._settings.set(["chats", chat_id, "image"], public_path)
+                        # Delete unreachable chats
+                        if chat_settings.get("type") == "private":
+                            endpoint = f"{self.bot_url}/sendChatAction"
+                            params = {"chat_id": chat_id, "action": "typing"}
+                        else:
+                            endpoint = f"{self.bot_url}/getChat"
+                            params = {"chat_id": chat_id}
+                        try:
+                            self.telegram_utils.send_telegram_request(
+                                endpoint,
+                                "get",
+                                params=params,
+                                timeout=5,
+                            )
+                        except Exception as e:
+                            if '"error_code":403' in getattr(e, "telegram_response_text", ""):
+                                self._logger.info("Chat %s is unreachable, removing it from settings...", chat_id)
+                                self.remove_chat_from_known_chats(chat_id)
+                                continue
 
+                        # Update chat pictures
+                        public_path = self.save_chat_picture(chat_id)
+                        self._settings.set(["chats", chat_id, "image"], public_path)
+
+                    # Save settings and update known chats table
                     self._settings.save()
                     self._plugin_manager.send_plugin_message(
                         self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
                     )
 
-                threading.Thread(target=update_chat_pictures, daemon=True).start()
+                threading.Thread(target=_update_chats, daemon=True).start()
             except Exception:
-                self._logger.exception("Caught an exception updating chat pictures")
+                self._logger.exception("Caught an exception updating chats")
 
     # Stops the telegram bot
     def stop_bot(self):
@@ -798,48 +823,25 @@ class TelegramPlugin(
         app.jinja_env.filters["telegram_emoji"] = Emoji.get_emoji
 
         self.telegram_utils = TelegramUtils(self)
-        self.tcmd = TCMD(self)
-        self.triggered = False
 
         # Notification Message Handler class. Called only by on_event()
         self.tmsg = TMSG(self)
 
         # Initial settings for new chat.
         self.new_chat_settings = {
-            "private": True,
             "title": "[UNKNOWN]",
             "accept_commands": False,
             "send_notifications": False,
-            "type": "",
+            "type": "private",
             "image": "",
             "allow_users": False,
-            "commands": {k: False for k, v in self.tcmd.commandDict.items() if "bind_none" not in v},
+            "commands": {k: False for k, v in self.commands.commands_dict.items() if "bind_none" not in v},
             "notifications": {k: False for k, v in telegramMsgDict.items()},
         }
 
         # Create / clean tmpgif folder
         shutil.rmtree(self.get_tmpgif_dir(), ignore_errors=True)
         os.makedirs(self.get_tmpgif_dir(), exist_ok=True)
-
-        # Delete chat pictures if chat isn't known anymore
-        try:
-            existing_chat_ids = set(self._settings.get(["chats"]).keys())
-
-            img_user_dir = os.path.join(self.get_plugin_data_folder(), "img", "user")
-            for filename in os.listdir(img_user_dir):
-                file_path = os.path.join(img_user_dir, filename)
-                try:
-                    if not os.path.isfile(file_path):
-                        continue
-
-                    filename_chat_id = filename[3:].rsplit(".", 1)[0]
-                    if filename_chat_id not in existing_chat_ids:
-                        os.remove(file_path)
-                        self._logger.info(f"Deleted obsolete chat picture {file_path}")
-                except Exception:
-                    self._logger.exception(f"Caught an exception deleting obsolete chat picture {file_path}")
-        except Exception:
-            self._logger.exception("Caught an exception deleting obsolete chat pictures")
 
         self.start_bot()
 
@@ -858,14 +860,15 @@ class TelegramPlugin(
             notification_time=15,
             message_at_print_done_delay=0,
             messages=telegramMsgDict,
-            # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
-            chats={"zBOTTOMOFCHATS": {}},
+            chats={
+                "zBOTTOMOFCHATS": {}
+            },  # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
             send_icon=True,
-            image_not_connected=True,
-            gif_not_connected=False,
             send_gif=False,
             no_mistake=False,
-            fileOrder=False,
+            select_file_after_upload=False,
+            sort_files_by_date=False,
+            show_models_in_files=True,
             no_cpulimit=False,
             ffmpeg_preset="medium",
             PreImgMethod="None",
@@ -891,24 +894,23 @@ class TelegramPlugin(
     def get_settings_version(self):
         # Settings version numbers used in releases
         # < 1.3.0: no settings versioning
-        # 1.3.0: 1
-        # 1.3.1: 2
-        # 1.4.0: 3
-        # 1.4.3: 4
-        # 1.5.1: 5 (PauseForUser)
-        # 1.9.0: 6
-        return 6
+        # 1.3.0:  1
+        # 1.3.1:  2
+        # 1.4.0:  3
+        # 1.4.3:  4
+        # 1.5.1:  5
+        # 1.9.0:  6
+        # 1.10.0: 7
+        return 7
 
     def on_settings_migrate(self, target, current=None):
-        self._logger.warning(f"Migration - start migration from {current} to {target}")
-
-        tcmd = TCMD(self)
+        self._logger.warning("Migration - start migration from %s to %s", current, target)
 
         chats = {k: v for k, v in self._settings.get(["chats"]).items() if k != "zBOTTOMOFCHATS"}
-        self._logger.info(f"Migration - loaded chats: {chats}")
+        self._logger.info("Migration - loaded chats: %s", chats)
 
         messages = self._settings.get(["messages"])
-        self._logger.info(f"Migration - loaded messages: {messages}")
+        self._logger.info("Migration - loaded notification messages: %s", messages)
 
         # Migrate from plugin versions < 1.3.0
         if current is None or current < 1:
@@ -936,7 +938,6 @@ class TelegramPlugin(
                     )
 
                     chat = json_data["result"]["chat"]
-                    new_chat_settings["private"] = chat.get("type") == "private"
                     new_chat_settings["title"] = get_chat_title(chat)
                 except Exception:
                     self._logger.exception(
@@ -947,18 +948,36 @@ class TelegramPlugin(
                 self._settings.set(["chat"], None)
                 chats[str(chat["id"])] = new_chat_settings
 
-            # Delete old settings
-            for key in [
+        # Migrate from plugin versions < 1.10.0
+        if current is None or current < 7:
+            # In previous versions, "type" was stored in uppercase
+            for chat_settings in chats.values():
+                if "type" in chat_settings and isinstance(chat_settings["type"], str):
+                    chat_settings["type"] = chat_settings["type"].lower()
+
+        # General migration from all previous versions
+        if current is None or current < target:
+            # Rename mappings (old:new)
+            commands_to_rename = {"/list": "/files", "/imsorrydontshutup": "/dontshutup", "/on": "/power"}
+            notifications_to_rename = {
+                "TelegramSendNotPrintingStatus": "StatusNotPrinting",
+                "TelegramSendPrintingStatus": "StatusPrinting",
+                "plugin_pause_for_user_event_notify": "PausedForUser",
+            }
+            notification_vars_to_rename = {"currentLayer": "current_layer", "totalLayer": "total_layer"}
+            settings_to_rename = {"fileOrder": "sort_files_by_date", "selectFileUpload": "select_file_after_upload"}
+
+            # Settings to delete
+            settings_to_delete = [
                 "message_at_startup",
                 "message_at_shutdown",
                 "message_at_print_started",
                 "message_at_print_done",
                 "message_at_print_failed",
-            ]:
-                self._settings.set([key], None)
+                "image_not_connected",
+                "gif_not_connected",
+            ]
 
-        # General migration from all previous versions
-        if current is None or current < target:
             # Update chats
             for chat_settings in chats.values():
                 # Add new chat settings
@@ -971,20 +990,26 @@ class TelegramPlugin(
                 chat_notifications = chat_settings["notifications"]
 
                 # Rename commands (copy, not move)
-                rename_commands = {"/list": "/files", "/imsorrydontshutup": "/dontshutup", "/on": "/power"}
-                for old_cmd, new_cmd in rename_commands.items():
-                    if old_cmd in chat_commands:
-                        chat_commands[new_cmd] = chat_commands[old_cmd]
+                for old_command, new_command in commands_to_rename.items():
+                    if old_command in chat_commands:
+                        chat_commands[new_command] = chat_commands[old_command]
 
-                # Remove obsolete commands (marked with 'bind_none' or no longer present in tcmd.commandDict)
+                # Remove obsolete commands (marked with 'bind_none' or no longer present in commands_dict)
                 for command in list(chat_commands):
-                    if command not in tcmd.commandDict or "bind_none" in tcmd.commandDict.get(command, {}):
+                    if command not in self.commands.commands_dict or "bind_none" in self.commands.commands_dict.get(
+                        command, {}
+                    ):
                         chat_commands.pop(command, None)
 
                 # Add new commands
-                for command, command_props in tcmd.commandDict.items():
+                for command, command_props in self.commands.commands_dict.items():
                     if command not in chat_commands and "bind_none" not in command_props:
                         chat_commands[command] = False
+
+                # Rename notifications (copy, not move)
+                for old_notification, new_notification in notifications_to_rename.items():
+                    if old_notification in chat_notifications:
+                        chat_notifications[new_notification] = chat_notifications[old_notification]
 
                 # Remove obsolete notifications (no longer present in telegramMsgDict)
                 for msg in list(chat_notifications):
@@ -996,20 +1021,16 @@ class TelegramPlugin(
                     if notification not in chat_notifications:
                         chat_notifications[notification] = False
 
-            # Rename messages (copy, not move)
-            rename_messages = {
-                "TelegramSendNotPrintingStatus": "StatusNotPrinting",
-                "TelegramSendPrintingStatus": "StatusPrinting",
-            }
+            # Rename notification messages (copy, not move)
             for message, message_props in list(messages.items()):
-                mapped_key = rename_messages.get(message, message)
+                mapped_key = notifications_to_rename.get(message, message)
                 messages[mapped_key] = (
                     message_props
                     if isinstance(message_props, dict)
                     else {**telegramMsgDict.get(mapped_key, {}), "text": str(message_props)}
                 )
 
-            # Remove obsolete messages (no longer present in telegramMsgDict)
+            # Remove obsolete notification messages (no longer present in telegramMsgDict)
             for message in list(messages):
                 if message not in telegramMsgDict:
                     messages.pop(message, None)
@@ -1019,16 +1040,35 @@ class TelegramPlugin(
                 if message not in messages:
                     messages[message] = message_props
 
+            # Rename vars in notification messages
+            for message, message_props in messages.items():
+                message_text = message_props.get("text")
+                if message_text is not None:
+                    for old_var, new_var in notification_vars_to_rename.items():
+                        message_text = message_text.replace("{" + old_var + "}", "{" + new_var + "}")
+                    message_props["text"] = message_text
+
+            # Rename settings
+            for old_setting, new_setting in settings_to_rename.items():
+                old_setting_value = self._settings.get([old_setting])
+                if old_setting_value is not None:
+                    self._settings.set([new_setting], old_setting_value)
+                    self._settings.set([old_setting], None)
+
+            # Delete old settings
+            for key in settings_to_delete:
+                self._settings.set([key], None)
+
         # Save the settings after migration is done
         self._settings.set(["chats"], chats)
-        self._logger.info(f"Migration - chats set: {chats}")
+        self._logger.info("Migration - chats set: %s", chats)
         self._settings.set(["messages"], messages)
-        self._logger.info(f"Migration - messages set: {messages}")
+        self._logger.info("Migration - notification messages set: %s", messages)
 
         self._logger.warning("Migration - end")
 
     def on_settings_save(self, data):
-        self._logger.debug(f"Saving data: {data}")
+        self._logger.debug("Saving data: %s", data)
 
         # Get old token from settings
         old_token = self._settings.get(["token"])
@@ -1094,12 +1134,18 @@ class TelegramPlugin(
                 self._logger.warning("Received an event, but bot is not ready")
                 return
 
+            if event == "plugin_prusammu_mmu_changed":
+                if payload["state"] in ("NOT_FOUND", "PAUSED_USER", "ATTENTION"):
+                    event = "PrusaMMU_Error"
+                elif payload["state"] in ("UNLOADING", "UNLOADING_FINAL", "LOADING", "LOADED", "CUTTING", "EJECTING"):
+                    event = "PrusaMMU_Status"
+
             # If we know the event, start handler
             if event in self.tmsg.msgCmdDict:
-                self._logger.debug(f"Received a known event: {event} - Payload: {payload}")
+                self._logger.debug("Received a known event: %s - Payload: %s", event, payload)
                 self.tmsg.startEvent(event, payload, **kwargs)
         except Exception:
-            self._logger.exception("Caught exception handling an event")
+            self._logger.exception("Caught an exception handling an event")
 
     ##########
     ### TemplatePlugin mixin
@@ -1141,7 +1187,7 @@ class TelegramPlugin(
                 {
                     "bind_cmd": {
                         k: v.get("desc", "No description provided")
-                        for k, v in self.tcmd.commandDict.items()
+                        for k, v in self.commands.commands_dict.items()
                         if "bind_none" not in v
                     },
                     "bind_msg": {
@@ -1153,6 +1199,10 @@ class TelegramPlugin(
                     "no_setting": [k for k, v in telegramMsgDict.items() if "no_setting" in v],
                 }
             )
+
+        # /?default_messages
+        if request_args and "default_messages" in request_args:
+            return jsonify(telegramMsgDict)
 
         # /?requirements
         if request_args and "requirements" in request_args:
@@ -1192,11 +1242,15 @@ class TelegramPlugin(
                 "octolightHA",
                 "octorelay",
                 "orvibos20",
-                "psucontrol",
+                "prusammu",
                 "prusaslicerthumbnails",
+                "psucontrol",
+                "resource_monitor",
+                "SlicerSettingsParser",
+                "Spoolman",
                 "SpoolManager",
-                "tasmota",
                 "tasmota_mqtt",
+                "tasmota",
                 "tplinksmartplug",
                 "tuyasmartplug",
                 "usbrelaycontrol",
@@ -1240,7 +1294,7 @@ class TelegramPlugin(
         )
 
     def on_api_command(self, command, data):
-        self._logger.info(f"Received API command {command} with data {data}")
+        self._logger.info("Received API command %s with data %s", command, data)
 
         if not Permissions.SETTINGS.can():
             self._logger.warning("API command was not allowed")
@@ -1284,21 +1338,15 @@ class TelegramPlugin(
 
             is_chat_unknown = self._settings.get(["chats", chat_id]) is None
             if is_chat_unknown:
-                self._logger.warning(f"Chat id {chat_id} is unknown")
+                self._logger.warning("Chat id %s is unknown", chat_id)
                 return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
             try:
-                chat_picture_path = os.path.join(self.get_plugin_data_folder(), "img", "user", f"pic{int(chat_id)}.jpg")
-                os.remove(chat_picture_path)
-            except OSError:
-                pass
+                self.remove_chat_from_known_chats(chat_id)
+                self._logger.info("Chat %s has been deleted via API", chat_id)
             except Exception:
-                return jsonify({"ok": False, "error": "Cannot delete chat picture"}), 500
-
-            self._settings.remove(["chats", chat_id])
-            self._settings.save()
-
-            self._logger.info(f"Chat {chat_id} deleted")
+                self._logger.exception("Caught an exception in delChat API command")
+                return jsonify({"ok": False, "error": "Cannot delete chat, please check logs"}), 500
 
             # Return updated chats settings
             return self.process_on_api_get()
@@ -1307,10 +1355,10 @@ class TelegramPlugin(
             event = data.get("event")
             try:
                 self.on_event(event, {})
-                self._logger.info(f"Event {event} tested")
+                self._logger.info("Event %s tested", event)
                 return jsonify({"ok": True})
             except Exception:
-                self._logger.exception(f"Caught an exception testing event {event}")
+                self._logger.exception("Caught an exception testing event %s", event)
                 return jsonify({"ok": False})
 
         elif command == "editChat":
@@ -1319,7 +1367,7 @@ class TelegramPlugin(
 
             # Check if chat is unknown
             if not settings_chat:
-                self._logger.warning(f"Chat id {chat_id} is unknown")
+                self._logger.warning("Chat id %s is unknown", chat_id)
                 return jsonify({"ok": False, "error": "Unknown chat with given id"}), 404
 
             settings_keys = ("accept_commands", "send_notifications", "allow_users")
@@ -1327,7 +1375,7 @@ class TelegramPlugin(
             # Check that settings_keys are boolean
             invalid_keys = [k for k in settings_keys if not isinstance(data.get(k), bool)]
             if invalid_keys:
-                self._logger.warning(f"Received args {', '.join(invalid_keys)} are not boolean")
+                self._logger.warning("Received args %s are not boolean", ", ".join(invalid_keys))
                 return jsonify(
                     {"ok": False, "error": f"Invalid values: {', '.join(invalid_keys)} must be boolean"}
                 ), 400
@@ -1340,7 +1388,7 @@ class TelegramPlugin(
 
             # Logging successful user update
             settings = ", ".join(f"{k}={data[k]}" for k in settings_keys)
-            self._logger.info(f"Updated settings for chat {chat_id} - {settings}")
+            self._logger.info("Updated settings for chat %s: %s", chat_id, settings)
 
             # Return updated chats settings
             return self.process_on_api_get()
@@ -1375,7 +1423,7 @@ class TelegramPlugin(
             if "chatID" not in kwargs and "event" in kwargs:
                 event = kwargs["event"]
 
-                self._logger.debug(f"Send_msg() - Found event: {event} | chats settings={settings_chats}")
+                self._logger.debug("Send_msg() - Found event: %s | chats settings=%s", event, settings_chats)
 
                 for chat_id, chat_settings in settings_chats.items():
                     if chat_id == "zBOTTOMOFCHATS":
@@ -1390,7 +1438,7 @@ class TelegramPlugin(
                             kwargs["chatID"] = chat_id
                             threading.Thread(target=self._send_msg, kwargs=kwargs).run()
                     except Exception:
-                        self._logger.exception(f"Caught an exception processing chat {chat_id}")
+                        self._logger.exception("Caught an exception processing chat %s", chat_id)
 
             # Message is a broadcast
             elif "chatID" not in kwargs:
@@ -1402,7 +1450,7 @@ class TelegramPlugin(
                         kwargs["chatID"] = chat_id
                         threading.Thread(target=self._send_msg, kwargs=kwargs).run()
                     except Exception:
-                        self._logger.exception(f"Caught an exception processing chat {chat_id}")
+                        self._logger.exception("Caught an exception processing chat %s", chat_id)
 
             # Message is a 'editMessageText'
             elif kwargs.get("msg_id"):
@@ -1414,17 +1462,14 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception in send_msg()")
 
-    # This method is used to update a message text of a sent message.
-    # The sent message had to have markup="off" when calling send_msg() (otherwise it would not work)
-    # by setting markup="off" we got a messagge_id on sending the message which is saved in self.update_message_id.
-    # If this message_id is passed in msg_id to send_msg() then this method will be called.
+    # Edits the text of an existing message (by msg_id) previously sent.
+    # Automatically called by send_msg() when a valid msg_id is provided.
     def _send_edit_msg(
         self,
         message="",
         msg_id="",
         chatID="",
         responses=None,
-        inline=True,
         markup="off",
         delay=0,
         **kwargs,
@@ -1435,7 +1480,7 @@ class TelegramPlugin(
         if delay > 0:
             time.sleep(delay)
         try:
-            self._logger.debug(f"Sending a message UPDATE in chat {chatID}: {message}")
+            self._logger.debug("Sending a message UPDATE in chat %s: %s", chatID, message)
             data = {}
             data["text"] = message
             data["message_id"] = msg_id
@@ -1444,35 +1489,33 @@ class TelegramPlugin(
                 if markup in {"HTML", "Markdown", "MarkdownV2"}:
                     data["parse_mode"] = markup
                 else:
-                    self._logger.warning(f"Invalid markup: {markup}")
-            if responses and inline:
+                    self._logger.warning("Invalid markup: %s", markup)
+            if responses:
                 my_arr = []
                 for k in responses:
                     my_arr.append([{"text": x[0], "callback_data": x[1]} for x in k])
                 keyboard = {"inline_keyboard": my_arr}
                 data["reply_markup"] = json.dumps(keyboard)
 
-            self._logger.debug(f"SENDING UPDATE: {data}")
+            self._logger.debug("SENDING UPDATE: %s", data)
             self.telegram_utils.send_telegram_request(
                 f"{self.bot_url}/editMessageText",
                 "post",
                 data=data,
             )
 
-            if inline:
-                self.update_message_id[chatID] = msg_id
-
-        except Exception:
-            self._logger.exception("Caught an exception in _send_edit_msg()")
-            self.thread.set_status("Exception sending a message")
-            self.telegram_utils.send_telegram_request(
-                f"{self.bot_url}/sendMessage",
-                "post",
-                data={
-                    "chat_id": chatID,
-                    "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
-                },
-            )
+        except Exception as e:
+            if "Bad Request: message is not modified" not in getattr(e, "telegram_response_text", ""):
+                self._logger.exception("Caught an exception in _send_edit_msg()")
+                self.thread.set_status("Exception sending a message")
+                self.telegram_utils.send_telegram_request(
+                    f"{self.bot_url}/sendMessage",
+                    "post",
+                    data={
+                        "chat_id": chatID,
+                        "text": "I tried to send you a message, but an exception occurred. Please check the logs.",
+                    },
+                )
 
     def _send_msg(
         self,
@@ -1481,7 +1524,6 @@ class TelegramPlugin(
         with_gif=False,
         responses=None,
         delay=0,
-        inline=True,
         chatID="",
         markup="off",
         show_web=False,
@@ -1489,7 +1531,7 @@ class TelegramPlugin(
         gif_duration=5,
         **kwargs,
     ):
-        self._logger.debug(f"Start _send_msg with args: {locals()}")
+        self._logger.debug("Start _send_msg with args: %s", locals())
 
         try:
             # Check if bot is ready
@@ -1498,7 +1540,7 @@ class TelegramPlugin(
 
             # Delay
             if delay > 0:
-                self._logger.debug(f"Sleeping {delay} seconds")
+                self._logger.debug("Sleeping %s seconds", delay)
                 time.sleep(delay)
 
             # Preparing message data
@@ -1512,7 +1554,7 @@ class TelegramPlugin(
                 if markup == "HTML" or markup == "Markdown" or markup == "MarkdownV2":
                     message_data["parse_mode"] = markup
                 else:
-                    self._logger.warning(f"Invalid markup: {markup}")
+                    self._logger.warning("Invalid markup: %s", markup)
 
             if responses:
                 inline_keyboard_buttons = []
@@ -1529,13 +1571,8 @@ class TelegramPlugin(
             thumbnail = kwargs.get("thumbnail")
             if thumbnail:
                 try:
-                    self._logger.debug(f"Get thumbnail: {thumbnail}")
-
-                    url = f"http://localhost:{self.port}/{thumbnail}"
-
-                    thumbnail_response = requests.get(url)
-                    thumbnail_response.raise_for_status()
-
+                    self._logger.debug("Get thumbnail: %s", thumbnail)
+                    thumbnail_response = self.send_octoprint_request(f"/{thumbnail}")
                     images_to_send.append(thumbnail_response.content)
                 except Exception:
                     self._logger.exception("Caught an exception getting thumbnail")
@@ -1631,7 +1668,7 @@ class TelegramPlugin(
 
             # If there are media, send a media-group message
             if media:
-                self._logger.debug(f"Sending message with media, chat id: {chatID}")
+                self._logger.debug("Sending message with media, chat id: %s", chatID)
 
                 if gifs_to_send:
                     action = "upload_video"
@@ -1640,7 +1677,7 @@ class TelegramPlugin(
                 with self.telegram_action_context(chatID, action):
                     message_data["media"] = json.dumps(media)
 
-                    tlg_response = self.telegram_utils.send_telegram_request(
+                    self.telegram_utils.send_telegram_request(
                         f"{self.bot_url}/sendMediaGroup",
                         "post",
                         data=message_data,
@@ -1649,21 +1686,16 @@ class TelegramPlugin(
 
             # If there aren't media, send a text-only message
             else:
-                self._logger.debug(f"Sending text-only message, chat id: {chatID}")
+                self._logger.debug("Sending text-only message, chat id: %s", chatID)
 
                 with self.telegram_action_context(chatID, "typing"):
                     message_data["text"] = message
 
-                    tlg_response = self.telegram_utils.send_telegram_request(
+                    self.telegram_utils.send_telegram_request(
                         f"{self.bot_url}/sendMessage",
                         "post",
                         data=message_data,
                     )
-
-            # Inline handling
-            if inline:
-                if "message_id" in tlg_response["result"]:
-                    self.update_message_id[chatID] = tlg_response["result"]["message_id"]
 
         except Exception:
             self._logger.exception("Caught an exception in _send_msg()")
@@ -1677,40 +1709,21 @@ class TelegramPlugin(
                 },
             )
 
-    def humanbytes(self, B):
-        "Return the given bytes as a human friendly KB, MB, GB, or TB string"
-        B = float(B)
-
-        KB = float(1024)
-        MB = float(KB**2)
-        GB = float(KB**3)
-        TB = float(KB**4)
-
-        if B < KB:
-            return f"{B} {'Bytes' if B != 1 else 'Byte'}"
-        elif KB <= B < MB:
-            return f"{B / KB:.2f} KB"
-        elif MB <= B < GB:
-            return f"{B / MB:.2f} MB"
-        elif GB <= B < TB:
-            return f"{B / GB:.2f} GB"
-        elif TB <= B:
-            return f"{B / TB:.2f} TB"
-
     def send_file(self, chat_id, path, caption=""):
         if not self.bot_ready:
             return
 
-        self._logger.info(f"Sending file {path} to chat {chat_id}")
+        self._logger.info("Sending file %s to chat %s", path, chat_id)
 
         if os.path.getsize(path) > 50 * 1024 * 1024:
-            self._logger.warning(f"File '{path}' not sent to chat {chat_id}: exceeds 50MB limit")
+            self._logger.warning("File '%s' not sent to chat %s: exceeds 50MB limit", path, chat_id)
 
             self.send_msg(
-                f"{get_emoji('warning')} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
-                "Please download it manually from the OctoPrint web interface.",
+                render_emojis(
+                    f"{{emo:warning}} The file `{os.path.basename(path)}` is too large (>50MB) to send via Telegram. "
+                    "Please download it manually from the OctoPrint web interface."
+                ),
                 chatID=chat_id,
-                msg_id=self.get_update_msg_id(chat_id),
             )
             return
 
@@ -1727,7 +1740,7 @@ class TelegramPlugin(
         if not self.bot_ready:
             return
 
-        self._logger.debug(f"Requesting file with id {file_id}")
+        self._logger.debug("Requesting file with id %s", file_id)
 
         json_data = self.telegram_utils.send_telegram_request(
             f"{self.bot_url}/getFile",
@@ -1738,12 +1751,53 @@ class TelegramPlugin(
         file_path = json_data["result"]["file_path"]
         file_url = f"{self.bot_file_url}/{file_path}"
 
-        self._logger.info(f"Downloading file: {file_url}")
+        self._logger.info("Downloading file: %s", file_url)
 
         file_req = requests.get(file_url, proxies=self.telegram_utils.get_proxies())
         file_req.raise_for_status()
 
         return file_req.content
+
+    def remove_chat_from_known_chats(self, chat_id):
+        self._logger.info("Removing chat %s from known chats", chat_id)
+
+        try:
+            chat_picture_path = os.path.join(self.get_plugin_data_folder(), "img", "user", f"pic{int(chat_id)}.jpg")
+            os.remove(chat_picture_path)
+        except OSError:
+            pass
+
+        self._settings.remove(["chats", chat_id])
+        self._settings.save()
+
+        self._plugin_manager.send_plugin_message(
+            self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
+        )
+
+    def add_chat_to_known_chats(self, chat_id, chat_title, chat_type):
+        self._logger.info("Adding new chat %s to known chats", chat_id)
+
+        new_chat_settings = copy.deepcopy(self.new_chat_settings)
+        new_chat_settings["type"] = chat_type
+        new_chat_settings["title"] = chat_title
+        new_chat_settings["image"] = self.save_chat_picture(chat_id)
+
+        settings_chats = self._settings.get(["chats"])
+        settings_chats[chat_id] = new_chat_settings
+        self._settings.set(["chats"], settings_chats)
+        self._settings.save()
+
+        self._plugin_manager.send_plugin_message(
+            self._identifier, {"type": "update_known_chats", "chats": self._settings.get(["chats"])}
+        )
+
+        self.send_msg(
+            render_emojis(
+                "{emo:info} Chat added to known chats. "
+                "Before you can do anything, please go to plugin settings and edit your permissions."
+            ),
+            chatID=chat_id,
+        )
 
     def save_chat_picture(self, chat_id):
         if not self.bot_ready:
@@ -1751,10 +1805,7 @@ class TelegramPlugin(
 
         chat_id = int(chat_id)
 
-        self._logger.debug(f"Saving chat picture for chat {chat_id}")
-
-        default_img = "/plugin/telegram/static/img/default.jpg"
-        group_img = "/plugin/telegram/static/img/group.jpg"
+        self._logger.debug("Saving chat picture for chat %s", chat_id)
 
         try:
             is_group = is_group_or_channel(chat_id)
@@ -1782,25 +1833,29 @@ class TelegramPlugin(
                     file_id = photos[0][0].get("file_id")
 
             if not file_id:
-                self._logger.debug(f"Chat {chat_id} has no photo")
+                self._logger.debug("Chat %s has no photo", chat_id)
 
                 try:
                     os.remove(output_filename)
                 except Exception:
                     pass
 
-                return group_img if is_group else default_img
+                return ""
 
             img_bytes = self.get_file(file_id)
             with Image.open(io.BytesIO(img_bytes)) as img:
                 img = img.resize((40, 40), Image.LANCZOS)
                 img.save(output_filename, format="JPEG")
 
-            self._logger.info(f"Saved chat picture for chat id {chat_id}")
-            return f"/plugin/telegram/img/user/pic{chat_id}.jpg"
+            self._logger.info("Saved chat picture for chat id %s", chat_id)
+
+            # Nocache is used to force image refresh in the known chats table
+            nocache = int(time.time())
+
+            return f"/plugin/telegram/img/user/pic{chat_id}.jpg?nocache={nocache}"
         except Exception:
-            self._logger.exception(f"Caught an exception saving chat picture for chat_id {chat_id}")
-            return default_img
+            self._logger.exception("Caught an exception saving chat picture for chat_id %s", chat_id)
+            return ""
 
     @contextmanager
     def telegram_action_context(self, chat_id, action):
@@ -1846,7 +1901,7 @@ class TelegramPlugin(
             return
 
         commands = []
-        for cmd_name, cmd_info in self.tcmd.commandDict.items():
+        for cmd_name, cmd_info in self.commands.commands_dict.items():
             if cmd_name.startswith("/"):
                 commands.append(
                     {"command": cmd_name.lstrip("/"), "description": cmd_info.get("desc", "No description provided")}
@@ -1878,7 +1933,7 @@ class TelegramPlugin(
         from_accept_this_command = from_settings.get("commands", {}).get(command, False)
 
         # Always allowed commands (e.g., /help, etc)
-        if "bind_none" in self.tcmd.commandDict[command]:
+        if "bind_none" in self.commands.commands_dict.get(command, {}):
             return True
 
         # Commands allowed for all chat members (both in private chat and in groups)
@@ -1892,15 +1947,6 @@ class TelegramPlugin(
 
         return False
 
-    # Helper function to handle /editMessageText Telegram API commands
-    # See main._send_edit_msg()
-    def get_update_msg_id(self, id):
-        update_msg_id = ""
-        if id in self.update_message_id:
-            update_msg_id = self.update_message_id[id]
-            del self.update_message_id[id]
-        return update_msg_id
-
     def pre_image(self):
         method = self._settings.get(["PreImgMethod"])
 
@@ -1908,13 +1954,13 @@ class TelegramPlugin(
             return
 
         if method not in {"EVENT", "GCODE", "SYSTEM"}:
-            self._logger.warning(f"Unknown pre_image method: {method}")
+            self._logger.warning("Unknown pre_image method: %s", method)
             return
 
         command = self._settings.get(["PreImgCommand"])
         delay = self._settings.get_int(["PreImgDelay"], min=0)
 
-        self._logger.debug(f"Executing pre_image: method={method}, command={command}, delay={delay}s")
+        self._logger.debug("Executing pre_image: method=%s, command=%s, delay=%ss", method, command, delay)
 
         if method == "EVENT":
             self._event_bus.fire("plugin_telegram_preimg")
@@ -1924,14 +1970,14 @@ class TelegramPlugin(
         elif method == "SYSTEM":
             try:
                 proc = subprocess.Popen(command, shell=True)
-                self._logger.debug(f"Pre_image SYSTEM command started (PID={proc.pid})")
+                self._logger.debug("Pre_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait()
-                self._logger.debug(f"Pre_image SYSTEM command finished with return code {proc.returncode}")
+                self._logger.debug("Pre_image SYSTEM command finished with return code %s", proc.returncode)
             except Exception:
-                self._logger.exception(f"Caught an exception running pre_image SYSTEM command '{command}'")
+                self._logger.exception("Caught an exception running pre_image SYSTEM command '%s'", command)
 
         if delay:
-            self._logger.debug(f"Pre_image: sleeping for {delay}s")
+            self._logger.debug("Pre_image: sleeping for %ss", delay)
             time.sleep(delay)
 
     def post_image(self):
@@ -1941,16 +1987,16 @@ class TelegramPlugin(
             return
 
         if method not in {"EVENT", "GCODE", "SYSTEM"}:
-            self._logger.warning(f"Unknown post_image method: {method}")
+            self._logger.warning("Unknown post_image method: %s", method)
             return
 
         command = self._settings.get(["PostImgCommand"])
         delay = self._settings.get_int(["PostImgDelay"], min=0)
 
-        self._logger.debug(f"Executing post_image: method={method}, command={command}, delay={delay}s")
+        self._logger.debug("Executing post_image: method=%s, command=%s, delay=%ss", method, command, delay)
 
         if delay:
-            self._logger.debug(f"Post_image: sleeping for {delay}s")
+            self._logger.debug("Post_image: sleeping for %ss", delay)
             time.sleep(delay)
 
         if method == "EVENT":
@@ -1961,11 +2007,11 @@ class TelegramPlugin(
         elif method == "SYSTEM":
             try:
                 proc = subprocess.Popen(command, shell=True)
-                self._logger.debug(f"Post_image SYSTEM command started (PID={proc.pid})")
+                self._logger.debug("Post_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait()
-                self._logger.debug(f"Post_image SYSTEM command finished with return code {proc.returncode}")
+                self._logger.debug("Post_image SYSTEM command finished with return code %s", proc.returncode)
             except Exception:
-                self._logger.exception(f"Caught an exception running post_image SYSTEM command '{command}'")
+                self._logger.exception("Caught an exception running post_image SYSTEM command '%s'", command)
 
     def get_webcam_profiles(self) -> List[WebcamProfile]:
         webcam_profiles: List[WebcamProfile] = []
@@ -2006,7 +2052,7 @@ class TelegramPlugin(
             try:
                 if self._plugin_manager.get_plugin("multicam", True):
                     multicam_profiles = self._settings.global_get(["plugins", "multicam", "multicam_profiles"]) or []
-                    self._logger.debug(f"Multicam profiles: {multicam_profiles}")
+                    self._logger.debug("Multicam profiles: %s", multicam_profiles)
 
                     for multicam_profile in multicam_profiles:
                         webcam_profile = WebcamProfile(
@@ -2042,7 +2088,7 @@ class TelegramPlugin(
             except Exception:
                 self._logger.exception("Caught exception getting legacy webcam settings")
 
-        self._logger.debug(f"Final webcam profiles: {[p.__dict__ for p in webcam_profiles]}")
+        self._logger.debug("Final webcam profiles: %s", [p.__dict__ for p in webcam_profiles])
 
         return webcam_profiles
 
@@ -2074,7 +2120,7 @@ class TelegramPlugin(
     def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False, timeout=15) -> bytes:
         snapshot_url = urljoin("http://localhost/", snapshot_url)
 
-        self._logger.debug(f"Taking image from url: {snapshot_url}")
+        self._logger.debug("Taking image from url: %s", snapshot_url)
 
         r = requests.get(snapshot_url, timeout=timeout, verify=False)
         r.raise_for_status()
@@ -2086,7 +2132,9 @@ class TelegramPlugin(
                 image.load()
 
                 if any([flipH, flipV, rotate]):
-                    self._logger.debug(f"Applying image transformations: flipH={flipH}, flipV={flipV}, rotate={rotate}")
+                    self._logger.debug(
+                        "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flipH, flipV, rotate
+                    )
 
                     if flipH:
                         image = image.transpose(Image.FLIP_LEFT_RIGHT)
@@ -2139,11 +2187,11 @@ class TelegramPlugin(
     ) -> str:
         stream_url = urljoin("http://localhost/", stream_url)
 
-        self._logger.debug(f"Taking gif from url: {stream_url}")
+        self._logger.debug("Taking gif from url: %s", stream_url)
 
         gif_path = os.path.join(self.get_tmpgif_dir(), gif_filename)
 
-        self._logger.debug(f"Removing file {gif_path}")
+        self._logger.debug("Removing file %s", gif_path)
         try:
             os.remove(gif_path)
         except FileNotFoundError:
@@ -2166,16 +2214,16 @@ class TelegramPlugin(
         if cpulimiter_disabled:
             self._logger.debug("CPU limiter disabled via settings")
         elif cpulimiter_path:
-            self._logger.debug(f"Using CPU limiter: {cpulimiter_path}")
+            self._logger.debug("Using CPU limiter: %s", cpulimiter_path)
         else:
             self._logger.error("Neither cpulimit nor limitcpu is installed")
             raise RuntimeError("No CPU limiter (cpulimit or limitcpu) available")
 
         duration = max(1, min(duration, 60))
-        self._logger.debug(f"duration={duration}")
+        self._logger.debug("duration=%s", duration)
 
         time_sec = str(timedelta(seconds=duration))
-        self._logger.debug(f"timeSec={time_sec}")
+        self._logger.debug("timeSec=%s", time_sec)
 
         used_cpu, limit_cpu = 1, 65
         try:
@@ -2183,7 +2231,7 @@ class TelegramPlugin(
             if nb_cpu > 1:
                 used_cpu = nb_cpu // 2
                 limit_cpu = 65 * used_cpu
-            self._logger.debug(f"limit_cpu={limit_cpu} | used_cpu={used_cpu} | because nb_cpu={nb_cpu}")
+            self._logger.debug("limit_cpu=%s | used_cpu=%s | because nb_cpu=%s", limit_cpu, used_cpu, nb_cpu)
         except Exception:
             self._logger.exception("Caught an exception getting number of cpu. Using defaults...")
 
@@ -2241,34 +2289,31 @@ class TelegramPlugin(
 
         cmd.append(gif_path)
 
-        self._logger.debug(f"Creating video by running command {cmd}")
+        self._logger.debug("Creating video by running command: %s", cmd)
         subprocess.run(cmd, check=True)
         self._logger.debug("Video created")
 
         if not os.path.isfile(gif_path):
-            raise FileNotFoundError(f"Expected gif file was not created: {gif_path}")
+            raise FileNotFoundError("Expected gif file was not created: %s", gif_path)
 
         return gif_path
 
     def get_layer_progress_values(self):
-        layers = None
+        layer_progress_values = None
+
         try:
-            if self._plugin_manager.get_plugin("DisplayLayerProgress", True):
-                headers = {
-                    "X-Api-Key": self._settings.global_get(["api", "key"]),
-                }
-                r = requests.get(
-                    f"http://localhost:{self.port}/plugin/DisplayLayerProgress/values",
-                    headers=headers,
-                    timeout=3,
+            displaylayerprogress_plugin_id = "DisplayLayerProgress"
+            if self._plugin_manager.get_plugin(displaylayerprogress_plugin_id, True):
+                values_request = self.send_octoprint_request(
+                    f"/plugin/{displaylayerprogress_plugin_id}/values", timeout=5
                 )
-                r.raise_for_status
-                layers = r.json()
+                layer_progress_values = values_request.json()
             else:
                 self._logger.debug("DisplayLayerProgress plugin not installed or disabled")
         except Exception:
             self._logger.exception("Caught an exception in get_layer_progress_values")
-        return layers
+
+        return layer_progress_values
 
     def calculate_ETA(self, printTime):
         current_time = datetime.now()
@@ -2322,28 +2367,157 @@ class TelegramPlugin(
             ),
         ]
 
-    # Function to be able to do action on gcode
     def hook_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        if gcode and cmd[:4] == "M600":
-            self._logger.info("M600 registered")
-            try:
+        try:
+            if gcode and gcode == "M600":
                 self.on_event("gCode_M600", {})
-            except Exception:
-                self._logger.exception("Caught exception on event M600")
+        except Exception:
+            self._logger.exception("Caught an exception on hook_gcode_sent")
 
-    def recv_callback(self, comm_instance, line, *args, **kwargs):
-        # Found keyword, fire event and block until other text is received
-        if "echo:busy: paused for user" in line or "//action:paused" in line:
-            if not self.triggered:
-                self.on_event("plugin_pause_for_user_event_notify", {})
-                self.triggered = True
-        elif "echo:UserNotif" in line:
-            self.on_event("UserNotif", {"UserNotif": line[15:]})
-        # Other text, we may fire another event if we encounter "paused for user" again
-        else:
-            self.triggered = False
+    def hook_gcode_received(self, comm_instance, line, *args, **kwargs):
+        try:
+            if line.startswith("echo:busy: paused for user") or line.startswith("// action:paused"):
+                if not self.user_pause_already_notified:
+                    self.on_event("PausedForUser", {})
+                    self.user_pause_already_notified = True
+            elif line.startswith("echo:UserNotif"):
+                self.on_event("UserNotif", {"UserNotif": line[15:]})
+            elif line.startswith("ok"):
+                self.user_pause_already_notified = False
+        except Exception:
+            self._logger.exception("Caught an exception on hook_gcode_received")
 
         return line
+
+    def send_octoprint_simpleapi_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a SimpleAPI command to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            command (str): The command string to send to the plugin.
+            parameters (dict, optional): Additional parameters to include in the request body.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the POST request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        payload = {"command": command}
+        if parameters:
+            payload.update(parameters)
+
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
+            "POST",
+            headers={
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=timeout,
+        )
+
+    def send_octoprint_simpleapi_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
+        """
+        Sends a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
+
+        Args:
+            plugin_id (str): The ID of the plugin to target.
+            parameters (dict, optional): Query parameters to include in the request.
+            timeout (int, optional): Timeout for the request in seconds. Defaults to 5.
+
+        Returns:
+            requests.Response: The response object from the GET request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        return self.send_octoprint_request(
+            f"/api/plugin/{plugin_id}",
+            params=parameters or {},
+            timeout=timeout,
+        )
+
+    def send_octoprint_request(self, url: str, method: str = "GET", **kwargs):
+        """
+        Sends an HTTP request to the OctoPrint API with default authentication headers.
+
+        Args:
+            url (str): Full or relative URL (e.g., "/api/plugin/...").
+            method (str): The HTTP method to use (e.g., "GET", "POST", "PUT", "PATCH", "DELETE", ...). Defaults to "GET".
+            **kwargs: Additional arguments passed to the underlying requests library (e.g., 'data', 'params', 'files').
+
+        Returns:
+            requests.Response: The response object from the HTTP request.
+
+        Raises:
+            requests.HTTPError: If the response contains an HTTP error status code.
+        """
+        url = urljoin(f"http://localhost:{self.port}/", url)
+
+        method = method.lower()
+
+        if hasattr(self, "plugin_apikey"):
+            api_key = self.plugin_apikey
+        else:  # Fallback for OctoPrint versions < 1.12.0
+            api_key = self._settings.global_get(["api", "key"])
+            if not api_key:
+                self._logger.error(
+                    "Global API Key not enabled. Most integrations with third-party plugins require enabling the Global API Key in OctoPrint Settings -> API -> Global API Key."
+                )
+
+        default_headers = {
+            "X-Api-Key": api_key,
+        }
+        headers = {**default_headers, **(kwargs.get("headers") or {})}
+        kwargs.pop("headers", None)
+
+        default_kwargs = {
+            "headers": headers,
+            "timeout": 5,
+        }
+        request_kwargs = {**default_kwargs, **kwargs}
+
+        loggable_kwargs = {}
+        for k, v in request_kwargs.items():
+            if k == "headers" and "X-Api-Key" in v:
+                loggable_kwargs[k] = {**v, "X-Api-Key": "REDACTED"}
+            elif k == "files":
+                loggable_kwargs[k] = "<binary data>"
+            else:
+                loggable_kwargs[k] = v
+        self._logger.debug("Sending OctoPrint request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)
+
+        response = requests.request(method, url, **request_kwargs)
+
+        # Check if response content should be logged
+        content_type = response.headers.get("content-type", "").lower()
+        content_length = len(response.content)
+        textual_content_types = [
+            "application/json",
+            "text/plain",
+            "text/html",
+            "text/xml",
+            "application/xml",
+            "text/javascript",
+            "application/javascript",
+        ]
+        is_textual = any(ct in content_type for ct in textual_content_types)
+        is_reasonable_size = content_length < 10 * 1024  # 10KB limit
+        if is_textual and is_reasonable_size:
+            self._logger.debug("Received OctoPrint response: status=%s, text=%s", response.status_code, response.text)
+        else:
+            self._logger.debug(
+                "Received OctoPrint response: status=%s, content-type=%s, size=%s bytes",
+                response.status_code,
+                content_type,
+                content_length,
+            )
+
+        response.raise_for_status()
+        return response
 
 
 # Check that we are running on OctoPrint >= 1.4.0, which introduced the granular permissions system
@@ -2361,7 +2535,7 @@ __plugin_implementation__ = get_implementation_class()
 __plugin_hooks__ = {
     "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
     "octoprint.server.http.routes": __plugin_implementation__.route_hook,
-    "octoprint.comm.protocol.gcode.received": __plugin_implementation__.recv_callback,
+    "octoprint.comm.protocol.gcode.received": __plugin_implementation__.hook_gcode_received,
     "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.hook_gcode_sent,
     "octoprint.events.register_custom_events": __plugin_implementation__.register_custom_events,
 }

@@ -55,34 +55,42 @@ class TelegramUtils:
         request_kwargs = {**default_kwargs, **kwargs}
 
         loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
-        _logger.debug(f"Sending Telegram request: method={method}, url={url}, kwargs={loggable_kwargs}.")
+        _logger.debug("Sending Telegram request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)
 
         try:
             response = requests.request(method, url, **request_kwargs)
-            _logger.debug(f"Received Telegram response: {response.text}.")
+            _logger.debug("Received Telegram response: %s", response.text)
         except Exception:
             raise Exception(f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}.")
 
         if not response.ok:
-            raise Exception(
+            exc = Exception(
                 f"Telegram request responded with code {response.status_code}. Response was: {response.text}."
             )
+            exc.telegram_response_text = response.text
+            raise exc
 
         content_type = response.headers.get("content-type", "")
         if content_type != "application/json":
-            raise Exception(
+            exc = Exception(
                 f"Unexpected Content-Type. Expected: application/json. It was: {content_type}. Response was: {response.text}."
             )
+            exc.telegram_response_text = response.text
+            raise exc
 
         try:
             json_data = response.json()
 
             if not json_data.get("ok", False):
-                raise Exception(f"Response didn't include 'ok:true'. Response was: {json_data}.")
+                exc = Exception(f"Response didn't include 'ok:true'. Response was: {response.text}.")
+                exc.telegram_response_text = response.text
+                raise exc
 
             return json_data
         except Exception:
-            raise Exception(f"Failed to parse telegram response to json. Response was: {response.text}.")
+            exc = Exception(f"Failed to parse telegram response to json. Response was: {response.text}.")
+            exc.telegram_response_text = response.text
+            raise exc
 
 
 def is_group_or_channel(chat_id):
