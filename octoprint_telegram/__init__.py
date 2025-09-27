@@ -1257,6 +1257,7 @@ class TelegramPlugin(
                 "wemoswitch",
                 "wled",
                 "ws281x_led_status",
+                "wyze",
             ]
 
             return jsonify(

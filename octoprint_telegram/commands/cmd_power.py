@@ -32,6 +32,7 @@ class CmdPower(BaseCommand):
             self.WemoSwitchPowerPlugin(self),
             self.WledPowerPlugin(self),
             self.WS281xPowerPlugin(self),
+            self.WyzePowerPlugin(self),
         ]
 
         available_plugins = [
@@ -980,3 +981,37 @@ class CmdPower(BaseCommand):
 
         def send_command(self, command):
             self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, command)
+
+    class WyzePowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "wyze"
+
+        @property
+        def plugin_name(self):
+            return "Wyze"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, "get_devices").json()
+            for plug in plugs:
+                try:
+                    label = plug["device_name"]
+                    is_on = False  # Wyze plugin does not support retrieving plugs status
+                    device_mac = plug["device_mac"]
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": device_mac})
+                except Exception:
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turn_on", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turn_off", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, command, {"device_mac": plug_data})
