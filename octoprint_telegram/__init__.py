@@ -374,14 +374,26 @@ class TelegramListener(threading.Thread):
                         else:
                             # Select for printing the uploaded file
                             try:
-                                file_to_select_abs_path = self.main._file_manager.path_on_disk(
-                                    octoprint.filemanager.FileDestinations.LOCAL,
-                                    added_files_relative_paths[0],
-                                )
-                                self._logger.debug("Selecting file: %s", file_to_select_abs_path)
-                                self.main._printer.select_file(
-                                    file_to_select_abs_path, sd=False, printAfterSelect=False
-                                )
+                                file_relative_path = added_files_relative_paths[0]
+                                self._logger.debug("Selecting file: %s", file_relative_path)
+                                if hasattr(self.main._printer, "set_job"):
+                                    # OctoPrint >= 2.0.0
+                                    job = self.main._file_manager.create_job(
+                                        octoprint.filemanager.FileDestinations.LOCAL,
+                                        file_relative_path,
+                                    )
+                                    self.main._printer.set_job(job, print_after_select=False)
+                                else:
+                                    # OctoPrint < 2.0.0 backwards compatibility
+                                    # nosemgrep (this is a fallback for older OctoPrint versions)
+                                    self.main._printer.select_file(
+                                        self.main._file_manager.path_on_disk(
+                                            octoprint.filemanager.FileDestinations.LOCAL,
+                                            file_relative_path,
+                                        ),
+                                        sd=False,
+                                        printAfterSelect=False,
+                                    )
 
                                 # Ask the user whether to print the file
                                 response_message += render_emojis(

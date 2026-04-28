@@ -899,7 +899,13 @@ class CmdFiles(BaseCommand):
                             # Deselect source file if currently selected
                             _, currentFilename = _getCurrentFile()
                             if currentFilename == from_path:
-                                self.main._printer.unselect_file()
+                                if hasattr(self.main._printer, "set_job"):
+                                    # OctoPrint >= 2.0.0
+                                    self.main._printer.set_job(None)
+                                else:
+                                    # OctoPrint < 2.0.0 backwards compatibility
+                                    # nosemgrep (this is a fallback for older OctoPrint versions)
+                                    self.main._printer.unselect_file()
 
                             # Move the file
                             self.main._file_manager.move_file(to_storage_name, from_path, final_to_path)
@@ -1102,11 +1108,16 @@ class CmdFiles(BaseCommand):
         try:
             destination, file = self.find_path_by_hash(path_hash)
 
-            if destination == octoprint.filemanager.FileDestinations.SDCARD:
-                self.main._printer.select_file(file, True, printAfterSelect=False)
+            if hasattr(self.main._printer, "set_job"):
+                # OctoPrint >= 2.0.0
+                job = self.main._file_manager.create_job(destination, file)
+                self.main._printer.set_job(job, print_after_select=False)
             else:
-                file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
-                self.main._printer.select_file(file, False, printAfterSelect=False)
+                # OctoPrint < 2.0.0 backwards compatibility
+                is_sd = destination == octoprint.filemanager.FileDestinations.SDCARD
+                file_to_select = file if is_sd else self.main._file_manager.path_on_disk(destination, file)
+                # nosemgrep (this is a fallback for older OctoPrint versions)
+                self.main._printer.select_file(file_to_select, sd=is_sd, printAfterSelect=False)
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {context.cmd} again?"
@@ -1487,11 +1498,23 @@ class CmdFiles(BaseCommand):
                     # Deselect file if currently selected
                     _, currentFilename = _getCurrentFile()
                     if currentFilename == file_path:
-                        self.main._printer.unselect_file()
+                        if hasattr(self.main._printer, "set_job"):
+                            # OctoPrint >= 2.0.0
+                            self.main._printer.set_job(None)
+                        else:
+                            # OctoPrint < 2.0.0 backwards compatibility
+                            # nosemgrep (this is a fallback for older OctoPrint versions)
+                            self.main._printer.unselect_file()
 
                     # Delete the file
                     if storage_name == octoprint.filemanager.FileDestinations.SDCARD:
-                        self.main._printer.delete_sd_file(file_path)
+                        if hasattr(self.main._file_manager, "list_storage_entries"):
+                            # OctoPrint >= 2.0.0
+                            self.main._file_manager.remove_file(storage_name, file_path)
+                        else:
+                            # OctoPrint < 2.0.0 backwards compatibility
+                            # nosemgrep (this is a fallback for older OctoPrint versions)
+                            self.main._printer.delete_sd_file(file_path)
                     else:
                         self.main._file_manager.remove_file(storage_name, file_path)
             except Exception:
