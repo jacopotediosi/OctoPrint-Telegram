@@ -2370,6 +2370,11 @@ class TelegramPlugin(
                 {
                     "path": os.path.join(self._basefolder, "static", "img"),
                     "allow_client_caching": True,
+                    "access_validation": access_validation_factory(
+                        app,
+                        permission_validator,
+                        Permissions.SETTINGS,
+                    ),
                 },
             ),
         ]
