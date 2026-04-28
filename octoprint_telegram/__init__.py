@@ -2078,11 +2078,17 @@ class TelegramPlugin(
             try:
                 webcam_profile = WebcamProfile(
                     name=self._settings.global_get(["webcam", "name"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     snapshot=self._settings.global_get(["webcam", "snapshot"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     snapshotTimeout=max(15, self._settings.global_get(["webcam", "snapshotTimeout"]) or 0),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     stream=self._settings.global_get(["webcam", "stream"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     flipH=bool(self._settings.global_get(["webcam", "flipH"])),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     flipV=bool(self._settings.global_get(["webcam", "flipV"])),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     rotate90=bool(self._settings.global_get(["webcam", "rotate90"])),
                 )
                 webcam_profiles.append(webcam_profile)
