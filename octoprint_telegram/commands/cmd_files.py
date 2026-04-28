@@ -362,9 +362,9 @@ class CmdFiles(BaseCommand):
         try:
             storage_name, file_path = self.find_path_by_hash(path_hash)
             _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
-            analysis = file_metadata.get("analysis", {})
-            history = file_metadata.get("history", [])
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            analysis = file_metadata.get("analysis") or {}
+            history = file_metadata.get("history") or []
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
@@ -384,8 +384,9 @@ class CmdFiles(BaseCommand):
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
-            dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            if lastmodified is not None:
+                dt = datetime.datetime.fromtimestamp(lastmodified)
+                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
@@ -520,10 +521,10 @@ class CmdFiles(BaseCommand):
         try:
             storage_name, file_path = self.find_path_by_hash(path_hash)
             _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
-            analysis = file_metadata.get("analysis", {})
-            statistics = file_metadata.get("statistics", {})
-            history = file_metadata.get("history", {})
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            analysis = file_metadata.get("analysis") or {}
+            statistics = file_metadata.get("statistics") or {}
+            history = file_metadata.get("history") or {}
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
@@ -543,8 +544,9 @@ class CmdFiles(BaseCommand):
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
-            dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            if lastmodified is not None:
+                dt = datetime.datetime.fromtimestamp(lastmodified)
+                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
@@ -1129,8 +1131,9 @@ class CmdFiles(BaseCommand):
             )
             return
 
-        current_data = self.main._printer.get_current_data()
-        job_file_name = current_data.get("job", {}).get("file", {}).get("name", "")
+        current_data = self.main._printer.get_current_data() or {}
+        job_info = (current_data.get("job") or {}).get("file") or {}
+        job_file_name = job_info.get("name") or file
 
         msg = render_emojis(
             f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is selected for printing.\n\n"
