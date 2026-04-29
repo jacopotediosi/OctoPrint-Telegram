@@ -871,46 +871,65 @@ class CmdFiles(BaseCommand):
 
             failure_reason = None
             try:
-                from octoprint.server.api.files import (
-                    _getCurrentFile,
-                    _isBusy,
-                    _verifyFileExists,
-                    _verifyFolderExists,
-                )
-
-                if not _verifyFileExists(from_storage_name, from_path):
+                if from_storage_name != to_storage_name:
+                    failure_reason = "Cross-storage operations are not supported"
+                elif not self.main._file_manager.file_exists(from_storage_name, from_path):
                     failure_reason = "Source does not exist or isn't a file"
-                elif not _verifyFolderExists(to_storage_name, to_path):
+                elif to_path and not self.main._file_manager.folder_exists(to_storage_name, to_path):
                     failure_reason = "Destination doesn't exist or it isn't a folder"
                 else:
                     _, from_filename = self.main._file_manager.split_path(from_storage_name, from_path)
                     final_to_path = self.main._file_manager.join_path(to_storage_name, to_path, from_filename)
 
-                    if _verifyFileExists(to_storage_name, final_to_path) or _verifyFolderExists(
+                    if self.main._file_manager.file_exists(
                         to_storage_name, final_to_path
-                    ):
+                    ) or self.main._file_manager.folder_exists(to_storage_name, final_to_path):
                         failure_reason = "Destination already exists"
                     else:
                         if operation == "copy":
                             # Copy the file
-                            self.main._file_manager.copy_file(to_storage_name, from_path, final_to_path)
+                            self.main._file_manager.copy_file(from_storage_name, from_path, final_to_path)
                         elif operation == "move":
-                            if _isBusy(from_storage_name, from_path):
+                            current_job_file = (self.main._printer.get_current_data() or {}).get("job", {}).get(
+                                "file"
+                            ) or {}
+                            current_origin = current_job_file.get("origin")
+                            current_path = current_job_file.get("path")
+
+                            is_current_file_busy = (
+                                current_path is not None
+                                and current_origin == from_storage_name
+                                and self.main._file_manager.file_in_path(from_storage_name, from_path, current_path)
+                                and (
+                                    self.main._printer.is_printing()
+                                    or self.main._printer.is_paused()
+                                    or self.main._printer.is_pausing()
+                                    or self.main._printer.is_resuming()
+                                    or self.main._printer.is_cancelling()
+                                    or self.main._printer.is_finishing()
+                                )
+                            )
+                            is_busy_in_file_manager = any(
+                                from_storage_name == busy_storage
+                                and self.main._file_manager.file_in_path(from_storage_name, from_path, busy_path)
+                                for busy_storage, busy_path in self.main._file_manager.get_busy_files()
+                            )
+
+                            if is_current_file_busy or is_busy_in_file_manager:
                                 failure_reason = "Source is currently in use"
+                            else:
+                                # Deselect source file if currently selected
+                                if current_origin == from_storage_name and current_path == from_path:
+                                    if hasattr(self.main._printer, "set_job"):
+                                        # OctoPrint >= 2.0.0
+                                        self.main._printer.set_job(None)
+                                    else:
+                                        # OctoPrint < 2.0.0 backwards compatibility
+                                        # nosemgrep (this is a fallback for older OctoPrint versions)
+                                        self.main._printer.unselect_file()
 
-                            # Deselect source file if currently selected
-                            _, currentFilename = _getCurrentFile()
-                            if currentFilename == from_path:
-                                if hasattr(self.main._printer, "set_job"):
-                                    # OctoPrint >= 2.0.0
-                                    self.main._printer.set_job(None)
-                                else:
-                                    # OctoPrint < 2.0.0 backwards compatibility
-                                    # nosemgrep (this is a fallback for older OctoPrint versions)
-                                    self.main._printer.unselect_file()
-
-                            # Move the file
-                            self.main._file_manager.move_file(to_storage_name, from_path, final_to_path)
+                                # Move the file
+                                self.main._file_manager.move_file(from_storage_name, from_path, final_to_path)
                         else:
                             failure_reason = "Unknown operation"
 
@@ -928,7 +947,7 @@ class CmdFiles(BaseCommand):
                     [
                         [
                             render_emojis("{emo:back} Back"),
-                            f"{context.cmd}_list_{from_hash}_{page_number}",
+                            f"{context.cmd}_info_{from_hash}_{page_number}",
                         ]
                     ]
                 ]
