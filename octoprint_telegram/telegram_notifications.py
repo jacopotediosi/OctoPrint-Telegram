@@ -563,6 +563,8 @@ class TMSG:
                 @cached_property
                 def metadata(self):
                     """A dictionary containing metadata of the file currently being printed"""
+                    if not self.path:
+                        return {}
                     return self.parent.main._file_manager.get_metadata(
                         octoprint.filemanager.FileDestinations.LOCAL, self.path
                     )
@@ -631,7 +633,7 @@ class TMSG:
 
             thumbnail = None
             try:
-                if event == "PrintStarted":
+                if event == "PrintStarted" and lazy_vars.path:
                     metadata = self.main._file_manager.get_metadata(
                         octoprint.filemanager.FileDestinations.LOCAL, lazy_vars.path
                     )
@@ -772,7 +774,7 @@ class TMSG:
                 return True
         zdiff = self.main._settings.get_float(["notification_height"])
         if zdiff and zdiff > 0.0:
-            if old_z is None or new_z < 0:
+            if old_z is None or new_z is None or new_z < 0:
                 return False
             # Check the zdiff
             if abs(new_z - (old_z or 0.0)) >= 1.0:

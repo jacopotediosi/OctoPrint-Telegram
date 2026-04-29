@@ -1371,7 +1371,9 @@ class CmdFiles(BaseCommand):
             printer_profile_id = self.hash_printer_profile_id_map.get(printer_profile_id_hash)
 
         # Get printer profile name by printer profile id and add it to msg
-        printer_profile_name = self.main._printer_profile_manager.get(printer_profile_id).get("name", "").strip()
+        printer_profile_name = (
+            (self.main._printer_profile_manager.get(printer_profile_id) or {}).get("name", "").strip()
+        )
         msg += render_emojis(
             f"{{emo:settings}} Selected printer profile: <code>{html.escape(printer_profile_name)}</code>\n"
         )
