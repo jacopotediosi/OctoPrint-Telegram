@@ -745,8 +745,8 @@ class CmdFilament(BaseCommand):
             response = self.parent.main.send_octoprint_request(f"/plugin/{self.plugin_id}/spoolman/spools", timeout=15)
             spools = response.json().get("data", {}).get("spools", [])
 
-            selected_spools_config = self.parent.main._settings.global_get(
-                ["plugins", self.plugin_id, "selectedSpoolIds"]
+            selected_spools_config = (
+                self.parent.main._settings.global_get(["plugins", self.plugin_id, "selectedSpoolIds"]) or {}
             )
 
             selected_spools = {}

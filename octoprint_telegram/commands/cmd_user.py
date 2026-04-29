@@ -40,7 +40,7 @@ class CmdUser(BaseCommand):
         if enabled_individual_commands:
             also_text = "also " if enabled_group_commands else ""
             msg += f"<b>You can {also_text}use the following commands (individually enabled):</b>\n"
-            escaped_commands = [html.escape(command) for command in enabled_group_commands]
+            escaped_commands = [html.escape(command) for command in enabled_individual_commands]
             msg += ", ".join(escaped_commands) + "\n\n"
 
         if not enabled_group_commands and not enabled_individual_commands:

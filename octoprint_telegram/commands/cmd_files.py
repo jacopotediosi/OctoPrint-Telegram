@@ -362,9 +362,9 @@ class CmdFiles(BaseCommand):
         try:
             storage_name, file_path = self.find_path_by_hash(path_hash)
             _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
-            analysis = file_metadata.get("analysis", {})
-            history = file_metadata.get("history", [])
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            analysis = file_metadata.get("analysis") or {}
+            history = file_metadata.get("history") or []
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
@@ -384,8 +384,9 @@ class CmdFiles(BaseCommand):
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
-            dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            if lastmodified is not None:
+                dt = datetime.datetime.fromtimestamp(lastmodified)
+                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
@@ -520,10 +521,10 @@ class CmdFiles(BaseCommand):
         try:
             storage_name, file_path = self.find_path_by_hash(path_hash)
             _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path)
-            analysis = file_metadata.get("analysis", {})
-            statistics = file_metadata.get("statistics", {})
-            history = file_metadata.get("history", {})
+            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            analysis = file_metadata.get("analysis") or {}
+            statistics = file_metadata.get("statistics") or {}
+            history = file_metadata.get("history") or {}
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
@@ -543,8 +544,9 @@ class CmdFiles(BaseCommand):
         # Upload timestamp
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
-            dt = datetime.datetime.fromtimestamp(lastmodified)
-            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            if lastmodified is not None:
+                dt = datetime.datetime.fromtimestamp(lastmodified)
+                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
 
@@ -869,40 +871,65 @@ class CmdFiles(BaseCommand):
 
             failure_reason = None
             try:
-                from octoprint.server.api.files import (
-                    _getCurrentFile,
-                    _isBusy,
-                    _verifyFileExists,
-                    _verifyFolderExists,
-                )
-
-                if not _verifyFileExists(from_storage_name, from_path):
+                if from_storage_name != to_storage_name:
+                    failure_reason = "Cross-storage operations are not supported"
+                elif not self.main._file_manager.file_exists(from_storage_name, from_path):
                     failure_reason = "Source does not exist or isn't a file"
-                elif not _verifyFolderExists(to_storage_name, to_path):
+                elif to_path and not self.main._file_manager.folder_exists(to_storage_name, to_path):
                     failure_reason = "Destination doesn't exist or it isn't a folder"
                 else:
                     _, from_filename = self.main._file_manager.split_path(from_storage_name, from_path)
                     final_to_path = self.main._file_manager.join_path(to_storage_name, to_path, from_filename)
 
-                    if _verifyFileExists(to_storage_name, final_to_path) or _verifyFolderExists(
+                    if self.main._file_manager.file_exists(
                         to_storage_name, final_to_path
-                    ):
+                    ) or self.main._file_manager.folder_exists(to_storage_name, final_to_path):
                         failure_reason = "Destination already exists"
                     else:
                         if operation == "copy":
                             # Copy the file
-                            self.main._file_manager.copy_file(to_storage_name, from_path, final_to_path)
+                            self.main._file_manager.copy_file(from_storage_name, from_path, final_to_path)
                         elif operation == "move":
-                            if _isBusy(from_storage_name, from_path):
+                            current_job_file = (self.main._printer.get_current_data() or {}).get("job", {}).get(
+                                "file"
+                            ) or {}
+                            current_origin = current_job_file.get("origin")
+                            current_path = current_job_file.get("path")
+
+                            is_current_file_busy = (
+                                current_path is not None
+                                and current_origin == from_storage_name
+                                and self.main._file_manager.file_in_path(from_storage_name, from_path, current_path)
+                                and (
+                                    self.main._printer.is_printing()
+                                    or self.main._printer.is_paused()
+                                    or self.main._printer.is_pausing()
+                                    or self.main._printer.is_resuming()
+                                    or self.main._printer.is_cancelling()
+                                    or self.main._printer.is_finishing()
+                                )
+                            )
+                            is_busy_in_file_manager = any(
+                                from_storage_name == busy_storage
+                                and self.main._file_manager.file_in_path(from_storage_name, from_path, busy_path)
+                                for busy_storage, busy_path in self.main._file_manager.get_busy_files()
+                            )
+
+                            if is_current_file_busy or is_busy_in_file_manager:
                                 failure_reason = "Source is currently in use"
+                            else:
+                                # Deselect source file if currently selected
+                                if current_origin == from_storage_name and current_path == from_path:
+                                    if hasattr(self.main._printer, "set_job"):
+                                        # OctoPrint >= 2.0.0
+                                        self.main._printer.set_job(None)
+                                    else:
+                                        # OctoPrint < 2.0.0 backwards compatibility
+                                        # nosemgrep (this is a fallback for older OctoPrint versions)
+                                        self.main._printer.unselect_file()
 
-                            # Deselect source file if currently selected
-                            _, currentFilename = _getCurrentFile()
-                            if currentFilename == from_path:
-                                self.main._printer.unselect_file()
-
-                            # Move the file
-                            self.main._file_manager.move_file(to_storage_name, from_path, final_to_path)
+                                # Move the file
+                                self.main._file_manager.move_file(from_storage_name, from_path, final_to_path)
                         else:
                             failure_reason = "Unknown operation"
 
@@ -920,7 +947,7 @@ class CmdFiles(BaseCommand):
                     [
                         [
                             render_emojis("{emo:back} Back"),
-                            f"{context.cmd}_list_{from_hash}_{page_number}",
+                            f"{context.cmd}_info_{from_hash}_{page_number}",
                         ]
                     ]
                 ]
@@ -1102,11 +1129,16 @@ class CmdFiles(BaseCommand):
         try:
             destination, file = self.find_path_by_hash(path_hash)
 
-            if destination == octoprint.filemanager.FileDestinations.SDCARD:
-                self.main._printer.select_file(file, True, printAfterSelect=False)
+            if hasattr(self.main._printer, "set_job"):
+                # OctoPrint >= 2.0.0
+                job = self.main._file_manager.create_job(destination, file)
+                self.main._printer.set_job(job, print_after_select=False)
             else:
-                file = self.main._file_manager.path_on_disk(octoprint.filemanager.FileDestinations.LOCAL, file)
-                self.main._printer.select_file(file, False, printAfterSelect=False)
+                # OctoPrint < 2.0.0 backwards compatibility
+                is_sd = destination == octoprint.filemanager.FileDestinations.SDCARD
+                file_to_select = file if is_sd else self.main._file_manager.path_on_disk(destination, file)
+                # nosemgrep (this is a fallback for older OctoPrint versions)
+                self.main._printer.select_file(file_to_select, sd=is_sd, printAfterSelect=False)
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {context.cmd} again?"
@@ -1118,8 +1150,9 @@ class CmdFiles(BaseCommand):
             )
             return
 
-        current_data = self.main._printer.get_current_data()
-        job_file_name = current_data.get("job", {}).get("file", {}).get("name", "")
+        current_data = self.main._printer.get_current_data() or {}
+        job_info = (current_data.get("job") or {}).get("file") or {}
+        job_file_name = job_info.get("name") or file
 
         msg = render_emojis(
             f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is selected for printing.\n\n"
@@ -1338,7 +1371,9 @@ class CmdFiles(BaseCommand):
             printer_profile_id = self.hash_printer_profile_id_map.get(printer_profile_id_hash)
 
         # Get printer profile name by printer profile id and add it to msg
-        printer_profile_name = self.main._printer_profile_manager.get(printer_profile_id).get("name", "").strip()
+        printer_profile_name = (
+            (self.main._printer_profile_manager.get(printer_profile_id) or {}).get("name", "").strip()
+        )
         msg += render_emojis(
             f"{{emo:settings}} Selected printer profile: <code>{html.escape(printer_profile_name)}</code>\n"
         )
@@ -1487,11 +1522,23 @@ class CmdFiles(BaseCommand):
                     # Deselect file if currently selected
                     _, currentFilename = _getCurrentFile()
                     if currentFilename == file_path:
-                        self.main._printer.unselect_file()
+                        if hasattr(self.main._printer, "set_job"):
+                            # OctoPrint >= 2.0.0
+                            self.main._printer.set_job(None)
+                        else:
+                            # OctoPrint < 2.0.0 backwards compatibility
+                            # nosemgrep (this is a fallback for older OctoPrint versions)
+                            self.main._printer.unselect_file()
 
                     # Delete the file
                     if storage_name == octoprint.filemanager.FileDestinations.SDCARD:
-                        self.main._printer.delete_sd_file(file_path)
+                        if hasattr(self.main._file_manager, "list_storage_entries"):
+                            # OctoPrint >= 2.0.0
+                            self.main._file_manager.remove_file(storage_name, file_path)
+                        else:
+                            # OctoPrint < 2.0.0 backwards compatibility
+                            # nosemgrep (this is a fallback for older OctoPrint versions)
+                            self.main._printer.delete_sd_file(file_path)
                     else:
                         self.main._file_manager.remove_file(storage_name, file_path)
             except Exception:

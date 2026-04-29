@@ -329,7 +329,7 @@ class TelegramListener(threading.Thread):
                             )
                             self._logger.info("Added file to %s", added_file_relative_path)
 
-                            added_files_relative_paths.append(destination_file_relative_path)
+                            added_files_relative_paths.append(added_file_relative_path)
                         except Exception:
                             self._logger.exception(
                                 "Exception while extracting file %s contained in the zip", member_filename
@@ -374,14 +374,26 @@ class TelegramListener(threading.Thread):
                         else:
                             # Select for printing the uploaded file
                             try:
-                                file_to_select_abs_path = self.main._file_manager.path_on_disk(
-                                    octoprint.filemanager.FileDestinations.LOCAL,
-                                    added_files_relative_paths[0],
-                                )
-                                self._logger.debug("Selecting file: %s", file_to_select_abs_path)
-                                self.main._printer.select_file(
-                                    file_to_select_abs_path, sd=False, printAfterSelect=False
-                                )
+                                file_relative_path = added_files_relative_paths[0]
+                                self._logger.debug("Selecting file: %s", file_relative_path)
+                                if hasattr(self.main._printer, "set_job"):
+                                    # OctoPrint >= 2.0.0
+                                    job = self.main._file_manager.create_job(
+                                        octoprint.filemanager.FileDestinations.LOCAL,
+                                        file_relative_path,
+                                    )
+                                    self.main._printer.set_job(job, print_after_select=False)
+                                else:
+                                    # OctoPrint < 2.0.0 backwards compatibility
+                                    # nosemgrep (this is a fallback for older OctoPrint versions)
+                                    self.main._printer.select_file(
+                                        self.main._file_manager.path_on_disk(
+                                            octoprint.filemanager.FileDestinations.LOCAL,
+                                            file_relative_path,
+                                        ),
+                                        sd=False,
+                                        printAfterSelect=False,
+                                    )
 
                                 # Ask the user whether to print the file
                                 response_message += render_emojis(
@@ -1257,6 +1269,7 @@ class TelegramPlugin(
                 "wemoswitch",
                 "wled",
                 "ws281x_led_status",
+                "wyze",
             ]
 
             return jsonify(
@@ -2077,11 +2090,17 @@ class TelegramPlugin(
             try:
                 webcam_profile = WebcamProfile(
                     name=self._settings.global_get(["webcam", "name"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     snapshot=self._settings.global_get(["webcam", "snapshot"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     snapshotTimeout=max(15, self._settings.global_get(["webcam", "snapshotTimeout"]) or 0),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     stream=self._settings.global_get(["webcam", "stream"]),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     flipH=bool(self._settings.global_get(["webcam", "flipH"])),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     flipV=bool(self._settings.global_get(["webcam", "flipV"])),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
                     rotate90=bool(self._settings.global_get(["webcam", "rotate90"])),
                 )
                 webcam_profiles.append(webcam_profile)
@@ -2363,6 +2382,11 @@ class TelegramPlugin(
                 {
                     "path": os.path.join(self._basefolder, "static", "img"),
                     "allow_client_caching": True,
+                    "access_validation": access_validation_factory(
+                        app,
+                        permission_validator,
+                        Permissions.SETTINGS,
+                    ),
                 },
             ),
         ]

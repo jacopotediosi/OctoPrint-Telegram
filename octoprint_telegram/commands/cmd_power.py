@@ -32,6 +32,7 @@ class CmdPower(BaseCommand):
             self.WemoSwitchPowerPlugin(self),
             self.WledPowerPlugin(self),
             self.WS281xPowerPlugin(self),
+            self.WyzePowerPlugin(self),
         ]
 
         available_plugins = [
@@ -240,7 +241,7 @@ class CmdPower(BaseCommand):
 
             # Domoticz plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/jneilliii/OctoPrint-Domoticz/blob/a3e1d6fddbe6a8b09faf53f62e519f8499e4cc82/octoprint_domoticz/__init__.py#L147
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 try:
                     ip = plug["ip"]
@@ -286,7 +287,7 @@ class CmdPower(BaseCommand):
             ip, idx = StringUtils.split_with_escape_handling(plug_data, "|")
 
             selected_plug = None
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 if plug.get("ip") == ip and plug.get("idx") == idx:
                     selected_plug = plug
@@ -366,7 +367,7 @@ class CmdPower(BaseCommand):
                 statuses = []
                 self.parent._logger.exception("Caught an exception getting %s plugs statuses", self.plugin_id)
 
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "gpio_configurations"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "gpio_configurations"]) or []
             for index, configuration in enumerate(plugs):
                 try:
                     label = configuration.get("name") or f"GPIO{configuration['pin']}"
@@ -401,7 +402,7 @@ class CmdPower(BaseCommand):
 
             # Ikea_tradfri plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/ralmn/OctoPrint-Ikea-tradfri/blob/4c19c3588e3a2a85c7d78ed047062fb8d3994876/octoprint_ikea_tradfri/__init__.py#L547
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "selected_devices"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "selected_devices"]) or []
             for plug in plugs:
                 try:
                     plug_id = plug["id"]
@@ -602,7 +603,7 @@ class CmdPower(BaseCommand):
 
             # OrviboS20 plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/cprasmu/OctoPrint-OrviboS20/blob/a40d0ad4184e48781ff1ebc7fb108eba1e084ba8/octoprint_orvibos20/__init__.py#L500
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 try:
                     plug_ip = plug["ip"]
@@ -674,7 +675,7 @@ class CmdPower(BaseCommand):
 
             # Tasmota plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/jneilliii/OctoPrint-Tasmota/blob/49c7e01f4a077d0d650931fd91f3b63cfef780c2/octoprint_tasmota/__init__.py#L816
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 try:
                     plug_ip = plug["ip"]
@@ -799,7 +800,7 @@ class CmdPower(BaseCommand):
 
             # Tuyasmartplug plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/ziirish/OctoPrint-TuyaSmartplug/blob/4344aeb6d9d59f4979d326a710656121d247e9af/octoprint_tuyasmartplug/__init__.py#L240
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 try:
                     label = plug["label"]
@@ -847,7 +848,7 @@ class CmdPower(BaseCommand):
                 statuses = []
                 self.parent._logger.exception("Caught an exception getting %s plugs statuses", self.plugin_id)
 
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "usbrelay_configurations"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "usbrelay_configurations"]) or []
             for index, configuration in enumerate(plugs):
                 try:
                     label = configuration["name"] or f"RELAY{configuration['relaynumber']}"
@@ -882,7 +883,7 @@ class CmdPower(BaseCommand):
 
             # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
             # https://github.com/jneilliii/OctoPrint-WemoSwitch/blob/70500edbff7eeda65efecc105f573e546cb8d661/octoprint_wemoswitch/__init__.py#L247
-            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"])
+            plugs = self.parent.main._settings.global_get(["plugins", self.plugin_id, "arrSmartplugs"]) or []
             for plug in plugs:
                 try:
                     plug_ip = plug["ip"]
@@ -980,3 +981,37 @@ class CmdPower(BaseCommand):
 
         def send_command(self, command):
             self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, command)
+
+    class WyzePowerPlugin(PowerPlugin):
+        @property
+        def plugin_id(self):
+            return "wyze"
+
+        @property
+        def plugin_name(self):
+            return "Wyze"
+
+        def get_plugs_data(self):
+            plugs_data = []
+
+            plugs = self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, "get_devices").json()
+            for plug in plugs:
+                try:
+                    label = plug["device_name"]
+                    is_on = False  # Wyze plugin does not support retrieving plugs status
+                    device_mac = plug["device_mac"]
+
+                    plugs_data.append({"label": label, "is_on": is_on, "data": device_mac})
+                except Exception:
+                    self.parent._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
+
+            return plugs_data
+
+        def turn_on(self, plug_data):
+            self.send_command("turn_on", plug_data)
+
+        def turn_off(self, plug_data):
+            self.send_command("turn_off", plug_data)
+
+        def send_command(self, command, plug_data):
+            self.parent.main.send_octoprint_simpleapi_command(self.plugin_id, command, {"device_mac": plug_data})
