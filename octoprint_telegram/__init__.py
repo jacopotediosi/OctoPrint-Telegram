@@ -329,7 +329,7 @@ class TelegramListener(threading.Thread):
                             )
                             self._logger.info("Added file to %s", added_file_relative_path)
 
-                            added_files_relative_paths.append(destination_file_relative_path)
+                            added_files_relative_paths.append(added_file_relative_path)
                         except Exception:
                             self._logger.exception(
                                 "Exception while extracting file %s contained in the zip", member_filename
