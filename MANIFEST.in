@@ -1,3 +1,4 @@
 include README.md
 recursive-include octoprint_telegram/templates *
+recursive-include octoprint_prettygcode/translations *
 recursive-include octoprint_telegram/static *
