@@ -1,11 +1,11 @@
-from typing import List
+from __future__ import annotations
 
 
 class StringUtils:
     """Static utilities for string manipulation."""
 
     @staticmethod
-    def split_with_escape_handling(param_str: str, separator: str) -> List[str]:
+    def split_with_escape_handling(param_str: str, separator: str) -> list[str]:
         """
         Split a string by a separator while properly handling escaped characters.
 
@@ -18,7 +18,7 @@ class StringUtils:
             separator (str): The character to split on
 
         Returns:
-            List[str]: List of split parts with escape sequences processed
+            list[str]: List of split parts with escape sequences processed
 
         Examples:
             >>> split_with_escape_handling("a,b,c", ',')

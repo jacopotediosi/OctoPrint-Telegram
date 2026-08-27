@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import re
+from typing import ClassVar
 
 from .unicode_emoji_dict import unicode_emoji_dict
 
@@ -7,7 +10,7 @@ class Emoji:
     # Official emoji CLDR short names can change over time, so to make sure the ones
     # we hardcode in the plugin sources don't break, we initialize the emoji map
     # with some custom ones.
-    _custom_emoji_map = {
+    _custom_emoji_map: ClassVar[dict[str, str]] = {
         # Octoprint specific
         "octo": "\U0001f419",
         "plugin": "\U0001f9e9",
@@ -88,7 +91,7 @@ class Emoji:
         "finish": "\U0001f3c1",
     }
 
-    _emoji_map = _custom_emoji_map.copy()
+    _emoji_map: ClassVar[dict[str, str]] = _custom_emoji_map.copy()
     _emoji_map.update(unicode_emoji_dict)
 
     _settings = None

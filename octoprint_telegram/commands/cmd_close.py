@@ -11,7 +11,7 @@ class CmdClose(BaseCommand):
                 self.main.telegram_utils.send_telegram_request(
                     f"{self.main.bot_url}/deleteMessage",
                     "post",
-                    data=dict(chat_id=context.chat_id, message_id=context.msg_id_to_update),
+                    data={"chat_id": context.chat_id, "message_id": context.msg_id_to_update},
                 )
         except Exception:
             pass

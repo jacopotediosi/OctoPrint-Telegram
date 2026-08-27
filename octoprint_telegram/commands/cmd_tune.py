@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import html
+from typing import ClassVar
 
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
@@ -7,12 +10,12 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdTune(BaseCommand):
-    TEMP_INCREMENTS = [100, 50, 10, 5, 1]
-    RATE_INCREMENTS = [25, 10, 1]
-    ENCLOSURE_INCREMENTS = [20, 10, 5, 1]
+    TEMP_INCREMENTS: ClassVar[list[int]] = [100, 50, 10, 5, 1]
+    RATE_INCREMENTS: ClassVar[list[int]] = [25, 10, 1]
+    ENCLOSURE_INCREMENTS: ClassVar[list[int]] = [20, 10, 5, 1]
 
-    temp_target_temps = dict()
-    temp_tune_rates = dict(feedrate=100, flowrate=100)
+    temp_target_temps: ClassVar[dict[str, float]] = {}
+    temp_tune_rates: ClassVar[dict[str, int]] = {"feedrate": 100, "flowrate": 100}
 
     def execute(self, context: CommandContext):
         if context.parameter and context.parameter != "back":

@@ -44,7 +44,7 @@ class Formatters:
 
         result = f"{float(filament['length']) / 1000:.02f} m"
 
-        if "volume" in filament and filament["volume"]:
+        if filament.get("volume"):
             result += f" / {float(filament['volume']):.02f} cm^3"
 
         return result
@@ -67,10 +67,10 @@ class Formatters:
             return "00:00:00"
 
         s = int(seconds) % 60
-        m = (int(seconds) % 3600) / 60
-        h = int(seconds) / 3600
+        m = (int(seconds) % 3600) // 60
+        h = int(seconds) // 3600
 
-        return "%02d:%02d:%02d" % (h, m, s)
+        return f"{h:02d}:{m:02d}:{s:02d}"
 
     @staticmethod
     def format_fuzzy_print_time(total_seconds):

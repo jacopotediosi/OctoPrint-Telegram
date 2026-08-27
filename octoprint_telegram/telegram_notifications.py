@@ -767,11 +767,10 @@ class TMSG:
     # Depends on notification time and notification height.
     def is_notification_necessary(self, new_z, old_z):
         timediff = self.main._settings.get_int(["notification_time"])
-        if timediff and timediff > 0:
-            # Check the timediff
-            if self.last_notification_time + timediff * 60 <= time.time():
-                self.last_notification_time = time.time()
-                return True
+        # Check the timediff
+        if timediff and timediff > 0 and self.last_notification_time + timediff * 60 <= time.time():
+            self.last_notification_time = time.time()
+            return True
         zdiff = self.main._settings.get_float(["notification_height"])
         if zdiff and zdiff > 0.0:
             if old_z is None or new_z is None or new_z < 0:

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import logging
 import re
 import traceback
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import requests
 
@@ -14,7 +16,7 @@ TOKEN_REGEX = re.compile(r"[\d]{8,10}:[\w-]{35}")
 
 
 class TelegramUtils:
-    def __init__(self, main: "TelegramPlugin"):
+    def __init__(self, main: TelegramPlugin):
         self.main = main
 
     def get_proxies(self):
@@ -110,14 +112,14 @@ def get_chat_title(chat):
             name_parts.append(full_name)
 
         if username:
-            name_parts.append("@{}".format(username))
+            name_parts.append(f"@{username}")
 
         return " - ".join(name_parts) if name_parts else "UNKNOWN"
 
     return chat.get("title", "UNKNOWN")
 
 
-def escape_markdown(text: str, version: int = 1, entity_type: Optional[str] = None) -> str:
+def escape_markdown(text: str, version: int = 1, entity_type: str | None = None) -> str:
     """
     Copied from python-telegram-bot/python-telegram-bot
 

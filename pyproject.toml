@@ -50,10 +50,17 @@ fix = true
 
 [tool.ruff.lint]
 extend-select = ["I"]
+ignore = [
+    "BLE001", # blind-except
+    "S110", # try-except-pass
+    "TRY002", # raise-vanilla-class
+]
 
 [tool.djlint]
 no_set_formatting=true
-ignore="H008,H021,H023"
+ignore = [
+    "H021", # Inline styles should be avoided.
+]
 
 [tool.codespell]
 skip = "octoprint_telegram/emoji/unicode_emoji_dict.py"

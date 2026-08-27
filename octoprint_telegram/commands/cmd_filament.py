@@ -394,7 +394,6 @@ class CmdFilament(BaseCommand):
                     "3": "TPU Black (eSUN) [450g]"
                 }
             """
-            pass
 
         @abstractmethod
         def get_spool_details_msg(self, spool_id):
@@ -421,7 +420,6 @@ class CmdFilament(BaseCommand):
                 '<b>Used</b>: 300g\\n'
                 '<b>Remaining</b>: 700g (70%)\\n'
             """
-            pass
 
         @abstractmethod
         def select_spool(self, tool_index, spool_id):
@@ -449,7 +447,6 @@ class CmdFilament(BaseCommand):
                 2: "TPU Black (eSUN) [450g]"
             }
             """
-            pass
 
     class FilamentManagerFilamentPlugin(FilamentPlugin):
         @property

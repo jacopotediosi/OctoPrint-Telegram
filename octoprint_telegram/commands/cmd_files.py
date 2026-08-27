@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import base64
 import datetime
 import hashlib
 import html
 import os
 from itertools import islice
+from typing import ClassVar
 
 import octoprint.filemanager
 import requests
@@ -30,10 +33,10 @@ class CmdFiles(BaseCommand):
     # Used to overcome Telegram's 64-byte callback query data limit.
     # Each data gets a unique hash that can be sent in callback queries
     # and later resolved back to the original data.
-    hash_file_path_map = {}  # Keys are hashes, values are full file/folder paths
-    hash_slicer_id_map = {}  # Keys are hashes, values are slicer ids
-    hash_slicer_profile_id_map = {}  # Keys are hashes, values are slicer profile ids
-    hash_printer_profile_id_map = {}  # Keys are hashes, values are printer profile ids
+    hash_file_path_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are full file/folder paths
+    hash_slicer_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer ids
+    hash_slicer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer profile ids
+    hash_printer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are printer profile ids
 
     def execute(self, context: CommandContext):
         """
@@ -385,7 +388,7 @@ class CmdFiles(BaseCommand):
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
             if lastmodified is not None:
-                dt = datetime.datetime.fromtimestamp(lastmodified)
+                dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
                 msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
@@ -545,7 +548,7 @@ class CmdFiles(BaseCommand):
         try:
             lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
             if lastmodified is not None:
-                dt = datetime.datetime.fromtimestamp(lastmodified)
+                dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
                 msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception:
             self._logger.exception("Caught an exception getting file date")
@@ -645,7 +648,9 @@ class CmdFiles(BaseCommand):
                 try:
                     timestamp = history_entry.get("timestamp")
                     if timestamp:
-                        formatted_ts = datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                        formatted_ts = (
+                            datetime.datetime.fromtimestamp(timestamp).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                        )
                         msg += f"\n      Timestamp: {formatted_ts}"
 
                     print_time = history_entry.get("printTime")

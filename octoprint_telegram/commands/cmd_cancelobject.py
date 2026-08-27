@@ -26,7 +26,7 @@ class CmdCancelObject(BaseCommand):
             params = context.parameter.split("_")
 
             id = params[0]
-            self.main.send_octoprint_simpleapi_command(cancelobject_id, "cancel", dict(cancelled=id))
+            self.main.send_octoprint_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
 
             msg = render_emojis("{emo:check} Command sent!")
             command_buttons = [[[render_emojis("{emo:back} Back"), context.cmd]]]

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import html
 import io
@@ -13,7 +15,6 @@ import time
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import List, Optional
 from urllib.parse import urljoin
 
 import octoprint.filemanager
@@ -46,7 +47,7 @@ render_emojis = Emoji.render_emojis
 
 
 class TelegramListener(threading.Thread):
-    def __init__(self, main: "TelegramPlugin"):
+    def __init__(self, main: TelegramPlugin):
         threading.Thread.__init__(self)
         self.update_offset = 0
         self.first_contact = True
@@ -110,11 +111,13 @@ class TelegramListener(threading.Thread):
                 self._logger.exception("Caught an exception processing a message")
 
         try:
-            if self.main._settings.get(["ForceLoopMessage"]):
-                if self.main._printer.is_printing():
-                    if self.main.tmsg.is_notification_necessary(None, None):
-                        self._logger.debug("ForceLoopMessage on_event StatusPrinting")
-                        self.main.on_event("StatusPrinting", {})
+            if (
+                self.main._settings.get(["ForceLoopMessage"])
+                and self.main._printer.is_printing()
+                and self.main.tmsg.is_notification_necessary(None, None)
+            ):
+                self._logger.debug("ForceLoopMessage on_event StatusPrinting")
+                self.main.on_event("StatusPrinting", {})
         except Exception:
             self._logger.exception("Exception ForceLoopMessage caught!")
 
@@ -146,7 +149,8 @@ class TelegramListener(threading.Thread):
         is_chat_unknown = self.main._settings.get(["chats", chat_id]) is None
         if is_chat_unknown:
             is_enrollment_allowed = (
-                self.main.enrollment_countdown_end and datetime.now() <= self.main.enrollment_countdown_end
+                self.main.enrollment_countdown_end is not None
+                and time.monotonic() <= self.main.enrollment_countdown_end
             )
             if not is_enrollment_allowed:
                 self._logger.warning("Received an update from unknown chat %s while enrollment is disabled", chat_id)
@@ -198,11 +202,10 @@ class TelegramListener(threading.Thread):
                 chat_type = chat["type"]
                 self.main.add_chat_to_known_chats(chat_id, chat_title, chat_type)
 
-        elif new_status in ("left", "kicked"):
+        elif new_status in ("left", "kicked") and self.main._settings.get(["chats", chat_id]) is not None:
             # The bot left the chat, delete it from known chats
-            if self.main._settings.get(["chats", chat_id]) is not None:
-                self._logger.info("The bot left chat %s, removing it from settings...", chat_id)
-                self.main.remove_chat_from_known_chats(chat_id)
+            self._logger.info("The bot left chat %s, removing it from settings...", chat_id)
+            self.main.remove_chat_from_known_chats(chat_id)
 
     def handle_new_chat_title_message(self, message, chat_id, from_id):
         self._logger.info("Chat %s changed title, updating it...", chat_id)
@@ -627,10 +630,10 @@ class RedactingFormatter(logging.Formatter):
 class WebcamProfile:
     def __init__(
         self,
-        name: Optional[str] = None,
-        snapshot: Optional[str] = None,
-        snapshotTimeout: Optional[int] = 15,
-        stream: Optional[str] = None,
+        name: str | None = None,
+        snapshot: str | None = None,
+        snapshotTimeout: int | None = 15,
+        stream: str | None = None,
         flipH: bool = False,
         flipV: bool = False,
         rotate90: bool = False,
@@ -770,10 +773,10 @@ class TelegramPlugin(
     ##########
 
     def get_assets(self):
-        return dict(
-            js=["js/telegram.js"],
-            css=["css/telegram.css"],
-        )
+        return {
+            "js": ["js/telegram.js"],
+            "css": ["css/telegram.css"],
+        }
 
     def get_tmpgif_dir(self):
         return os.path.join(self.get_plugin_data_folder(), "tmpgif")
@@ -783,7 +786,7 @@ class TelegramPlugin(
     ##########
 
     def get_template_configs(self):
-        return [dict(type="settings", name="Telegram", custom_bindings=True)]
+        return [{"type": "settings", "name": "Telegram", "custom_bindings": True}]
 
     def get_template_vars(self):
         return {"custom_emoji_map": Emoji.get_custom_emoji_map(), "plugin_version": self._plugin_version}
@@ -866,41 +869,41 @@ class TelegramPlugin(
     ##########
 
     def get_settings_defaults(self):
-        return dict(
-            token="",
-            notification_height=5.0,
-            notification_time=15,
-            message_at_print_done_delay=0,
-            messages=telegramMsgDict,
-            chats={
+        return {
+            "token": "",
+            "notification_height": 5.0,
+            "notification_time": 15,
+            "message_at_print_done_delay": 0,
+            "messages": telegramMsgDict,
+            "chats": {
                 "zBOTTOMOFCHATS": {}
             },  # zBOTTOMOFCHATS is a dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
-            send_icon=True,
-            send_gif=False,
-            no_mistake=False,
-            select_file_after_upload=False,
-            sort_files_by_date=False,
-            show_models_in_files=True,
-            no_cpulimit=False,
-            ffmpeg_preset="medium",
-            PreImgMethod="None",
-            PreImgCommand="",
-            PreImgDelay=0,
-            PostImgMethod="None",
-            PostImgCommand="",
-            PostImgDelay=0,
-            TimeFormat="%H:%M:%S",
-            DayTimeFormat="%a %H:%M:%S",
-            WeekTimeFormat="%d.%m.%Y %H:%M:%S",
-        )
+            "send_icon": True,
+            "send_gif": False,
+            "no_mistake": False,
+            "select_file_after_upload": False,
+            "sort_files_by_date": False,
+            "show_models_in_files": True,
+            "no_cpulimit": False,
+            "ffmpeg_preset": "medium",
+            "PreImgMethod": "None",
+            "PreImgCommand": "",
+            "PreImgDelay": 0,
+            "PostImgMethod": "None",
+            "PostImgCommand": "",
+            "PostImgDelay": 0,
+            "TimeFormat": "%H:%M:%S",
+            "DayTimeFormat": "%a %H:%M:%S",
+            "WeekTimeFormat": "%d.%m.%Y %H:%M:%S",
+        }
 
     def get_settings_preprocessors(self):
         return (
-            dict(),
-            dict(
-                notification_height=lambda x: float(x),
-                notification_time=lambda x: int(x),
-            ),
+            {},
+            {
+                "notification_height": lambda x: float(x),
+                "notification_time": lambda x: int(x),
+            },
         )
 
     def get_settings_version(self):
@@ -1106,24 +1109,24 @@ class TelegramPlugin(
 
     def get_settings_restricted_paths(self):
         # Only used in OctoPrint versions > 1.2.16
-        return dict(admin=[["token"], ["chats"]])
+        return {"admin": [["token"], ["chats"]]}
 
     ##########
     ### Softwareupdate API
     ##########
 
     def get_update_information(self, *args, **kwargs):
-        return dict(
-            telegram=dict(
-                displayName=self._plugin_name,
-                displayVersion=self._plugin_version,
-                type="github_release",
-                current=self._plugin_version,
-                user="jacopotediosi",
-                repo="OctoPrint-Telegram",
-                pip="https://github.com/jacopotediosi/OctoPrint-Telegram/archive/{target_version}.zip",
-            )
-        )
+        return {
+            "telegram": {
+                "displayName": self._plugin_name,
+                "displayVersion": self._plugin_version,
+                "type": "github_release",
+                "current": self._plugin_version,
+                "user": "jacopotediosi",
+                "repo": "OctoPrint-Telegram",
+                "pip": "https://github.com/jacopotediosi/OctoPrint-Telegram/archive/{target_version}.zip",
+            }
+        }
 
     ##########
     ### Custom Event Hook
@@ -1182,8 +1185,8 @@ class TelegramPlugin(
     def process_on_api_get(self, request_args=None):
         # /?enrollmentCountdown
         if request_args and "enrollmentCountdown" in request_args:
-            if self.enrollment_countdown_end:
-                remaining = int((self.enrollment_countdown_end - datetime.now()).total_seconds())
+            if self.enrollment_countdown_end is not None:
+                remaining = int(self.enrollment_countdown_end - time.monotonic())
                 if remaining > 0:
                     return jsonify({"remaining": remaining})
             return jsonify({"remaining": 0})
@@ -1292,19 +1295,19 @@ class TelegramPlugin(
         )
 
     def get_api_commands(self):
-        return dict(
-            delChat=["chat_id"],
-            editChat=[
+        return {
+            "delChat": ["chat_id"],
+            "editChat": [
                 "chat_id",
                 "accept_commands",
                 "send_notifications",
                 "allow_users",
             ],
-            startEnrollmentCountdown=[],
-            stopEnrollmentCountdown=[],
-            testEvent=["event"],
-            testToken=["token"],
-        )
+            "startEnrollmentCountdown": [],
+            "stopEnrollmentCountdown": [],
+            "testEvent": ["event"],
+            "testToken": ["token"],
+        }
 
     def on_api_command(self, command, data):
         self._logger.info("Received API command %s with data %s", command, data)
@@ -1408,7 +1411,7 @@ class TelegramPlugin(
 
         elif command == "startEnrollmentCountdown":
             duration = 5 * 60
-            self.enrollment_countdown_end = datetime.now() + timedelta(seconds=duration)
+            self.enrollment_countdown_end = time.monotonic() + duration
             self._plugin_manager.send_plugin_message(
                 self._identifier, {"type": "enrollment_countdown", "remaining": duration}
             )
@@ -1740,14 +1743,13 @@ class TelegramPlugin(
             )
             return
 
-        with self.telegram_action_context(chat_id, "upload_document"):
-            with open(path, "rb") as document:
-                self.telegram_utils.send_telegram_request(
-                    f"{self.bot_url}/sendDocument",
-                    "post",
-                    files={"document": document},
-                    data={"chat_id": chat_id, "caption": caption},
-                )
+        with self.telegram_action_context(chat_id, "upload_document"), open(path, "rb") as document:
+            self.telegram_utils.send_telegram_request(
+                f"{self.bot_url}/sendDocument",
+                "post",
+                files={"document": document},
+                data={"chat_id": chat_id, "caption": caption},
+            )
 
     def get_file(self, file_id):
         if not self.bot_ready:
@@ -1954,11 +1956,12 @@ class TelegramPlugin(
             return True
 
         # User personal permissions within groups
-        if is_group_or_channel(chat_id) and chat_allow_commands_from_users:
-            if from_accept_commands and from_accept_this_command:
-                return True
-
-        return False
+        return bool(
+            is_group_or_channel(chat_id)
+            and chat_allow_commands_from_users
+            and from_accept_commands
+            and from_accept_this_command
+        )
 
     def pre_image(self):
         method = self._settings.get(["PreImgMethod"])
@@ -2026,8 +2029,8 @@ class TelegramPlugin(
             except Exception:
                 self._logger.exception("Caught an exception running post_image SYSTEM command '%s'", command)
 
-    def get_webcam_profiles(self) -> List[WebcamProfile]:
-        webcam_profiles: List[WebcamProfile] = []
+    def get_webcam_profiles(self) -> list[WebcamProfile]:
+        webcam_profiles: list[WebcamProfile] = []
 
         # New webcam integration (OctoPrint >= 1.9.0)
         try:
@@ -2111,7 +2114,7 @@ class TelegramPlugin(
 
         return webcam_profiles
 
-    def take_all_images(self) -> List[bytes]:
+    def take_all_images(self) -> list[bytes]:
         taken_images_contents = []
 
         self._logger.debug("Taking all images")
@@ -2146,27 +2149,26 @@ class TelegramPlugin(
 
         image_content = r.content
 
-        with io.BytesIO(image_content) as image_buffer:
-            with Image.open(image_buffer) as image:
-                image.load()
+        with io.BytesIO(image_content) as image_buffer, Image.open(image_buffer) as image:
+            image.load()
 
-                if any([flipH, flipV, rotate]):
-                    self._logger.debug(
-                        "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flipH, flipV, rotate
-                    )
+            if any([flipH, flipV, rotate]):
+                self._logger.debug(
+                    "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flipH, flipV, rotate
+                )
 
-                    if flipH:
-                        image = image.transpose(Image.FLIP_LEFT_RIGHT)
-                    if flipV:
-                        image = image.transpose(Image.FLIP_TOP_BOTTOM)
-                    if rotate:
-                        image = image.transpose(Image.ROTATE_90)
+                if flipH:
+                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                if flipV:
+                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                if rotate:
+                    image = image.transpose(Image.ROTATE_90)
 
-                with io.BytesIO() as output:
-                    image.save(output, format="JPEG")
-                    return output.getvalue()
+            with io.BytesIO() as output:
+                image.save(output, format="JPEG")
+                return output.getvalue()
 
-    def take_all_gifs(self, duration=5) -> List[str]:
+    def take_all_gifs(self, duration=5) -> list[str]:
         taken_gif_paths = []
 
         self._logger.debug("Taking all gifs")
@@ -2335,7 +2337,7 @@ class TelegramPlugin(
         return layer_progress_values
 
     def calculate_ETA(self, printTime):
-        current_time = datetime.now()
+        current_time = datetime.now().astimezone()
         finish_time = current_time + timedelta(seconds=printTime)
 
         if finish_time.day > current_time.day and finish_time > current_time + timedelta(days=7):
@@ -2400,7 +2402,7 @@ class TelegramPlugin(
 
     def hook_gcode_received(self, comm_instance, line, *args, **kwargs):
         try:
-            if line.startswith("echo:busy: paused for user") or line.startswith("// action:paused"):
+            if line.startswith(("echo:busy: paused for user", "// action:paused")):
                 if not self.user_pause_already_notified:
                     self.on_event("PausedForUser", {})
                     self.user_pause_already_notified = True
@@ -2413,7 +2415,9 @@ class TelegramPlugin(
 
         return line
 
-    def send_octoprint_simpleapi_command(self, plugin_id: str, command: str, parameters: dict = None, timeout: int = 5):
+    def send_octoprint_simpleapi_command(
+        self, plugin_id: str, command: str, parameters: dict | None = None, timeout: int = 5
+    ):
         """
         Sends a SimpleAPI command to an OctoPrint plugin via the HTTP API.
 
@@ -2443,7 +2447,7 @@ class TelegramPlugin(
             timeout=timeout,
         )
 
-    def send_octoprint_simpleapi_get(self, plugin_id: str, parameters: dict = None, timeout: int = 5):
+    def send_octoprint_simpleapi_get(self, plugin_id: str, parameters: dict | None = None, timeout: int = 5):
         """
         Sends a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
 

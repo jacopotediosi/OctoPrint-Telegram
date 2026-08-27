@@ -217,7 +217,6 @@ class CmdPower(BaseCommand):
                     - "is_on" (bool): Current power state of the plug (True if on, False if off).
                     - "data" (str): Unique identifier used to identify the plug in plugin API calls.
             """
-            pass
 
         @abstractmethod
         def turn_on(self, plug_data):
@@ -344,7 +343,7 @@ class CmdPower(BaseCommand):
 
         def send_command(self, status, plug_data):
             self.parent.main.send_octoprint_request(
-                f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json=dict(status=status)
+                f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json={"status": status}
             )
 
     class GpioControlPowerPlugin(PowerPlugin):
@@ -536,7 +535,7 @@ class CmdPower(BaseCommand):
         def get_plugs_data(self):
             is_on = False
             try:
-                response = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id, dict(action="getState"))
+                response = self.parent.main.send_octoprint_simpleapi_get(self.plugin_id, {"action": "getState"})
                 is_on = response.json().get("state", False)
             except Exception:
                 self.parent._logger.exception("Caught an exception getting %s status", self.plugin_id)
@@ -551,7 +550,7 @@ class CmdPower(BaseCommand):
             self.send_command("turnOff")
 
         def send_command(self, command):
-            self.parent.main.send_octoprint_simpleapi_get(self.plugin_id, dict(action=command))
+            self.parent.main.send_octoprint_simpleapi_get(self.plugin_id, {"action": command})
 
     class OctoRelayPowerPlugin(PowerPlugin):
         @property

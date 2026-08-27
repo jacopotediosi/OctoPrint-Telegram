@@ -846,9 +846,7 @@
                     <!-- Message settings get listed here -->
                 </div>
                 <div class="text-center">
-                    <button class="btn" data-bind="click: resetNotificationMessages">
-                        &#x26A0;&#xFE0F; Reset all notification messages to default
-                    </button>
+                    <button class="btn" data-bind="click: resetNotificationMessages">⚠️ Reset all notification messages to default</button>
                 </div>
             </div>
         </div>
@@ -1185,31 +1183,31 @@
             You can use simple markup in messages. Markup for messages is activated by the markup options below the message text fields. You can choose using HTML markup or the markdown variants. The list below shows the different markups you can use.
         </p>
         {% set markdown_table = [
-        {
-        "md": "*bold*",
-        "html": "&lt;b&gt;bold&lt;/b&gt;<br>&lt;strong&gt;bold&lt;/strong&gt;",
-        "effect": "<strong>bold</strong>"
-        },
-        {
-        "md": "_italic_",
-        "html": "&lt;i&gt;italic&lt;/i&gt;<br>&lt;em&gt;italic&lt;/em&gt;",
-        "effect": "<em>italic</em>"
-        },
-        {
-        "md": "[text](url)",
-        "html": '&lt;a href="url"&gt;text&lt;/a&gt;',
-        "effect": '<a href="#">text</a>'
-        },
-        {
-        "md": "`inline code`",
-        "html": "&lt;code&gt;inline code&lt;/code&gt;",
-        "effect": "txt <code>inline code</code> txt"
-        },
-        {
-        "md": "```code block```",
-        "html": "&lt;pre&gt;code block&lt;/pre&gt;",
-        "effect": "txt <pre>code block</pre> txt"
-        }
+            {
+                "md": "*bold*",
+                "html": "&lt;b&gt;bold&lt;/b&gt;<br>&lt;strong&gt;bold&lt;/strong&gt;",
+                "effect": "<strong>bold</strong>"
+            },
+            {
+                "md": "_italic_",
+                "html": "&lt;i&gt;italic&lt;/i&gt;<br>&lt;em&gt;italic&lt;/em&gt;",
+                "effect": "<em>italic</em>"
+            },
+            {
+                "md": "[text](url)",
+                "html": '&lt;a href="url"&gt;text&lt;/a&gt;',
+                "effect": '<a href="#">text</a>'
+            },
+            {
+                "md": "`inline code`",
+                "html": "&lt;code&gt;inline code&lt;/code&gt;",
+                "effect": "txt <code>inline code</code> txt"
+            },
+            {
+                "md": "```code block```",
+                "html": "&lt;pre&gt;code block&lt;/pre&gt;",
+                "effect": "txt <pre>code block</pre> txt"
+            }
         ] %}
         <table class="table table-condensed table-striped"
                style="table-layout: auto">
@@ -1262,35 +1260,35 @@
         <p>
             You can set the time format in the options.
             {% set format_codes = [
-            ("%a", "Weekday as locale’s abbreviated name.", "Mon"),
-            ("%A", "Weekday as locale’s full name.", "Monday"),
-            ("%d", "Day of the month as a zero-padded decimal number.", "30"),
-            ("%-d", "Day of the month as a decimal number. (Platform specific)", "30"),
-            ("%b", "Month as locale’s abbreviated name.", "Sep"),
-            ("%B", "Month as locale’s full name.", "September"),
-            ("%m", "Month as a zero-padded decimal number.", "09"),
-            ("%-m", "Month as a decimal number. (Platform specific)", "9"),
-            ("%y", "Year without century as a zero-padded decimal number.", "13"),
-            ("%Y", "Year with century as a decimal number.", "2013"),
-            ("%H", "Hour (24-hour clock) as a zero-padded decimal number.", "07"),
-            ("%-H", "Hour (24-hour clock) as a decimal number. (Platform specific)", "7"),
-            ("%I", "Hour (12-hour clock) as a zero-padded decimal number.", "07"),
-            ("%-I", "Hour (12-hour clock) as a decimal number. (Platform specific)", "7"),
-            ("%p", "Locale’s equivalent of either AM or PM.", "AM"),
-            ("%M", "Minute as a zero-padded decimal number.", "06"),
-            ("%-M", "Minute as a decimal number. (Platform specific)", "6"),
-            ("%S", "Second as a zero-padded decimal number.", "05"),
-            ("%-S", "Second as a decimal number. (Platform specific)", "5"),
-            ("%f", "Microsecond as a decimal number, zero-padded on the left.", "000000"),
-            ("%z", "UTC offset in the form +HHMM or -HHMM (empty string if the object is naive).", ""),
-            ("%Z", "Time zone name (empty string if the object is naive).", ""),
-            ("%j", "Day of the year as a zero-padded decimal number.", "273"),
-            ("%-j", "Day of the year as a decimal number. (Platform specific)", "273"),
-            ("%U", "Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0.", "39"),
-            ("%W", "Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.", "39"),
-            ("%c", "Locale’s appropriate date and time representation.", "Mon Sep 30 07:06:05 2013"),
-            ("%x", "Locale’s appropriate date representation.", "09/30/13"),
-            ("%X", "Locale’s appropriate time representation.", "07:06:05")
+                ("%a", "Weekday as locale's abbreviated name.", "Mon"),
+                ("%A", "Weekday as locale's full name.", "Monday"),
+                ("%d", "Day of the month as a zero-padded decimal number.", "30"),
+                ("%-d", "Day of the month as a decimal number. (Platform specific)", "30"),
+                ("%b", "Month as locale's abbreviated name.", "Sep"),
+                ("%B", "Month as locale's full name.", "September"),
+                ("%m", "Month as a zero-padded decimal number.", "09"),
+                ("%-m", "Month as a decimal number. (Platform specific)", "9"),
+                ("%y", "Year without century as a zero-padded decimal number.", "13"),
+                ("%Y", "Year with century as a decimal number.", "2013"),
+                ("%H", "Hour (24-hour clock) as a zero-padded decimal number.", "07"),
+                ("%-H", "Hour (24-hour clock) as a decimal number. (Platform specific)", "7"),
+                ("%I", "Hour (12-hour clock) as a zero-padded decimal number.", "07"),
+                ("%-I", "Hour (12-hour clock) as a decimal number. (Platform specific)", "7"),
+                ("%p", "Locale's equivalent of either AM or PM.", "AM"),
+                ("%M", "Minute as a zero-padded decimal number.", "06"),
+                ("%-M", "Minute as a decimal number. (Platform specific)", "6"),
+                ("%S", "Second as a zero-padded decimal number.", "05"),
+                ("%-S", "Second as a decimal number. (Platform specific)", "5"),
+                ("%f", "Microsecond as a decimal number, zero-padded on the left.", "000000"),
+                ("%z", "UTC offset in the form +HHMM or -HHMM (empty string if the object is naive).", ""),
+                ("%Z", "Time zone name (empty string if the object is naive).", ""),
+                ("%j", "Day of the year as a zero-padded decimal number.", "273"),
+                ("%-j", "Day of the year as a decimal number. (Platform specific)", "273"),
+                ("%U", "Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0.", "39"),
+                ("%W", "Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.", "39"),
+                ("%c", "Locale's appropriate date and time representation.", "Mon Sep 30 07:06:05 2013"),
+                ("%x", "Locale's appropriate date representation.", "09/30/13"),
+                ("%X", "Locale's appropriate time representation.", "07:06:05")
             ] %}
             <table class="table table-condensed table-striped"
                    style="table-layout: auto">
@@ -1334,19 +1332,17 @@
     <div class="modal-body">
         <p>
             Proxy format: <code>scheme://[user:password@]host:port</code>
-            <br>
-            <br>
-            Examples:
-            <br>
-            <ul>
-                <li>
-                    <code>http://proxy.example.com:8080</code>
-                </li>
-                <li>
-                    <code>socks5h://127.0.0.1:9050</code>
-                </li>
-            </ul>
-            <br>
+        </p>
+        <p>Examples:</p>
+        <ul>
+            <li>
+                <code>http://proxy.example.com:8080</code>
+            </li>
+            <li>
+                <code>socks5h://127.0.0.1:9050</code>
+            </li>
+        </ul>
+        <p>
             Supported schemes: <code>http</code>, <code>https</code>, <code>socks4</code>, <code>socks5</code>, <code>socks5h</code>.
             <br>
             Use <code>socks5h</code> scheme to proxy also dns requests, and <code>socks5</code> for regular dns requests.

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import ClassVar
+
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
@@ -5,10 +9,10 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdSettings(BaseCommand):
-    HEIGHT_STEPS = [10, 1, 0.1, 0.01]
-    TIME_STEPS = [10, 1]
+    HEIGHT_STEPS: ClassVar[list[float]] = [10, 1, 0.1, 0.01]
+    TIME_STEPS: ClassVar[list[int]] = [10, 1]
 
-    temp_notification_settings = {}
+    temp_notification_settings: ClassVar[dict[str, float]] = {}
 
     def execute(self, context: CommandContext):
         if context.parameter and context.parameter != "back":
@@ -94,9 +98,10 @@ class CmdSettings(BaseCommand):
             notification_height = self.main._settings.get_float(["notification_height"])
             notification_time = self.main._settings.get_int(["notification_time"])
 
-            self.temp_notification_settings = dict(
-                notification_height=notification_height, notification_time=notification_time
-            )
+            self.temp_notification_settings = {
+                "notification_height": notification_height,
+                "notification_time": notification_time,
+            }
 
             msg = render_emojis(
                 "{emo:settings} <b>Current notification settings are:</b>\n\n"
