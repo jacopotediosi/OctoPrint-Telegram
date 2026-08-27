@@ -2607,7 +2607,7 @@ def get_implementation_class():
 
 
 __plugin_name__ = "Telegram"
-__plugin_pythoncompat__ = ">=3.6,<4"
+__plugin_pythoncompat__ = ">=3.7,<4"
 __plugin_privacypolicy__ = "https://github.com/jacopotediosi/OctoPrint-Telegram/blob/master/PRIVACY.md"
 __plugin_implementation__ = get_implementation_class()
 __plugin_hooks__ = {
