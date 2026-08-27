@@ -4,6 +4,7 @@ import html
 from typing import ClassVar
 
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -14,43 +15,43 @@ class CmdTune(BaseCommand):
     RATE_INCREMENTS: ClassVar[list[int]] = [25, 10, 1]
     ENCLOSURE_INCREMENTS: ClassVar[list[int]] = [20, 10, 5, 1]
 
-    temp_target_temps: ClassVar[dict[str, float]] = {}
-    temp_tune_rates: ClassVar[dict[str, int]] = {"feedrate": 100, "flowrate": 100}
+    _temp_target_temps: ClassVar[dict[str, float]] = {}
+    _temp_tune_rates: ClassVar[dict[str, int]] = {"feedrate": 100, "flowrate": 100}
 
-    def execute(self, context: CommandContext):
-        if context.parameter and context.parameter != "back":
-            params = context.parameter.split("_")
+    def execute(self, command_context: CommandContext):
+        if command_context.parameter and command_context.parameter != "back":
+            params = command_context.parameter.split("_")
 
             if params[0] == "feed":
-                self._handle_rate_control(context, "feed", "feedrate", "feedrate")
+                self._handle_rate_control(command_context, "feed", "feedrate", "feedrate")
 
             elif params[0] == "flow":
-                self._handle_rate_control(context, "flow", "flowrate", "flowrate")
+                self._handle_rate_control(command_context, "flow", "flowrate", "flowrate")
 
             elif params[0] == "e":
                 tool_number = int(params[1])
                 tool_key = f"tool{tool_number}"
-                self._handle_temp_control(context, tool_key, f"tool {tool_number}", "tool", f"e_{params[1]}")
+                self._handle_temp_control(command_context, tool_key, f"tool {tool_number}", "tool", f"e_{params[1]}")
 
             elif params[0] == "b":
                 tool_key = "bed"
-                self._handle_temp_control(context, tool_key, "bed", "hotbed", "b")
+                self._handle_temp_control(command_context, tool_key, "bed", "hotbed", "b")
 
             elif params[0] == "enc":
-                self._handle_enclosure_control(context)
+                self._handle_enclosure_control(command_context)
         else:
             msg = render_emojis("{emo:settings} <b>Tune print settings</b>")
 
-            profile = self.main._printer_profile_manager.get_current()
+            profile = self.plugin_context.printer_profiles.get_current()
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:feedrate} Feedrate"), f"{context.cmd}_feed"],
-                    [render_emojis("{emo:flowrate} Flowrate"), f"{context.cmd}_flow"],
+                    [render_emojis("{emo:feedrate} Feedrate"), f"{command_context.cmd}_feed"],
+                    [render_emojis("{emo:flowrate} Flowrate"), f"{command_context.cmd}_flow"],
                 ]
             ]
 
-            if self.main._printer.is_operational():
+            if self.plugin_context.printer.is_operational():
                 tool_command_buttons = []
 
                 extruder = profile["extruder"]
@@ -58,23 +59,26 @@ class CmdTune(BaseCommand):
                 count = extruder.get("count", 1)
 
                 if shared_nozzle:
-                    tool_command_buttons.append([render_emojis("{emo:tool} Tool"), f"{context.cmd}_e_0"])
+                    tool_command_buttons.append([render_emojis("{emo:tool} Tool"), f"{command_context.cmd}_e_0"])
                 else:
                     tool_command_buttons.extend(
-                        [[render_emojis(f"{{emo:tool}} Tool {i}"), f"{context.cmd}_e_{i}"] for i in range(count)]
+                        [
+                            [render_emojis(f"{{emo:tool}} Tool {i}"), f"{command_context.cmd}_e_{i}"]
+                            for i in range(count)
+                        ]
                     )
 
                 if profile["heatedBed"]:
-                    tool_command_buttons.append([render_emojis("{emo:hotbed} Bed"), f"{context.cmd}_b"])
+                    tool_command_buttons.append([render_emojis("{emo:hotbed} Bed"), f"{command_context.cmd}_b"])
 
                 if tool_command_buttons:
                     command_buttons.append(tool_command_buttons)
 
             try:
                 enclosure_plugin_id = "enclosure"
-                enclosure_module = self.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
-                if enclosure_module:
-                    enclosure_implementation = self.main._plugin_manager.plugins[enclosure_plugin_id].implementation
+                enclosure_available = self.plugin_context.plugins.is_enabled(enclosure_plugin_id)
+                if enclosure_available:
+                    enclosure_implementation = self.plugin_context.plugins.implementation(enclosure_plugin_id)
 
                     enclosure_buttons = []
                     for rpi_output in enclosure_implementation.rpi_outputs:
@@ -82,7 +86,7 @@ class CmdTune(BaseCommand):
                             index_id = rpi_output["index_id"]
                             label = rpi_output["label"]
                             enclosure_buttons.append(
-                                [render_emojis(f"{{emo:plugin}} {label}"), f"{context.cmd}_enc_{index_id}"]
+                                [render_emojis(f"{{emo:plugin}} {label}"), f"{command_context.cmd}_enc_{index_id}"]
                             )
 
                     if enclosure_buttons:
@@ -92,81 +96,84 @@ class CmdTune(BaseCommand):
 
             command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                responses=command_buttons,
-                chatID=context.chat_id,
-                markup="HTML",
-                msg_id=context.msg_id_to_update,
+                buttons=command_buttons,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def _go_back(self, context):
+    def _go_back(self, command_context):
         """Helper method to handle back navigation"""
         self(
-            cmd=context.cmd,
-            chat_id=context.chat_id,
-            from_id=context.from_id,
+            cmd=command_context.cmd,
+            chat_id=command_context.chat_id,
+            from_id=command_context.from_id,
             parameter="back",
-            msg_id_to_update=context.msg_id_to_update,
-            user=context.user,
+            msg_id_to_update=command_context.msg_id_to_update,
+            user=command_context.user,
         )
 
-    def _create_rate_buttons(self, rate_type, context):
+    def _create_rate_buttons(self, rate_type, command_context):
         """Create increment/decrement buttons for rate controls (feed/flow)"""
         buttons = []
 
         increment_row = []
         for inc in self.RATE_INCREMENTS:
             increment_row.extend(
-                [[f"+{inc}", f"{context.cmd}_{rate_type}_+{inc}"], [f"-{inc}", f"{context.cmd}_{rate_type}_-{inc}"]]
+                [
+                    [f"+{inc}", f"{command_context.cmd}_{rate_type}_+{inc}"],
+                    [f"-{inc}", f"{command_context.cmd}_{rate_type}_-{inc}"],
+                ]
             )
         buttons.append(increment_row)
 
         buttons.append(
             [
-                [render_emojis("{emo:back} Back"), f"{context.cmd}_back"],
+                [render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"],
             ]
         )
 
         return buttons
 
-    def _create_temp_buttons(self, tool_identifier, context):
+    def _create_temp_buttons(self, tool_identifier, command_context):
         """Create increment/decrement buttons for temperature controls"""
         buttons = []
 
         increment_row = []
         decrement_row = []
         for inc in self.TEMP_INCREMENTS:
-            increment_row.append([f"+{inc}", f"{context.cmd}_{tool_identifier}_+{inc}"])
-            decrement_row.append([f"-{inc}", f"{context.cmd}_{tool_identifier}_-{inc}"])
+            increment_row.append([f"+{inc}", f"{command_context.cmd}_{tool_identifier}_+{inc}"])
+            decrement_row.append([f"-{inc}", f"{command_context.cmd}_{tool_identifier}_-{inc}"])
         buttons.extend([increment_row, decrement_row])
 
-        action_buttons = [[render_emojis("{emo:check} Set"), f"{context.cmd}_{tool_identifier}_s"]]
-        action_buttons.append([render_emojis("{emo:cooldown} Off"), f"{context.cmd}_{tool_identifier}_off"])
-        action_buttons.append([render_emojis("{emo:back} Back"), f"{context.cmd}_back"])
+        action_buttons = [[render_emojis("{emo:check} Set"), f"{command_context.cmd}_{tool_identifier}_s"]]
+        action_buttons.append([render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_{tool_identifier}_off"])
+        action_buttons.append([render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"])
         buttons.append(action_buttons)
 
         return buttons
 
-    def _handle_enclosure_control(self, context):
+    def _handle_enclosure_control(self, command_context):
         """Handle enclosure temperature controls"""
-        params = context.parameter.split("_")
+        params = command_context.parameter.split("_")
         index_id = int(params[1])
         tool_key = f"enc{index_id}"
 
         enclosure_plugin_id = "enclosure"
-        enclosure_module = self.main._plugin_manager.get_plugin(enclosure_plugin_id, True)
+        enclosure_available = self.plugin_context.plugins.is_enabled(enclosure_plugin_id)
 
-        if not enclosure_module:
-            self.main.send_msg(
+        if not enclosure_available:
+            self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Enclosure plugin not available"),
-                chatID=context.chat_id,
-                markup="HTML",
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
-        enclosure_implementation = self.main._plugin_manager.plugins[enclosure_plugin_id].implementation
+        enclosure_implementation = self.plugin_context.plugins.implementation(enclosure_plugin_id)
 
         selected_rpi_output = None
         for rpi_output in enclosure_implementation.rpi_outputs:
@@ -175,31 +182,31 @@ class CmdTune(BaseCommand):
                 break
 
         if not selected_rpi_output:
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Enclosure plugin output not found"),
-                chatID=context.chat_id,
-                markup="HTML",
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
         if len(params) <= 2:
-            self.temp_target_temps[tool_key] = selected_rpi_output["temp_ctr_set_value"]
+            self._temp_target_temps[tool_key] = selected_rpi_output["temp_ctr_set_value"]
         else:
             delta_str = params[2]
 
             if delta_str.startswith(("+", "-")):
-                self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key] + int(delta_str), 0)
+                self._temp_target_temps[tool_key] = max(self._temp_target_temps[tool_key] + int(delta_str), 0)
             elif delta_str.startswith("s"):
-                selected_rpi_output["temp_ctr_set_value"] = self.temp_target_temps[tool_key]
+                selected_rpi_output["temp_ctr_set_value"] = self._temp_target_temps[tool_key]
                 enclosure_implementation.handle_temp_hum_control()
             else:
-                self.temp_target_temps[tool_key] = 0
+                self._temp_target_temps[tool_key] = 0
                 selected_rpi_output["temp_ctr_set_value"] = 0
                 enclosure_implementation.handle_temp_hum_control()
 
         current_target = selected_rpi_output["temp_ctr_set_value"]
-        pending_selection = self.temp_target_temps[tool_key]
+        pending_selection = self._temp_target_temps[tool_key]
 
         linked_temp_sensor = selected_rpi_output["linked_temp_sensor"]
         current_sensor = None
@@ -220,87 +227,87 @@ class CmdTune(BaseCommand):
         increment_row = []
         decrement_row = []
         for inc in self.ENCLOSURE_INCREMENTS:
-            increment_row.append([f"+{inc}", f"{context.cmd}_enc_{params[1]}_+{inc}"])
-            decrement_row.append([f"-{inc}", f"{context.cmd}_enc_{params[1]}_-{inc}"])
+            increment_row.append([f"+{inc}", f"{command_context.cmd}_enc_{params[1]}_+{inc}"])
+            decrement_row.append([f"-{inc}", f"{command_context.cmd}_enc_{params[1]}_-{inc}"])
         command_buttons.extend([increment_row, decrement_row])
 
         command_buttons.append(
             [
-                [render_emojis("{emo:check} Set"), f"{context.cmd}_enc_{params[1]}_s"],
-                [render_emojis("{emo:cooldown} Off"), f"{context.cmd}_enc_{params[1]}_off"],
-                [render_emojis("{emo:back} Back"), f"{context.cmd}_back"],
+                [render_emojis("{emo:check} Set"), f"{command_context.cmd}_enc_{params[1]}_s"],
+                [render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_enc_{params[1]}_off"],
+                [render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"],
             ]
         )
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def _handle_rate_control(self, context, rate_type, rate_key, emoji_name):
+    def _handle_rate_control(self, command_context, rate_type, rate_key, emoji_name):
         """Handle feedrate and flowrate controls"""
-        params = context.parameter.split("_")
+        params = command_context.parameter.split("_")
 
         if len(params) > 1:
             delta_str = params[1]
 
             if delta_str.startswith(("+", "-")):
-                self.temp_tune_rates[rate_key] = max(50, min(self.temp_tune_rates[rate_key] + int(delta_str), 200))
+                self._temp_tune_rates[rate_key] = max(50, min(self._temp_tune_rates[rate_key] + int(delta_str), 200))
             else:
-                getattr(self.main._printer, f"{rate_type}_rate")(int(self.temp_tune_rates[rate_key]))
-                return self._go_back(context)
+                getattr(self.plugin_context.printer, f"{rate_type}_rate")(int(self._temp_tune_rates[rate_key]))
+                return self._go_back(command_context)
 
         msg = render_emojis(
-            f"{{emo:{emoji_name}}} Set {rate_type}rate.\nCurrent: <b>{self.temp_tune_rates[rate_key]}%</b>"
+            f"{{emo:{emoji_name}}} Set {rate_type}rate.\nCurrent: <b>{self._temp_tune_rates[rate_key]}%</b>"
         )
 
-        command_buttons = self._create_rate_buttons(rate_type, context)
+        command_buttons = self._create_rate_buttons(rate_type, command_context)
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def _handle_temp_control(self, context, tool_key, tool_display_name, emoji_name, tool_identifier):
+    def _handle_temp_control(self, command_context, tool_key, tool_display_name, emoji_name, tool_identifier):
         """Handle temperature controls"""
-        params = context.parameter.split("_")
-        temps = self.main._printer.get_current_temperatures()
+        params = command_context.parameter.split("_")
+        temps = self.plugin_context.printer.get_current_temperatures()
 
         if len(params) <= len(tool_identifier.split("_")):
-            self.temp_target_temps[tool_key] = temps[tool_key]["target"]
+            self._temp_target_temps[tool_key] = temps[tool_key]["target"]
         else:
             delta_str = params[len(tool_identifier.split("_"))]
 
             if delta_str.startswith(("+", "-")):
-                self.temp_target_temps[tool_key] = max(self.temp_target_temps[tool_key] + int(delta_str), 0)
+                self._temp_target_temps[tool_key] = max(self._temp_target_temps[tool_key] + int(delta_str), 0)
             elif delta_str.startswith("s"):
-                self.main._printer.set_temperature(tool_key, self.temp_target_temps[tool_key])
-                return self._go_back(context)
+                self.plugin_context.printer.set_temperature(tool_key, self._temp_target_temps[tool_key])
+                return self._go_back(command_context)
             else:
-                self.temp_target_temps[tool_key] = 0
-                self.main._printer.set_temperature(tool_key, 0)
-                return self._go_back(context)
+                self._temp_target_temps[tool_key] = 0
+                self.plugin_context.printer.set_temperature(tool_key, 0)
+                return self._go_back(command_context)
 
         current_temp = temps[tool_key]["actual"]
-        target_temp = self.temp_target_temps[tool_key]
+        target_temp = self._temp_target_temps[tool_key]
 
         msg = render_emojis(
             f"{{emo:{emoji_name}}} Set temperature for <code>{html.escape(tool_display_name)}</code>.\n"
             f"Current: {current_temp:.02f}/<b>{target_temp}°C</b>"
         )
 
-        command_buttons = self._create_temp_buttons(tool_identifier, context)
+        command_buttons = self._create_temp_buttons(tool_identifier, command_context)
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )

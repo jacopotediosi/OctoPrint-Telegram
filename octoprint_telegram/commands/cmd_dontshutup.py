@@ -5,13 +5,13 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdDontShutup(BaseCommand):
-    def execute(self, context: CommandContext):
-        self.main.shut_up.discard(context.chat_id)
+    def execute(self, command_context: CommandContext):
+        self.plugin_context.muted_chats.unmute_chat(command_context.chat_id)
 
         msg = render_emojis("{emo:notify} Yay, I can talk again.")
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            message_id=command_context.msg_id_to_update,
         )

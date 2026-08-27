@@ -1,0 +1,38 @@
+from .base import PowerPlugin
+
+
+class EnclosurePowerPlugin(PowerPlugin):
+    @property
+    def plugin_id(self):
+        return "enclosure"
+
+    @property
+    def plugin_name(self):
+        return "Enclosure"
+
+    def get_plugs_data(self):
+        plugs_data = []
+
+        plugs = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/outputs").json()
+        for plug in plugs:
+            try:
+                plug_index = plug["index_id"]
+                label = plug.get("label") or plug_index
+                is_on = plug.get("State", "").strip().lower() == "on"
+
+                plugs_data.append({"label": label, "is_on": is_on, "data": plug_index})
+            except Exception:
+                self._logger.exception("Caught an exception processing %s plug data", self.plugin_id)
+
+        return plugs_data
+
+    def turn_on(self, plug_data):
+        self._send_command(True, plug_data)
+
+    def turn_off(self, plug_data):
+        self._send_command(False, plug_data)
+
+    def _send_command(self, status, plug_data):
+        self.plugin_context.api.send_request(
+            f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json={"status": status}
+        )

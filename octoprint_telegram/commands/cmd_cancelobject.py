@@ -1,45 +1,46 @@
 import html
 
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdCancelObject(BaseCommand):
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         cancelobject_id = "cancelobject"
 
-        if not self.main._plugin_manager.get_plugin(cancelobject_id, True):
+        if not self.plugin_context.plugins.is_enabled(cancelobject_id):
             msg = render_emojis(
                 f"{{emo:attention}} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
-        if context.parameter:
-            params = context.parameter.split("_")
+        if command_context.parameter:
+            params = command_context.parameter.split("_")
 
             id = params[0]
-            self.main.send_octoprint_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
+            self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
 
             msg = render_emojis("{emo:check} Command sent!")
-            command_buttons = [[[render_emojis("{emo:back} Back"), context.cmd]]]
+            command_buttons = [[[render_emojis("{emo:back} Back"), command_context.cmd]]]
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
         else:
-            objlist = self.main.send_octoprint_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
+            objlist = self.plugin_context.api.send_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
             if objlist:
                 msg = render_emojis("{emo:question} Which object do you want to cancel?")
 
@@ -49,26 +50,26 @@ class CmdCancelObject(BaseCommand):
                     msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
 
                 command_buttons = [
-                    [[obj["object"], f"{context.cmd}_{obj['id']}"]]
+                    [[obj["object"], f"{command_context.cmd}_{obj['id']}"]]
                     for obj in objlist
                     if not obj.get("cancelled", False)
                 ]
                 command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
             else:
                 msg = render_emojis(
                     "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."
                 )
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    message_id=command_context.msg_id_to_update,
                 )

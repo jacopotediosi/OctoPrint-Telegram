@@ -1,16 +1,17 @@
 import html
 
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdUser(BaseCommand):
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         # Gather data
-        chat_settings = self.main._settings.get(["chats", context.chat_id])
-        from_settings = self.main._settings.get(["chats", context.from_id])
+        chat_settings = self.plugin_context.chats.get_chat(command_context.chat_id)
+        from_settings = self.plugin_context.chats.get_chat(command_context.from_id)
 
         # -- Chat and user information section --
 
@@ -18,8 +19,8 @@ class CmdUser(BaseCommand):
             "{emo:info} <b>Chat and user information:</b>\n\n"
             f"<b>Chat title:</b> {html.escape(chat_settings['title'])}\n"
             f"<b>Chat type:</b> {html.escape(chat_settings['type'])}\n"
-            f"<b>Chat id:</b> {html.escape(context.chat_id)}\n"
-            f"<b>User id:</b> {html.escape(context.from_id)}\n\n"
+            f"<b>Chat id:</b> {html.escape(command_context.chat_id)}\n"
+            f"<b>User id:</b> {html.escape(command_context.from_id)}\n\n"
         )
 
         # -- Commands allowed section --
@@ -62,9 +63,9 @@ class CmdUser(BaseCommand):
             msg += "No notifications enabled"
 
         # Send the message
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            message_id=command_context.msg_id_to_update,
         )

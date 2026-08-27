@@ -1,19 +1,19 @@
-import hashlib
 import html
 import socket
 
 import sarge
 
 from ..emoji import Emoji
+from ..telegram import Markup, callbacks
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdSys(BaseCommand):
-    def execute(self, context: CommandContext):
-        if context.parameter:
-            params = context.parameter.split("_")
+    def execute(self, command_context: CommandContext):
+        if command_context.parameter:
+            params = command_context.parameter.split("_")
 
             if params[0] == "sys":  # Server built-in commands
                 command_mapping = {
@@ -34,21 +34,21 @@ class CmdSys(BaseCommand):
                         [
                             [
                                 render_emojis("{emo:check} Execute"),
-                                f"{context.cmd}_sys_do_{params[1]}",
+                                f"{command_context.cmd}_sys_do_{params[1]}",
                             ],
                             [
                                 render_emojis("{emo:back} Back"),
-                                context.cmd,
+                                command_context.cmd,
                             ],
                         ]
                     ]
 
-                    self.main.send_msg(
+                    self.plugin_context.sender.send_message(
                         msg,
-                        chatID=context.chat_id,
-                        markup="HTML",
-                        responses=command_buttons,
-                        msg_id=context.msg_id_to_update,
+                        chat_id=command_context.chat_id,
+                        markup=Markup.HTML,
+                        buttons=command_buttons,
+                        message_id=command_context.msg_id_to_update,
                     )
 
                 else:  # Execute command
@@ -56,7 +56,7 @@ class CmdSys(BaseCommand):
                         return
 
                     try:
-                        command_to_execute = self.main._settings.global_get(["server", "commands", params[2]])
+                        command_to_execute = self.plugin_context.octoprint_settings.server_command(params[2])
                         process = sarge.run(command_to_execute, stderr=sarge.Capture(), shell=True, async_=False)
 
                         if process.returncode != 0:
@@ -74,17 +74,17 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.main.send_msg(
+                    self.plugin_context.sender.send_message(
                         msg,
-                        chatID=context.chat_id,
-                        markup="HTML",
-                        msg_id=context.msg_id_to_update,
+                        chat_id=command_context.chat_id,
+                        markup=Markup.HTML,
+                        message_id=command_context.msg_id_to_update,
                     )
 
             else:  # Custom commands (system actions)
                 action_hash = params[1] if params[0] == "do" else params[0]
 
-                actions = self.main._settings.global_get(["system", "actions"])
+                actions = self.plugin_context.octoprint_settings.system_actions
                 command = None
                 for action in actions:
                     try:
@@ -92,17 +92,17 @@ class CmdSys(BaseCommand):
                             continue
 
                         action_identifier = f"{action['name']}-{action['action']}-{action['command']}"
-                        if self.hash_parameter(action_identifier) == action_hash:
+                        if self._hash_parameter(action_identifier) == action_hash:
                             command = action
                             break
                     except Exception:
                         self._logger.exception("Caught an exception parsing system actions")
 
                 if not command:
-                    self.main.send_msg(
+                    self.plugin_context.sender.send_message(
                         render_emojis("{emo:attention} Sorry, I don't know this System Command."),
-                        chatID=context.chat_id,
-                        msg_id=context.msg_id_to_update,
+                        chat_id=command_context.chat_id,
+                        message_id=command_context.msg_id_to_update,
                     )
                     return
 
@@ -116,21 +116,21 @@ class CmdSys(BaseCommand):
                         [
                             [
                                 render_emojis("{emo:check} Execute"),
-                                f"{context.cmd}_do_{action_hash}",
+                                f"{command_context.cmd}_do_{action_hash}",
                             ],
                             [
                                 render_emojis("{emo:back} Back"),
-                                context.cmd,
+                                command_context.cmd,
                             ],
                         ]
                     ]
 
-                    self.main.send_msg(
+                    self.plugin_context.sender.send_message(
                         msg,
-                        chatID=context.chat_id,
-                        markup="HTML",
-                        responses=command_buttons,
-                        msg_id=context.msg_id_to_update,
+                        chat_id=command_context.chat_id,
+                        markup=Markup.HTML,
+                        buttons=command_buttons,
+                        message_id=command_context.msg_id_to_update,
                     )
 
                 else:  # Execute command
@@ -161,24 +161,24 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.main.send_msg(
+                    self.plugin_context.sender.send_message(
                         msg,
-                        chatID=context.chat_id,
-                        markup="HTML",
-                        msg_id=context.msg_id_to_update,
+                        chat_id=command_context.chat_id,
+                        markup=Markup.HTML,
+                        message_id=command_context.msg_id_to_update,
                     )
 
         else:  # Display command buttons
             command_buttons = []
 
-            for action in self.main._settings.global_get(["system", "actions"]):
+            for action in self.plugin_context.octoprint_settings.system_actions:
                 try:
                     if action["action"] == "divider":
                         continue
 
                     action_identifier = f"{action['name']}-{action['action']}-{action['command']}"
                     command_buttons.append(
-                        [[f"{action['name']}", f"{context.cmd}_{self.hash_parameter(action_identifier)}"]]
+                        [[f"{action['name']}", f"{command_context.cmd}_{self._hash_parameter(action_identifier)}"]]
                     )
                 except Exception:
                     self._logger.exception("Caught an exception parsing system actions")
@@ -187,16 +187,16 @@ class CmdSys(BaseCommand):
             server_commands_map = {
                 "serverRestartCommand": [
                     "Restart OctoPrint",
-                    f"{context.cmd}_sys_serverRestartCommand",
+                    f"{command_context.cmd}_sys_serverRestartCommand",
                 ],
-                "systemRestartCommand": ["Restart system", f"{context.cmd}_sys_systemRestartCommand"],
+                "systemRestartCommand": ["Restart system", f"{command_context.cmd}_sys_systemRestartCommand"],
                 "systemShutdownCommand": [
                     "Shutdown system",
-                    f"{context.cmd}_sys_systemShutdownCommand",
+                    f"{command_context.cmd}_sys_systemShutdownCommand",
                 ],
             }
             for command_key, command_button in server_commands_map.items():
-                command_text = self.main._settings.global_get(["server", "commands", command_key])
+                command_text = self.plugin_context.octoprint_settings.server_command(command_key)
                 if command_text:
                     server_commands_buttons.append(command_button)
             for i in range(0, len(server_commands_buttons), 2):
@@ -213,22 +213,22 @@ class CmdSys(BaseCommand):
 
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    host = self.main._settings.global_get(["server", "onlineCheck", "host"])
-                    port = self.main._settings.global_get(["server", "onlineCheck", "port"])
+                    host = self.plugin_context.octoprint_settings.online_check_host
+                    port = self.plugin_context.octoprint_settings.online_check_port
                     s.connect((host, port))
                     server_ip = s.getsockname()[0]
-                msg += render_emojis(f"\n\n{{emo:info}} IP: {server_ip}:{self.main.port}")
+                msg += render_emojis(f"\n\n{{emo:info}} IP: {server_ip}:{self.plugin_context.server_port}")
             except Exception:
                 self._logger.exception("Caught an exception retrieving IP address")
 
             command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def hash_parameter(self, text):
-        return hashlib.md5(text.encode()).hexdigest()
+    def _hash_parameter(self, text):
+        return callbacks.hash_value(text)

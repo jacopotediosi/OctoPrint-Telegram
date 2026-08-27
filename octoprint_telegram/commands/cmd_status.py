@@ -2,10 +2,18 @@ from .base import BaseCommand, CommandContext
 
 
 class CmdStatus(BaseCommand):
-    def execute(self, context: CommandContext):
-        if not self.main._printer.is_operational():
-            self.main.on_event("StatusNotConnected", {}, chatID=context.chat_id)
-        elif self.main._printer.is_printing() or self.main._printer.is_pausing() or self.main._printer.is_paused():
-            self.main.on_event("StatusPrinting", {}, chatID=context.chat_id)
+    def execute(self, command_context: CommandContext):
+        if not self.plugin_context.printer.is_operational():
+            self.plugin_context.notifications.send_notification(
+                "StatusNotConnected", {}, chat_id=command_context.chat_id
+            )
+        elif (
+            self.plugin_context.printer.is_printing()
+            or self.plugin_context.printer.is_pausing()
+            or self.plugin_context.printer.is_paused()
+        ):
+            self.plugin_context.notifications.send_notification("StatusPrinting", {}, chat_id=command_context.chat_id)
         else:
-            self.main.on_event("StatusNotPrinting", {}, chatID=context.chat_id)
+            self.plugin_context.notifications.send_notification(
+                "StatusNotPrinting", {}, chat_id=command_context.chat_id
+            )

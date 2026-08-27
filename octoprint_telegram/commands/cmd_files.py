@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import datetime
-import hashlib
 import html
 import os
 from itertools import islice
@@ -11,7 +10,9 @@ from typing import ClassVar
 import octoprint.filemanager
 import requests
 
+from ..domain import permissions
 from ..emoji import Emoji
+from ..telegram import Markup, callbacks
 from ..utils import Formatters
 from .base import BaseCommand, CommandContext
 
@@ -33,12 +34,12 @@ class CmdFiles(BaseCommand):
     # Used to overcome Telegram's 64-byte callback query data limit.
     # Each data gets a unique hash that can be sent in callback queries
     # and later resolved back to the original data.
-    hash_file_path_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are full file/folder paths
-    hash_slicer_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer ids
-    hash_slicer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer profile ids
-    hash_printer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are printer profile ids
+    _hash_file_path_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are full file/folder paths
+    _hash_slicer_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer ids
+    _hash_slicer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer profile ids
+    _hash_printer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are printer profile ids
 
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         """
         Callback query format: /files_operation_pathHash_pageNumber_additionalArg1_additionalArg2
 
@@ -92,21 +93,21 @@ class CmdFiles(BaseCommand):
             - additionalArg2 (optional): "y" = slicing confirmed, omitted = show confirmation menu
         """
 
-        if context.parameter:
+        if command_context.parameter:
             # The hash→path map may be empty if the user clicks an old button after restarting the bot.
             # In that case, ask the user to run /files again.
-            if not self.hash_file_path_map:
+            if not self._hash_file_path_map:
                 msg = render_emojis(
-                    f"{{emo:attention}} This button is no longer valid. Please run {context.cmd} again."
+                    f"{{emo:attention}} This button is no longer valid. Please run {command_context.cmd} again."
                 )
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
                 )
                 return
 
-            params = context.parameter.split("_")
+            params = command_context.parameter.split("_")
 
             operation = params[0]
             path_hash = params[1] if len(params) > 1 else None
@@ -115,26 +116,26 @@ class CmdFiles(BaseCommand):
             additional_arg2 = params[4] if len(params) > 4 else None
 
             if operation == "list":
-                self.file_list(context, path_hash, page_number)
+                self._file_list(command_context, path_hash, page_number)
 
             elif operation == "info":
-                self.file_info(context, path_hash, page_number)
+                self._file_info(command_context, path_hash, page_number)
 
             elif operation == "details":
-                self.file_details(context, path_hash, page_number)
+                self._file_details(command_context, path_hash, page_number)
 
             elif operation == "settings":
-                self.file_settings(context, path_hash, page_number, additional_arg1)
+                self._file_settings(command_context, path_hash, page_number, additional_arg1)
 
             elif operation == "download":
-                self.file_download(context, path_hash)
+                self._file_download(command_context, path_hash)
 
             elif operation == "delete":
-                self.file_delete(context, path_hash, page_number, additional_arg1)
+                self._file_delete(command_context, path_hash, page_number, additional_arg1)
 
             elif operation in ("copy", "move"):
-                self.file_copy_move(
-                    context,
+                self._file_copy_move(
+                    command_context,
                     path_hash,
                     page_number,
                     additional_arg1,
@@ -143,75 +144,70 @@ class CmdFiles(BaseCommand):
                 )
 
             elif operation == "print":
-                self.file_print(context, path_hash, page_number)
+                self._file_print(command_context, path_hash, page_number)
 
             elif operation == "slice":
-                self.file_slice(context, path_hash, page_number, additional_arg1, additional_arg2)
+                self._file_slice(command_context, path_hash, page_number, additional_arg1, additional_arg2)
 
         else:
-            self.file_list(context, None, 0)
+            self._file_list(command_context, None, 0)
 
-    def file_list(self, context: CommandContext, path_hash, page_number):
-        try:
-            if context.msg_id_to_update:
-                self.main.send_msg(
-                    render_emojis("{emo:loading} Loading files..."),
-                    chatID=context.chat_id,
-                    msg_id=context.msg_id_to_update,
-                )
-            else:
-                loading_files_response = self.main.telegram_utils.send_telegram_request(
-                    f"{self.main.bot_url}/sendMessage",
-                    "post",
-                    data={
-                        "text": render_emojis("{emo:loading} Loading files..."),
-                        "chat_id": context.chat_id,
-                    },
-                )
-                context.msg_id_to_update = loading_files_response["result"]["message_id"]
-        except Exception:
-            pass
+    def _file_list(self, command_context: CommandContext, path_hash, page_number):
+        sent_message_id = self.plugin_context.sender.send_message(
+            render_emojis("{emo:loading} Loading files..."),
+            chat_id=command_context.chat_id,
+            message_id=command_context.msg_id_to_update,
+        )
+        if sent_message_id:
+            command_context.msg_id_to_update = sent_message_id
 
         if not path_hash:  # Show storage selection
-            storages = self.list_files(recursive=False)
+            storages = self._list_files(recursive=False)
 
             if len(storages) == 1:
                 storage_name = next(iter(storages))
-                storage_hash = self.hash_path(storage_name)
-                self.file_list(context, storage_hash, page_number)
+                storage_hash = self._hash_path(storage_name)
+                self._file_list(command_context, storage_hash, page_number)
             elif len(storages) > 1:
                 msg = render_emojis("{emo:save} <b>Select Storage</b>")
 
                 command_buttons = []
                 for storage_name in storages:
-                    storage_hash = self.hash_path(storage_name)
+                    storage_hash = self._hash_path(storage_name)
                     command_buttons.append(
-                        [[render_emojis(f"{{emo:folder}} {storage_name}"), f"{context.cmd}_list_{storage_hash}"]]
+                        [
+                            [
+                                render_emojis(f"{{emo:folder}} {storage_name}"),
+                                f"{command_context.cmd}_list_{storage_hash}",
+                            ]
+                        ]
                     )
                 command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
 
         else:  # List files in path
-            path_with_storage = self.hash_file_path_map[path_hash]  # e.g.: local or local/foo
+            path_with_storage = self._hash_file_path_map[path_hash]  # e.g.: local or local/foo
             path_parts = path_with_storage.split("/")
             storage_name = path_parts[0]  # e.g.: local
             path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
             path_is_storage_root = len(path_parts) < 2
 
             try:
-                file_listing = self.list_files(locations=storage_name, path=path_without_storage, recursive=False)
+                file_listing = self._list_files(locations=storage_name, path=path_without_storage, recursive=False)
             except Exception:
                 msg = render_emojis(
-                    f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                    f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
-                self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
+                self.plugin_context.sender.send_message(
+                    msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                )
                 return
 
             path_content = file_listing.get(storage_name, {})
@@ -220,9 +216,7 @@ class CmdFiles(BaseCommand):
             folders = {name: data for name, data in path_content.items() if data.get("type") == "folder"}
 
             file_types_to_show = (
-                ("machinecode", "model")
-                if self.main._settings.get_boolean(["show_models_in_files"])
-                else ("machinecode",)
+                ("machinecode", "model") if self.plugin_context.settings.show_models_in_files else ("machinecode",)
             )
             files = {name: data for name, data in path_content.items() if data.get("type") in file_types_to_show}
 
@@ -241,11 +235,11 @@ class CmdFiles(BaseCommand):
 
             folder_buttons = []
             for folder_name in paginated_folder_names:
-                folder_hash = self.hash_path(f"{path_with_storage}/{folder_name}")
+                folder_hash = self._hash_path(f"{path_with_storage}/{folder_name}")
                 folder_buttons.append(
                     [
                         render_emojis(f"{{emo:folder}} {folder_name}"),
-                        f"{context.cmd}_list_{folder_hash}",
+                        f"{command_context.cmd}_list_{folder_hash}",
                     ]
                 )
 
@@ -258,7 +252,7 @@ class CmdFiles(BaseCommand):
                 remaining_start = max(0, start_index - len(sorted_folder_names))
 
                 # Sort files
-                if self.main._settings.get_boolean(["sort_files_by_date"]):
+                if self.plugin_context.settings.sort_files_by_date:
                     sorted_files = sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True)
                 else:
                     sorted_files = sorted(files.items())
@@ -291,8 +285,8 @@ class CmdFiles(BaseCommand):
                             self._logger.exception("Error processing history for file '%s'", filename)
                             display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
 
-                    file_hash = self.hash_path(f"{path_with_storage}/{filename}")
-                    command = f"{context.cmd}_info_{file_hash}_{page_number}"
+                    file_hash = self._hash_path(f"{path_with_storage}/{filename}")
+                    command = f"{command_context.cmd}_info_{file_hash}_{page_number}"
                     file_buttons.append([display_filename, command])
 
             # --- Combine paginated folder and file buttons ---
@@ -312,11 +306,11 @@ class CmdFiles(BaseCommand):
             # Back button (only within subfolders)
             if not path_is_storage_root:
                 back_path = "/".join(path_parts[:-1])
-                back_path_hash = self.hash_path(back_path)
+                back_path_hash = self._hash_path(back_path)
                 nav_and_actions_row.append(
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_list_{back_path_hash}",
+                        f"{command_context.cmd}_list_{back_path_hash}",
                     ]
                 )
 
@@ -324,11 +318,17 @@ class CmdFiles(BaseCommand):
             if total_pages > 1:
                 if page_number > 0:
                     nav_and_actions_row.append(
-                        [render_emojis("{emo:up} Prev page"), f"{context.cmd}_list_{path_hash}_{page_number - 1}"]
+                        [
+                            render_emojis("{emo:up} Prev page"),
+                            f"{command_context.cmd}_list_{path_hash}_{page_number - 1}",
+                        ]
                     )
                 if page_number + 1 < total_pages:
                     nav_and_actions_row.append(
-                        [render_emojis("{emo:down} Next page"), f"{context.cmd}_list_{path_hash}_{page_number + 1}"]
+                        [
+                            render_emojis("{emo:down} Next page"),
+                            f"{command_context.cmd}_list_{path_hash}_{page_number + 1}",
+                        ]
                     )
 
             # Settings and close
@@ -336,7 +336,7 @@ class CmdFiles(BaseCommand):
                 [
                     [
                         render_emojis("{emo:settings} Settings"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}",
                     ],
                     [
                         render_emojis("{emo:cancel} Close"),
@@ -352,30 +352,30 @@ class CmdFiles(BaseCommand):
             msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
 
             # --- Send message ---
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def file_info(self, context: CommandContext, path_hash, page_number):
+    def _file_info(self, command_context: CommandContext, path_hash, page_number):
         # Lookup file data and metadata
         try:
-            storage_name, file_path = self.find_path_by_hash(path_hash)
-            _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            storage_name, file_path = self._find_path_by_hash(path_hash)
+            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
             analysis = file_metadata.get("analysis") or {}
             history = file_metadata.get("history") or []
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
@@ -386,7 +386,7 @@ class CmdFiles(BaseCommand):
 
         # Upload timestamp
         try:
-            lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
+            lastmodified = self.plugin_context.file_manager.get_lastmodified(storage_name, file_path)
             if lastmodified is not None:
                 dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
                 msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -408,7 +408,7 @@ class CmdFiles(BaseCommand):
                 msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
 
         # File size
-        filesize = self.main._file_manager.get_size(storage_name, file_path)
+        filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
         msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
 
         # Dimensions
@@ -450,24 +450,24 @@ class CmdFiles(BaseCommand):
 
             # ETA
             try:
-                time_finish = self.main.calculate_ETA(print_time)
+                time_finish = Formatters.format_eta(self.plugin_context.settings, print_time)
                 msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
 
             # Cost calculation (if plugin active)
-            if self.main._plugin_manager.get_plugin("cost", True) and filament_length:
+            if self.plugin_context.plugins.is_enabled("cost") and filament_length:
                 try:
-                    cp_h = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
-                    cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
-                    curr = self.main._settings.global_get(["plugins", "cost", "currency"])
+                    cp_h = self.plugin_context.cost.cost_per_time
+                    cp_m = self.plugin_context.cost.cost_per_length
+                    curr = self.plugin_context.cost.currency
                     cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
                     msg += render_emojis(f"\n{{emo:cost}} <b>Cost:</b> {html.escape(curr)}{cost:.02f}")
                 except Exception:
                     self._logger.exception("Caught an exception calculating cost")
 
         # Upload the thumbnail image to imgbb to get a public URL
-        imgbb_thumbnail_url = self.upload_thumbnail_to_imgbb(file_metadata)
+        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(file_metadata)
         if imgbb_thumbnail_url:
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
@@ -478,21 +478,21 @@ class CmdFiles(BaseCommand):
         if "model" in octoprint.filemanager.get_file_type(filename):
             # Slice
             first_row = [
-                [render_emojis("{emo:slice} Slice"), f"{context.cmd}_slice_{path_hash}_{page_number}"],
+                [render_emojis("{emo:slice} Slice"), f"{command_context.cmd}_slice_{path_hash}_{page_number}"],
             ]
         else:
             # Print + Details
             first_row = [
-                [render_emojis("{emo:play} Print"), f"{context.cmd}_print_{path_hash}_{page_number}"],
-                [render_emojis("{emo:search} Details"), f"{context.cmd}_details_{path_hash}_{page_number}"],
+                [render_emojis("{emo:play} Print"), f"{command_context.cmd}_print_{path_hash}_{page_number}"],
+                [render_emojis("{emo:search} Details"), f"{command_context.cmd}_details_{path_hash}_{page_number}"],
             ]
         command_buttons.append(first_row)
 
         # Second row: File ops
         second_row = [
-            [render_emojis("{emo:cut} Move"), f"{context.cmd}_move_{path_hash}_{page_number}"],
-            [render_emojis("{emo:copy} Copy"), f"{context.cmd}_copy_{path_hash}_{page_number}"],
-            [render_emojis("{emo:delete} Delete"), f"{context.cmd}_delete_{path_hash}_{page_number}"],
+            [render_emojis("{emo:cut} Move"), f"{command_context.cmd}_move_{path_hash}_{page_number}"],
+            [render_emojis("{emo:copy} Copy"), f"{command_context.cmd}_copy_{path_hash}_{page_number}"],
+            [render_emojis("{emo:delete} Delete"), f"{command_context.cmd}_delete_{path_hash}_{page_number}"],
         ]
         command_buttons.append(second_row)
 
@@ -500,42 +500,44 @@ class CmdFiles(BaseCommand):
         third_row = []
         # Download button
         if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
-            third_row.append([render_emojis("{emo:download} Download"), f"{context.cmd}_download_{path_hash}"])
+            third_row.append([render_emojis("{emo:download} Download"), f"{command_context.cmd}_download_{path_hash}"])
         # Back button
         path_parts = file_path.split("/")
         parent_path = "/".join(path_parts[:-1])
         back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
-        back_path_hash = self.hash_path(back_path)
-        third_row.append([render_emojis("{emo:back} Back"), f"{context.cmd}_list_{back_path_hash}_{page_number}"])
+        back_path_hash = self._hash_path(back_path)
+        third_row.append(
+            [render_emojis("{emo:back} Back"), f"{command_context.cmd}_list_{back_path_hash}_{page_number}"]
+        )
         # Append
         command_buttons.append(third_row)
 
         # Send the message
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def file_details(self, context: CommandContext, path_hash, page_number):
+    def _file_details(self, command_context: CommandContext, path_hash, page_number):
         # Lookup file data and metadata
         try:
-            storage_name, file_path = self.find_path_by_hash(path_hash)
-            _, filename = self.main._file_manager.split_path(storage_name, file_path)
-            file_metadata = self.main._file_manager.get_metadata(storage_name, file_path) or {}
+            storage_name, file_path = self._find_path_by_hash(path_hash)
+            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
             analysis = file_metadata.get("analysis") or {}
             statistics = file_metadata.get("statistics") or {}
             history = file_metadata.get("history") or {}
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
@@ -546,7 +548,7 @@ class CmdFiles(BaseCommand):
 
         # Upload timestamp
         try:
-            lastmodified = self.main._file_manager.get_lastmodified(storage_name, file_path)
+            lastmodified = self.plugin_context.file_manager.get_lastmodified(storage_name, file_path)
             if lastmodified is not None:
                 dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
                 msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -554,7 +556,7 @@ class CmdFiles(BaseCommand):
             self._logger.exception("Caught an exception getting file date")
 
         # File size
-        filesize = self.main._file_manager.get_size(storage_name, file_path)
+        filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
         msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
 
         # Filament info
@@ -596,17 +598,17 @@ class CmdFiles(BaseCommand):
 
             # ETA
             try:
-                time_finish = self.main.calculate_ETA(print_time)
+                time_finish = Formatters.format_eta(self.plugin_context.settings, print_time)
                 msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
 
             # Cost calculation (if plugin active)
-            if self.main._plugin_manager.get_plugin("cost", True) and filament_length:
+            if self.plugin_context.plugins.is_enabled("cost") and filament_length:
                 try:
-                    cp_h = self.main._settings.global_get_float(["plugins", "cost", "cost_per_time"])
-                    cp_m = self.main._settings.global_get_float(["plugins", "cost", "cost_per_length"])
-                    curr = self.main._settings.global_get(["plugins", "cost", "currency"])
+                    cp_h = self.plugin_context.cost.cost_per_time
+                    cp_m = self.plugin_context.cost.cost_per_length
+                    curr = self.plugin_context.cost.currency
                     cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
                     msg += render_emojis(f"\n{{emo:cost}} <b>Cost:</b> {html.escape(curr)}{cost:.02f}")
                 except Exception:
@@ -619,7 +621,7 @@ class CmdFiles(BaseCommand):
                 msg += "\n\n<b>Average Print Time:</b>"
                 for profile_id, average_print_time in islice(average_print_times.items(), 5):
                     try:
-                        profile = self.main._printer_profile_manager.get(profile_id)
+                        profile = self.plugin_context.printer_profiles.get(profile_id)
                         msg += (
                             f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(average_print_time)}"
                         )
@@ -634,7 +636,7 @@ class CmdFiles(BaseCommand):
             msg += "\n\n<b>Last Print Time:</b>"
             for profile_id, last_print_time in islice(last_print_times.items(), 5):
                 try:
-                    profile = self.main._printer_profile_manager.get(profile_id)
+                    profile = self.plugin_context.printer_profiles.get(profile_id)
                     msg += f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(last_print_time)}"
                 except Exception:
                     self._logger.exception(
@@ -660,7 +662,7 @@ class CmdFiles(BaseCommand):
                     profile_id = history_entry.get("printerProfile")
                     if profile_id:
                         try:
-                            profile = self.main._printer_profile_manager.get(profile_id)
+                            profile = self.plugin_context.printer_profiles.get(profile_id)
                             msg += f"\n      Printer Profile: {html.escape(profile['name'])}"
                         except Exception:
                             self._logger.exception("Failed to get printer profile '%s'", profile_id)
@@ -674,7 +676,7 @@ class CmdFiles(BaseCommand):
                     self._logger.exception("Caught an exception processing history")
 
         # Upload the thumbnail image to imgbb to get a public URL
-        imgbb_thumbnail_url = self.upload_thumbnail_to_imgbb(file_metadata)
+        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(file_metadata)
         if imgbb_thumbnail_url:
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
@@ -683,30 +685,30 @@ class CmdFiles(BaseCommand):
             [
                 [
                     render_emojis("{emo:back} Back"),
-                    f"{context.cmd}_info_{path_hash}_{page_number}",
+                    f"{command_context.cmd}_info_{path_hash}_{page_number}",
                 ]
             ]
         ]
 
         # Send the message
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def file_settings(self, context: CommandContext, path_hash, page_number, selection):
+    def _file_settings(self, command_context: CommandContext, path_hash, page_number, selection):
         command_buttons = None
 
         if selection in ("sort", "byname", "bydate"):  # Menu to choose how to sort files
             if selection in ("byname", "bydate"):
                 new_setting = selection == "bydate"
-                self.main._settings.set_boolean(["sort_files_by_date"], new_setting)
-                self.main._settings.save()
+                self.plugin_context.settings.sort_files_by_date = new_setting
+                self.plugin_context.settings.save()
 
-            current_setting = self.main._settings.get_boolean(["sort_files_by_date"])
+            current_setting = self.plugin_context.settings.sort_files_by_date
             current_setting_str = "{emo:calendar} By date" if current_setting else "{emo:name} By name"
 
             msg = render_emojis(
@@ -717,17 +719,17 @@ class CmdFiles(BaseCommand):
                 [
                     [
                         render_emojis("{emo:name} By name"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_byname",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_byname",
                     ],
                     [
                         render_emojis("{emo:calendar} By date"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_bydate",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_bydate",
                     ],
                 ],
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}",
                     ]
                 ],
             ]
@@ -735,10 +737,10 @@ class CmdFiles(BaseCommand):
         elif selection in ("models", "showmodels", "hidemodels"):  # Menu to choose whether to display models
             if selection in ("showmodels", "hidemodels"):
                 new_setting = selection == "showmodels"
-                self.main._settings.set_boolean(["show_models_in_files"], new_setting)
-                self.main._settings.save()
+                self.plugin_context.settings.show_models_in_files = new_setting
+                self.plugin_context.settings.save()
 
-            current_setting = self.main._settings.get_boolean(["show_models_in_files"])
+            current_setting = self.plugin_context.settings.show_models_in_files
             current_setting_str = "{emo:online} Show models" if current_setting else "{emo:offline} Hide models"
 
             msg = render_emojis(
@@ -750,17 +752,17 @@ class CmdFiles(BaseCommand):
                 [
                     [
                         render_emojis("{emo:online} Show models"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_showmodels",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_showmodels",
                     ],
                     [
                         render_emojis("{emo:offline} Hide models"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_hidemodels",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_hidemodels",
                     ],
                 ],
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}",
                     ]
                 ],
             ]
@@ -772,152 +774,152 @@ class CmdFiles(BaseCommand):
                 [
                     [
                         render_emojis("{emo:height} File sorting"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_sort",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_sort",
                     ],
                     [
                         render_emojis("{emo:model} Show models"),
-                        f"{context.cmd}_settings_{path_hash}_{page_number}_models",
+                        f"{command_context.cmd}_settings_{path_hash}_{page_number}_models",
                     ],
                 ],
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_list_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_list_{path_hash}_{page_number}",
                     ]
                 ],
             ]
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def file_copy_move(self, context: CommandContext, from_hash, page_number, to_hash, confirmation, operation):
-        try:
-            if context.msg_id_to_update:
-                self.main.send_msg(
-                    render_emojis("{emo:loading} Loading files..."),
-                    chatID=context.chat_id,
-                    msg_id=context.msg_id_to_update,
-                )
-            else:
-                loading_files_response = self.main.telegram_utils.send_telegram_request(
-                    f"{self.main.bot_url}/sendMessage",
-                    "post",
-                    data={
-                        "text": render_emojis("{emo:loading} Loading files..."),
-                        "chat_id": context.chat_id,
-                    },
-                )
-                context.msg_id_to_update = loading_files_response["result"]["message_id"]
-        except Exception:
-            pass
+    def _file_copy_move(
+        self, command_context: CommandContext, from_hash, page_number, to_hash, confirmation, operation
+    ):
+        sent_message_id = self.plugin_context.sender.send_message(
+            render_emojis("{emo:loading} Loading files..."),
+            chat_id=command_context.chat_id,
+            message_id=command_context.msg_id_to_update,
+        )
+        if sent_message_id:
+            command_context.msg_id_to_update = sent_message_id
 
         if operation not in ("copy", "move"):
             raise RuntimeError("Unknown operation")
 
         try:
-            from_storage_name, from_path = self.find_path_by_hash(from_hash)
+            from_storage_name, from_path = self._find_path_by_hash(from_hash)
             full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} The file you chose no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} The file you chose no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
+            self.plugin_context.sender.send_message(
+                msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+            )
             return
 
         if to_hash and confirmation == "a":  # Ask for confirmation
             try:
-                to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                to_storage_name, to_path = self._find_path_by_hash(to_hash)
                 full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
             except Exception:
                 msg = render_emojis(
-                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
-                self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
+                self.plugin_context.sender.send_message(
+                    msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                )
                 return
 
             command_buttons = [
                 [
                     [
                         render_emojis("{emo:check} Yes"),
-                        f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_y",
+                        f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_y",
                     ],
                     [
                         render_emojis("{emo:cancel} No"),
-                        f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}",
+                        f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}",
                     ],
                 ]
             ]
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 render_emojis(
                     f"{{emo:warning}} {operation.capitalize()} <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>?"
                 ),
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
         elif to_hash and confirmation == "y":  # Run the copy/move
             # Copy/move code is adapted from the filemanager plugin: https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
             try:
-                to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                to_storage_name, to_path = self._find_path_by_hash(to_hash)
                 full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
             except Exception:
                 msg = render_emojis(
-                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {context.cmd} again?"
+                    f"{{emo:attention}} The destination path you chose is unavailable. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
-                self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
+                self.plugin_context.sender.send_message(
+                    msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                )
                 return
 
             failure_reason = None
             try:
                 if from_storage_name != to_storage_name:
                     failure_reason = "Cross-storage operations are not supported"
-                elif not self.main._file_manager.file_exists(from_storage_name, from_path):
+                elif not self.plugin_context.file_manager.file_exists(from_storage_name, from_path):
                     failure_reason = "Source does not exist or isn't a file"
-                elif to_path and not self.main._file_manager.folder_exists(to_storage_name, to_path):
+                elif to_path and not self.plugin_context.file_manager.folder_exists(to_storage_name, to_path):
                     failure_reason = "Destination doesn't exist or it isn't a folder"
                 else:
-                    _, from_filename = self.main._file_manager.split_path(from_storage_name, from_path)
-                    final_to_path = self.main._file_manager.join_path(to_storage_name, to_path, from_filename)
+                    _, from_filename = self.plugin_context.file_manager.split_path(from_storage_name, from_path)
+                    final_to_path = self.plugin_context.file_manager.join_path(to_storage_name, to_path, from_filename)
 
-                    if self.main._file_manager.file_exists(
+                    if self.plugin_context.file_manager.file_exists(
                         to_storage_name, final_to_path
-                    ) or self.main._file_manager.folder_exists(to_storage_name, final_to_path):
+                    ) or self.plugin_context.file_manager.folder_exists(to_storage_name, final_to_path):
                         failure_reason = "Destination already exists"
                     else:
                         if operation == "copy":
                             # Copy the file
-                            self.main._file_manager.copy_file(from_storage_name, from_path, final_to_path)
+                            self.plugin_context.file_manager.copy_file(from_storage_name, from_path, final_to_path)
                         elif operation == "move":
-                            current_job_file = (self.main._printer.get_current_data() or {}).get("job", {}).get(
-                                "file"
-                            ) or {}
+                            current_job_file = (self.plugin_context.printer.get_current_data() or {}).get(
+                                "job", {}
+                            ).get("file") or {}
                             current_origin = current_job_file.get("origin")
                             current_path = current_job_file.get("path")
 
                             is_current_file_busy = (
                                 current_path is not None
                                 and current_origin == from_storage_name
-                                and self.main._file_manager.file_in_path(from_storage_name, from_path, current_path)
+                                and self.plugin_context.file_manager.file_in_path(
+                                    from_storage_name, from_path, current_path
+                                )
                                 and (
-                                    self.main._printer.is_printing()
-                                    or self.main._printer.is_paused()
-                                    or self.main._printer.is_pausing()
-                                    or self.main._printer.is_resuming()
-                                    or self.main._printer.is_cancelling()
-                                    or self.main._printer.is_finishing()
+                                    self.plugin_context.printer.is_printing()
+                                    or self.plugin_context.printer.is_paused()
+                                    or self.plugin_context.printer.is_pausing()
+                                    or self.plugin_context.printer.is_resuming()
+                                    or self.plugin_context.printer.is_cancelling()
+                                    or self.plugin_context.printer.is_finishing()
                                 )
                             )
                             is_busy_in_file_manager = any(
                                 from_storage_name == busy_storage
-                                and self.main._file_manager.file_in_path(from_storage_name, from_path, busy_path)
-                                for busy_storage, busy_path in self.main._file_manager.get_busy_files()
+                                and self.plugin_context.file_manager.file_in_path(
+                                    from_storage_name, from_path, busy_path
+                                )
+                                for busy_storage, busy_path in self.plugin_context.file_manager.get_busy_files()
                             )
 
                             if is_current_file_busy or is_busy_in_file_manager:
@@ -925,16 +927,16 @@ class CmdFiles(BaseCommand):
                             else:
                                 # Deselect source file if currently selected
                                 if current_origin == from_storage_name and current_path == from_path:
-                                    if hasattr(self.main._printer, "set_job"):
+                                    if hasattr(self.plugin_context.printer, "set_job"):
                                         # OctoPrint >= 2.0.0
-                                        self.main._printer.set_job(None)
+                                        self.plugin_context.printer.set_job(None)
                                     else:
                                         # OctoPrint < 2.0.0 backwards compatibility
                                         # nosemgrep (this is a fallback for older OctoPrint versions)
-                                        self.main._printer.unselect_file()
+                                        self.plugin_context.printer.unselect_file()
 
                                 # Move the file
-                                self.main._file_manager.move_file(from_storage_name, from_path, final_to_path)
+                                self.plugin_context.file_manager.move_file(from_storage_name, from_path, final_to_path)
                         else:
                             failure_reason = "Unknown operation"
 
@@ -952,17 +954,17 @@ class CmdFiles(BaseCommand):
                     [
                         [
                             render_emojis("{emo:back} Back"),
-                            f"{context.cmd}_info_{from_hash}_{page_number}",
+                            f"{command_context.cmd}_info_{from_hash}_{page_number}",
                         ]
                     ]
                 ]
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
             else:
                 if operation == "copy":
@@ -975,25 +977,25 @@ class CmdFiles(BaseCommand):
                 )
 
                 back_path = f"{to_storage_name}/{to_path}" if to_path else to_storage_name
-                parent_folder_hash = self.hash_path(back_path)
+                parent_folder_hash = self._hash_path(back_path)
                 command_buttons = [
                     [
                         [
                             render_emojis("{emo:back} Back"),
-                            f"{context.cmd}_list_{parent_folder_hash}_{page_number}",
+                            f"{command_context.cmd}_list_{parent_folder_hash}_{page_number}",
                         ]
                     ]
                 ]
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
         else:  # Navigate folders
-            storages = self.list_files(recursive=False)
+            storages = self._list_files(recursive=False)
 
             msg = render_emojis(
                 f"{{emo:question}} Where do you want to {operation} the file <code>{html.escape(full_from_file_path_to_display)}</code>?"
@@ -1003,7 +1005,7 @@ class CmdFiles(BaseCommand):
 
             if to_hash:  # Start navigation from target_path
                 try:
-                    to_storage_name, to_path = self.find_path_by_hash(to_hash)
+                    to_storage_name, to_path = self._find_path_by_hash(to_hash)
                     full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
 
                     msg += f"\nCurrent selection: <code>{html.escape(full_to_file_path_to_display)}</code>"
@@ -1012,12 +1014,12 @@ class CmdFiles(BaseCommand):
                     if to_path:
                         to_path_parts = [to_storage_name] + to_path.split("/")
                         parent_folder_path = "/".join(to_path_parts[:-1])
-                        parent_folder_hash = self.hash_path(parent_folder_path)
+                        parent_folder_hash = self._hash_path(parent_folder_path)
                         command_buttons.append(
                             [
                                 [
                                     render_emojis("{emo:up} Parent"),
-                                    f"{context.cmd}_{operation}_{from_hash}_{page_number}_{parent_folder_hash}",
+                                    f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{parent_folder_hash}",
                                 ]
                             ]
                         )
@@ -1026,13 +1028,13 @@ class CmdFiles(BaseCommand):
                             [
                                 [
                                     render_emojis("{emo:up} Parent"),
-                                    f"{context.cmd}_{operation}_{from_hash}_{page_number}",
+                                    f"{command_context.cmd}_{operation}_{from_hash}_{page_number}",
                                 ]
                             ]
                         )
 
                     # Folder buttons
-                    to_path_listing = self.list_files(
+                    to_path_listing = self._list_files(
                         locations=to_storage_name,
                         path=to_path,
                         filter=lambda node: node["type"] == "folder",
@@ -1041,12 +1043,12 @@ class CmdFiles(BaseCommand):
                     to_path_folders = to_path_listing.get(to_storage_name, {})
                     for folder_name in sorted(to_path_folders):
                         folder_path = "/".join(filter(None, [to_storage_name, to_path, folder_name]))
-                        folder_hash = self.hash_path(folder_path)
+                        folder_hash = self._hash_path(folder_path)
                         command_buttons.append(
                             [
                                 [
                                     render_emojis(f"{{emo:folder}} {folder_name}"),
-                                    f"{context.cmd}_{operation}_{from_hash}_{page_number}_{folder_hash}",
+                                    f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{folder_hash}",
                                 ]
                             ]
                         )
@@ -1056,106 +1058,110 @@ class CmdFiles(BaseCommand):
                         [
                             [
                                 render_emojis(f"{{emo:check}} {operation.capitalize()} here"),
-                                f"{context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_a",
+                                f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_a",
                             ]
                         ]
                     )
                 except Exception:
                     msg = render_emojis(
-                        f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {context.cmd} again?"
+                        f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                     )
-                    self.main.send_msg(msg, chatID=context.chat_id, msg_id=context.msg_id_to_update)
+                    self.plugin_context.sender.send_message(
+                        msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                    )
                     return
             else:  # Select storage
                 if len(storages) == 1:
                     storage_name = next(iter(storages))
-                    storage_hash = self.hash_path(storage_name)
-                    self.file_copy_move(context, from_hash, page_number, storage_hash, confirmation, operation)
+                    storage_hash = self._hash_path(storage_name)
+                    self._file_copy_move(command_context, from_hash, page_number, storage_hash, confirmation, operation)
                     return
 
                 for storage_name in storages:
-                    storage_hash = self.hash_path(storage_name)
+                    storage_hash = self._hash_path(storage_name)
                     command_buttons.append(
-                        [[storage_name, f"{context.cmd}_{operation}_{from_hash}_{page_number}_{storage_hash}"]]
+                        [[storage_name, f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{storage_hash}"]]
                     )
 
             # Back button
             command_buttons.append(
-                [[render_emojis("{emo:back} Back"), f"{context.cmd}_info_{from_hash}_{page_number}"]]
+                [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{from_hash}_{page_number}"]]
             )
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def file_print(self, context: CommandContext, path_hash, page_number):
-        if not self.main.is_command_allowed(context.chat_id, context.from_id, "/print"):
+    def _file_print(self, command_context: CommandContext, path_hash, page_number):
+        if not permissions.is_command_allowed(
+            self.plugin_context.settings, command_context.chat_id, command_context.from_id, "/print"
+        ):
             msg = render_emojis("{emo:notallowed} You are not allowed to print!")
             command_buttons = [
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_info_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
             ]
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                responses=command_buttons,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                buttons=command_buttons,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
-        if not self.main._printer.is_ready():
+        if not self.plugin_context.printer.is_ready():
             msg = render_emojis(
-                f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.main._printer.get_state_string()}."
+                f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."
             )
             command_buttons = [
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_info_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
             ]
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                responses=command_buttons,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                buttons=command_buttons,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
         try:
-            destination, file = self.find_path_by_hash(path_hash)
+            destination, file = self._find_path_by_hash(path_hash)
 
-            if hasattr(self.main._printer, "set_job"):
+            if hasattr(self.plugin_context.printer, "set_job"):
                 # OctoPrint >= 2.0.0
-                job = self.main._file_manager.create_job(destination, file)
-                self.main._printer.set_job(job, print_after_select=False)
+                job = self.plugin_context.file_manager.create_job(destination, file)
+                self.plugin_context.printer.set_job(job, print_after_select=False)
             else:
                 # OctoPrint < 2.0.0 backwards compatibility
                 is_sd = destination == octoprint.filemanager.FileDestinations.SDCARD
-                file_to_select = file if is_sd else self.main._file_manager.path_on_disk(destination, file)
+                file_to_select = file if is_sd else self.plugin_context.file_manager.path_on_disk(destination, file)
                 # nosemgrep (this is a fallback for older OctoPrint versions)
-                self.main._printer.select_file(file_to_select, sd=is_sd, printAfterSelect=False)
+                self.plugin_context.printer.select_file(file_to_select, sd=is_sd, printAfterSelect=False)
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
-        current_data = self.main._printer.get_current_data() or {}
+        current_data = self.plugin_context.printer.get_current_data() or {}
         job_info = (current_data.get("job") or {}).get("file") or {}
         job_file_name = job_info.get("name") or file
 
@@ -1172,46 +1178,46 @@ class CmdFiles(BaseCommand):
                 ],
                 [
                     render_emojis("{emo:back} Back"),
-                    f"{context.cmd}_info_{path_hash}_{page_number}",
+                    f"{command_context.cmd}_info_{path_hash}_{page_number}",
                 ],
             ]
         ]
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            responses=command_buttons,
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def file_slice(self, context: CommandContext, path_hash, page_number, additional_arg1, additional_arg2):
+    def _file_slice(self, command_context: CommandContext, path_hash, page_number, additional_arg1, additional_arg2):
         # Check if there is at least one configured slicer available
-        if not self.main._slicing_manager.slicing_enabled:
+        if not self.plugin_context.slicing_manager.slicing_enabled:
             msg = render_emojis(
                 "{emo:attention} No slicer plugin is installed. "
                 "Please install one of the plugins listed at the following link: "
                 "https://plugins.octoprint.org/by_tag/#tag-slicer"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
         # Get selected file data
         try:
-            storage_name, file_path = self.find_path_by_hash(path_hash)
+            storage_name, file_path = self._find_path_by_hash(path_hash)
             full_file_path_to_display = f"/{storage_name}/{file_path}"
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
@@ -1232,53 +1238,53 @@ class CmdFiles(BaseCommand):
         printer_profile_id_hash = hashes_chunks[2] if len(hashes_chunks) > 2 else None
 
         # Get slicer id
-        configured_slicers = self.main._slicing_manager.configured_slicers
+        configured_slicers = self.plugin_context.slicing_manager.configured_slicers
         if not slicer_id_hash:  # Params don't contain slicer id hash
             if len(configured_slicers) == 1:  # If there is only one slicer, automatically select it
-                slicer = self.main._slicing_manager.get_slicer(configured_slicers[0])
+                slicer = self.plugin_context.slicing_manager.get_slicer(configured_slicers[0])
                 slicer_id = slicer.get_slicer_properties().get("type")
             else:  # If there are multiple slicers, ask to select one
                 msg += render_emojis("{emo:question} Which slicer do you want to use?")
 
                 command_buttons = []
                 for configured_slicer in configured_slicers:
-                    slicer = self.main._slicing_manager.get_slicer(configured_slicer)
+                    slicer = self.plugin_context.slicing_manager.get_slicer(configured_slicer)
                     slicer_properties = slicer.get_slicer_properties()
 
                     slicer_id = slicer_properties.get("type")
-                    slicer_id_hash = self.hash_slicer_data(slicer_id)
-                    self.hash_slicer_id_map[slicer_id_hash] = slicer_id
+                    slicer_id_hash = self._hash_slicer_data(slicer_id)
+                    self._hash_slicer_id_map[slicer_id_hash] = slicer_id
 
                     slicer_name = slicer_properties.get("name")
 
                     command_buttons.append(
-                        [[slicer_name, f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"]]
+                        [[slicer_name, f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"]]
                     )
                 command_buttons.append(
-                    [[render_emojis("{emo:back} Back"), f"{context.cmd}_info_{path_hash}_{page_number}"]]
+                    [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}"]]
                 )
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
                 return
         else:  # Use slicer id indicated by params
-            slicer_id = self.hash_slicer_id_map.get(slicer_id_hash)
+            slicer_id = self._hash_slicer_id_map.get(slicer_id_hash)
 
         # Get slicer and slicer properties by slicer id
         if slicer_id is None or slicer_id not in configured_slicers:
             msg = render_emojis("{emo:attention} The slicer you chose is not available")
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
-        slicer = self.main._slicing_manager.get_slicer(slicer_id)
+        slicer = self.plugin_context.slicing_manager.get_slicer(slicer_id)
         slicer_properties = slicer.get_slicer_properties()
         slicer_name = slicer_properties.get("name", "").strip()
 
@@ -1286,7 +1292,7 @@ class CmdFiles(BaseCommand):
         msg += render_emojis(f"{{emo:settings}} Selected slicer: <code>{html.escape(slicer_name)}</code>\n")
 
         # Get slicer profile id
-        slicer_profiles = list(self.main._slicing_manager.all_profiles(slicer_id).values())
+        slicer_profiles = list(self.plugin_context.slicing_manager.all_profiles(slicer_id).values())
         if not slicer_profile_id_hash:  # Params don't contain slicer profile id hash
             if len(slicer_profiles) == 1:  # If there is only one slicer profile, automatically select it
                 slicer_profile_id = slicer_profiles[0].name
@@ -1296,8 +1302,8 @@ class CmdFiles(BaseCommand):
                 command_buttons = []
                 for slicer_profile in slicer_profiles:
                     slicer_profile_id = slicer_profile.name
-                    slicer_profile_id_hash = self.hash_slicer_data(slicer_profile_id)
-                    self.hash_slicer_profile_id_map[slicer_profile_id_hash] = slicer_profile_id
+                    slicer_profile_id_hash = self._hash_slicer_data(slicer_profile_id)
+                    self._hash_slicer_profile_id_map[slicer_profile_id_hash] = slicer_profile_id
 
                     slicer_profile_name = slicer_profile.display_name
 
@@ -1305,26 +1311,26 @@ class CmdFiles(BaseCommand):
                         [
                             [
                                 slicer_profile_name,
-                                f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}",
+                                f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}",
                             ]
                         ]
                     )
                 if len(configured_slicers) > 1:
-                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+                    back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}"
                 else:
-                    back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+                    back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
                 command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
                 return
         else:  # Use slicer profile id indicated by params
-            slicer_profile_id = self.hash_slicer_profile_id_map.get(slicer_profile_id_hash)
+            slicer_profile_id = self._hash_slicer_profile_id_map.get(slicer_profile_id_hash)
 
         # Get slicer profile name by slicer profile id and add it to msg
         slicer_profile_name = next((p.display_name.strip() for p in slicer_profiles if p.name == slicer_profile_id), "")
@@ -1333,7 +1339,7 @@ class CmdFiles(BaseCommand):
         )
 
         # Get printer profile id
-        printer_profiles = list(self.main._printer_profile_manager.get_all().values())
+        printer_profiles = list(self.plugin_context.printer_profiles.get_all().values())
         if not printer_profile_id_hash:  # Params don't contain printer profile id hash
             if len(printer_profiles) == 1:  # If there is only one printer profile, automatically select it
                 printer_profile_id = printer_profiles[0].get("id")
@@ -1343,8 +1349,8 @@ class CmdFiles(BaseCommand):
                 command_buttons = []
                 for printer_profile in printer_profiles:
                     printer_profile_id = printer_profile.get("id")
-                    printer_profile_id_hash = self.hash_slicer_data(printer_profile_id)
-                    self.hash_printer_profile_id_map[printer_profile_id_hash] = printer_profile_id
+                    printer_profile_id_hash = self._hash_slicer_data(printer_profile_id)
+                    self._hash_printer_profile_id_map[printer_profile_id_hash] = printer_profile_id
 
                     printer_profile_name = printer_profile.get("name")
 
@@ -1352,32 +1358,32 @@ class CmdFiles(BaseCommand):
                         [
                             [
                                 printer_profile_name,
-                                f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}",
+                                f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}",
                             ]
                         ]
                     )
                 if len(slicer_profiles) > 1:
-                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
+                    back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
                 elif len(configured_slicers) > 1:
-                    back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+                    back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}"
                 else:
-                    back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+                    back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
                 command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    markup="HTML",
-                    responses=command_buttons,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
                 )
                 return
         else:  # Use printer profile id indicated by params
-            printer_profile_id = self.hash_printer_profile_id_map.get(printer_profile_id_hash)
+            printer_profile_id = self._hash_printer_profile_id_map.get(printer_profile_id_hash)
 
         # Get printer profile name by printer profile id and add it to msg
         printer_profile_name = (
-            (self.main._printer_profile_manager.get(printer_profile_id) or {}).get("name", "").strip()
+            (self.plugin_context.printer_profiles.get(printer_profile_id) or {}).get("name", "").strip()
         )
         msg += render_emojis(
             f"{{emo:settings}} Selected printer profile: <code>{html.escape(printer_profile_name)}</code>\n"
@@ -1395,29 +1401,31 @@ class CmdFiles(BaseCommand):
             msg += render_emojis("\n{emo:question} Do you want to confirm the slicing?")
 
             if len(printer_profiles) > 1:
-                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}"
+                back_cmd = (
+                    f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}"
+                )
             elif len(slicer_profiles) > 1:
-                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
+                back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"
             elif len(configured_slicers) > 1:
-                back_cmd = f"{context.cmd}_slice_{path_hash}_{page_number}"
+                back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}"
             else:
-                back_cmd = f"{context.cmd}_info_{path_hash}_{page_number}"
+                back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
             command_buttons = [
                 [
                     [render_emojis("{emo:back} Back"), back_cmd],
                     [
                         render_emojis("{emo:check} Confirm"),
-                        f"{context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}_y",
+                        f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}_y",
                     ],
                 ]
             ]
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
@@ -1441,7 +1449,7 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:back} Back"), f"{context.cmd}_info_{path_hash}_{page_number}"],
+                    [render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}"],
                     [
                         render_emojis("{emo:cancel} Close"),
                         "close",
@@ -1449,15 +1457,15 @@ class CmdFiles(BaseCommand):
                 ]
             ]
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
 
-        self.main._file_manager.slice(
+        self.plugin_context.file_manager.slice(
             slicer_id,
             octoprint.filemanager.FileDestinations.LOCAL,
             file_path,
@@ -1472,40 +1480,40 @@ class CmdFiles(BaseCommand):
         )
 
         # Send msg
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            message_id=command_context.msg_id_to_update,
         )
 
-    def file_download(self, context: CommandContext, path_hash):
+    def _file_download(self, command_context: CommandContext, path_hash):
         try:
-            storage_name, file_path = self.find_path_by_hash(path_hash)
-            file_path_on_disk = self.main._file_manager.path_on_disk(storage_name, file_path)
-            self.main.send_file(context.chat_id, file_path_on_disk)
+            storage_name, file_path = self._find_path_by_hash(path_hash)
+            file_path_on_disk = self.plugin_context.file_manager.path_on_disk(storage_name, file_path)
+            self.plugin_context.sender.send_file(command_context.chat_id, file_path_on_disk)
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def file_delete(self, context: CommandContext, path_hash, page_number, confirm):
+    def _file_delete(self, command_context: CommandContext, path_hash, page_number, confirm):
         try:
-            storage_name, file_path = self.find_path_by_hash(path_hash)
+            storage_name, file_path = self._find_path_by_hash(path_hash)
             full_file_path_to_display = f"/{storage_name}/{file_path}"
         except Exception:
             msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {context.cmd} again?"
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
             return
 
@@ -1527,25 +1535,25 @@ class CmdFiles(BaseCommand):
                     # Deselect file if currently selected
                     _, currentFilename = _getCurrentFile()
                     if currentFilename == file_path:
-                        if hasattr(self.main._printer, "set_job"):
+                        if hasattr(self.plugin_context.printer, "set_job"):
                             # OctoPrint >= 2.0.0
-                            self.main._printer.set_job(None)
+                            self.plugin_context.printer.set_job(None)
                         else:
                             # OctoPrint < 2.0.0 backwards compatibility
                             # nosemgrep (this is a fallback for older OctoPrint versions)
-                            self.main._printer.unselect_file()
+                            self.plugin_context.printer.unselect_file()
 
                     # Delete the file
                     if storage_name == octoprint.filemanager.FileDestinations.SDCARD:
-                        if hasattr(self.main._file_manager, "list_storage_entries"):
+                        if hasattr(self.plugin_context.file_manager, "list_storage_entries"):
                             # OctoPrint >= 2.0.0
-                            self.main._file_manager.remove_file(storage_name, file_path)
+                            self.plugin_context.file_manager.remove_file(storage_name, file_path)
                         else:
                             # OctoPrint < 2.0.0 backwards compatibility
                             # nosemgrep (this is a fallback for older OctoPrint versions)
-                            self.main._printer.delete_sd_file(file_path)
+                            self.plugin_context.printer.delete_sd_file(file_path)
                     else:
-                        self.main._file_manager.remove_file(storage_name, file_path)
+                        self.plugin_context.file_manager.remove_file(storage_name, file_path)
             except Exception:
                 self._logger.exception("Caught an exception deleting file %s", file_path)
                 failure_reason = "Internal error, please check logs"
@@ -1563,45 +1571,45 @@ class CmdFiles(BaseCommand):
             path_parts = file_path.split("/")
             parent_path = "/".join(path_parts[:-1])
             back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
-            back_path_hash = self.hash_path(back_path)
+            back_path_hash = self._hash_path(back_path)
             command_buttons = [
                 [
                     [
                         render_emojis("{emo:back} Back"),
-                        f"{context.cmd}_list_{back_path_hash}_{page_number}",
+                        f"{command_context.cmd}_list_{back_path_hash}_{page_number}",
                     ]
                 ]
             ]
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
         else:
             command_buttons = [
                 [
                     [
                         render_emojis("{emo:check} Yes"),
-                        f"{context.cmd}_delete_{path_hash}_{page_number}_yes",
+                        f"{command_context.cmd}_delete_{path_hash}_{page_number}_yes",
                     ],
                     [
                         render_emojis("{emo:cancel} No"),
-                        f"{context.cmd}_info_{path_hash}_{page_number}",
+                        f"{command_context.cmd}_info_{path_hash}_{page_number}",
                     ],
                 ]
             ]
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 render_emojis(f"{{emo:warning}} Delete <code>{html.escape(full_file_path_to_display)}</code>?"),
-                chatID=context.chat_id,
-                markup="HTML",
-                responses=command_buttons,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                markup=Markup.HTML,
+                buttons=command_buttons,
+                message_id=command_context.msg_id_to_update,
             )
 
-    def update_hash_file_path_map(self, file_listing, locations=None, path=None):
+    def _update_hash_file_path_map(self, file_listing, locations=None, path=None):
         """
         Updates the internal hash-to-file-path mapping for OctoPrint files and folders.
 
@@ -1618,18 +1626,18 @@ class CmdFiles(BaseCommand):
 
         Examples:
             Update for all storages:
-            >>> file_listing = self.main._file_manager.list_files()
-            >>> self.update_hash_file_path_map(file_listing)
+            >>> file_listing = self.plugin_context.file_manager.list_files()
+            >>> self._update_hash_file_path_map(file_listing)
 
             Update for specific storage:
-            >>> file_listing = self.main._file_manager.list_files(locations="local")
-            >>> self.update_hash_file_path_map(file_listing, locations="local")
+            >>> file_listing = self.plugin_context.file_manager.list_files(locations="local")
+            >>> self._update_hash_file_path_map(file_listing, locations="local")
 
             Update for specific folder:
-            >>> file_listing = self.main._file_manager.list_files(
+            >>> file_listing = self.plugin_context.file_manager.list_files(
             ...     locations="local", path="models/prints"
             ... )
-            >>> self.update_hash_file_path_map(file_listing, locations="local", path="models/prints")
+            >>> self._update_hash_file_path_map(file_listing, locations="local", path="models/prints")
         """
 
         def _process_tree(tree, current_path=""):
@@ -1637,8 +1645,8 @@ class CmdFiles(BaseCommand):
                 is_folder = node_data.get("type") == "folder"
                 full_node_path = f"{current_path}{node_name}"
 
-                path_hash = self.hash_path(full_node_path)
-                self.hash_file_path_map[path_hash] = full_node_path
+                path_hash = self._hash_path(full_node_path)
+                self._hash_file_path_map[path_hash] = full_node_path
 
                 if is_folder and "children" in node_data:
                     _process_tree(node_data["children"], f"{full_node_path}/")
@@ -1649,8 +1657,8 @@ class CmdFiles(BaseCommand):
         if not locations:
             # Process all storage locations
             for storage_name, storage_tree in file_listing.items():
-                path_hash = self.hash_path(storage_name)
-                self.hash_file_path_map[path_hash] = storage_name
+                path_hash = self._hash_path(storage_name)
+                self._hash_file_path_map[path_hash] = storage_name
 
                 _process_tree(storage_tree, f"{storage_name}/")
         else:
@@ -1659,46 +1667,46 @@ class CmdFiles(BaseCommand):
                 if location in file_listing:
                     full_path = f"{location}/{path}" if path else location
 
-                    path_hash = self.hash_path(full_path)
-                    self.hash_file_path_map[path_hash] = full_path
+                    path_hash = self._hash_path(full_path)
+                    self._hash_file_path_map[path_hash] = full_path
 
                     _process_tree(file_listing[location], f"{full_path}/")
                 else:
                     self._logger.warning("Parameter mismatch: location %s not found in file listing", location)
 
-    def list_files(self, locations=None, path=None, filter=None, recursive=True, level=0, force_refresh=False):
+    def _list_files(self, locations=None, path=None, filter=None, recursive=True, level=0, force_refresh=False):
         """
         List files from OctoPrint and update internal hash-to-path map.
         """
 
         # List files
-        file_listing = self.main._file_manager.list_files(
+        file_listing = self.plugin_context.file_manager.list_files(
             locations=locations, path=path, filter=filter, recursive=recursive, level=level, force_refresh=force_refresh
         )
 
         # Update the hash - file path map with the files currently listed, as they may have changed
-        self.update_hash_file_path_map(file_listing, locations, path)
+        self._update_hash_file_path_map(file_listing, locations, path)
 
         # Return file listing
         return file_listing
 
-    def find_path_by_hash(self, path_hash):
-        if path_hash not in self.hash_file_path_map:
+    def _find_path_by_hash(self, path_hash):
+        if path_hash not in self._hash_file_path_map:
             raise Exception("File not found")
 
-        path_with_storage = self.hash_file_path_map[path_hash]  # e.g.: local or local/foo
+        path_with_storage = self._hash_file_path_map[path_hash]  # e.g.: local or local/foo
         path_parts = path_with_storage.split("/")
         storage_name = path_parts[0]  # e.g.: local
         path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
         return storage_name, path_without_storage
 
-    def hash_path(self, path):
-        return hashlib.md5(path.encode()).hexdigest()[0 : self.HASH_PATH_LENGTH]
+    def _hash_path(self, path):
+        return callbacks.hash_value(path, self.HASH_PATH_LENGTH)
 
-    def hash_slicer_data(self, data):
-        return hashlib.md5(data.encode()).hexdigest()[0 : self.HASH_SLICER_DATA_LENGTH]
+    def _hash_slicer_data(self, data):
+        return callbacks.hash_value(data, self.HASH_SLICER_DATA_LENGTH)
 
-    def upload_thumbnail_to_imgbb(self, file_metadata):
+    def _upload_thumbnail_to_imgbb(self, file_metadata):
         """
         Upload thumbnail to imgbb and return public URL.
 
@@ -1709,7 +1717,7 @@ class CmdFiles(BaseCommand):
             str or None: Public URL of uploaded thumbnail or None if failed.
         """
         try:
-            api_key = self.main._settings.get(["imgbbApiKey"])
+            api_key = self.plugin_context.settings.imgbb_api_key
             upload_url = "https://api.imgbb.com/1/upload"
 
             if not api_key or not isinstance(file_metadata, dict):
@@ -1721,7 +1729,7 @@ class CmdFiles(BaseCommand):
 
             self._logger.info("Get thumbnail: %s", thumbnail_path)
 
-            thumbnail_response = self.main.send_octoprint_request(f"/{thumbnail_path}")
+            thumbnail_response = self.plugin_context.api.send_request(f"/{thumbnail_path}")
             if not thumbnail_response.ok:
                 return
 

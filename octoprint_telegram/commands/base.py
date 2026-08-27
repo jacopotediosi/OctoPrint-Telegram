@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .. import TelegramPlugin
+    from ..core.context import PluginContext
 
 
 class CommandContext:
@@ -18,14 +18,14 @@ class CommandContext:
 
 
 class BaseCommand(ABC):
-    def __init__(self, main: "TelegramPlugin"):
-        self.main = main
-        self._logger = main._logger.getChild("Commands")
+    def __init__(self, plugin_context: "PluginContext"):
+        self.plugin_context = plugin_context
+        self._logger = plugin_context.logger.getChild("Commands")
 
     def __call__(self, cmd, chat_id, from_id, parameter="", msg_id_to_update="", user=""):
-        context = CommandContext(cmd, chat_id, from_id, parameter, msg_id_to_update, user)
-        return self.execute(context)
+        command_context = CommandContext(cmd, chat_id, from_id, parameter, msg_id_to_update, user)
+        return self.execute(command_context)
 
     @abstractmethod
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         pass

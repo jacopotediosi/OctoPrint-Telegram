@@ -1,5 +1,35 @@
+from datetime import datetime, timedelta
+
+
 class Formatters:
     """Static formatting utilities for various data types."""
+
+    @staticmethod
+    def format_eta(settings, seconds_from_now) -> str:
+        """
+        Format the clock time reached after the given number of seconds.
+
+        Args:
+            settings: The plugin settings, holding the time formats to use.
+            seconds_from_now: How far ahead the returned time is.
+
+        Returns:
+            Formatted time string, more detailed the further ahead it is (e.g. "18:30:00", "23.10.2025 18:30:00")
+        """
+        current_time = datetime.now().astimezone()
+        finish_time = current_time + timedelta(seconds=seconds_from_now)
+
+        if finish_time > current_time + timedelta(days=7):
+            # Longer than a week ahead
+            time_format = settings.week_time_format
+        elif finish_time.date() != current_time.date():
+            # Not today but within a week
+            time_format = settings.day_time_format
+        else:
+            # Today
+            time_format = settings.time_format
+
+        return finish_time.strftime(time_format)
 
     @staticmethod
     def format_size(bytes_value) -> str:

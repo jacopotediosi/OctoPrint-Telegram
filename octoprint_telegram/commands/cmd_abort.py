@@ -5,42 +5,46 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdAbort(BaseCommand):
-    def execute(self, context: CommandContext):
-        if context.parameter == "stop":
-            self.main._printer.cancel_print(user=context.user)
+    def execute(self, command_context: CommandContext):
+        if command_context.parameter == "stop":
+            self.plugin_context.printer.cancel_print(user=command_context.user)
 
             msg = render_emojis("{emo:check} Aborting the print.")
 
-            self.main.send_msg(
+            self.plugin_context.sender.send_message(
                 msg,
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                chat_id=command_context.chat_id,
+                message_id=command_context.msg_id_to_update,
             )
         else:
-            if self.main._printer.is_printing() or self.main._printer.is_pausing() or self.main._printer.is_paused():
+            if (
+                self.plugin_context.printer.is_printing()
+                or self.plugin_context.printer.is_pausing()
+                or self.plugin_context.printer.is_paused()
+            ):
                 msg = render_emojis("{emo:question} Really abort the currently running print?")
 
                 command_buttons = [
                     [
                         [
                             render_emojis("{emo:check} Stop print"),
-                            f"{context.cmd}_stop",
+                            f"{command_context.cmd}_stop",
                         ],
                         [render_emojis("{emo:cancel} Close"), "close"],
                     ]
                 ]
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    responses=command_buttons,
-                    chatID=context.chat_id,
-                    msg_id=context.msg_id_to_update,
+                    buttons=command_buttons,
+                    chat_id=command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
                 )
             else:
                 msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 
-                self.main.send_msg(
+                self.plugin_context.sender.send_message(
                     msg,
-                    chatID=context.chat_id,
-                    msg_id=context.msg_id_to_update,
+                    chat_id=command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
                 )

@@ -3,13 +3,14 @@ import html
 import octoprint.filemanager
 
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdUpload(BaseCommand):
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         supported_extensions = ", ".join(
             [f"<code>{html.escape(f'.{ext}')}</code>" for ext in octoprint.filemanager.get_all_extensions()]
         )
@@ -20,9 +21,9 @@ class CmdUpload(BaseCommand):
             f"Allowed file extensions are: {supported_extensions}, or a ZIP file containing them."
         )
 
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
+            chat_id=command_context.chat_id,
+            markup=Markup.HTML,
+            message_id=command_context.msg_id_to_update,
         )

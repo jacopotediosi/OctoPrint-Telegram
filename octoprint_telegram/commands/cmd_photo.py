@@ -5,11 +5,11 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdPhoto(BaseCommand):
-    def execute(self, context: CommandContext):
+    def execute(self, command_context: CommandContext):
         msg = render_emojis("{emo:photo} Here are your photo(s)")
-        self.main.send_msg(
+        self.plugin_context.sender.send_message(
             msg,
-            chatID=context.chat_id,
+            chat_id=command_context.chat_id,
             with_image=True,
-            msg_id=context.msg_id_to_update,
+            message_id=command_context.msg_id_to_update,
         )
