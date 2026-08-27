@@ -633,24 +633,29 @@ class WebcamProfile:
         name: str | None = None,
         snapshot: str | None = None,
         snapshotTimeout: int | None = 15,
+        snapshotSslValidation: bool = True,
         stream: str | None = None,
         flipH: bool = False,
         flipV: bool = False,
         rotate90: bool = False,
+        provider: octoprint.plugin.types.WebcamProviderPlugin | None = None,
     ):
         self.name = name
         self.snapshot = snapshot
         self.snapshotTimeout = snapshotTimeout
+        self.snapshotSslValidation = snapshotSslValidation
         self.stream = stream
         self.flipH = flipH
         self.flipV = flipV
         self.rotate90 = rotate90
+        self.provider = provider
 
     def __repr__(self):
         return (
-            f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r}  snapshotTimeout={self.snapshotTimeout!r}"
-            f"stream={self.stream!r} flipH={self.flipH} "
-            f"flipV={self.flipV} rotate90={self.rotate90}>"
+            f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
+            f"snapshotTimeout={self.snapshotTimeout!r} snapshotSslValidation={self.snapshotSslValidation} "
+            f"stream={self.stream!r} flipH={self.flipH} flipV={self.flipV} rotate90={self.rotate90} "
+            f"provider={type(self.provider).__name__ if self.provider is not None else None}>"
         )
 
 
@@ -2034,32 +2039,43 @@ class TelegramPlugin(
 
         # New webcam integration (OctoPrint >= 1.9.0)
         try:
-            if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
+            from octoprint.webcams import get_webcams
+        except ImportError:
+            get_webcams = None
+            self._logger.debug("New webcam integration not available, this OctoPrint is older than 1.9.0")
+
+        if get_webcams:
+            try:
                 self._logger.debug("Getting webcam profiles from new webcam integration")
 
-                webcam_providers = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
+                for provided_webcam in get_webcams(plugin_manager=self._plugin_manager).values():
+                    wc = provided_webcam.config
 
-                for provider in webcam_providers:
-                    webcam_configurations = provider.get_webcam_configurations()
-                    for wc in webcam_configurations:
-                        compat = getattr(wc, "compat", None)
-                        if not compat:
-                            self._logger.debug("Skipped a webcam configuration without compatibility layer")
-                            continue
+                    can_snapshot = bool(getattr(wc, "canSnapshot", False))
 
-                        webcam_profile = WebcamProfile(
-                            name=getattr(wc, "name", None),
-                            snapshot=getattr(compat, "snapshot", None),
-                            snapshotTimeout=max(15, getattr(compat, "snapshotTimeout", 0)),
-                            stream=getattr(compat, "stream", None),
-                            flipH=bool(getattr(wc, "flipH", False)),
-                            flipV=bool(getattr(wc, "flipV", False)),
-                            rotate90=bool(getattr(wc, "rotate90", False)),
+                    compat = getattr(wc, "compat", None)
+                    if not compat and not can_snapshot:
+                        self._logger.debug(
+                            "Skipped webcam %s, it can't take snapshots and has no compatibility layer",
+                            getattr(wc, "name", None),
                         )
+                        continue
 
-                        webcam_profiles.append(webcam_profile)
-        except Exception:
-            self._logger.exception("Caught exception getting new webcam integration profiles")
+                    webcam_profile = WebcamProfile(
+                        name=getattr(wc, "name", None),
+                        snapshot=getattr(compat, "snapshot", None),
+                        snapshotTimeout=max(15, getattr(compat, "snapshotTimeout", 0) or 0),
+                        snapshotSslValidation=bool(getattr(compat, "snapshotSslValidation", True)),
+                        stream=getattr(compat, "stream", None),
+                        flipH=bool(getattr(wc, "flipH", False)),
+                        flipV=bool(getattr(wc, "flipV", False)),
+                        rotate90=bool(getattr(wc, "rotate90", False)),
+                        provider=getattr(provided_webcam, "providerPlugin", None) if can_snapshot else None,
+                    )
+
+                    webcam_profiles.append(webcam_profile)
+            except Exception:
+                self._logger.exception("Caught exception getting new webcam integration profiles")
 
         # Fallback to Multicam plugin
         if not webcam_profiles:
@@ -2075,6 +2091,7 @@ class TelegramPlugin(
                             name=multicam_profile.get("name"),
                             snapshot=multicam_profile.get("snapshot"),
                             snapshotTimeout=15,  # Multicam currently doesn't expose snapshotTimeout, see https://github.com/mikedmor/OctoPrint_MultiCam/issues/78
+                            snapshotSslValidation=False,  # Multicam doesn't expose snapshotSslValidation either
                             stream=multicam_profile.get("URL"),
                             flipH=bool(multicam_profile.get("flipH", False)),
                             flipV=bool(multicam_profile.get("flipV", False)),
@@ -2096,21 +2113,23 @@ class TelegramPlugin(
                     # nosemgrep (this is a fallback for older OctoPrint versions)
                     snapshot=self._settings.global_get(["webcam", "snapshot"]),
                     # nosemgrep (this is a fallback for older OctoPrint versions)
-                    snapshotTimeout=max(15, self._settings.global_get(["webcam", "snapshotTimeout"]) or 0),
+                    snapshotTimeout=max(15, self._settings.global_get_int(["webcam", "snapshotTimeout"]) or 0),
+                    # nosemgrep (this is a fallback for older OctoPrint versions)
+                    snapshotSslValidation=bool(self._settings.global_get_boolean(["webcam", "snapshotSslValidation"])),
                     # nosemgrep (this is a fallback for older OctoPrint versions)
                     stream=self._settings.global_get(["webcam", "stream"]),
                     # nosemgrep (this is a fallback for older OctoPrint versions)
-                    flipH=bool(self._settings.global_get(["webcam", "flipH"])),
+                    flipH=bool(self._settings.global_get_boolean(["webcam", "flipH"])),
                     # nosemgrep (this is a fallback for older OctoPrint versions)
-                    flipV=bool(self._settings.global_get(["webcam", "flipV"])),
+                    flipV=bool(self._settings.global_get_boolean(["webcam", "flipV"])),
                     # nosemgrep (this is a fallback for older OctoPrint versions)
-                    rotate90=bool(self._settings.global_get(["webcam", "rotate90"])),
+                    rotate90=bool(self._settings.global_get_boolean(["webcam", "rotate90"])),
                 )
                 webcam_profiles.append(webcam_profile)
             except Exception:
                 self._logger.exception("Caught exception getting legacy webcam settings")
 
-        self._logger.debug("Final webcam profiles: %s", [p.__dict__ for p in webcam_profiles])
+        self._logger.debug("Final webcam profiles: %s", webcam_profiles)
 
         return webcam_profiles
 
@@ -2122,32 +2141,59 @@ class TelegramPlugin(
         webcam_profiles = self.get_webcam_profiles()
         for webcam_profile in webcam_profiles:
             try:
-                if not webcam_profile.snapshot:
-                    self._logger.debug("Skipped a webcam without snapshot url")
+                if not webcam_profile.provider and not webcam_profile.snapshot:
+                    self._logger.debug("Skipped a webcam unable to take snapshots")
                     continue
 
-                taken_image_content = self.take_image(
-                    webcam_profile.snapshot,
-                    webcam_profile.flipH,
-                    webcam_profile.flipV,
-                    webcam_profile.rotate90,
-                    webcam_profile.snapshotTimeout,
-                )
+                taken_image_content = self.take_image(webcam_profile)
                 taken_images_contents.append(taken_image_content)
             except Exception:
                 self._logger.exception("Caught an exception taking an image")
 
         return taken_images_contents
 
-    def take_image(self, snapshot_url, flipH=False, flipV=False, rotate=False, timeout=15) -> bytes:
-        snapshot_url = urljoin("http://localhost/", snapshot_url)
+    def take_image(self, webcam_profile: WebcamProfile) -> bytes:
+        image_content = None
 
-        self._logger.debug("Taking image from url: %s", snapshot_url)
+        if webcam_profile.provider:
+            try:
+                self._logger.debug("Taking image of webcam %s through its provider", webcam_profile.name)
 
-        r = requests.get(snapshot_url, timeout=timeout, verify=False)
-        r.raise_for_status()
+                snapshot = webcam_profile.provider.take_webcam_snapshot(webcam_profile.name)
 
-        image_content = r.content
+                if isinstance(snapshot, (bytes, bytearray)):
+                    image_content = bytes(snapshot)
+                else:
+                    image_content = b"".join(chunk for chunk in snapshot if chunk)
+            except Exception:
+                self._logger.exception(
+                    "Caught an exception taking an image of webcam %s through its provider",
+                    webcam_profile.name,
+                )
+
+        if image_content is None:
+            if webcam_profile.snapshot:
+                snapshot_url = urljoin("http://localhost/", webcam_profile.snapshot)
+
+                self._logger.debug("Taking image of webcam %s from url %s", webcam_profile.name, snapshot_url)
+
+                r = requests.get(
+                    snapshot_url,
+                    timeout=webcam_profile.snapshotTimeout,
+                    verify=webcam_profile.snapshotSslValidation,
+                )
+                r.raise_for_status()
+
+                image_content = r.content
+            else:
+                self._logger.error("Webcam %s has no snapshot url", webcam_profile.name)
+
+        if image_content is None:
+            raise RuntimeError(f"Unable to take an image of webcam {webcam_profile.name}")
+
+        flipH = webcam_profile.flipH
+        flipV = webcam_profile.flipV
+        rotate = webcam_profile.rotate90
 
         with io.BytesIO(image_content) as image_buffer, Image.open(image_buffer) as image:
             image.load()
