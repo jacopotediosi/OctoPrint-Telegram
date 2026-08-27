@@ -886,11 +886,13 @@ class TelegramPlugin(
             "send_icon": True,
             "send_gif": False,
             "no_mistake": False,
+            "ForceLoopMessage": False,
             "select_file_after_upload": False,
             "sort_files_by_date": False,
             "show_models_in_files": True,
             "no_cpulimit": False,
             "ffmpeg_preset": "medium",
+            "imgbbApiKey": "",
             "PreImgMethod": "None",
             "PreImgCommand": "",
             "PreImgDelay": 0,
@@ -900,6 +902,8 @@ class TelegramPlugin(
             "TimeFormat": "%H:%M:%S",
             "DayTimeFormat": "%a %H:%M:%S",
             "WeekTimeFormat": "%d.%m.%Y %H:%M:%S",
+            "http_proxy": "",
+            "https_proxy": "",
         }
 
     def get_settings_preprocessors(self):
