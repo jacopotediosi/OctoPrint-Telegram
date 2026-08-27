@@ -11,7 +11,7 @@ checklist:
 -->
 
 - [ ] You have read through `CONTRIBUTING.md`
-- [ ] Your PR targets `devel` branch
+- [ ] Your PR targets `dev` branch
 - [ ] Your PR was opened from a custom branch on your repository
   (no PRs from your version of `master` please),
   e.g. `improve/my-new-feature` or `fix/my-bugfix`
