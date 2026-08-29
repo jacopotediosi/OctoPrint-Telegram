@@ -14,6 +14,13 @@ class DisplayLayerProgress:
     """The layer and height readings published by the DisplayLayerProgress plugin."""
 
     def __init__(self, plugins: Plugins, api: OctoPrintApi, logger: logging.Logger) -> None:
+        """Set up the access to the DisplayLayerProgress readings.
+
+        Args:
+            plugins (Plugins): The OctoPrint plugins installed.
+            api (OctoPrintApi): The OctoPrint HTTP API.
+            logger (logging.Logger): The logger to write to.
+        """
         self._plugins = plugins
         self._api = api
         self._logger = logger.getChild("DisplayLayerProgress")

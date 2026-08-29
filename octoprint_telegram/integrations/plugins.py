@@ -21,6 +21,11 @@ class Plugins:
     """The OctoPrint plugins installed."""
 
     def __init__(self, plugin_manager: PluginManager) -> None:
+        """Set up the access to the installed plugins.
+
+        Args:
+            plugin_manager (PluginManager): The OctoPrint plugin manager.
+        """
         self._plugin_manager = plugin_manager
 
     def is_enabled(self, plugin_id: str) -> bool:

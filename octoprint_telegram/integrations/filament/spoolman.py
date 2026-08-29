@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import html
 
+from typing_extensions import override
+
 from ...emoji import Emoji
 from .base import FilamentPlugin
 
@@ -10,10 +12,12 @@ render_emojis = Emoji.render_emojis
 
 class SpoolmanFilamentPlugin(FilamentPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "Spoolman"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "Spoolman"
 
@@ -30,6 +34,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return " ".join(filter(None, parts))
 
+    @override
     def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spoolman/spools", timeout=15)
         data = response.json().get("data", {})
@@ -44,6 +49,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
+    @override
     def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/spoolman/spools",
@@ -162,6 +168,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return render_emojis("{emo:attention} Spool not found")
 
+    @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/self/spool",
@@ -169,6 +176,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
             json={"spoolId": spool_id, "toolIdx": tool_index},
         )
 
+    @override
     def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/self/spool",
@@ -176,6 +184,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
             json={"toolIdx": tool_index},
         )
 
+    @override
     def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spoolman/spools", timeout=15)
         spools = response.json().get("data", {}).get("spools", [])

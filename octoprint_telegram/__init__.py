@@ -3,8 +3,15 @@ from octoprint.util.version import is_octoprint_compatible
 from .plugin import TelegramPlugin
 
 
-# Check that we are running on OctoPrint >= 1.4.0, which introduced the granular permissions system
 def _get_plugin_implementation() -> TelegramPlugin:
+    """Build the plugin implementation.
+
+    Returns:
+        TelegramPlugin: The implementation OctoPrint loads.
+
+    Raises:
+        Exception: If the OctoPrint version is not supported.
+    """
     if not is_octoprint_compatible(">=1.4.0"):
         raise Exception("OctoPrint 1.4.0 or greater required.")
 

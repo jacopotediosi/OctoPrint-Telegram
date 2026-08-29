@@ -9,6 +9,7 @@ from typing import Callable, ClassVar
 
 import octoprint.filemanager
 import requests
+from typing_extensions import override
 
 from ..domain import permissions
 from ..emoji import Emoji
@@ -39,8 +40,10 @@ class CmdFiles(BaseCommand):
     _hash_slicer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer profile ids
     _hash_printer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are printer profile ids
 
+    @override
     def execute(self, command_context: CommandContext) -> None:
-        """
+        """Browse and manage files.
+
         Callback query format: /files_operation_pathHash_pageNumber_additionalArg1_additionalArg2
 
         Parameter instructions:
@@ -76,7 +79,7 @@ class CmdFiles(BaseCommand):
         - copy / move:
             - pathHash: the hash of the path to copy/move
             - pageNumber: the page number to return to after the copy/move operation
-            - additionalArg1 (optional): the currently selected target path. If omitted, shows storage menu or local storage if it's the only one.
+            - additionalArg1 (optional): the hash of the currently selected target path. If omitted, shows storage menu or local storage if it's the only one.
             - additionalArg2 (optional): "a" = ask for confirmation, "y" = copy/move confirmed, omitted = the user is just navigating target paths
         - print:
             - pathHash: the hash of the path to select and print
@@ -85,14 +88,13 @@ class CmdFiles(BaseCommand):
             - pathHash: the hash of the path to slice
             - pageNumber: the page number the user was on before starting slicing
             - additionalArg1 (optional): contains up to 3 concatenated arguments, each exactly HASH_SLICER_DATA_LENGTH characters long.
-            The string must be split into chunks of  characters to extract the arguments.
+            The string must be split into chunks of HASH_SLICER_DATA_LENGTH characters to extract the arguments.
             Depending on which arguments are present, a menu is shown to select the next.
-                - slicerNameHash: the hash of the slicer id to use
-                - profileNameHash: the hash of the slicer profile id to use
+                - slicerIdHash: the hash of the slicer id to use
+                - slicerProfileIdHash: the hash of the slicer profile id to use
                 - printerProfileIdHash: the hash of the printer profile id to use
             - additionalArg2 (optional): "y" = slicing confirmed, omitted = show confirmation menu
         """
-
         if command_context.parameter:
             # The hash→path map may be empty if the user clicks an old button after restarting the bot.
             # In that case, ask the user to run /files again.
@@ -702,6 +704,14 @@ class CmdFiles(BaseCommand):
     def _file_settings(
         self, command_context: CommandContext, path_hash: str | None, page_number: int, selection: str | None
     ) -> None:
+        """Show the file browsing settings, and apply the one the user picked.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            path_hash (str | None): The hash of the path the back button returns to.
+            page_number (int): The page the back button returns to.
+            selection (str | None): The menu to show or the setting to apply, omitted to show the settings menu.
+        """
         command_buttons = None
 
         if selection in ("sort", "byname", "bydate"):  # Menu to choose how to sort files
@@ -808,6 +818,19 @@ class CmdFiles(BaseCommand):
         confirmation: str | None,
         operation: str,
     ) -> None:
+        """Let the user pick a target path, then copy or move a file there.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            from_hash (str | None): The hash of the path to copy or move.
+            page_number (int): The page to return to once the operation is over.
+            to_hash (str | None): The hash of the target path picked so far, omitted while the user is still browsing.
+            confirmation (str | None): "a" to ask for confirmation, "y" once confirmed, omitted while browsing.
+            operation (str): Either "copy" or "move".
+
+        Raises:
+            RuntimeError: If the operation is invalid.
+        """
         sent_message_id = self.plugin_context.sender.send_message(
             render_emojis("{emo:loading} Loading files..."),
             chat_id=command_context.chat_id,
@@ -1208,6 +1231,16 @@ class CmdFiles(BaseCommand):
         additional_arg1: str | None,
         additional_arg2: str | None,
     ) -> None:
+        """Let the user pick a slicer, a slicing profile and a printer profile, then slice a model.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            path_hash (str | None): The hash of the path to slice.
+            page_number (int): The page to return to once the operation is over.
+            additional_arg1 (str | None): The hashes of the slicer, of the slicing profile and of the printer profile
+                picked so far, concatenated, each HASH_SLICER_DATA_LENGTH characters long.
+            additional_arg2 (str | None): "y" once the user confirmed, omitted to show the confirmation menu.
+        """
         # Check if there is at least one configured slicer available
         if not self.plugin_context.slicing_manager.slicing_enabled:
             msg = render_emojis(
@@ -1445,8 +1478,8 @@ class CmdFiles(BaseCommand):
             )
             return
 
-        # Perform slicing
         def slice_callback(*args: object, **kwargs: object) -> None:
+            """Report the outcome of the slicing in the chat."""
             _error = kwargs.get("_error")
             _cancelled = kwargs.get("_cancelled")
 
@@ -1481,6 +1514,7 @@ class CmdFiles(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
+        # Perform slicing
         self.plugin_context.file_manager.slice(
             slicer_id,
             octoprint.filemanager.FileDestinations.LOCAL,
@@ -1632,8 +1666,7 @@ class CmdFiles(BaseCommand):
     def _update_hash_file_path_map(
         self, file_listing: dict, locations: str | list[str] | None = None, path: str | None = None
     ) -> None:
-        """
-        Updates the internal hash-to-file-path mapping for OctoPrint files and folders.
+        """Update the hash-to-file-path mapping for OctoPrint files and folders.
 
         This method creates a mapping between short hash keys and full file/folder paths
         to overcome Telegram's 64-byte callback query data limitation. Each path gets
@@ -1705,10 +1738,7 @@ class CmdFiles(BaseCommand):
         level: int = 0,
         force_refresh: bool = False,
     ) -> dict:
-        """
-        List files from OctoPrint and update internal hash-to-path map.
-        """
-
+        """List files from OctoPrint and update internal hash-to-path map."""
         # List files
         file_listing = self.plugin_context.file_manager.list_files(
             locations=locations, path=path, filter=filter, recursive=recursive, level=level, force_refresh=force_refresh
@@ -1737,8 +1767,7 @@ class CmdFiles(BaseCommand):
         return callbacks.hash_value(data, self.HASH_SLICER_DATA_LENGTH)
 
     def _upload_thumbnail_to_imgbb(self, storage_name: str, file_path: str) -> str | None:
-        """
-        Upload the thumbnail of a file to imgbb and return public URL.
+        """Upload the thumbnail of a file to imgbb and return public URL.
 
         Args:
             storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).

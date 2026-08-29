@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..telegram import Markup
 from .base import BaseCommand, CommandContext
@@ -15,6 +17,7 @@ class CmdSettings(BaseCommand):
 
     _temp_notification_settings: ClassVar[dict[str, float]] = {}
 
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter and command_context.parameter != "back":
             params = command_context.parameter.split("_")

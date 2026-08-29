@@ -3,6 +3,8 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..integrations.filament import FILAMENT_PLUGINS
 from ..telegram import Markup
@@ -19,11 +21,18 @@ class CmdFilament(BaseCommand):
     PAGE_SIZE = 15
 
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up the command over every supported filament plugin.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         super().__init__(plugin_context)
         self.supported_plugins = [filament_plugin(plugin_context) for filament_plugin in FILAMENT_PLUGINS]
 
+    @override
     def execute(self, command_context: CommandContext) -> None:
-        """
+        """Manage filament spools.
+
         Possible callback queries:
 
         Entry points:
@@ -41,7 +50,6 @@ class CmdFilament(BaseCommand):
         - /filament_pluginid_select_tool_page -> user is selecting spools at certain page
         - /filament_pluginid_select_tool_page_id -> user has selected spool by id
         """
-
         supported_plugins = self.supported_plugins
 
         available_plugins = [

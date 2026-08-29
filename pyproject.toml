@@ -15,6 +15,7 @@ requires-python = ">=3.7,<4"
 dependencies = [
     "pillow",
     "requests[socks]",
+    "typing_extensions>=4.4",  # For typing_extensions.override
 ]
 dynamic = [
     "license",
@@ -54,15 +55,38 @@ line-length = 120
 fix = true
 
 [tool.ruff.lint]
-extend-select = ["ANN", "FA", "I"]
+preview = true
+explicit-preview-rules = true
+extend-select = [
+    "ANN", # flake8-annotations
+    "D", # pydocstyle
+    "D420", # incorrect-section-order
+    "DOC102", # docstring-extraneous-parameter
+    "DOC201", # docstring-missing-returns
+    "DOC202", # docstring-extraneous-returns
+    "DOC402", # docstring-missing-yields
+    "DOC403", # docstring-extraneous-yields
+    "DOC501", # docstring-missing-exception
+    "FA", # flake8-future-annotations
+    "I", # isort
+]
 ignore = [
     "BLE001", # blind-except
+    "D100", # undocumented-public-module
+    "D101", # undocumented-public-class
+    "D104", # undocumented-public-package
     "S110", # try-except-pass
     "TRY002", # raise-vanilla-class
 ]
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = true
+
+[tool.ruff.lint.pydoclint]
+ignore-one-line-docstrings = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ty.environment]
 python-version = "3.7"

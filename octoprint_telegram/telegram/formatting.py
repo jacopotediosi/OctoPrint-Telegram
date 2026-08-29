@@ -7,12 +7,14 @@ from .enums import Markup
 
 
 def escape_text(text: str, markup: Markup) -> str:
-    """
-    Escape the characters Telegram reads as markup.
+    """Escape the characters Telegram reads as markup.
 
     Args:
         text (str): The text to escape.
         markup (Markup): The markup Telegram parses in the text.
+
+    Returns:
+        str: The escaped text.
     """
     if markup is Markup.HTML:
         return html.escape(text)
@@ -24,10 +26,9 @@ def escape_text(text: str, markup: Markup) -> str:
 
 
 def _escape_markdown(text: str, version: int = 1, entity_type: str | None = None) -> str:
-    """
-    Copied from python-telegram-bot/python-telegram-bot
+    """Helper function to escape telegram markup symbols.
 
-    Helper function to escape telegram markup symbols.
+    Copied from python-telegram-bot/python-telegram-bot
 
     .. versionchanged:: 20.3
         Custom emoji entity escaping is now supported.
@@ -43,6 +44,12 @@ def _escape_markdown(text: str, version: int = 1, entity_type: str | None = None
             escaped in :tg-const:`telegram.constants.ParseMode.MARKDOWN_V2`. See the `official API
             documentation <https://core.telegram.org/bots/api#formatting-options>`_ for details.
             Only valid in combination with ``version=2``, will be ignored else.
+
+    Returns:
+        :obj:`str`: Escaped text.
+
+    Raises:
+        ValueError: If the Markdown version is neither ``1`` nor ``2``.
     """
     if int(version) == 1:
         escape_chars = r"_*`["

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import html
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..telegram import Markup, callbacks
 from .base import BaseCommand, CommandContext
@@ -10,6 +12,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdCtrl(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.sender.send_message(
@@ -124,6 +127,15 @@ class CmdCtrl(BaseCommand):
             )
 
     def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
+        """Flatten the custom controls the user defined in OctoPrint.
+
+        Args:
+            tree (list, optional): The controls to walk. Defaults to the ones OctoPrint has configured.
+            container (str, optional): The path the walked controls are nested under.
+
+        Returns:
+            list[dict]: The flattened controls.
+        """
         controls = []
 
         if tree is None:

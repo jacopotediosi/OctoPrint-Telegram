@@ -35,15 +35,14 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CommandDefinition:
-    """
-    Describes a bot command: how users invoke it and how it is presented to them.
+    """Describes a bot command: how users invoke it and how it is presented to them.
 
     Fields:
 
     - name (str):
         The command as typed by the user, usually starting with /.
 
-    - implementation (class):
+    - implementation (type[BaseCommand]):
         The class implementing the command.
 
     - description (str):
@@ -63,6 +62,11 @@ class CommandDefinition:
     available_to_everyone: bool = False
 
     def __post_init__(self) -> None:
+        """Check the validity of the declared command.
+
+        Raises:
+            ValueError: If the command is not valid.
+        """
         if not self.description.strip():
             raise ValueError(f"Command {self.name} has no description")
 

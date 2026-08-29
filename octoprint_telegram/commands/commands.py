@@ -13,6 +13,11 @@ class Commands:
     """The bot commands, ready to run."""
 
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up one runnable instance of every declared command.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         self._commands: dict[str, BaseCommand] = {
             command.name: command.implementation(plugin_context) for command in registry.COMMAND_DEFINITIONS
         }
@@ -20,8 +25,15 @@ class Commands:
     def run_command(
         self, command: str, chat_id: str, from_id: str, parameter: str, msg_id_to_update: str, user: str
     ) -> None:
-        """
-        Run a command by its textual name.
+        """Run a command by its textual name.
+
+        Args:
+            command (str): The command to run.
+            chat_id (str): The chat the command was sent from.
+            from_id (str): The id of the user who sent the command.
+            parameter (str): The parameter the command was invoked with.
+            msg_id_to_update (str): The message to replace with the answer, instead of sending a new one.
+            user (str): The name of the user who sent the command.
 
         Raises:
             KeyError: If the command doesn't exist.

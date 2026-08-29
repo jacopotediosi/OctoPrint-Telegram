@@ -7,8 +7,7 @@ from ..telegram import Markup
 
 @dataclass(frozen=True)
 class NotificationDefinition:
-    """
-    Describes a notification the bot can send: what it says and how it is presented.
+    """Describes a notification the bot can send: what it says and how it is presented.
 
     Every field but the description is a default the user can change from the plugin settings.
 
@@ -56,6 +55,11 @@ class NotificationDefinition:
     bind_message: str | None = None
 
     def __post_init__(self) -> None:
+        """Check the validity of the declared notification.
+
+        Raises:
+            ValueError: If the notification is not valid.
+        """
         if not self.description.strip():
             raise ValueError("A notification has no description")
 

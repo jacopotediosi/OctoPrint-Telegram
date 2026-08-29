@@ -3,6 +3,8 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..integrations.power import POWER_PLUGINS
 from ..telegram import Markup
@@ -17,9 +19,15 @@ render_emojis = Emoji.render_emojis
 
 class CmdPower(BaseCommand):
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up the command over every supported power plugin.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         super().__init__(plugin_context)
         self.supported_plugins = [power_plugin(plugin_context) for power_plugin in POWER_PLUGINS]
 
+    @override
     def execute(self, command_context: CommandContext) -> None:
         supported_plugins = self.supported_plugins
 

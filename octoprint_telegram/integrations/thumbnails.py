@@ -13,10 +13,11 @@ class Thumbnails:
     """The preview images of the printable files stored in OctoPrint."""
 
     def __init__(self, file_manager: FileManager, api: OctoPrintApi, logger: logging.Logger) -> None:
-        """
+        """Set up the thumbnail lookup.
+
         Args:
             file_manager (FileManager): The OctoPrint file manager the files are stored in.
-            api (OctoPrintApi): The OctoPrint HTTP API, used to download the previews other plugins serve.
+            api (OctoPrintApi): The OctoPrint HTTP API.
             logger (logging.Logger): The logger to write to.
         """
         self._file_manager = file_manager
@@ -24,8 +25,7 @@ class Thumbnails:
         self._logger = logger.getChild("Thumbnails")
 
     def get_thumbnail(self, storage_name: str, file_path: str) -> bytes | None:
-        """
-        The preview image of a file.
+        """The preview image of a file.
 
         Args:
             storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).

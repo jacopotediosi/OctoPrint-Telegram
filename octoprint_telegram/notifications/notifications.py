@@ -43,6 +43,22 @@ class Notifications:
         plugin_name: str,
         logger: logging.Logger,
     ) -> None:
+        """Set up the sending of the notifications.
+
+        Args:
+            settings (Settings): The plugin settings.
+            sender (Sender): The delivery of messages and files to Telegram chats.
+            telegram_client (TelegramClient): The Telegram Bot API.
+            muted_chats (MutedChats): The chats that asked to receive no notifications.
+            printer (PrinterInterface): The printer.
+            file_manager (FileManager): The OctoPrint file manager.
+            plugins (Plugins): The OctoPrint plugins installed.
+            api (OctoPrintApi): The OctoPrint HTTP API.
+            display_layer_progress (DisplayLayerProgress): The DisplayLayerProgress readings.
+            thumbnails (Thumbnails): The preview images of the printable files.
+            plugin_name (str): The name of this plugin.
+            logger (logging.Logger): The logger to write to.
+        """
         self._settings = settings
         self._sender = sender
         self._telegram_client = telegram_client
@@ -88,7 +104,13 @@ class Notifications:
         }
 
     def send_notification(self, event: str, payload: dict | None = None, chat_id: str | None = None) -> None:
-        """Send the notification configured for an event to the chats subscribed to it."""
+        """Send the notification configured for an event, to a single chat or to every chat subscribed to it.
+
+        Args:
+            event (str): The event to notify.
+            payload (dict, optional): The data the event carried.
+            chat_id (str, optional): The single chat to notify, instead of every chat subscribed to the event.
+        """
         handler = self._event_handlers.get(event)
         if handler is None:
             return
@@ -107,10 +129,16 @@ class Notifications:
         handler(payload, event, chat_id)
 
     def is_notification_necessary(self, new_z: float | None = None, old_z: float | None = None) -> bool:
-        """
-        Whether a notification has to be sent on the gcode ZChange event.
+        """Whether a progress notification has to be sent.
 
-        Depends on notification time and notification height.
+        Depends on notification time and notification height. Without the two Z values only the time counts.
+
+        Args:
+            new_z (float, optional): The Z value the print head has reached.
+            old_z (float, optional): The Z value of the previous notification.
+
+        Returns:
+            bool: True if a notification has to be sent.
         """
         timediff = self._settings.notification_time
         # Check the timediff
@@ -175,6 +203,14 @@ class Notifications:
     ##########
 
     def _notify(self, payload: dict, event: str, chat_id: str | None = None, delay: int = 0) -> None:
+        """Send the notification configured for an event.
+
+        Args:
+            payload (dict): The data the event carried.
+            event (str): The event to notify.
+            chat_id (str, optional): The single chat to notify, instead of every chat subscribed to the event.
+            delay (int, optional): Seconds to wait before delivering.
+        """
         try:
             variables = NotificationVariables(
                 event=event,

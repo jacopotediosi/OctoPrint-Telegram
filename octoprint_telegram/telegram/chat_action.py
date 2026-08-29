@@ -18,8 +18,7 @@ CHAT_ACTION_REFRESH_SECONDS = 4.5
 def chat_action(
     telegram_client: TelegramClient, chat_id: str, action: ChatAction, logger: logging.Logger
 ) -> Iterator[None]:
-    """
-    Show an activity indicator in the chat for as long as the block runs.
+    """Show an activity indicator in the chat for as long as the block runs.
 
     Args:
         telegram_client (TelegramClient): The client the indicator is sent through.

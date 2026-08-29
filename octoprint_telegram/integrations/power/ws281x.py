@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from typing_extensions import override
+
 from .base import PowerPlugin
 
 
 class WS281xPowerPlugin(PowerPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "ws281x_led_status"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "WS281x"
 
+    @override
     def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
@@ -34,9 +39,11 @@ class WS281xPowerPlugin(PowerPlugin):
 
         return plugs_data
 
+    @override
     def turn_on(self, plug_data: str) -> None:
         self._send_command(f"{plug_data}_on")
 
+    @override
     def turn_off(self, plug_data: str) -> None:
         self._send_command(f"{plug_data}_off")
 

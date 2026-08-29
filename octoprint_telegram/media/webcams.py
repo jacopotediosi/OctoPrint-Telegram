@@ -25,6 +25,19 @@ class WebcamProfile:
         rotate90: bool = False,
         provider: octoprint.plugin.types.WebcamProviderPlugin | None = None,
     ) -> None:
+        """Set up the profile of a single webcam.
+
+        Args:
+            name (str, optional): The name of the webcam.
+            snapshot (str, optional): The URL a snapshot is fetched from.
+            snapshotTimeout (int, optional): The seconds to wait for a snapshot.
+            snapshotSslValidation (bool, optional): Whether the certificate of the snapshot URL is validated.
+            stream (str, optional): The URL of the stream.
+            flipH (bool, optional): Whether the image is flipped horizontally.
+            flipV (bool, optional): Whether the image is flipped vertically.
+            rotate90 (bool, optional): Whether the image is rotated by 90 degrees.
+            provider (WebcamProviderPlugin, optional): The OctoPrint plugin the webcam comes from.
+        """
         self.name = name
         self.snapshot = snapshot
         self.snapshotTimeout = snapshotTimeout
@@ -36,6 +49,11 @@ class WebcamProfile:
         self.provider = provider
 
     def __repr__(self) -> str:
+        """Render the textual representation of the webcam profile (e.g. for logs).
+
+        Returns:
+            str: The profile, with every field spelled out.
+        """
         return (
             f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
             f"snapshotTimeout={self.snapshotTimeout!r} snapshotSslValidation={self.snapshotSslValidation} "
@@ -54,12 +72,25 @@ class Webcams:
         octoprint_settings: OctoPrintSettings,
         logger: logging.Logger,
     ) -> None:
+        """Set up the lookup of the configured webcams.
+
+        Args:
+            plugin_manager (PluginManager): The OctoPrint plugin manager.
+            plugins (Plugins): The OctoPrint plugins installed.
+            octoprint_settings (OctoPrintSettings): The settings stored by OctoPrint itself.
+            logger (logging.Logger): The logger to write to.
+        """
         self._plugin_manager = plugin_manager
         self._plugins = plugins
         self._octoprint_settings = octoprint_settings
         self._logger = logger.getChild("Webcams")
 
     def get_webcam_profiles(self) -> list[WebcamProfile]:
+        """The profile of every configured webcam.
+
+        Returns:
+            list[WebcamProfile]: One profile per webcam.
+        """
         webcam_profiles: list[WebcamProfile] = []
 
         # New webcam integration (OctoPrint >= 1.9.0)

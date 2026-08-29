@@ -12,15 +12,15 @@ class Formatters:
 
     @staticmethod
     def format_eta(settings: Settings, seconds_from_now: float) -> str:
-        """
-        Format the clock time reached after the given number of seconds.
+        """Format the clock time reached after the given number of seconds.
 
         Args:
-            settings: The plugin settings, holding the time formats to use.
-            seconds_from_now: How far ahead the returned time is.
+            settings (Settings): The plugin settings, holding the time formats to use.
+            seconds_from_now (float): How far ahead the returned time is.
 
         Returns:
-            Formatted time string, more detailed the further ahead it is (e.g. "18:30:00", "23.10.2025 18:30:00")
+            str: Formatted time string, more detailed the further ahead it is
+                (e.g. "18:30:00", "23.10.2025 18:30:00").
         """
         current_time = datetime.now().astimezone()
         finish_time = current_time + timedelta(seconds=seconds_from_now)
@@ -39,15 +39,15 @@ class Formatters:
 
     @staticmethod
     def format_size(bytes_value: float | None) -> str:
-        """
-        Format file size in human readable format.
-        From octoprint/static/js/app/helpers.js transferred to python.
+        """Format file size in human readable format.
+
+        From octoprint/static/js/app/helpers.js ported to python.
 
         Args:
-            bytes_value: Size in bytes
+            bytes_value (float | None): Size in bytes.
 
         Returns:
-            Formatted size string (e.g., "1.2 MB", "500 bytes")
+            str: Formatted size string (e.g., "1.2 MB", "500.0 bytes").
         """
         if not bytes_value:
             return "-"
@@ -64,17 +64,16 @@ class Formatters:
 
     @staticmethod
     def format_filament(filament: dict | None) -> str:
-        """
-        Format filament usage information.
-        From octoprint/static/js/app/helpers.js transferred to python.
+        """Format filament usage information.
+
+        From octoprint/static/js/app/helpers.js ported to python.
 
         Args:
-            filament: Dict containing 'length' and optionally 'volume'
+            filament (dict | None): Dict containing 'length' and optionally 'volume'.
 
         Returns:
-            Formatted filament string (e.g., "12.34 m / 5.67 cm^3")
+            str: Formatted filament string (e.g., "12.34 m / 5.67 cm^3").
         """
-
         if not filament or "length" not in filament:
             return "-"
 
@@ -87,14 +86,13 @@ class Formatters:
 
     @staticmethod
     def format_duration(seconds: float | None) -> str:
-        """
-        Format duration in HH:MM:SS format.
+        """Format duration in HH:MM:SS format.
 
         Args:
-            seconds: Duration in seconds
+            seconds (float | None): Duration in seconds.
 
         Returns:
-            Formatted duration string (e.g., "02:30:45")
+            str: Formatted duration string (e.g., "02:30:45").
         """
         if seconds is None:
             return "-"
@@ -110,9 +108,9 @@ class Formatters:
 
     @staticmethod
     def format_fuzzy_print_time(total_seconds: float | None) -> str:
-        """
-        Formats a print time estimate in a very fuzzy way.
-        From octoprint/static/js/app/helpers.js transferred to python.
+        """Format a print time estimate in a very fuzzy way.
+
+        From octoprint/static/js/app/helpers.js ported to python.
 
         Accuracy decreases as the estimation gets higher:
         * less than 30s: "a few seconds"
@@ -126,12 +124,11 @@ class Formatters:
         * Over a day: rounded to half days, 8h to 16h is ".5", above that days + 1 ("1 day", "4 days", "2.5 days")
 
         Args:
-            total_seconds: Time in seconds
+            total_seconds (float | None): Time in seconds.
 
         Returns:
-            Fuzzy time string (e.g., "2.5 hours", "3 days")
+            str: Fuzzy time string (e.g., "2.5 hours", "3 days").
         """
-
         if not total_seconds or total_seconds < 1:
             return "-"
 

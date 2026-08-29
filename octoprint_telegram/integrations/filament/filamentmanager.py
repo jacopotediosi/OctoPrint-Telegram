@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import html
 
+from typing_extensions import override
+
 from .base import FilamentPlugin
 
 
 class FilamentManagerFilamentPlugin(FilamentPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "filamentmanager"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "FilamentManager"
 
@@ -38,6 +42,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return " ".join(parts) if parts else ""
 
+    @override
     def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spools", timeout=15)
         data = response.json()
@@ -52,6 +57,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
+    @override
     def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/spools/{spool_id}",
@@ -89,6 +95,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return msg
 
+    @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections/{tool_index}",
@@ -96,6 +103,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
             json={"selection": {"tool": tool_index, "spool": {"id": spool_id}, "updateui": True}},
         )
 
+    @override
     def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections/{tool_index}",
@@ -103,6 +111,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
             json={"selection": {"tool": tool_index, "spool": {"id": None}, "updateui": True}},
         )
 
+    @override
     def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections",

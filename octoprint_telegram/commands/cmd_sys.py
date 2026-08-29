@@ -2,6 +2,7 @@ import html
 import socket
 
 import sarge
+from typing_extensions import override
 
 from ..emoji import Emoji
 from ..telegram import Markup, callbacks
@@ -11,6 +12,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdSys(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter:
             params = command_context.parameter.split("_")

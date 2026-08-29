@@ -32,7 +32,8 @@ class OctoPrintApi:
         octoprint_settings: OctoPrintSettings,
         logger: logging.Logger,
     ) -> None:
-        """
+        """Set up the HTTP API client against a running OctoPrint server.
+
         Args:
             server_port (int): The port OctoPrint's API is served on.
             generate_plugin_api_key (Callable): Callback that returns a fresh plugin API key, valid for a
@@ -48,8 +49,7 @@ class OctoPrintApi:
     def send_simpleapi_command(
         self, plugin_id: str, command: str, parameters: dict | None = None, timeout: int = 5
     ) -> requests.Response:
-        """
-        Sends a SimpleAPI command to an OctoPrint plugin via the HTTP API.
+        """Send a SimpleAPI command to an OctoPrint plugin via the HTTP API.
 
         Args:
             plugin_id (str): The ID of the plugin to target.
@@ -78,8 +78,7 @@ class OctoPrintApi:
         )
 
     def send_simpleapi_get(self, plugin_id: str, parameters: dict | None = None, timeout: int = 5) -> requests.Response:
-        """
-        Sends a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
+        """Send a SimpleAPI GET request to an OctoPrint plugin via the HTTP API.
 
         Args:
             plugin_id (str): The ID of the plugin to target.
@@ -99,8 +98,7 @@ class OctoPrintApi:
         )
 
     def send_request(self, url: str, method: str = "GET", **kwargs: Any) -> requests.Response:
-        """
-        Sends an HTTP request to the OctoPrint API with default authentication headers.
+        """Send an HTTP request to the OctoPrint API with default authentication headers.
 
         Args:
             url (str): Full or relative URL (e.g., "/api/plugin/...").

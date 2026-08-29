@@ -19,6 +19,16 @@ def migrate_settings(
     build_new_chat_settings: Callable[[], dict],
     logger: logging.Logger,
 ) -> None:
+    """Bring the stored settings up to a newer settings version.
+
+    Args:
+        target (int): The settings version to migrate to.
+        current (int | None): The settings version in storage, or None if it was never written.
+        settings (PluginSettings): The settings to migrate, updated in place.
+        build_new_chat_settings (Callable): Callback that returns the settings a new chat starts with,
+            good to fill in what a stored chat is missing.
+        logger (logging.Logger): The logger to write to.
+    """
     logger.warning("Migration - start migration from %s to %s", current, target)
 
     chats = {k: v for k, v in settings.get(["chats"]).items() if k != PLACEHOLDER_CHAT_ID}

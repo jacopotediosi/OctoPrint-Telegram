@@ -4,6 +4,8 @@ import html
 import time
 from typing import Sequence
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..telegram import Markup, callbacks
 from .base import BaseCommand, CommandContext
@@ -25,6 +27,7 @@ class CmdCon(BaseCommand):
     # be displayed in chat messages
     SENSITIVE_PARAM_KEYWORDS = ("key", "password", "psw")
 
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter:
             action, *params = command_context.parameter.split("_")
@@ -349,6 +352,17 @@ class CmdCon(BaseCommand):
         item_emoji: str,
         with_auto: bool = False,
     ) -> None:
+        """Ask the user to pick one value out of a list.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            parent (str): The callback query the back button goes to.
+            callback_prefix (str): The callback query each option is sent with, the hashed value appended to it.
+            msg (str): The text shown above the options.
+            options (Sequence[tuple]): The value and the label of every option.
+            item_emoji (str): The name of the emoji shown on every option.
+            with_auto (bool, optional): Offer an AUTO option on top of the list.
+        """
         buttons = []
         if with_auto:
             buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_AUTO"))
@@ -371,6 +385,18 @@ class CmdCon(BaseCommand):
         )
 
     def _resolve_hashed(self, value: str, choices: Sequence[str | int]) -> str | int | None:
+        """Turn back into its original the value a button carried hashed.
+
+        Args:
+            value (str): The hash carried by the callback query, or "AUTO".
+            choices (Sequence[str | int]): The values the hash is looked up among.
+
+        Returns:
+            str | int | None: The original value, or None if the user picked AUTO.
+
+        Raises:
+            StopIteration: If no choice matches the hash.
+        """
         if value == "AUTO":
             return None
         return next(c for c in choices if self._hash_parameter(c) == value)

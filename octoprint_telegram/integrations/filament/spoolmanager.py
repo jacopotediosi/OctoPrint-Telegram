@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import html
 
+from typing_extensions import override
+
 from ...emoji import Emoji
 from .base import FilamentPlugin
 
@@ -10,10 +12,12 @@ render_emojis = Emoji.render_emojis
 
 class SpoolManagerFilamentPlugin(FilamentPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "SpoolManager"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "SpoolManager"
 
@@ -39,6 +43,7 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return " ".join(parts) if parts else ""
 
+    @override
     def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=all&sortColumn=displayName&sortOrder=asc&filterName=hideInactiveSpools",
@@ -56,6 +61,7 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
+    @override
     def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=all&sortColumn=displayName&sortOrder=asc&filterName=hideInactiveSpools",
@@ -205,16 +211,19 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return render_emojis("{emo:attention} Spool not found")
 
+    @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": spool_id, "toolIndex": tool_index}
         )
 
+    @override
     def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": -1, "toolIndex": tool_index}
         )
 
+    @override
     def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=0&from=0&to=0&sortColumn=&sortOrder=&filterName=",

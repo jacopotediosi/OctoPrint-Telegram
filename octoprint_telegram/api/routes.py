@@ -56,10 +56,23 @@ class Api:
     """The plugin's own HTTP API, used by its settings page."""
 
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up the plugin's own HTTP API.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Api")
 
     def handle_get(self, request_args: MultiDict | None = None) -> Response:
+        """Answer an API GET request.
+
+        Args:
+            request_args (MultiDict, optional): The query string arguments, which select what is returned.
+
+        Returns:
+            Response: The JSON answer for the requested data.
+        """
         # /?enrollmentCountdown
         if request_args and "enrollmentCountdown" in request_args:
             return jsonify({"remaining": self.plugin_context.enrollment.remaining_seconds})
@@ -127,6 +140,11 @@ class Api:
         )
 
     def get_api_commands(self) -> dict[str, list[str]]:
+        """The commands that can be sent through the API, each with the data it must carry.
+
+        Returns:
+            dict[str, list[str]]: The name of every command, mapped to its required data keys.
+        """
         return {
             "delChat": ["chat_id"],
             "editChat": [
@@ -141,6 +159,16 @@ class Api:
         }
 
     def handle_command(self, command: str, data: dict) -> Response | tuple[Response, int] | None:
+        """Run a command sent through the API.
+
+        Args:
+            command (str): The name of the command to run.
+            data (dict): The data the command was sent with.
+
+        Returns:
+            Response | tuple[Response, int] | None: The JSON answer, paired with an HTTP status code when
+                the command was refused, or None when the command is unknown.
+        """
         self._logger.info("Received API command %s with data %s", command, data)
 
         if not Permissions.SETTINGS.can():

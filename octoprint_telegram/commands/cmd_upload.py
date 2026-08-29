@@ -1,6 +1,7 @@
 import html
 
 import octoprint.filemanager
+from typing_extensions import override
 
 from ..emoji import Emoji
 from ..telegram import Markup
@@ -10,6 +11,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdUpload(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         supported_extensions = ", ".join(
             [f"<code>{html.escape(f'.{ext}')}</code>" for ext in octoprint.filemanager.get_all_extensions()]

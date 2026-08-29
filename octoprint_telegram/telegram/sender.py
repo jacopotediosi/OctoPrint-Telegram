@@ -39,6 +39,16 @@ class Sender:
         connection_status: ConnectionStatus,
         logger: logging.Logger,
     ) -> None:
+        """Set up the delivery of messages and files.
+
+        Args:
+            telegram_client (TelegramClient): The Telegram Bot API.
+            chats (Chats): The chats the bot knows about.
+            muted_chats (MutedChats): The chats that asked to receive no notifications.
+            media (Media): The pictures and videos taken from the webcams.
+            connection_status (ConnectionStatus): The connection status.
+            logger (logging.Logger): The logger to write to.
+        """
         self._telegram_client = telegram_client
         self._chats = chats
         self._muted_chats = muted_chats
@@ -66,8 +76,9 @@ class Sender:
         thumbnail: bytes | None = None,
         movie: str | None = None,
     ) -> str | None:
-        """
-        Send a message to a chat, or replace an earlier one when its id is given.
+        """Send a message to a chat, or replace an earlier one when its id is given.
+
+        Replacing a message only honours markup, buttons and delay; the attachments and the silent flag are ignored.
 
         Args:
             message (str): The text to send.
@@ -234,6 +245,7 @@ class Sender:
         thumbnail: bytes | None = None,
         movie: str | None = None,
     ) -> str | None:
+        """Deliver a new message to a chat."""
         try:
             message_data["link_preview_options"] = json.dumps({"is_disabled": True})
             message_data["disable_notification"] = silent
@@ -340,12 +352,14 @@ class Sender:
             return None
 
     def _fits_upload_limit(self, size_in_bytes: int, description: str) -> bool:
-        """
-        Whether something of a given size is small enough to upload, warning in the logs when it is not.
+        """Whether something of a given size is small enough to upload.
 
         Args:
             size_in_bytes (int): The size of what has to be uploaded.
             description (str): The name the log warning gives it.
+
+        Returns:
+            bool: True if the size is within the limit.
         """
         if size_in_bytes <= MAX_UPLOAD_MEGABYTES * 1024 * 1024:
             return True

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from typing_extensions import override
+
 from .base import PowerPlugin
 
 
 class TPLinkSmartplugPowerPlugin(PowerPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "tplinksmartplug"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "TPLinkSmartplug"
 
+    @override
     def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
@@ -28,9 +33,11 @@ class TPLinkSmartplugPowerPlugin(PowerPlugin):
 
         return plugs_data
 
+    @override
     def turn_on(self, plug_data: str) -> None:
         self._send_command("turnOn", plug_data)
 
+    @override
     def turn_off(self, plug_data: str) -> None:
         self._send_command("turnOff", plug_data)
 

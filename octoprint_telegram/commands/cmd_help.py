@@ -1,5 +1,7 @@
 import html
 
+from typing_extensions import override
+
 from ..emoji import Emoji
 from ..telegram import Markup
 from .base import BaseCommand, CommandContext
@@ -8,6 +10,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdHelp(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         commands = sorted(
             (command.name, command.description)

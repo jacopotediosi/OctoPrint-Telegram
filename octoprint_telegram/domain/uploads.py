@@ -24,10 +24,22 @@ class Uploads:
     """The files users send to the bot, stored into the OctoPrint file library."""
 
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up the handling of the files users send to the bot.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Uploads")
 
     def store_document(self, message: dict, chat_id: str, from_id: str) -> None:
+        """Store into the OctoPrint file library a file a user sent to the bot.
+
+        Args:
+            message (dict): The Telegram message carrying the document.
+            chat_id (str): The chat the document was sent from.
+            from_id (str): The id of the user who sent the document.
+        """
         try:
             self._logger.debug("Handling document message: %s", message)
 

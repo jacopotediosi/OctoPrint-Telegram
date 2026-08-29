@@ -45,6 +45,15 @@ class Video:
         data_folder: str,
         logger: logging.Logger,
     ) -> None:
+        """Set up the recording of the webcam streams.
+
+        Args:
+            webcams (Webcams): The webcams the videos are recorded from.
+            settings (Settings): The plugin settings.
+            octoprint_settings (OctoPrintSettings): The settings stored by OctoPrint itself.
+            data_folder (str): The folder the videos are written to.
+            logger (logging.Logger): The logger to write to.
+        """
         self._webcams = webcams
         self._settings = settings
         self._octoprint_settings = octoprint_settings
@@ -57,6 +66,14 @@ class Video:
         return os.path.join(self._data_folder, TEMPORARY_DIRECTORY_NAME)
 
     def take_all_gifs(self, duration: int = 5) -> list[str]:
+        """Record a video from every webcam.
+
+        Args:
+            duration (int, optional): The seconds to record from each webcam.
+
+        Returns:
+            list[str]: The path on disk of each video recorded.
+        """
         taken_gif_paths = []
 
         self._logger.debug("Taking all gifs")
@@ -94,6 +111,23 @@ class Video:
         flipV: bool = False,
         rotate: bool = False,
     ) -> str:
+        """Record a video from a single webcam stream.
+
+        Args:
+            stream_url (str): The URL of the stream to record.
+            duration (int, optional): The seconds to record, brought back within 1 and 60.
+            gif_filename (str, optional): The name to write the video under.
+            flipH (bool, optional): Whether the image is flipped horizontally.
+            flipV (bool, optional): Whether the image is flipped vertically.
+            rotate (bool, optional): Whether the image is rotated by 90 degrees.
+
+        Returns:
+            str: The path on disk of the video recorded.
+
+        Raises:
+            RuntimeError: If ffmpeg or the CPU limiter is not installed.
+            FileNotFoundError: If the recording produced no file.
+        """
         stream_url = urljoin("http://localhost/", stream_url)
 
         self._logger.debug("Taking gif from url: %s", stream_url)

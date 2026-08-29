@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from typing_extensions import override
+
 from .base import PowerPlugin
 
 
 class OctoHuePowerPlugin(PowerPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "octohue"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "OctoHue"
 
+    @override
     def get_plugs_data(self) -> list[dict]:
         is_on = False
         try:
@@ -23,9 +28,11 @@ class OctoHuePowerPlugin(PowerPlugin):
         # Octohue is single plug, so data below is dummy
         return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
 
+    @override
     def turn_on(self, plug_data: str) -> None:
         self._send_command("turnon")
 
+    @override
     def turn_off(self, plug_data: str) -> None:
         self._send_command("turnoff")
 

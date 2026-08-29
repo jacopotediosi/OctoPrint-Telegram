@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import requests
+from typing_extensions import override
 
 from .base import PowerPlugin
 
 
 class MyStromSwitchPowerPlugin(PowerPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "mystromswitch"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "MyStromSwitch"
 
+    @override
     def get_plugs_data(self) -> list[dict]:
         is_on = False
         try:
@@ -30,9 +34,11 @@ class MyStromSwitchPowerPlugin(PowerPlugin):
         # Mystromswitch is single plug, so data below is dummy
         return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
 
+    @override
     def turn_on(self, plug_data: str) -> None:
         self._send_command("enableRelais")
 
+    @override
     def turn_off(self, plug_data: str) -> None:
         self._send_command("disableRelais")
 

@@ -22,6 +22,12 @@ class TelegramRequestError(Exception):
     """Raised when a call to the Telegram Bot API does not return a usable response."""
 
     def __init__(self, message: str, telegram_response_text: str = "") -> None:
+        """Set up the error.
+
+        Args:
+            message (str): The description of what went wrong.
+            telegram_response_text (str, optional): The raw body Telegram answered with.
+        """
         super().__init__(message)
         self.telegram_response_text = telegram_response_text
 
@@ -30,6 +36,12 @@ class TelegramClient:
     """The Telegram Bot API, for the bot the configured token belongs to."""
 
     def __init__(self, settings: Settings, logger: logging.Logger) -> None:
+        """Set up the access to the Telegram Bot API.
+
+        Args:
+            settings (Settings): The plugin settings.
+            logger (logging.Logger): The logger to write to.
+        """
         self._settings = settings
         self._logger = logger.getChild("TelegramClient")
         self._token = None
@@ -48,6 +60,7 @@ class TelegramClient:
 
     @property
     def is_connected(self) -> bool:
+        """Whether a bot is currently being addressed."""
         return bool(self._token)
 
     ##########
@@ -58,8 +71,7 @@ class TelegramClient:
         return {"http": self._settings.http_proxy, "https": self._settings.https_proxy}
 
     def send_request(self, endpoint: str, method: HttpMethod, token: str | None = None, **kwargs: Any) -> dict:
-        """
-        Call a Telegram Bot API method and return its decoded response.
+        """Call a Telegram Bot API method and return its decoded response.
 
         Args:
             endpoint (str): The API method to call, e.g. "sendMessage".
@@ -129,11 +141,16 @@ class TelegramClient:
     ##########
 
     def get_bot_username(self, token: str | None = None) -> str:
-        """
-        The @username of the bot a token belongs to.
+        """The @username of the bot a token belongs to.
+
+        Args:
+            token (str, optional): The bot token to use instead of the connected one.
+
+        Returns:
+            str: The @username of the bot.
 
         Raises:
-            TelegramRequestError: If the token is not valid.
+            TelegramRequestError: If the request fails, the response is invalid, or the Telegram API returns an error.
         """
         json_data = self.send_request("getMe", HttpMethod.GET, token=token)
         return f"@{json_data['result']['username']}"
@@ -147,7 +164,7 @@ class TelegramClient:
     ##########
 
     def download_file(self, file_id: str) -> bytes:
-        """Download the content of a file a user sent to the bot."""
+        """Download the content of a file from the Telegram servers."""
         self._logger.debug("Requesting file with id %s", file_id)
 
         json_data = self.send_request("getFile", HttpMethod.GET, data={"file_id": file_id})

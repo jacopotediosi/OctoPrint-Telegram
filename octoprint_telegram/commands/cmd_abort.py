@@ -1,3 +1,5 @@
+from typing_extensions import override
+
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
@@ -5,6 +7,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdAbort(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter == "stop":
             self.plugin_context.printer.cancel_print(user=command_context.user)

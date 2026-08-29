@@ -33,6 +33,18 @@ class Media:
         data_folder: str,
         logger: logging.Logger,
     ) -> None:
+        """Set up the taking of pictures and videos from the webcams.
+
+        Args:
+            settings (Settings): The plugin settings.
+            octoprint_settings (OctoPrintSettings): The settings stored by OctoPrint itself.
+            plugins (Plugins): The OctoPrint plugins installed.
+            plugin_manager (PluginManager): The OctoPrint plugin manager.
+            printer (PrinterInterface): The printer.
+            event_manager (EventManager): The OctoPrint event bus.
+            data_folder (str): The folder the videos are written to.
+            logger (logging.Logger): The logger to write to.
+        """
         self.webcams = Webcams(plugin_manager, plugins, octoprint_settings, logger)
         self.snapshots = Snapshots(self.webcams, logger)
         self.video = Video(self.webcams, settings, octoprint_settings, data_folder, logger)

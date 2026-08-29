@@ -11,6 +11,11 @@ class PowerPlugin(ABC):
     """A third-party plugin through which power outlets can be switched on and off."""
 
     def __init__(self, plugin_context: PluginContext) -> None:
+        """Set up the adapter to a power plugin.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+        """
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("PowerPlugin")
 
@@ -26,11 +31,10 @@ class PowerPlugin(ABC):
 
     @abstractmethod
     def get_plugs_data(self) -> list[dict]:
-        """
-        Retrieve information about all plugs managed by this plugin.
+        """Retrieve information about all plugs managed by this plugin.
 
         Returns:
-            List[Dict[str, Any]]: A list of plug dictionaries, each containing:
+            list[dict]: A list of plug dictionaries, each containing:
                 - "label" (str): Human-readable plug name for display purposes.
                 - "is_on" (bool): Current power state of the plug (True if on, False if off).
                 - "data" (str): Unique identifier used to identify the plug in plugin API calls.

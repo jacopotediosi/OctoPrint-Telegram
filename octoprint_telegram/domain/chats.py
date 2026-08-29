@@ -60,6 +60,16 @@ class Chats:
         build_new_chat_settings: Callable[[], dict],
         logger: logging.Logger,
     ) -> None:
+        """Set up the access to the known chats.
+
+        Args:
+            settings (Settings): The plugin settings.
+            telegram_client (TelegramClient): The Telegram Bot API.
+            frontend (Frontend): The plugin's settings page.
+            data_folder (str): The folder the chat pictures are written to.
+            build_new_chat_settings (Callable): Callback that returns the settings a chat starts with.
+            logger (logging.Logger): The logger to write to.
+        """
         self._settings = settings
         self._telegram_client = telegram_client
         self._frontend = frontend
@@ -77,11 +87,13 @@ class Chats:
         return self._settings.chat(chat_id)
 
     def get_chats_subscribed_to(self, event: str) -> list[str]:
-        """
-        The ids of the known chats that receive the notifications of an event.
+        """The ids of the known chats that receive the notifications of an event.
 
         Args:
             event (str): The event the chats are subscribed to.
+
+        Returns:
+            list[str]: The ids of the subscribed chats.
         """
         return [
             str(chat_id)

@@ -6,8 +6,7 @@ class StringUtils:
 
     @staticmethod
     def split_with_escape_handling(param_str: str, separator: str) -> list[str]:
-        """
-        Split a string by a separator while properly handling escaped characters.
+        r"""Split a string by a separator while properly handling escaped characters.
 
         This function splits a string into parts using the specified separator,
         but treats escaped characters (prefixed with backslash) literally.

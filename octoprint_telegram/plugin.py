@@ -11,6 +11,7 @@ import urllib3
 from octoprint.access.permissions import Permissions
 from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
 from octoprint.server import app
+from typing_extensions import override
 
 if TYPE_CHECKING:
     from flask import Request, Response
@@ -69,8 +70,11 @@ class TelegramPlugin(
     _file_manager: FileManager
     _slicing_manager: SlicingManager
 
-    # Runs at plugin discovery, before OctoPrint injects its properties
     def __init__(self) -> None:
+        """Create the plugin.
+
+        Runs at plugin discovery, before OctoPrint injects its properties.
+        """
         super().__init__()
 
         self._logger = logging.getLogger("octoprint.plugins.telegram")
@@ -85,8 +89,12 @@ class TelegramPlugin(
         self._commands = None
         self._api = None
 
-    # Runs once OctoPrint has injected its properties, before the settings migration
+    @override
     def initialize(self) -> None:
+        """Initialize the plugin.
+
+        Runs once OctoPrint has injected its properties, before the settings migration.
+        """
         # Logging formatter that sanitizes logs by redacting sensitive data (e.g., bot tokens)
         logging_formatter = RedactingFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -193,14 +201,26 @@ class TelegramPlugin(
     ### StartupPlugin mixin
     ##########
 
-    # Runs when the server is bound to its host and port, before it starts serving
+    @override
     def on_startup(self, host: str, port: int) -> None:
+        """Start the plugin.
+
+        Runs when the server is bound to its host and port, before it starts serving.
+
+        Args:
+            host (str): The host the server is bound to.
+            port (int): The port the server is bound to.
+        """
         self._plugin_context = self._build_plugin_context(port)
         self._commands = Commands(self._plugin_context)
         self._api = Api(self._plugin_context)
 
-    # Runs once the server is serving and the other plugins are ready
+    @override
     def on_after_startup(self) -> None:
+        """Finish starting the plugin.
+
+        Runs once the server is serving and the other plugins are ready.
+        """
         self.start_bot()
 
     ##########
@@ -296,7 +316,9 @@ class TelegramPlugin(
     ### ShutdownPlugin mixin
     ##########
 
+    @override
     def on_shutdown(self) -> None:
+        """Shut the plugin down."""
         self.on_event("PrinterShutdown", {})
         self.stop_bot()
 
@@ -304,6 +326,7 @@ class TelegramPlugin(
     ### SettingsPlugin mixin
     ##########
 
+    @override
     def get_settings_defaults(self) -> dict:
         return {
             "token": "",
@@ -351,6 +374,7 @@ class TelegramPlugin(
             "notifications": {notification: False for notification in NOTIFICATION_DEFINITIONS},
         }
 
+    @override
     def get_settings_preprocessors(self) -> tuple[dict, dict]:
         return (
             {},
@@ -360,6 +384,7 @@ class TelegramPlugin(
             },
         )
 
+    @override
     def get_settings_version(self) -> int:
         # Settings version numbers used in releases
         # < 1.3.0: no settings versioning
@@ -372,6 +397,7 @@ class TelegramPlugin(
         # 1.10.0: 7
         return 7
 
+    @override
     def on_settings_migrate(self, target: int, current: int | None = None) -> None:
         migrate_settings(
             target,
@@ -381,7 +407,13 @@ class TelegramPlugin(
             self._logger,
         )
 
+    @override
     def on_settings_save(self, data: dict) -> None:
+        """Validate the settings before saving them.
+
+        Args:
+            data (dict): The settings to save.
+        """
         self._logger.debug("Saving settings: %s", data)
 
         # Get old token from settings
@@ -409,6 +441,7 @@ class TelegramPlugin(
             self.stop_bot()
             self.start_bot()
 
+    @override
     def get_settings_restricted_paths(self) -> dict:
         return {"admin": [["token"], ["chats"]]}
 
@@ -416,6 +449,7 @@ class TelegramPlugin(
     ### AssetPlugin mixin
     ##########
 
+    @override
     def get_assets(self) -> dict:
         return {
             "js": ["js/telegram.js"],
@@ -426,12 +460,15 @@ class TelegramPlugin(
     ### TemplatePlugin mixin
     ##########
 
+    @override
     def get_template_configs(self) -> list[dict]:
         return [{"type": "settings", "name": "Telegram", "custom_bindings": True}]
 
+    @override
     def get_template_vars(self) -> dict:
         return {"custom_emoji_map": Emoji.get_custom_emoji_map(), "plugin_version": self._plugin_version}
 
+    @override
     def is_template_autoescaped(self) -> bool:
         return True
 
@@ -439,9 +476,11 @@ class TelegramPlugin(
     ### WizardPlugin mixin
     ##########
 
+    @override
     def is_wizard_required(self) -> bool:
         return self._settings.get(["token"]) == ""
 
+    @override
     def get_wizard_version(self) -> int:
         return 1
         # Wizard version numbers used in releases
@@ -453,9 +492,11 @@ class TelegramPlugin(
     ### SimpleApiPlugin mixin
     ##########
 
+    @override
     def is_api_protected(self) -> bool:
         return True
 
+    @override
     def on_api_get(self, request: Request) -> Response | tuple[str, int]:
         if not Permissions.SETTINGS.can():
             return "Insufficient permissions", 403
@@ -465,12 +506,14 @@ class TelegramPlugin(
 
         return self._api.handle_get(request.args)
 
+    @override
     def get_api_commands(self) -> dict[str, list[str]]:
         if self._api is None:
             return {}
 
         return self._api.get_api_commands()
 
+    @override
     def on_api_command(self, command: str, data: dict) -> Response | tuple[Response, int] | tuple[str, int] | None:
         if self._api is None:
             return "Plugin not initialized yet", 503
@@ -481,7 +524,15 @@ class TelegramPlugin(
     ### EventHandlerPlugin mixin
     ##########
 
+    @override
     def on_event(self, event: str, payload: dict, **kwargs: Any) -> None:
+        """Handle an event fired by OctoPrint.
+
+        Args:
+            event (str): The event OctoPrint fired.
+            payload (dict): The data the event carried.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+        """
         try:
             if not self._plugin_context:
                 self._logger.debug("Received an event, but the plugin is not initialized yet")
@@ -502,6 +553,15 @@ class TelegramPlugin(
     ##########
 
     def get_update_information(self, *args: Any, **kwargs: Any) -> dict:
+        """Tell the Software Update plugin where to look for new releases.
+
+        Args:
+            *args: Further positional arguments OctoPrint may pass.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+
+        Returns:
+            dict: The update configuration, keyed by plugin identifier.
+        """
         return {
             "telegram": {
                 "displayName": self._plugin_name,
@@ -515,6 +575,16 @@ class TelegramPlugin(
         }
 
     def route_hook(self, server_routes: list, *args: Any, **kwargs: Any) -> list[tuple]:
+        """Declare the direct HTTP routes through which plugin's files can be downloaded.
+
+        Args:
+            server_routes (list): The routes OctoPrint has collected so far.
+            *args: Further positional arguments OctoPrint may pass.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+
+        Returns:
+            list[tuple]: The routes this plugin adds.
+        """
         from octoprint.server.util.flask import (
             permission_validator,
         )
@@ -561,6 +631,17 @@ class TelegramPlugin(
         *args: Any,
         **kwargs: Any,
     ) -> str:
+        """Notify the events the printer reports through its replies.
+
+        Args:
+            comm_instance (Any): The OctoPrint serial connection the line came from.
+            line (str): The line the printer replied.
+            *args: Further positional arguments OctoPrint may pass.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+
+        Returns:
+            str: The line, unchanged.
+        """
         try:
             if line.startswith(("echo:busy: paused for user", "// action:paused")):
                 if not self._user_pause_already_notified:
@@ -585,6 +666,17 @@ class TelegramPlugin(
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        """Notify the events triggered by the gcode sent to the printer.
+
+        Args:
+            comm_instance (Any): The OctoPrint serial connection the command goes through.
+            phase (str): The phase of the sending the command is in.
+            cmd (str): The command being sent.
+            cmd_type (str | None): The type the command was queued under.
+            gcode (str | None): The gcode of the command, when it has one.
+            *args: Further positional arguments OctoPrint may pass.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+        """
         try:
             if gcode and gcode == "M600":
                 self.on_event("gCode_M600", {})
@@ -592,4 +684,13 @@ class TelegramPlugin(
             self._logger.exception("Caught an exception on hook_gcode_sent")
 
     def register_custom_events(self, *args: Any, **kwargs: Any) -> list[str]:
+        """Declare the events this plugin fires on the OctoPrint event bus.
+
+        Args:
+            *args: Further positional arguments OctoPrint may pass.
+            **kwargs: Further keyword arguments OctoPrint may pass.
+
+        Returns:
+            list[str]: The name of every event, without the plugin prefix OctoPrint adds.
+        """
         return ["preimg", "postimg"]

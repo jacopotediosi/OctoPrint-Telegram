@@ -28,12 +28,21 @@ class ImageHooks:
     def __init__(
         self, settings: Settings, printer: PrinterInterface, event_manager: EventManager, logger: logging.Logger
     ) -> None:
+        """Set up the actions run around taking a webcam image.
+
+        Args:
+            settings (Settings): The plugin settings.
+            printer (PrinterInterface): The printer.
+            event_manager (EventManager): The OctoPrint event bus.
+            logger (logging.Logger): The logger to write to.
+        """
         self._settings = settings
         self._printer = printer
         self._event_manager = event_manager
         self._logger = logger.getChild("ImageHooks")
 
     def run_before_image(self) -> None:
+        """Run the configured action before a webcam image is taken, then wait the configured delay."""
         method_setting = self._settings.pre_img_method
 
         try:
@@ -69,6 +78,7 @@ class ImageHooks:
             time.sleep(delay)
 
     def run_after_image(self) -> None:
+        """Wait the configured delay after a webcam image is taken, then run the configured action."""
         method_setting = self._settings.post_img_method
 
         try:

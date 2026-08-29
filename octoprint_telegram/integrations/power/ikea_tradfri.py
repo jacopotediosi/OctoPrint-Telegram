@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from typing_extensions import override
+
 from .base import PowerPlugin
 
 
 class IkeaTradfriPowerPlugin(PowerPlugin):
     @property
+    @override
     def plugin_id(self) -> str:
         return "ikea_tradfri"
 
     @property
+    @override
     def plugin_name(self) -> str:
         return "Ikea Tradfri"
 
+    @override
     def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
@@ -20,7 +25,7 @@ class IkeaTradfriPowerPlugin(PowerPlugin):
         plugs = self.plugin_context.octoprint_settings.plugin_setting(self.plugin_id, "selected_devices") or []
         for plug in plugs:
             try:
-                plug_id = plug["id"]
+                plug_id = str(plug["id"])
                 label = plug.get("name") or plug_id
 
                 is_on = False
@@ -38,9 +43,11 @@ class IkeaTradfriPowerPlugin(PowerPlugin):
 
         return plugs_data
 
+    @override
     def turn_on(self, plug_data: str) -> None:
         self._send_command("turnOn", plug_data)
 
+    @override
     def turn_off(self, plug_data: str) -> None:
         self._send_command("turnOff", plug_data)
 

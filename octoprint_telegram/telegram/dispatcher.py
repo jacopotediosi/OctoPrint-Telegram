@@ -21,12 +21,23 @@ class Dispatcher:
     """Routes each update Telegram sends to whatever handles it."""
 
     def __init__(self, plugin_context: PluginContext, commands: Commands) -> None:
+        """Set up the routing of the updates Telegram sends.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+            commands (Commands): The bot commands, ready to run.
+        """
         self.plugin_context = plugin_context
         self._commands = commands
         self._uploads = Uploads(plugin_context)
         self._logger = plugin_context.logger.getChild("Dispatcher")
 
     def process_update(self, update: dict) -> None:
+        """Route one update to whatever handles it.
+
+        Args:
+            update (dict): The update as Telegram sent it.
+        """
         self._logger.debug("Processing update: %s", update)
 
         chat_id = self._get_chat_id(update)
@@ -168,6 +179,15 @@ class Dispatcher:
     def _handle_command(
         self, command: str, chat_id: str, from_id: str, from_obj: dict, msg_id_to_update: str = ""
     ) -> None:
+        """Run a bot command.
+
+        Args:
+            command (str): The command as typed or as carried by the callback query, parameter included.
+            chat_id (str): The chat the command comes from.
+            from_id (str): The id of the user who sent it.
+            from_obj (dict): The Telegram user who sent it.
+            msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
+        """
         # Separate command and parameter
         parts = command.split("_")
         command = parts[0].lower()

@@ -14,10 +14,21 @@ class Snapshots:
     """Still pictures taken from the webcams."""
 
     def __init__(self, webcams: Webcams, logger: logging.Logger) -> None:
+        """Set up the taking of snapshots.
+
+        Args:
+            webcams (Webcams): The webcams the pictures are taken from.
+            logger (logging.Logger): The logger to write to.
+        """
         self._webcams = webcams
         self._logger = logger.getChild("Snapshots")
 
     def take_all_images(self) -> list[bytes]:
+        """Take a picture from every webcam.
+
+        Returns:
+            list[bytes]: The content of each picture taken.
+        """
         taken_images_contents = []
 
         self._logger.debug("Taking all images")
@@ -37,6 +48,17 @@ class Snapshots:
         return taken_images_contents
 
     def take_image(self, webcam_profile: WebcamProfile) -> bytes:
+        """Take a picture from a single webcam.
+
+        Args:
+            webcam_profile (WebcamProfile): The webcam to take the picture from.
+
+        Returns:
+            bytes: The content of the picture taken.
+
+        Raises:
+            RuntimeError: If the webcam produced no picture.
+        """
         image_content = None
 
         if webcam_profile.provider:

@@ -104,13 +104,18 @@ class Emoji:
 
     @staticmethod
     def init(settings: PluginSettings) -> None:
+        """Initialize the emoji rendering."""
         Emoji._settings = settings
 
     @staticmethod
     def get_emoji(name: str) -> str:
-        """
-        Return the emoji for the given name (case-insensitive).
-        Returns "" if not found.
+        """Return the emoji with the given name.
+
+        Args:
+            name (str): The emoji name, matched case-insensitively.
+
+        Returns:
+            str: The emoji, or an empty string if the name is unknown.
         """
         # Remove colon (dropped by muan/unicode-emoji-json) and make lookup case-insensitive
         normalized_name = name.replace(":", "").lower()
@@ -119,8 +124,7 @@ class Emoji:
 
     @staticmethod
     def render_emojis(text: str) -> str:
-        """
-        Replace `{emo:name}` placeholders with emojis or remove them if emojis are disabled in plugin settings.
+        """Replace `{emo:name}` placeholders with emojis or remove them if emojis are disabled in plugin settings.
 
         Behavior:
 
@@ -137,6 +141,12 @@ class Emoji:
                 preserved if the other side is a non-space character, to avoid merging words.
             - If no spaces around the group -> the group is removed, but a space is inserted
                 if there are non-space characters immediately before and after, to avoid merging words.
+
+        Args:
+            text (str): The text holding the placeholders.
+
+        Returns:
+            str: The text with the placeholders replaced or removed.
         """
         # Quick return if text doesn't contain emojis
         if "{emo:" not in text:
@@ -146,8 +156,9 @@ class Emoji:
         emojis_active = Emoji._settings and Emoji._settings.get_boolean(["send_icon"])
 
         if emojis_active:
-            # Simple substitution: replace each {emo:name} with the actual emoji
+
             def render_emojis(match: re.Match) -> str:
+                """Replace a matched placeholder with its emoji."""
                 name = match.group(1).strip()
                 return Emoji.get_emoji(name)
 
@@ -207,4 +218,5 @@ class Emoji:
 
     @staticmethod
     def get_custom_emoji_map() -> dict[str, str]:
+        """The emojis the plugin defines itself, keyed by name."""
         return Emoji._custom_emoji_map

@@ -4,6 +4,8 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
+from typing_extensions import override
+
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
@@ -21,6 +23,12 @@ class Listener(threading.Thread):
     """Fetches updates from Telegram and hands each one to the dispatcher."""
 
     def __init__(self, plugin_context: PluginContext, dispatcher: Dispatcher) -> None:
+        """Set up the fetching of the updates from Telegram.
+
+        Args:
+            plugin_context (PluginContext): The plugin context.
+            dispatcher (Dispatcher): The dispatcher of received updates.
+        """
         threading.Thread.__init__(self, daemon=True)
         self.plugin_context = plugin_context
         self._dispatcher = dispatcher
@@ -31,6 +39,7 @@ class Listener(threading.Thread):
         self._do_stop = False
         self._username = "UNKNOWN"
 
+    @override
     def run(self) -> None:
         self._logger.debug("Try first connect.")
         self._try_first_contact()
@@ -101,6 +110,11 @@ class Listener(threading.Thread):
             self.plugin_context.notifications.send_notification("PrinterStart")
 
     def _set_update_offset(self, new_value: int) -> None:
+        """Move the update offset forward, never backwards.
+
+        Args:
+            new_value (int): The id of the last update handled.
+        """
         if new_value >= self._update_offset:
             self._logger.debug(f"Updating update_offset from {self._update_offset} to {1 + new_value}")
             self._update_offset = 1 + new_value
@@ -150,6 +164,7 @@ class Listener(threading.Thread):
         return results
 
     def stop(self) -> None:
+        """Ask the listener to stop."""
         self._do_stop = True
 
     def _set_status(self, status: str, ok: bool = False) -> None:

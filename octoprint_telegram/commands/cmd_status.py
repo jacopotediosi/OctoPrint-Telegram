@@ -1,7 +1,10 @@
+from typing_extensions import override
+
 from .base import BaseCommand, CommandContext
 
 
 class CmdStatus(BaseCommand):
+    @override
     def execute(self, command_context: CommandContext) -> None:
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.notifications.send_notification(
