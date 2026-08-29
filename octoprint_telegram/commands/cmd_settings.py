@@ -43,11 +43,11 @@ class CmdSettings(BaseCommand):
                 )
 
                 command_buttons = [
-                    [[f"+{step}", f"{command_context.cmd}_h_+{step}"] for step in self.HEIGHT_STEPS],
-                    [[f"-{step}", f"{command_context.cmd}_h_-{step}"] for step in self.HEIGHT_STEPS],
+                    [(f"+{step}", f"{command_context.cmd}_h_+{step}") for step in self.HEIGHT_STEPS],
+                    [(f"-{step}", f"{command_context.cmd}_h_-{step}") for step in self.HEIGHT_STEPS],
                     [
-                        [render_emojis("{emo:save} Save"), f"{command_context.cmd}_h_s"],
-                        [render_emojis("{emo:back} Back"), command_context.cmd],
+                        (render_emojis("{emo:save} Save"), f"{command_context.cmd}_h_s"),
+                        (render_emojis("{emo:back} Back"), command_context.cmd),
                     ],
                 ]
 
@@ -80,11 +80,11 @@ class CmdSettings(BaseCommand):
                 )
 
                 command_buttons = [
-                    [[f"+{step}", f"{command_context.cmd}_t_+{step}"] for step in self.TIME_STEPS],
-                    [[f"-{step}", f"{command_context.cmd}_t_-{step}"] for step in self.TIME_STEPS],
+                    [(f"+{step}", f"{command_context.cmd}_t_+{step}") for step in self.TIME_STEPS],
+                    [(f"-{step}", f"{command_context.cmd}_t_-{step}") for step in self.TIME_STEPS],
                     [
-                        [render_emojis("{emo:save} Save"), f"{command_context.cmd}_t_s"],
-                        [render_emojis("{emo:back} Back"), command_context.cmd],
+                        (render_emojis("{emo:save} Save"), f"{command_context.cmd}_t_s"),
+                        (render_emojis("{emo:back} Back"), command_context.cmd),
                     ],
                 ]
 
@@ -112,16 +112,16 @@ class CmdSettings(BaseCommand):
 
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:height} Set height"),
                         f"{command_context.cmd}_h",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:alarmclock} Set time"),
                         f"{command_context.cmd}_t",
-                    ],
+                    ),
                 ],
-                [[render_emojis("{emo:cancel} Close"), "close"]],
+                [(render_emojis("{emo:cancel} Close"), "close")],
             ]
             self.plugin_context.sender.send_message(
                 msg,

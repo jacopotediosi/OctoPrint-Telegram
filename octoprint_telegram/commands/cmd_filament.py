@@ -69,9 +69,9 @@ class CmdFilament(BaseCommand):
             for i in range(0, len(available_plugins), 2):
                 row = []
                 for plugin in available_plugins[i : i + 2]:
-                    row.append([f"{plugin.plugin_name}", f"{command_context.cmd}_{plugin.plugin_id}"])
+                    row.append((f"{plugin.plugin_name}", f"{command_context.cmd}_{plugin.plugin_id}"))
                 command_buttons.append(row)
-            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -96,8 +96,8 @@ class CmdFilament(BaseCommand):
                 msg = render_emojis(f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!")
                 command_buttons = [
                     [
-                        [render_emojis("{emo:back} Back"), command_context.cmd],
-                        [render_emojis("{emo:cancel} Close"), "close"],
+                        (render_emojis("{emo:back} Back"), command_context.cmd),
+                        (render_emojis("{emo:cancel} Close"), "close"),
                     ]
                 ]
                 self.plugin_context.sender.send_message(
@@ -116,17 +116,17 @@ class CmdFilament(BaseCommand):
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:view} Show spools"), f"{command_context.cmd}_{plugin_handler.plugin_id}_show"],
-                    [
+                    (render_emojis("{emo:view} Show spools"), f"{command_context.cmd}_{plugin_handler.plugin_id}_show"),
+                    (
                         render_emojis("{emo:pointer} Select spool"),
                         f"{command_context.cmd}_{plugin_handler.plugin_id}_select",
-                    ],
+                    ),
                 ]
             ]
             if len(available_plugins) > 1:
-                command_buttons.append([[render_emojis("{emo:back} Back"), f"{command_context.cmd}"]])
+                command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}")])
             else:
-                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -166,10 +166,10 @@ class CmdFilament(BaseCommand):
                 for spool_id, spool_desc in paginated_spools:
                     spool_buttons.append(
                         [
-                            [
+                            (
                                 spool_desc,
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}_{spool_id}",
-                            ]
+                            )
                         ]
                     )
 
@@ -177,19 +177,19 @@ class CmdFilament(BaseCommand):
                 if total_pages > 1:
                     if page_number > 0:
                         last_row.append(
-                            [
+                            (
                                 render_emojis("{emo:up} Prev page"),
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number - 1}",
-                            ]
+                            )
                         )
                     if page_number + 1 < total_pages:
                         last_row.append(
-                            [
+                            (
                                 render_emojis("{emo:down} Next page"),
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number + 1}",
-                            ]
+                            )
                         )
-                last_row.append([render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}"])
+                last_row.append((render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}"))
 
                 command_buttons = spool_buttons + [last_row]
 
@@ -222,10 +222,10 @@ class CmdFilament(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:back} Back"),
                             f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}",
-                        ]
+                        )
                     ]
                 ]
 
@@ -261,16 +261,16 @@ class CmdFilament(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis(f"{{emo:tool}} Tool {i}"),
                             f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{i}",
-                        ]
+                        )
                         for i in range(j, min(j + 2, tool_counts))
                     ]
                     for j in range(0, tool_counts, 2)
                 ]
                 command_buttons.append(
-                    [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}"]]
+                    [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}")]
                 )
 
                 self.plugin_context.sender.send_message(
@@ -299,10 +299,10 @@ class CmdFilament(BaseCommand):
                 for spool_id, spool_desc in paginated_spools:
                     spool_buttons.append(
                         [
-                            [
+                            (
                                 spool_desc,
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{spool_id}",
-                            ]
+                            )
                         ]
                     )
 
@@ -310,20 +310,20 @@ class CmdFilament(BaseCommand):
                 if total_pages > 1:
                     if page_number > 0:
                         last_row.append(
-                            [
+                            (
                                 render_emojis("{emo:up} Prev page"),
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number - 1}",
-                            ]
+                            )
                         )
                     if page_number + 1 < total_pages:
                         last_row.append(
-                            [
+                            (
                                 render_emojis("{emo:down} Next page"),
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number + 1}",
-                            ]
+                            )
                         )
                 last_row.append(
-                    [render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select"]
+                    (render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select")
                 )
 
                 command_buttons = []
@@ -370,7 +370,7 @@ class CmdFilament(BaseCommand):
                     )
 
                 command_buttons = [
-                    [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select"]]
+                    [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select")]
                 ]
 
                 self.plugin_context.sender.send_message(

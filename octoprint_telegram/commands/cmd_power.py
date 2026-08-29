@@ -60,13 +60,13 @@ class CmdPower(BaseCommand):
                             + str(data).replace("_", "\\_")
                         )
 
-                        plug_buttons.append([render_emojis(f"{{emo:{status_emoji_name}}} {label}"), command])
+                        plug_buttons.append((render_emojis(f"{{emo:{status_emoji_name}}} {label}"), command))
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
             max_per_row = 3
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
-            command_buttons = plug_button_rows + [[[render_emojis("{emo:cancel} Close"), "close"]]]
+            command_buttons = plug_button_rows + [[(render_emojis("{emo:cancel} Close"), "close")]]
 
             self.plugin_context.sender.send_message(
                 message,
@@ -88,8 +88,8 @@ class CmdPower(BaseCommand):
                 )
                 command_buttons = [
                     [
-                        [render_emojis("{emo:back} Back"), command_context.cmd],
-                        [render_emojis("{emo:cancel} Close"), "close"],
+                        (render_emojis("{emo:back} Back"), command_context.cmd),
+                        (render_emojis("{emo:cancel} Close"), "close"),
                     ]
                 ]
                 self.plugin_context.sender.send_message(
@@ -109,8 +109,8 @@ class CmdPower(BaseCommand):
                     message = render_emojis("{emo:attention} Selected plug not found!")
                     command_buttons = [
                         [
-                            [render_emojis("{emo:back} Back"), command_context.cmd],
-                            [render_emojis("{emo:cancel} Close"), "close"],
+                            (render_emojis("{emo:back} Back"), command_context.cmd),
+                            (render_emojis("{emo:cancel} Close"), "close"),
                         ]
                     ]
                     self.plugin_context.sender.send_message(
@@ -135,12 +135,12 @@ class CmdPower(BaseCommand):
                 original_command = f"{command_context.cmd}_{command_context.parameter}"
                 command_buttons = [
                     [
-                        [render_emojis("{emo:online} Turn ON"), f"{original_command}_on"],
-                        [render_emojis("{emo:offline} Turn OFF"), f"{original_command}_off"],
+                        (render_emojis("{emo:online} Turn ON"), f"{original_command}_on"),
+                        (render_emojis("{emo:offline} Turn OFF"), f"{original_command}_off"),
                     ],
                     [
-                        [render_emojis("{emo:back} Back"), command_context.cmd],
-                        [render_emojis("{emo:cancel} Close"), "close"],
+                        (render_emojis("{emo:back} Back"), command_context.cmd),
+                        (render_emojis("{emo:cancel} Close"), "close"),
                     ],
                 ]
 
@@ -167,8 +167,8 @@ class CmdPower(BaseCommand):
                 original_command = f"{command_context.cmd}_{command_context.parameter.rsplit('_', 1)[0]}"
                 command_buttons = [
                     [
-                        [render_emojis("{emo:back} Back"), original_command],
-                        [render_emojis("{emo:cancel} Close"), "close"],
+                        (render_emojis("{emo:back} Back"), original_command),
+                        (render_emojis("{emo:cancel} Close"), "close"),
                     ],
                 ]
 

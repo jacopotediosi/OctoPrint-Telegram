@@ -49,20 +49,20 @@ class CmdPrint(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:play} Print it"),
                             f"{command_context.cmd}_y",
-                        ],
-                        [
+                        ),
+                        (
                             render_emojis("{emo:folder} Select another one"),
                             "/files",
-                        ],
+                        ),
                     ],
                     [
-                        [
+                        (
                             render_emojis("{emo:cancel} Close"),
                             "close",
-                        ],
+                        ),
                     ],
                 ]
 

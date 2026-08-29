@@ -196,14 +196,14 @@ class Uploads:
                                 )
                                 command_buttons = [
                                     [
-                                        [
+                                        (
                                             render_emojis("{emo:check} Print"),
                                             "/print_y",
-                                        ],
-                                        [
+                                        ),
+                                        (
                                             render_emojis("{emo:cancel} Close"),
                                             "close",
-                                        ],
+                                        ),
                                     ]
                                 ]
                             except Exception:

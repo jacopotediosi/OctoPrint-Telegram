@@ -41,14 +41,14 @@ class CmdCtrl(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:check} Execute"),
                             f"{command_context.cmd}_do_{control_hash}",
-                        ],
-                        [
+                        ),
+                        (
                             render_emojis("{emo:back} Back"),
                             command_context.cmd,
-                        ],
+                        ),
                     ]
                 ]
 
@@ -78,10 +78,10 @@ class CmdCtrl(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:back} Back"),
                             command_context.cmd,
-                        ],
+                        ),
                     ]
                 ]
 
@@ -98,7 +98,7 @@ class CmdCtrl(BaseCommand):
 
             try:
                 command_buttons = [
-                    [[control["name"], f"{command_context.cmd}_{control['hash']}"]] for control in self._get_controls()
+                    [(control["name"], f"{command_context.cmd}_{control['hash']}")] for control in self._get_controls()
                 ]
             except Exception:
                 self._logger.exception("Caught an exception getting printer control list")
@@ -111,7 +111,7 @@ class CmdCtrl(BaseCommand):
                     "<a href='http://plugins.octoprint.org/plugins/customControl/'>Custom Control Editor</a> plugin."
                 )
 
-            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
             self.plugin_context.sender.send_message(
                 message,

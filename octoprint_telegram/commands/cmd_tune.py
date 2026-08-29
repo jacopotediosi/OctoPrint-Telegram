@@ -46,8 +46,8 @@ class CmdTune(BaseCommand):
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:feedrate} Feedrate"), f"{command_context.cmd}_feed"],
-                    [render_emojis("{emo:flowrate} Flowrate"), f"{command_context.cmd}_flow"],
+                    (render_emojis("{emo:feedrate} Feedrate"), f"{command_context.cmd}_feed"),
+                    (render_emojis("{emo:flowrate} Flowrate"), f"{command_context.cmd}_flow"),
                 ]
             ]
 
@@ -59,17 +59,17 @@ class CmdTune(BaseCommand):
                 count = extruder.get("count", 1)
 
                 if shared_nozzle:
-                    tool_command_buttons.append([render_emojis("{emo:tool} Tool"), f"{command_context.cmd}_e_0"])
+                    tool_command_buttons.append((render_emojis("{emo:tool} Tool"), f"{command_context.cmd}_e_0"))
                 else:
                     tool_command_buttons.extend(
                         [
-                            [render_emojis(f"{{emo:tool}} Tool {i}"), f"{command_context.cmd}_e_{i}"]
+                            (render_emojis(f"{{emo:tool}} Tool {i}"), f"{command_context.cmd}_e_{i}")
                             for i in range(count)
                         ]
                     )
 
                 if profile["heatedBed"]:
-                    tool_command_buttons.append([render_emojis("{emo:hotbed} Bed"), f"{command_context.cmd}_b"])
+                    tool_command_buttons.append((render_emojis("{emo:hotbed} Bed"), f"{command_context.cmd}_b"))
 
                 if tool_command_buttons:
                     command_buttons.append(tool_command_buttons)
@@ -86,7 +86,7 @@ class CmdTune(BaseCommand):
                             index_id = rpi_output["index_id"]
                             label = rpi_output["label"]
                             enclosure_buttons.append(
-                                [render_emojis(f"{{emo:plugin}} {label}"), f"{command_context.cmd}_enc_{index_id}"]
+                                (render_emojis(f"{{emo:plugin}} {label}"), f"{command_context.cmd}_enc_{index_id}")
                             )
 
                     if enclosure_buttons:
@@ -94,7 +94,7 @@ class CmdTune(BaseCommand):
             except Exception:
                 self._logger.exception("Caught an exception getting enclosure data")
 
-            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -123,15 +123,15 @@ class CmdTune(BaseCommand):
         for inc in self.RATE_INCREMENTS:
             increment_row.extend(
                 [
-                    [f"+{inc}", f"{command_context.cmd}_{rate_type}_+{inc}"],
-                    [f"-{inc}", f"{command_context.cmd}_{rate_type}_-{inc}"],
+                    (f"+{inc}", f"{command_context.cmd}_{rate_type}_+{inc}"),
+                    (f"-{inc}", f"{command_context.cmd}_{rate_type}_-{inc}"),
                 ]
             )
         buttons.append(increment_row)
 
         buttons.append(
             [
-                [render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"],
+                (render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"),
             ]
         )
 
@@ -144,13 +144,13 @@ class CmdTune(BaseCommand):
         increment_row = []
         decrement_row = []
         for inc in self.TEMP_INCREMENTS:
-            increment_row.append([f"+{inc}", f"{command_context.cmd}_{tool_identifier}_+{inc}"])
-            decrement_row.append([f"-{inc}", f"{command_context.cmd}_{tool_identifier}_-{inc}"])
+            increment_row.append((f"+{inc}", f"{command_context.cmd}_{tool_identifier}_+{inc}"))
+            decrement_row.append((f"-{inc}", f"{command_context.cmd}_{tool_identifier}_-{inc}"))
         buttons.extend([increment_row, decrement_row])
 
-        action_buttons = [[render_emojis("{emo:check} Set"), f"{command_context.cmd}_{tool_identifier}_s"]]
-        action_buttons.append([render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_{tool_identifier}_off"])
-        action_buttons.append([render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"])
+        action_buttons = [(render_emojis("{emo:check} Set"), f"{command_context.cmd}_{tool_identifier}_s")]
+        action_buttons.append((render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_{tool_identifier}_off"))
+        action_buttons.append((render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"))
         buttons.append(action_buttons)
 
         return buttons
@@ -227,15 +227,15 @@ class CmdTune(BaseCommand):
         increment_row = []
         decrement_row = []
         for inc in self.ENCLOSURE_INCREMENTS:
-            increment_row.append([f"+{inc}", f"{command_context.cmd}_enc_{params[1]}_+{inc}"])
-            decrement_row.append([f"-{inc}", f"{command_context.cmd}_enc_{params[1]}_-{inc}"])
+            increment_row.append((f"+{inc}", f"{command_context.cmd}_enc_{params[1]}_+{inc}"))
+            decrement_row.append((f"-{inc}", f"{command_context.cmd}_enc_{params[1]}_-{inc}"))
         command_buttons.extend([increment_row, decrement_row])
 
         command_buttons.append(
             [
-                [render_emojis("{emo:check} Set"), f"{command_context.cmd}_enc_{params[1]}_s"],
-                [render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_enc_{params[1]}_off"],
-                [render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"],
+                (render_emojis("{emo:check} Set"), f"{command_context.cmd}_enc_{params[1]}_s"),
+                (render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_enc_{params[1]}_off"),
+                (render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"),
             ]
         )
 

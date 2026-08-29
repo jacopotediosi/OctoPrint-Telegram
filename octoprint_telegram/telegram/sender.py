@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from ..emoji import Emoji
 from .chat_action import chat_action
 from .enums import ChatAction, HttpMethod, Markup
+from .keyboards import Buttons
 
 if TYPE_CHECKING:
     from ..core.connection_status import ConnectionStatus
@@ -59,7 +60,7 @@ class Sender:
         *,
         message_id: str = "",
         markup: Markup = Markup.OFF,
-        buttons=None,
+        buttons: Buttons | None = None,
         delay: int = 0,
         silent: bool = False,
         with_image: bool = False,
@@ -76,7 +77,7 @@ class Sender:
             chat_id (str): The chat to send it to.
             message_id (str, optional): The message to replace instead of sending a new one.
             markup (Markup, optional): The markup Telegram parses in the text.
-            buttons (list, optional): Rows of (label, callback data) pairs shown as an inline keyboard.
+            buttons (Buttons, optional): The inline keyboard shown under the message.
             delay (int, optional): Seconds to wait before delivering.
             silent (bool, optional): Deliver without a notification sound.
             with_image (bool, optional): Attach a snapshot from every configured webcam.
@@ -364,7 +365,7 @@ class Sender:
         if markup is not Markup.OFF:
             data["parse_mode"] = markup.value
 
-    def _apply_buttons(self, data: dict, buttons) -> None:
+    def _apply_buttons(self, data: dict, buttons: Buttons | None) -> None:
         if not buttons:
             return
         rows = [[{"text": button[0], "callback_data": button[1]} for button in row] for row in buttons]

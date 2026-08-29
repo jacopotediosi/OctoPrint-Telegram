@@ -30,7 +30,7 @@ class CmdCancelObject(BaseCommand):
             self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
 
             msg = render_emojis("{emo:check} Command sent!")
-            command_buttons = [[[render_emojis("{emo:back} Back"), command_context.cmd]]]
+            command_buttons = [[(render_emojis("{emo:back} Back"), command_context.cmd)]]
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -50,11 +50,11 @@ class CmdCancelObject(BaseCommand):
                     msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
 
                 command_buttons = [
-                    [[obj["object"], f"{command_context.cmd}_{obj['id']}"]]
+                    [(obj["object"], f"{command_context.cmd}_{obj['id']}")]
                     for obj in objlist
                     if not obj.get("cancelled", False)
                 ]
-                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
                 self.plugin_context.sender.send_message(
                     msg,

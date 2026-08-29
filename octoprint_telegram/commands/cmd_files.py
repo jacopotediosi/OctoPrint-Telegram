@@ -176,13 +176,13 @@ class CmdFiles(BaseCommand):
                     storage_hash = self._hash_path(storage_name)
                     command_buttons.append(
                         [
-                            [
+                            (
                                 render_emojis(f"{{emo:folder}} {storage_name}"),
                                 f"{command_context.cmd}_list_{storage_hash}",
-                            ]
+                            )
                         ]
                     )
-                command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
                 self.plugin_context.sender.send_message(
                     msg,
@@ -237,10 +237,10 @@ class CmdFiles(BaseCommand):
             for folder_name in paginated_folder_names:
                 folder_hash = self._hash_path(f"{path_with_storage}/{folder_name}")
                 folder_buttons.append(
-                    [
+                    (
                         render_emojis(f"{{emo:folder}} {folder_name}"),
                         f"{command_context.cmd}_list_{folder_hash}",
-                    ]
+                    )
                 )
 
             # --- Create file buttons (paginated) ---
@@ -287,7 +287,7 @@ class CmdFiles(BaseCommand):
 
                     file_hash = self._hash_path(f"{path_with_storage}/{filename}")
                     command = f"{command_context.cmd}_info_{file_hash}_{page_number}"
-                    file_buttons.append([display_filename, command])
+                    file_buttons.append((display_filename, command))
 
             # --- Combine paginated folder and file buttons ---
             paginated_folder_and_file_buttons = folder_buttons + file_buttons
@@ -308,40 +308,40 @@ class CmdFiles(BaseCommand):
                 back_path = "/".join(path_parts[:-1])
                 back_path_hash = self._hash_path(back_path)
                 nav_and_actions_row.append(
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_list_{back_path_hash}",
-                    ]
+                    )
                 )
 
             # Prev/next page
             if total_pages > 1:
                 if page_number > 0:
                     nav_and_actions_row.append(
-                        [
+                        (
                             render_emojis("{emo:up} Prev page"),
                             f"{command_context.cmd}_list_{path_hash}_{page_number - 1}",
-                        ]
+                        )
                     )
                 if page_number + 1 < total_pages:
                     nav_and_actions_row.append(
-                        [
+                        (
                             render_emojis("{emo:down} Next page"),
                             f"{command_context.cmd}_list_{path_hash}_{page_number + 1}",
-                        ]
+                        )
                     )
 
             # Settings and close
             nav_and_actions_row.extend(
                 [
-                    [
+                    (
                         render_emojis("{emo:settings} Settings"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:cancel} Close"),
                         "close",
-                    ],
+                    ),
                 ]
             )
 
@@ -478,21 +478,21 @@ class CmdFiles(BaseCommand):
         if "model" in octoprint.filemanager.get_file_type(filename):
             # Slice
             first_row = [
-                [render_emojis("{emo:slice} Slice"), f"{command_context.cmd}_slice_{path_hash}_{page_number}"],
+                (render_emojis("{emo:slice} Slice"), f"{command_context.cmd}_slice_{path_hash}_{page_number}"),
             ]
         else:
             # Print + Details
             first_row = [
-                [render_emojis("{emo:play} Print"), f"{command_context.cmd}_print_{path_hash}_{page_number}"],
-                [render_emojis("{emo:search} Details"), f"{command_context.cmd}_details_{path_hash}_{page_number}"],
+                (render_emojis("{emo:play} Print"), f"{command_context.cmd}_print_{path_hash}_{page_number}"),
+                (render_emojis("{emo:search} Details"), f"{command_context.cmd}_details_{path_hash}_{page_number}"),
             ]
         command_buttons.append(first_row)
 
         # Second row: File ops
         second_row = [
-            [render_emojis("{emo:cut} Move"), f"{command_context.cmd}_move_{path_hash}_{page_number}"],
-            [render_emojis("{emo:copy} Copy"), f"{command_context.cmd}_copy_{path_hash}_{page_number}"],
-            [render_emojis("{emo:delete} Delete"), f"{command_context.cmd}_delete_{path_hash}_{page_number}"],
+            (render_emojis("{emo:cut} Move"), f"{command_context.cmd}_move_{path_hash}_{page_number}"),
+            (render_emojis("{emo:copy} Copy"), f"{command_context.cmd}_copy_{path_hash}_{page_number}"),
+            (render_emojis("{emo:delete} Delete"), f"{command_context.cmd}_delete_{path_hash}_{page_number}"),
         ]
         command_buttons.append(second_row)
 
@@ -500,14 +500,14 @@ class CmdFiles(BaseCommand):
         third_row = []
         # Download button
         if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
-            third_row.append([render_emojis("{emo:download} Download"), f"{command_context.cmd}_download_{path_hash}"])
+            third_row.append((render_emojis("{emo:download} Download"), f"{command_context.cmd}_download_{path_hash}"))
         # Back button
         path_parts = file_path.split("/")
         parent_path = "/".join(path_parts[:-1])
         back_path = f"{storage_name}/{parent_path}" if parent_path else storage_name
         back_path_hash = self._hash_path(back_path)
         third_row.append(
-            [render_emojis("{emo:back} Back"), f"{command_context.cmd}_list_{back_path_hash}_{page_number}"]
+            (render_emojis("{emo:back} Back"), f"{command_context.cmd}_list_{back_path_hash}_{page_number}")
         )
         # Append
         command_buttons.append(third_row)
@@ -683,10 +683,10 @@ class CmdFiles(BaseCommand):
         # Create command buttons
         command_buttons = [
             [
-                [
+                (
                     render_emojis("{emo:back} Back"),
                     f"{command_context.cmd}_info_{path_hash}_{page_number}",
-                ]
+                )
             ]
         ]
 
@@ -717,20 +717,20 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:name} By name"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_byname",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:calendar} By date"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_bydate",
-                    ],
+                    ),
                 ],
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}",
-                    ]
+                    )
                 ],
             ]
 
@@ -750,20 +750,20 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:online} Show models"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_showmodels",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:offline} Hide models"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_hidemodels",
-                    ],
+                    ),
                 ],
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}",
-                    ]
+                    )
                 ],
             ]
 
@@ -772,20 +772,20 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:height} File sorting"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_sort",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:model} Show models"),
                         f"{command_context.cmd}_settings_{path_hash}_{page_number}_models",
-                    ],
+                    ),
                 ],
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_list_{path_hash}_{page_number}",
-                    ]
+                    )
                 ],
             ]
 
@@ -838,14 +838,14 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:check} Yes"),
                         f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_y",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:cancel} No"),
                         f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}",
-                    ],
+                    ),
                 ]
             ]
 
@@ -952,10 +952,10 @@ class CmdFiles(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:back} Back"),
                             f"{command_context.cmd}_info_{from_hash}_{page_number}",
-                        ]
+                        )
                     ]
                 ]
 
@@ -980,10 +980,10 @@ class CmdFiles(BaseCommand):
                 parent_folder_hash = self._hash_path(back_path)
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:back} Back"),
                             f"{command_context.cmd}_list_{parent_folder_hash}_{page_number}",
-                        ]
+                        )
                     ]
                 ]
 
@@ -1017,19 +1017,19 @@ class CmdFiles(BaseCommand):
                         parent_folder_hash = self._hash_path(parent_folder_path)
                         command_buttons.append(
                             [
-                                [
+                                (
                                     render_emojis("{emo:up} Parent"),
                                     f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{parent_folder_hash}",
-                                ]
+                                )
                             ]
                         )
                     elif len(storages) > 1:
                         command_buttons.append(
                             [
-                                [
+                                (
                                     render_emojis("{emo:up} Parent"),
                                     f"{command_context.cmd}_{operation}_{from_hash}_{page_number}",
-                                ]
+                                )
                             ]
                         )
 
@@ -1046,20 +1046,20 @@ class CmdFiles(BaseCommand):
                         folder_hash = self._hash_path(folder_path)
                         command_buttons.append(
                             [
-                                [
+                                (
                                     render_emojis(f"{{emo:folder}} {folder_name}"),
                                     f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{folder_hash}",
-                                ]
+                                )
                             ]
                         )
 
                     # Copy/Move here button
                     command_buttons.append(
                         [
-                            [
+                            (
                                 render_emojis(f"{{emo:check}} {operation.capitalize()} here"),
                                 f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{to_hash}_a",
-                            ]
+                            )
                         ]
                     )
                 except Exception:
@@ -1080,12 +1080,12 @@ class CmdFiles(BaseCommand):
                 for storage_name in storages:
                     storage_hash = self._hash_path(storage_name)
                     command_buttons.append(
-                        [[storage_name, f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{storage_hash}"]]
+                        [(storage_name, f"{command_context.cmd}_{operation}_{from_hash}_{page_number}_{storage_hash}")]
                     )
 
             # Back button
             command_buttons.append(
-                [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{from_hash}_{page_number}"]]
+                [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{from_hash}_{page_number}")]
             )
 
             self.plugin_context.sender.send_message(
@@ -1103,10 +1103,10 @@ class CmdFiles(BaseCommand):
             msg = render_emojis("{emo:notallowed} You are not allowed to print!")
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_info_{path_hash}_{page_number}",
-                    ],
+                    ),
                 ]
             ]
             self.plugin_context.sender.send_message(
@@ -1123,10 +1123,10 @@ class CmdFiles(BaseCommand):
             )
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_info_{path_hash}_{page_number}",
-                    ],
+                    ),
                 ]
             ]
             self.plugin_context.sender.send_message(
@@ -1172,14 +1172,14 @@ class CmdFiles(BaseCommand):
 
         command_buttons = [
             [
-                [
+                (
                     render_emojis("{emo:play} Print"),
                     "/print_y",
-                ],
-                [
+                ),
+                (
                     render_emojis("{emo:back} Back"),
                     f"{command_context.cmd}_info_{path_hash}_{page_number}",
-                ],
+                ),
             ]
         ]
 
@@ -1258,10 +1258,10 @@ class CmdFiles(BaseCommand):
                     slicer_name = slicer_properties.get("name")
 
                     command_buttons.append(
-                        [[slicer_name, f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}"]]
+                        [(slicer_name, f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}")]
                     )
                 command_buttons.append(
-                    [[render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}"]]
+                    [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}")]
                 )
 
                 self.plugin_context.sender.send_message(
@@ -1309,17 +1309,17 @@ class CmdFiles(BaseCommand):
 
                     command_buttons.append(
                         [
-                            [
+                            (
                                 slicer_profile_name,
                                 f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}",
-                            ]
+                            )
                         ]
                     )
                 if len(configured_slicers) > 1:
                     back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}"
                 else:
                     back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
-                command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
+                command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
 
                 self.plugin_context.sender.send_message(
                     msg,
@@ -1356,10 +1356,10 @@ class CmdFiles(BaseCommand):
 
                     command_buttons.append(
                         [
-                            [
+                            (
                                 printer_profile_name,
                                 f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}",
-                            ]
+                            )
                         ]
                     )
                 if len(slicer_profiles) > 1:
@@ -1368,7 +1368,7 @@ class CmdFiles(BaseCommand):
                     back_cmd = f"{command_context.cmd}_slice_{path_hash}_{page_number}"
                 else:
                     back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
-                command_buttons.append([[render_emojis("{emo:back} Back"), back_cmd]])
+                command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
 
                 self.plugin_context.sender.send_message(
                     msg,
@@ -1412,11 +1412,11 @@ class CmdFiles(BaseCommand):
                 back_cmd = f"{command_context.cmd}_info_{path_hash}_{page_number}"
             command_buttons = [
                 [
-                    [render_emojis("{emo:back} Back"), back_cmd],
-                    [
+                    (render_emojis("{emo:back} Back"), back_cmd),
+                    (
                         render_emojis("{emo:check} Confirm"),
                         f"{command_context.cmd}_slice_{path_hash}_{page_number}_{slicer_id_hash}{slicer_profile_id_hash}{printer_profile_id_hash}_y",
-                    ],
+                    ),
                 ]
             ]
 
@@ -1449,11 +1449,11 @@ class CmdFiles(BaseCommand):
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}"],
-                    [
+                    (render_emojis("{emo:back} Back"), f"{command_context.cmd}_info_{path_hash}_{page_number}"),
+                    (
                         render_emojis("{emo:cancel} Close"),
                         "close",
-                    ],
+                    ),
                 ]
             ]
 
@@ -1574,10 +1574,10 @@ class CmdFiles(BaseCommand):
             back_path_hash = self._hash_path(back_path)
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_list_{back_path_hash}_{page_number}",
-                    ]
+                    )
                 ]
             ]
 
@@ -1591,14 +1591,14 @@ class CmdFiles(BaseCommand):
         else:
             command_buttons = [
                 [
-                    [
+                    (
                         render_emojis("{emo:check} Yes"),
                         f"{command_context.cmd}_delete_{path_hash}_{page_number}_yes",
-                    ],
-                    [
+                    ),
+                    (
                         render_emojis("{emo:cancel} No"),
                         f"{command_context.cmd}_info_{path_hash}_{page_number}",
-                    ],
+                    ),
                 ]
             ]
             self.plugin_context.sender.send_message(

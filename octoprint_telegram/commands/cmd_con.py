@@ -94,9 +94,9 @@ class CmdCon(BaseCommand):
             )
 
         # Build buttons
-        btn_close = [render_emojis("{emo:cancel} Close"), "close"]
+        btn_close = (render_emojis("{emo:cancel} Close"), "close")
         if self.plugin_context.printer.is_closed_or_error():
-            btn_connect = [render_emojis("{emo:online} Connect"), f"{command_context.cmd}_c"]
+            btn_connect = (render_emojis("{emo:online} Connect"), f"{command_context.cmd}_c")
             command_buttons = [[btn_connect, btn_close]]
         elif (
             self.plugin_context.printer.is_printing()
@@ -109,7 +109,7 @@ class CmdCon(BaseCommand):
             msg += render_emojis("\n\n{emo:warning} You can't disconnect while printing.")
             command_buttons = [[btn_close]]
         else:
-            btn_disconnect = [render_emojis("{emo:offline} Disconnect"), f"{command_context.cmd}_d"]
+            btn_disconnect = (render_emojis("{emo:offline} Disconnect"), f"{command_context.cmd}_d")
             command_buttons = [[btn_disconnect, btn_close]]
 
         # Send message
@@ -128,10 +128,10 @@ class CmdCon(BaseCommand):
 
         command_buttons = [
             [
-                [
+                (
                     render_emojis("{emo:back} Back"),
                     f"{command_context.cmd}",
-                ]
+                )
             ]
         ]
 
@@ -186,7 +186,7 @@ class CmdCon(BaseCommand):
                     f"Current state: <code>{html.escape(current_state)}</code>."
                 )
 
-            command_buttons = [[[render_emojis("{emo:back} Back"), f"{command_context.cmd}"]]]
+            command_buttons = [[(render_emojis("{emo:back} Back"), f"{command_context.cmd}")]]
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -201,14 +201,14 @@ class CmdCon(BaseCommand):
 
             command_buttons = [
                 [
-                    [render_emojis("{emo:lamp} Use Default Connection"), f"{command_context.cmd}_c_d"],
+                    (render_emojis("{emo:lamp} Use Default Connection"), f"{command_context.cmd}_c_d"),
                 ],
             ]
             if self._is_serial_connection_available():
                 command_buttons.append(
-                    [[render_emojis("{emo:edit} Use Serial Connection"), f"{command_context.cmd}_c_s"]]
+                    [(render_emojis("{emo:edit} Use Serial Connection"), f"{command_context.cmd}_c_s")]
                 )
-            command_buttons.append([[render_emojis("{emo:back} Back"), command_context.cmd]])
+            command_buttons.append([(render_emojis("{emo:back} Back"), command_context.cmd)])
 
             self.plugin_context.sender.send_message(
                 msg,
@@ -339,16 +339,16 @@ class CmdCon(BaseCommand):
     ):
         buttons = []
         if with_auto:
-            buttons.append([render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_AUTO"])
+            buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_AUTO"))
         for value, label in options:
             buttons.append(
-                [
+                (
                     render_emojis(f"{{emo:{item_emoji}}} {label}"),
                     f"{callback_prefix}_{self._hash_parameter(value)}",
-                ]
+                )
             )
         command_buttons = [buttons[i : i + 3] for i in range(0, len(buttons), 3)]
-        command_buttons.append([[render_emojis("{emo:back} Back"), parent]])
+        command_buttons.append([(render_emojis("{emo:back} Back"), parent)])
 
         self.plugin_context.sender.send_message(
             msg,

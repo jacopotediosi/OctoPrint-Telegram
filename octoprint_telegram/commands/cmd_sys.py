@@ -32,14 +32,14 @@ class CmdSys(BaseCommand):
 
                     command_buttons = [
                         [
-                            [
+                            (
                                 render_emojis("{emo:check} Execute"),
                                 f"{command_context.cmd}_sys_do_{params[1]}",
-                            ],
-                            [
+                            ),
+                            (
                                 render_emojis("{emo:back} Back"),
                                 command_context.cmd,
-                            ],
+                            ),
                         ]
                     ]
 
@@ -114,14 +114,14 @@ class CmdSys(BaseCommand):
 
                     command_buttons = [
                         [
-                            [
+                            (
                                 render_emojis("{emo:check} Execute"),
                                 f"{command_context.cmd}_do_{action_hash}",
-                            ],
-                            [
+                            ),
+                            (
                                 render_emojis("{emo:back} Back"),
                                 command_context.cmd,
-                            ],
+                            ),
                         ]
                     ]
 
@@ -178,22 +178,22 @@ class CmdSys(BaseCommand):
 
                     action_identifier = f"{action['name']}-{action['action']}-{action['command']}"
                     command_buttons.append(
-                        [[f"{action['name']}", f"{command_context.cmd}_{self._hash_parameter(action_identifier)}"]]
+                        [(f"{action['name']}", f"{command_context.cmd}_{self._hash_parameter(action_identifier)}")]
                     )
                 except Exception:
                     self._logger.exception("Caught an exception parsing system actions")
 
             server_commands_buttons = []
             server_commands_map = {
-                "serverRestartCommand": [
+                "serverRestartCommand": (
                     "Restart OctoPrint",
                     f"{command_context.cmd}_sys_serverRestartCommand",
-                ],
-                "systemRestartCommand": ["Restart system", f"{command_context.cmd}_sys_systemRestartCommand"],
-                "systemShutdownCommand": [
+                ),
+                "systemRestartCommand": ("Restart system", f"{command_context.cmd}_sys_systemRestartCommand"),
+                "systemShutdownCommand": (
                     "Shutdown system",
                     f"{command_context.cmd}_sys_systemShutdownCommand",
-                ],
+                ),
             }
             for command_key, command_button in server_commands_map.items():
                 command_text = self.plugin_context.octoprint_settings.server_command(command_key)
@@ -221,7 +221,7 @@ class CmdSys(BaseCommand):
             except Exception:
                 self._logger.exception("Caught an exception retrieving IP address")
 
-            command_buttons.append([[render_emojis("{emo:cancel} Close"), "close"]])
+            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
             self.plugin_context.sender.send_message(
                 msg,

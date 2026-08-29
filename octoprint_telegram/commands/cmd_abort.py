@@ -26,11 +26,11 @@ class CmdAbort(BaseCommand):
 
                 command_buttons = [
                     [
-                        [
+                        (
                             render_emojis("{emo:check} Stop print"),
                             f"{command_context.cmd}_stop",
-                        ],
-                        [render_emojis("{emo:cancel} Close"), "close"],
+                        ),
+                        (render_emojis("{emo:cancel} Close"), "close"),
                     ]
                 ]
 
