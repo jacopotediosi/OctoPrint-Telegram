@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from octoprint.plugin.core import PluginManager
+
+
 class Frontend:
     """The plugin's settings page, as a recipient of live updates."""
 
-    def __init__(self, plugin_manager, plugin_identifier: str):
+    def __init__(self, plugin_manager: PluginManager, plugin_identifier: str) -> None:
         self._plugin_manager = plugin_manager
         self._plugin_identifier = plugin_identifier
 

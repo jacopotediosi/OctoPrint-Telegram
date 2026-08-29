@@ -2,7 +2,7 @@ from .base import BaseCommand, CommandContext
 
 
 class CmdClose(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         # According to https://core.telegram.org/bots/api#deletemessage:
         # - A message can only be deleted if it was sent less than 48 hours ago.
         # The try-except block handles this condition.

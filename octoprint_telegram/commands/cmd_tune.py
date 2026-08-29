@@ -4,7 +4,7 @@ import html
 from typing import ClassVar
 
 from ..emoji import Emoji
-from ..telegram import Markup
+from ..telegram import Buttons, Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -18,7 +18,7 @@ class CmdTune(BaseCommand):
     _temp_target_temps: ClassVar[dict[str, float]] = {}
     _temp_tune_rates: ClassVar[dict[str, int]] = {"feedrate": 100, "flowrate": 100}
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter and command_context.parameter != "back":
             params = command_context.parameter.split("_")
 
@@ -104,7 +104,7 @@ class CmdTune(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _go_back(self, command_context):
+    def _go_back(self, command_context: CommandContext) -> None:
         """Helper method to handle back navigation"""
         self(
             cmd=command_context.cmd,
@@ -115,7 +115,7 @@ class CmdTune(BaseCommand):
             user=command_context.user,
         )
 
-    def _create_rate_buttons(self, rate_type, command_context):
+    def _create_rate_buttons(self, rate_type: str, command_context: CommandContext) -> Buttons:
         """Create increment/decrement buttons for rate controls (feed/flow)"""
         buttons = []
 
@@ -137,7 +137,7 @@ class CmdTune(BaseCommand):
 
         return buttons
 
-    def _create_temp_buttons(self, tool_identifier, command_context):
+    def _create_temp_buttons(self, tool_identifier: str, command_context: CommandContext) -> Buttons:
         """Create increment/decrement buttons for temperature controls"""
         buttons = []
 
@@ -155,7 +155,7 @@ class CmdTune(BaseCommand):
 
         return buttons
 
-    def _handle_enclosure_control(self, command_context):
+    def _handle_enclosure_control(self, command_context: CommandContext) -> None:
         """Handle enclosure temperature controls"""
         params = command_context.parameter.split("_")
         index_id = int(params[1])
@@ -247,7 +247,9 @@ class CmdTune(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _handle_rate_control(self, command_context, rate_type, rate_key, emoji_name):
+    def _handle_rate_control(
+        self, command_context: CommandContext, rate_type: str, rate_key: str, emoji_name: str
+    ) -> None:
         """Handle feedrate and flowrate controls"""
         params = command_context.parameter.split("_")
 
@@ -274,7 +276,14 @@ class CmdTune(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _handle_temp_control(self, command_context, tool_key, tool_display_name, emoji_name, tool_identifier):
+    def _handle_temp_control(
+        self,
+        command_context: CommandContext,
+        tool_key: str,
+        tool_display_name: str,
+        emoji_name: str,
+        tool_identifier: str,
+    ) -> None:
         """Handle temperature controls"""
         params = command_context.parameter.split("_")
         temps = self.plugin_context.printer.get_current_temperatures()

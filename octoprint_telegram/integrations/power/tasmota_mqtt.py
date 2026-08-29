@@ -1,17 +1,19 @@
+from __future__ import annotations
+
 from ...utils import StringUtils
 from .base import PowerPlugin
 
 
 class TasmotaMQTTPowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "tasmota_mqtt"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "TasmotaMQTT"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
         plugs = self.plugin_context.api.send_simpleapi_command(self.plugin_id, "getListPlug").json()
@@ -31,12 +33,12 @@ class TasmotaMQTTPowerPlugin(PowerPlugin):
 
         return plugs_data
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command("turnOn", plug_data)
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command("turnOff", plug_data)
 
-    def _send_command(self, command, plug_data):
+    def _send_command(self, command: str, plug_data: str) -> None:
         topic, relay_n = StringUtils.split_with_escape_handling(plug_data, "|")
         self.plugin_context.api.send_simpleapi_command(self.plugin_id, command, {"topic": topic, "relayN": relay_n})

@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdGif(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if self.plugin_context.settings.send_gif:
             msg = render_emojis("{emo:video} Here are your GIF(s)")
             with_gif = True

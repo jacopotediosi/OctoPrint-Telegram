@@ -55,7 +55,7 @@ class NotificationDefinition:
     shown_in_settings: bool = True
     bind_message: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.description.strip():
             raise ValueError("A notification has no description")
 

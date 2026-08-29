@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import html
 import time
+from typing import Sequence
 
 from ..emoji import Emoji
 from ..telegram import Markup, callbacks
@@ -22,7 +25,7 @@ class CmdCon(BaseCommand):
     # be displayed in chat messages
     SENSITIVE_PARAM_KEYWORDS = ("key", "password", "psw")
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter:
             action, *params = command_context.parameter.split("_")
             actions = {
@@ -121,7 +124,7 @@ class CmdCon(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _disconnect(self, command_context: CommandContext, params):
+    def _disconnect(self, command_context: CommandContext, params: list[str]) -> None:
         self.plugin_context.printer.disconnect()
 
         msg = render_emojis("{emo:check} Printer disconnected.")
@@ -142,7 +145,7 @@ class CmdCon(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _connect(self, command_context: CommandContext, params):
+    def _connect(self, command_context: CommandContext, params: list[str]) -> None:
         if params:
             if params[0] == "d":  # Default Connection
                 connection_data = self._ask_default_connection_data(command_context, params[1:])
@@ -162,10 +165,12 @@ class CmdCon(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-            parameters = connection_data.get("parameters")
+            parameters = connection_data["parameters"]
             self.plugin_context.printer.connect(
+                # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
                 connector=connection_data.get("connector"),
                 parameters=parameters,
+                # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
                 profile=connection_data.get("profile"),
                 port=parameters.get("port"),
                 baudrate=parameters.get("baudrate"),
@@ -217,7 +222,7 @@ class CmdCon(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _ask_default_connection_data(self, command_context: CommandContext, params):
+    def _ask_default_connection_data(self, command_context: CommandContext, params: list[str]) -> dict | None:
         all_profiles = self.plugin_context.printer_profiles.get_all()
         profile_ids = list(all_profiles.keys())
 
@@ -256,7 +261,7 @@ class CmdCon(BaseCommand):
             "profile": profile_id,
         }
 
-    def _ask_serial_connection_data(self, command_context: CommandContext, params):
+    def _ask_serial_connection_data(self, command_context: CommandContext, params: list[str]) -> dict | None:
         if ConnectedPrinter is not None:
             serial_connector = ConnectedPrinter.find("serial")
             connection_options = serial_connector.connection_options() if serial_connector else {}
@@ -335,8 +340,15 @@ class CmdCon(BaseCommand):
         }
 
     def _ask_choice(
-        self, command_context: CommandContext, parent, callback_prefix, msg, options, item_emoji, with_auto=False
-    ):
+        self,
+        command_context: CommandContext,
+        parent: str,
+        callback_prefix: str,
+        msg: str,
+        options: Sequence[tuple[str | int, str | int]],
+        item_emoji: str,
+        with_auto: bool = False,
+    ) -> None:
         buttons = []
         if with_auto:
             buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_AUTO"))
@@ -358,12 +370,12 @@ class CmdCon(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _resolve_hashed(self, value, choices):
+    def _resolve_hashed(self, value: str, choices: Sequence[str | int]) -> str | int | None:
         if value == "AUTO":
             return None
         return next(c for c in choices if self._hash_parameter(c) == value)
 
-    def _build_connection_summary(self, connector, parameters):
+    def _build_connection_summary(self, connector: str | None, parameters: dict | None) -> str:
         connector_label = "Default"
         if connector:
             connector_label = connector
@@ -388,16 +400,16 @@ class CmdCon(BaseCommand):
         lines.append("")
         return "\n".join(lines)
 
-    def _is_serial_connection_available(self):
+    def _is_serial_connection_available(self) -> bool:
         # Serial connection is always available on OctoPrint < 2.0.0 (no connectors at all)
         # or when the serial_connector plugin is installed and enabled on >= 2.0.0.
         return ConnectedPrinter is None or self.plugin_context.plugins.is_enabled("serial_connector")
 
-    def _is_sensitive_param(self, key):
+    def _is_sensitive_param(self, key: str) -> bool:
         key_lower = str(key).lower()
         return any(keyword in key_lower for keyword in self.SENSITIVE_PARAM_KEYWORDS)
 
-    def _hash_parameter(self, parameter):
+    def _hash_parameter(self, parameter: str | int) -> str:
         # The longest callback we build is "/con_c_s_<port>_<baud>_<profile>"
         # (11 fixed chars + 3 hashes), so 16 hex chars per hash fits safely.
         return callbacks.hash_value(parameter, 16)

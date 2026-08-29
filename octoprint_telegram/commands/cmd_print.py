@@ -8,7 +8,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdPrint(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if not self.plugin_context.printer.is_ready():
             msg = render_emojis(
                 f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."

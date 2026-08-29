@@ -14,6 +14,12 @@ repos:
         args: [--target-version=py37]
       - id: ruff-format
 
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.75
+    hooks:
+      - id: ty
+        args: [--group=typechecking]
+
   - repo: https://github.com/standard/standard
     rev: v17.1.2
     hooks:

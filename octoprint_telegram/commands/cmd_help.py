@@ -8,9 +8,11 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdHelp(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         commands = sorted(
-            (command.name, command.description) for command in self.plugin_context.commands if command.shown_to_users
+            (command.name, command.description)
+            for command in self.plugin_context.command_definitions
+            if command.shown_to_users
         )
 
         msg = render_emojis("{emo:info} <b>The following commands are available:</b>\n\n")

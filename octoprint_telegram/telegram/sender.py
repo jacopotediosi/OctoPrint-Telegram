@@ -40,7 +40,7 @@ class Sender:
         api: OctoPrintApi,
         connection_status: ConnectionStatus,
         logger: logging.Logger,
-    ):
+    ) -> None:
         self._telegram_client = telegram_client
         self._chats = chats
         self._muted_chats = muted_chats

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Any
 
 from ..telegram import Markup
 from ..telegram.formatting import escape_text
+from .variables import cached_property
+
+if TYPE_CHECKING:
+    from .variables import NotificationVariables
 
 
 class MarkupEscapedValue:
@@ -19,12 +24,17 @@ class MarkupEscapedValue:
     (HTML, Markdown, MarkdownV2) only when the final value is converted to string.
     """
 
-    def __init__(self, value, markup: Markup, logger: logging.Logger):
+    def __init__(
+        self,
+        value: Any,  # noqa: ANN401
+        markup: Markup,
+        logger: logging.Logger,
+    ) -> None:
         self._value = value
         self._markup = markup
         self._logger = logger
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str | int) -> MarkupEscapedValue:
         try:
             # Support dictionary/list navigation
             return MarkupEscapedValue(self._value[key], self._markup, self._logger)
@@ -33,7 +43,7 @@ class MarkupEscapedValue:
             # Return an error placeholder if attempting to access non-existent key or invalid index
             return MarkupEscapedValue("[ERROR]", self._markup, self._logger)
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Apply markup escaping only at final string conversion
         return escape_text(str(self._value), self._markup)
 
@@ -46,17 +56,17 @@ class _TemplateContext(dict):
     Unknown or not allowed variables are returned as literal placeholders.
     """
 
-    def __init__(self, variables, markup: Markup, logger: logging.Logger):
+    def __init__(self, variables: NotificationVariables, markup: Markup, logger: logging.Logger) -> None:
         self._variables = variables
         self._markup = markup
         self._logger = logger
 
         # Only variables decorated with @cached_property are allowed
         self._allowed_names = {
-            name for name, attribute in type(variables).__dict__.items() if isinstance(attribute, property)
+            name for name, attribute in type(variables).__dict__.items() if isinstance(attribute, cached_property)
         }
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> MarkupEscapedValue | str:
         # If variable is not in the allowed names, return it as a literal
         if key not in self._allowed_names:
             return "{" + key + "}"
@@ -70,7 +80,7 @@ class _TemplateContext(dict):
             return "[ERROR]"
 
 
-def render(template: str, variables, markup: Markup, logger: logging.Logger) -> str:
+def render(template: str, variables: NotificationVariables, markup: Markup, logger: logging.Logger) -> str:
     """
     Fill a notification template with the values of its variables, escaped for the given markup.
 

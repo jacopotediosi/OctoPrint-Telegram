@@ -4,7 +4,7 @@ from .plugin import TelegramPlugin
 
 
 # Check that we are running on OctoPrint >= 1.4.0, which introduced the granular permissions system
-def _get_plugin_implementation():
+def _get_plugin_implementation() -> TelegramPlugin:
     if not is_octoprint_compatible(">=1.4.0"):
         raise Exception("OctoPrint 1.4.0 or greater required.")
 

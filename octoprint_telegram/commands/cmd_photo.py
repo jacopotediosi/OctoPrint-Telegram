@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdPhoto(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         msg = render_emojis("{emo:photo} Here are your photo(s)")
         self.plugin_context.sender.send_message(
             msg,

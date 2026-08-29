@@ -40,7 +40,7 @@ class Notifications:
         display_layer_progress: DisplayLayerProgress,
         plugin_name: str,
         logger: logging.Logger,
-    ):
+    ) -> None:
         self._settings = settings
         self._sender = sender
         self._telegram_client = telegram_client
@@ -53,7 +53,7 @@ class Notifications:
         self._plugin_name = plugin_name
         self._logger = logger.getChild("Notifications")
 
-        self._current_z = ""
+        self._current_z = 0.0
         self._last_z = 0.0
         self._last_notification_time = 0
         self._last_prusammu_state = ""
@@ -103,7 +103,7 @@ class Notifications:
         self._current_z = status["currentZ"] or 0.0
         handler(payload, event, chat_id)
 
-    def is_notification_necessary(self, new_z=None, old_z=None) -> bool:
+    def is_notification_necessary(self, new_z: float | None = None, old_z: float | None = None) -> bool:
         """
         Whether a notification has to be sent on the gcode ZChange event.
 
@@ -131,7 +131,7 @@ class Notifications:
     ### Event handlers
     ##########
 
-    def _on_z_change(self, payload, event, chat_id):
+    def _on_z_change(self, payload: dict, event: str, chat_id: str | None) -> None:
         status = self._printer.get_current_data()
         if not status["state"]["flags"]["printing"] or not self.is_notification_necessary(
             payload["new"], payload["old"]
@@ -148,20 +148,20 @@ class Notifications:
         )
         self._notify(payload, event, chat_id)
 
-    def _on_print_started(self, payload, event, chat_id):
+    def _on_print_started(self, payload: dict, event: str, chat_id: str | None) -> None:
         self._last_z = 0.0
         self._last_notification_time = time.time()
         self._notify(payload, event, chat_id)
 
-    def _on_print_done(self, payload, event, chat_id):
+    def _on_print_done(self, payload: dict, event: str, chat_id: str | None) -> None:
         self._muted_chats.unmute_all()
         self._notify(payload, event, chat_id, delay=self._settings.message_at_print_done_delay)
 
-    def _on_print_failed(self, payload, event, chat_id):
+    def _on_print_failed(self, payload: dict, event: str, chat_id: str | None) -> None:
         self._muted_chats.unmute_all()
         self._notify(payload, event, chat_id)
 
-    def _on_prusa_mmu(self, payload, event, chat_id):
+    def _on_prusa_mmu(self, payload: dict, event: str, chat_id: str | None) -> None:
         state = payload.get("state", "")
         if state != self._last_prusammu_state:
             self._last_prusammu_state = state
@@ -171,7 +171,7 @@ class Notifications:
     ### Rendering and sending
     ##########
 
-    def _notify(self, payload, event, chat_id=None, delay=0):
+    def _notify(self, payload: dict, event: str, chat_id: str | None = None, delay: int = 0) -> None:
         try:
             variables = NotificationVariables(
                 event=event,
@@ -229,7 +229,7 @@ class Notifications:
 
             # Format the message
             try:
-                message_template = message_settings.get("text")
+                message_template = message_settings["text"]
 
                 # Render emojis
                 message = render_emojis(message_template)

@@ -13,12 +13,12 @@ PLUGIN_ID = "DisplayLayerProgress"
 class DisplayLayerProgress:
     """The layer and height readings published by the DisplayLayerProgress plugin."""
 
-    def __init__(self, plugins: Plugins, api: OctoPrintApi, logger: logging.Logger):
+    def __init__(self, plugins: Plugins, api: OctoPrintApi, logger: logging.Logger) -> None:
         self._plugins = plugins
         self._api = api
         self._logger = logger.getChild("DisplayLayerProgress")
 
-    def get_layer_progress_values(self):
+    def get_layer_progress_values(self) -> dict | None:
         """The current readings, or None when the plugin is unavailable or fails to answer."""
         layer_progress_values = None
 

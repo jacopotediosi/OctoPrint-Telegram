@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import re
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from .unicode_emoji_dict import unicode_emoji_dict
+
+if TYPE_CHECKING:
+    from octoprint.plugin import PluginSettings
 
 
 class Emoji:
@@ -94,13 +97,13 @@ class Emoji:
     _emoji_map: ClassVar[dict[str, str]] = _custom_emoji_map.copy()
     _emoji_map.update(unicode_emoji_dict)
 
-    _settings = None
+    _settings: ClassVar[PluginSettings | None] = None
 
     _EMOJI_PATTERN = re.compile(r"\{emo:([^\}]+)\}")
     _EMOJI_GROUP_PATTERN = re.compile(r"(\{emo:[^\}]+\}(?:\s*\{emo:[^\}]+\})*)")
 
     @staticmethod
-    def init(settings):
+    def init(settings: PluginSettings) -> None:
         Emoji._settings = settings
 
     @staticmethod
@@ -144,7 +147,7 @@ class Emoji:
 
         if emojis_active:
             # Simple substitution: replace each {emo:name} with the actual emoji
-            def render_emojis(match):
+            def render_emojis(match: re.Match) -> str:
                 name = match.group(1).strip()
                 return Emoji.get_emoji(name)
 
@@ -203,5 +206,5 @@ class Emoji:
         return result
 
     @staticmethod
-    def get_custom_emoji_map():
+    def get_custom_emoji_map() -> dict[str, str]:
         return Emoji._custom_emoji_map

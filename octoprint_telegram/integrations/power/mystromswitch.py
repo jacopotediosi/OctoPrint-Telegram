@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import requests
 
 from .base import PowerPlugin
@@ -5,14 +7,14 @@ from .base import PowerPlugin
 
 class MyStromSwitchPowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "mystromswitch"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "MyStromSwitch"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         is_on = False
         try:
             # Mystromswitch plugin has no API nor plugin functions for getting plug status, so below code is copied from the plugin code:
@@ -28,11 +30,11 @@ class MyStromSwitchPowerPlugin(PowerPlugin):
         # Mystromswitch is single plug, so data below is dummy
         return [{"label": self.plugin_name, "is_on": is_on, "data": self.plugin_id}]
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command("enableRelais")
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command("disableRelais")
 
-    def _send_command(self, command):
+    def _send_command(self, command: str) -> None:
         self.plugin_context.api.send_simpleapi_command(self.plugin_id, command)

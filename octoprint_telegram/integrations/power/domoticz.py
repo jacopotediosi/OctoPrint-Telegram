@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import requests
 
 from ...utils import StringUtils
@@ -6,14 +8,14 @@ from .base import PowerPlugin
 
 class DomoticzPowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "domoticz"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "Domoticz"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
         # Domoticz plugin has no API for getting plugs. Below code is copied from the plugin code:
@@ -54,13 +56,13 @@ class DomoticzPowerPlugin(PowerPlugin):
 
         return plugs_data
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command("turnOn", plug_data)
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command("turnOff", plug_data)
 
-    def _send_command(self, command, plug_data):
+    def _send_command(self, command: str, plug_data: str) -> None:
         ip, idx = StringUtils.split_with_escape_handling(plug_data, "|")
 
         selected_plug = None

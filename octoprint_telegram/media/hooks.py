@@ -7,6 +7,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from octoprint.events import EventManager
+    from octoprint.printer import PrinterInterface
+
     from ..core.settings import Settings
 
 
@@ -22,13 +25,15 @@ class ImageHookMethod(Enum):
 class ImageHooks:
     """The user-configured actions run around taking a webcam image."""
 
-    def __init__(self, settings: Settings, printer, event_manager, logger: logging.Logger):
+    def __init__(
+        self, settings: Settings, printer: PrinterInterface, event_manager: EventManager, logger: logging.Logger
+    ) -> None:
         self._settings = settings
         self._printer = printer
         self._event_manager = event_manager
         self._logger = logger.getChild("ImageHooks")
 
-    def run_before_image(self):
+    def run_before_image(self) -> None:
         method_setting = self._settings.pre_img_method
 
         try:
@@ -63,7 +68,7 @@ class ImageHooks:
             self._logger.debug("Pre_image: sleeping for %ss", delay)
             time.sleep(delay)
 
-    def run_after_image(self):
+    def run_after_image(self) -> None:
         method_setting = self._settings.post_img_method
 
         try:

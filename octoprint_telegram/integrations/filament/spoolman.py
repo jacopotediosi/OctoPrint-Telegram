@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 
 from ...emoji import Emoji
@@ -8,14 +10,14 @@ render_emojis = Emoji.render_emojis
 
 class SpoolmanFilamentPlugin(FilamentPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "Spoolman"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "Spoolman"
 
-    def _build_spool_description(self, spool):
+    def _build_spool_description(self, spool: dict) -> str:
         filament = spool.get("filament", {})
         vendor = filament.get("vendor", {})
 
@@ -28,7 +30,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return " ".join(filter(None, parts))
 
-    def list_spool(self):
+    def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spoolman/spools", timeout=15)
         data = response.json().get("data", {})
 
@@ -42,7 +44,7 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
-    def get_spool_details_msg(self, spool_id):
+    def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/spoolman/spools",
         )
@@ -160,21 +162,21 @@ class SpoolmanFilamentPlugin(FilamentPlugin):
 
         return render_emojis("{emo:attention} Spool not found")
 
-    def select_spool(self, tool_index, spool_id):
+    def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/self/spool",
             "POST",
             json={"spoolId": spool_id, "toolIdx": tool_index},
         )
 
-    def deselect_spool(self, tool_index):
+    def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/self/spool",
             "POST",
             json={"toolIdx": tool_index},
         )
 
-    def get_selected_spools(self):
+    def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spoolman/spools", timeout=15)
         spools = response.json().get("data", {}).get("spools", [])
 

@@ -10,7 +10,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdUpload(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         supported_extensions = ", ".join(
             [f"<code>{html.escape(f'.{ext}')}</code>" for ext in octoprint.filemanager.get_all_extensions()]
         )

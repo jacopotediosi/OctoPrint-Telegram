@@ -23,11 +23,11 @@ UPLOAD_FOLDER_NAME = "TelegramPlugin"
 class Uploads:
     """The files users send to the bot, stored into the OctoPrint file library."""
 
-    def __init__(self, plugin_context: PluginContext):
+    def __init__(self, plugin_context: PluginContext) -> None:
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Uploads")
 
-    def store_document(self, message, chat_id, from_id):
+    def store_document(self, message: dict, chat_id: str, from_id: str) -> None:
         try:
             self._logger.debug("Handling document message: %s", message)
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 
 from ..emoji import Emoji
@@ -8,7 +10,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdCtrl(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Printer not connected. You can't trigger any control."),
@@ -121,7 +123,7 @@ class CmdCtrl(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _get_controls(self, tree=None, container=""):
+    def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
         controls = []
 
         if tree is None:
@@ -179,5 +181,5 @@ class CmdCtrl(BaseCommand):
 
         return controls
 
-    def _hash_control(self, control_identifier):
+    def _hash_control(self, control_identifier: str) -> str:
         return callbacks.hash_value(control_identifier)

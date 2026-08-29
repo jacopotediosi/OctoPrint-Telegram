@@ -32,7 +32,7 @@ class PluginContext:
     # Plugin
     logger: logging.Logger
     server_port: int
-    commands: tuple[CommandDefinition, ...]
+    command_definitions: tuple[CommandDefinition, ...]
 
     # Settings
     settings: Settings

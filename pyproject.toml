@@ -31,6 +31,11 @@ develop = [
     "go-task-bin",
 ]
 
+[dependency-groups]
+typechecking = [
+    "OctoPrint==2.0.0rc5 ; python_version >= '3.9' and python_version < '3.15'",
+]
+
 [project.readme]
 file = "README.md"
 content-type = "markdown"
@@ -49,12 +54,18 @@ line-length = 120
 fix = true
 
 [tool.ruff.lint]
-extend-select = ["I"]
+extend-select = ["ANN", "FA", "I"]
 ignore = [
     "BLE001", # blind-except
     "S110", # try-except-pass
     "TRY002", # raise-vanilla-class
 ]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+
+[tool.ty.environment]
+python-version = "3.7"
 
 [tool.djlint]
 no_set_formatting=true

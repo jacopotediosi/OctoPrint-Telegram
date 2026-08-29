@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator
 
 from .enums import ChatAction, HttpMethod
 
@@ -15,7 +15,9 @@ CHAT_ACTION_REFRESH_SECONDS = 4.5
 
 
 @contextmanager
-def chat_action(telegram_client: TelegramClient, chat_id: str, action: ChatAction, logger: logging.Logger):
+def chat_action(
+    telegram_client: TelegramClient, chat_id: str, action: ChatAction, logger: logging.Logger
+) -> Iterator[None]:
     """
     Show an activity indicator in the chat for as long as the block runs.
 
@@ -31,7 +33,7 @@ def chat_action(telegram_client: TelegramClient, chat_id: str, action: ChatActio
 
     stop_event = threading.Event()
 
-    def _loop():
+    def _loop() -> None:
         try:
             while not stop_event.is_set():
                 telegram_client.send_request(

@@ -11,7 +11,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdSys(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter:
             params = command_context.parameter.split("_")
 
@@ -230,5 +230,5 @@ class CmdSys(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _hash_parameter(self, text):
+    def _hash_parameter(self, text: str) -> str:
         return callbacks.hash_value(text)

@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 from .base import PowerPlugin
 
 
 class WemoSwitchPowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "wemoswitch"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "WemoSwitch"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
         # Wemoswitch plugin has no API for getting plugs. Below code is copied from the plugin code:
@@ -36,11 +38,11 @@ class WemoSwitchPowerPlugin(PowerPlugin):
 
         return plugs_data
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command("turnOn", plug_data)
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command("turnOff", plug_data)
 
-    def _send_command(self, command, plug_data):
+    def _send_command(self, command: str, plug_data: str) -> None:
         self.plugin_context.api.send_simpleapi_command(self.plugin_id, command, {"ip": plug_data})

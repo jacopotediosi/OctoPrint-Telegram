@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 import octoprint.plugin
 
 if TYPE_CHECKING:
+    from octoprint.plugin.core import PluginManager
+
     from ..core.settings import OctoPrintSettings
     from ..integrations.plugins import Plugins
 
@@ -22,7 +24,7 @@ class WebcamProfile:
         flipV: bool = False,
         rotate90: bool = False,
         provider: octoprint.plugin.types.WebcamProviderPlugin | None = None,
-    ):
+    ) -> None:
         self.name = name
         self.snapshot = snapshot
         self.snapshotTimeout = snapshotTimeout
@@ -33,7 +35,7 @@ class WebcamProfile:
         self.rotate90 = rotate90
         self.provider = provider
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
             f"snapshotTimeout={self.snapshotTimeout!r} snapshotSslValidation={self.snapshotSslValidation} "
@@ -45,7 +47,13 @@ class WebcamProfile:
 class Webcams:
     """The webcams OctoPrint knows about."""
 
-    def __init__(self, plugin_manager, plugins: Plugins, octoprint_settings: OctoPrintSettings, logger: logging.Logger):
+    def __init__(
+        self,
+        plugin_manager: PluginManager,
+        plugins: Plugins,
+        octoprint_settings: OctoPrintSettings,
+        logger: logging.Logger,
+    ) -> None:
         self._plugin_manager = plugin_manager
         self._plugins = plugins
         self._octoprint_settings = octoprint_settings

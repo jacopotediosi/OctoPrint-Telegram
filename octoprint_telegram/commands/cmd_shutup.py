@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdShutup(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         self.plugin_context.muted_chats.mute_chat(command_context.chat_id)
 
         msg = render_emojis(

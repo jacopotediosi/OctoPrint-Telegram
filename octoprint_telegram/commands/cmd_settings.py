@@ -15,7 +15,7 @@ class CmdSettings(BaseCommand):
 
     _temp_notification_settings: ClassVar[dict[str, float]] = {}
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter and command_context.parameter != "back":
             params = command_context.parameter.split("_")
             action = params[0]
@@ -67,7 +67,7 @@ class CmdSettings(BaseCommand):
                         new_notification_time = max(notification_time + int(delta_str), 0)
                         self._temp_notification_settings["notification_time"] = new_notification_time
                     else:
-                        self.plugin_context.settings.notification_time = notification_time
+                        self.plugin_context.settings.notification_time = int(notification_time)
                         self.plugin_context.settings.save()
 
                         command_context.parameter = "back"
@@ -99,10 +99,12 @@ class CmdSettings(BaseCommand):
             notification_height = self.plugin_context.settings.notification_height
             notification_time = self.plugin_context.settings.notification_time
 
-            self._temp_notification_settings = {
-                "notification_height": notification_height,
-                "notification_time": notification_time,
-            }
+            self._temp_notification_settings.update(
+                {
+                    "notification_height": notification_height,
+                    "notification_time": notification_time,
+                }
+            )
 
             msg = render_emojis(
                 "{emo:settings} <b>Current notification settings are:</b>\n\n"

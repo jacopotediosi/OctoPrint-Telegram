@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from octoprint.plugin import PluginSettings
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class Settings:
     """The plugin settings."""
 
-    def __init__(self, settings: PluginSettings):
+    def __init__(self, settings: PluginSettings) -> None:
         self._settings = settings
 
     ##########
@@ -164,7 +164,7 @@ class Settings:
     def set_chat(self, chat_id: str, chat_settings: dict) -> None:
         self._settings.set(["chats", str(chat_id)], chat_settings)
 
-    def set_chat_field(self, chat_id: str, field: str, value) -> None:
+    def set_chat_field(self, chat_id: str, field: str, value: str) -> None:
         self._settings.set(["chats", str(chat_id), field], value)
 
     def remove_chat(self, chat_id: str) -> None:
@@ -189,14 +189,14 @@ class Settings:
 class OctoPrintSettings:
     """The settings stored by OctoPrint itself."""
 
-    def __init__(self, settings: PluginSettings):
+    def __init__(self, settings: PluginSettings) -> None:
         self._settings = settings
 
     ##########
     ### Other plugins
     ##########
 
-    def plugin_setting(self, plugin_id: str, *path: str):
+    def plugin_setting(self, plugin_id: str, *path: str) -> Any:  # noqa: ANN401
         """A setting belonging to another plugin."""
         return self._settings.global_get(["plugins", plugin_id, *path])
 

@@ -4,12 +4,23 @@ import logging
 import os
 import sys
 import threading
+from typing import TYPE_CHECKING, Any
 
 import octoprint.plugin
 import urllib3
 from octoprint.access.permissions import Permissions
 from octoprint.logging.handlers import CleaningTimedRotatingFileHandler
 from octoprint.server import app
+
+if TYPE_CHECKING:
+    from flask import Request, Response
+    from octoprint.events import EventManager
+    from octoprint.filemanager import FileManager
+    from octoprint.plugin import PluginSettings
+    from octoprint.plugin.core import PluginManager
+    from octoprint.printer import PrinterInterface
+    from octoprint.printer.profile import PrinterProfileManager
+    from octoprint.slicing import SlicingManager
 
 from .api import Api
 from .commands import registry
@@ -44,8 +55,22 @@ class TelegramPlugin(
     octoprint.plugin.TemplatePlugin,
     octoprint.plugin.WizardPlugin,
 ):
+    # Injected by OctoPrint before initialize() runs
+    _identifier: str
+    _basefolder: str
+    _plugin_name: str
+    _plugin_version: str
+    _logger: logging.Logger
+    _settings: PluginSettings
+    _plugin_manager: PluginManager
+    _event_bus: EventManager
+    _printer: PrinterInterface
+    _printer_profile_manager: PrinterProfileManager
+    _file_manager: FileManager
+    _slicing_manager: SlicingManager
+
     # Runs at plugin discovery, before OctoPrint injects its properties
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self._logger = logging.getLogger("octoprint.plugins.telegram")
@@ -56,14 +81,12 @@ class TelegramPlugin(
         self._user_pause_already_notified = False
 
         # Built by on_startup()
-        self._port = None
         self._plugin_context = None
         self._commands = None
         self._api = None
-        self._telegram_client = None
 
     # Runs once OctoPrint has injected its properties, before the settings migration
-    def initialize(self):
+    def initialize(self) -> None:
         # Logging formatter that sanitizes logs by redacting sensitive data (e.g., bot tokens)
         logging_formatter = RedactingFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -92,22 +115,29 @@ class TelegramPlugin(
     ### Bot lifecycle
     ##########
 
-    def start_bot(self):
+    def start_bot(self) -> None:
         """Start the telegram bot."""
         token = self._settings.get(["token"])
 
         if token and self._listener is None:
+            plugin_context = self._plugin_context
+            commands = self._commands
+            if plugin_context is None or commands is None:
+                self._logger.warning("Can't start the bot, the plugin is not initialized yet")
+                return
+
             self._logger.debug("Starting bot.")
 
-            self._telegram_client.connect(token)
+            telegram_client = plugin_context.telegram_client
+            telegram_client.connect(token)
 
-            dispatcher = Dispatcher(self._plugin_context, self._commands)
-            self._listener = Listener(self._plugin_context, dispatcher)
+            dispatcher = Dispatcher(plugin_context, commands)
+            self._listener = Listener(plugin_context, dispatcher)
             self._listener.start()
 
             # Set bot commands
             try:
-                self._telegram_client.set_bot_commands(
+                telegram_client.set_bot_commands(
                     [
                         {"command": command.name.lstrip("/"), "description": command.description}
                         for command in registry.shown_to_users()
@@ -119,8 +149,8 @@ class TelegramPlugin(
             # Update chats
             try:
 
-                def _update_chats():
-                    chats = self._plugin_context.chats
+                def _update_chats() -> None:
+                    chats = plugin_context.chats
                     for chat_id, chat_settings in chats.all_chats.items():
                         # Delete unreachable chats
                         if chat_settings.get("type") == ChatType.PRIVATE.value:
@@ -130,7 +160,7 @@ class TelegramPlugin(
                             endpoint = "getChat"
                             params = {"chat_id": chat_id}
                         try:
-                            self._telegram_client.send_request(endpoint, HttpMethod.GET, params=params, timeout=5)
+                            telegram_client.send_request(endpoint, HttpMethod.GET, params=params, timeout=5)
                         except Exception as e:
                             if '"error_code":403' in getattr(e, "telegram_response_text", ""):
                                 self._logger.info("Chat %s is unreachable, removing it from settings...", chat_id)
@@ -143,18 +173,18 @@ class TelegramPlugin(
 
                     # Save settings and update known chats table
                     self._settings.save()
-                    self._plugin_context.frontend.update_known_chats(self._settings.get(["chats"]))
+                    plugin_context.frontend.update_known_chats(self._settings.get(["chats"]))
 
                 threading.Thread(target=_update_chats, daemon=True).start()
             except Exception:
                 self._logger.exception("Caught an exception updating chats")
 
-    def stop_bot(self):
+    def stop_bot(self) -> None:
         """Stop the telegram bot."""
-        if self._listener is not None:
+        if self._listener is not None and self._plugin_context is not None:
             self._logger.debug("Stopping bot.")
 
-            self._telegram_client.disconnect()
+            self._plugin_context.telegram_client.disconnect()
 
             self._listener.stop()
             self._listener = None
@@ -164,26 +194,24 @@ class TelegramPlugin(
     ##########
 
     # Runs when the server is bound to its host and port, before it starts serving
-    def on_startup(self, host, port):
-        self._port = port
-
-        self._plugin_context = self._build_plugin_context()
+    def on_startup(self, host: str, port: int) -> None:
+        self._plugin_context = self._build_plugin_context(port)
         self._commands = Commands(self._plugin_context)
         self._api = Api(self._plugin_context)
 
     # Runs once the server is serving and the other plugins are ready
-    def on_after_startup(self):
+    def on_after_startup(self) -> None:
         self.start_bot()
 
     ##########
     ### Plugin context
     ##########
 
-    def _build_plugin_context(self) -> PluginContext:
+    def _build_plugin_context(self, port: int) -> PluginContext:
         settings = Settings(self._settings)
         octoprint_settings = OctoPrintSettings(self._settings)
         api = OctoPrintApi(
-            self._port,
+            port,
             lambda: getattr(self, "plugin_apikey", None),
             octoprint_settings,
             self._logger,
@@ -194,7 +222,7 @@ class TelegramPlugin(
         enrollment = Enrollment()
         display_layer_progress = DisplayLayerProgress(plugins, api, self._logger)
 
-        self._telegram_client = TelegramClient(settings, self._logger)
+        telegram_client = TelegramClient(settings, self._logger)
 
         media = Media(
             settings,
@@ -210,14 +238,14 @@ class TelegramPlugin(
 
         chats = Chats(
             settings,
-            self._telegram_client,
+            telegram_client,
             frontend,
             self.get_plugin_data_folder(),
             lambda: self._new_chat_settings,
             self._logger,
         )
         sender = Sender(
-            self._telegram_client,
+            telegram_client,
             chats,
             muted_chats,
             media,
@@ -228,7 +256,7 @@ class TelegramPlugin(
         notifications = Notifications(
             settings,
             sender,
-            self._telegram_client,
+            telegram_client,
             muted_chats,
             self._printer,
             self._file_manager,
@@ -241,11 +269,11 @@ class TelegramPlugin(
 
         return PluginContext(
             logger=self._logger,
-            server_port=self._port,
-            commands=registry.COMMAND_DEFINITIONS,
+            server_port=port,
+            command_definitions=registry.COMMAND_DEFINITIONS,
             settings=settings,
             octoprint_settings=octoprint_settings,
-            telegram_client=self._telegram_client,
+            telegram_client=telegram_client,
             sender=sender,
             connection_status=self._connection_status,
             frontend=frontend,
@@ -266,7 +294,7 @@ class TelegramPlugin(
     ### ShutdownPlugin mixin
     ##########
 
-    def on_shutdown(self):
+    def on_shutdown(self) -> None:
         self.on_event("PrinterShutdown", {})
         self.stop_bot()
 
@@ -274,7 +302,7 @@ class TelegramPlugin(
     ### SettingsPlugin mixin
     ##########
 
-    def get_settings_defaults(self):
+    def get_settings_defaults(self) -> dict:
         return {
             "token": "",
             "notification_height": 5.0,
@@ -308,7 +336,7 @@ class TelegramPlugin(
         }
 
     @property
-    def _new_chat_settings(self):
+    def _new_chat_settings(self) -> dict:
         """The settings a chat starts with."""
         return {
             "title": "[UNKNOWN]",
@@ -321,7 +349,7 @@ class TelegramPlugin(
             "notifications": {notification: False for notification in NOTIFICATION_DEFINITIONS},
         }
 
-    def get_settings_preprocessors(self):
+    def get_settings_preprocessors(self) -> tuple[dict, dict]:
         return (
             {},
             {
@@ -330,7 +358,7 @@ class TelegramPlugin(
             },
         )
 
-    def get_settings_version(self):
+    def get_settings_version(self) -> int:
         # Settings version numbers used in releases
         # < 1.3.0: no settings versioning
         # 1.3.0:  1
@@ -342,7 +370,7 @@ class TelegramPlugin(
         # 1.10.0: 7
         return 7
 
-    def on_settings_migrate(self, target, current=None):
+    def on_settings_migrate(self, target: int, current: int | None = None) -> None:
         migrate_settings(
             target,
             current,
@@ -351,7 +379,7 @@ class TelegramPlugin(
             self._logger,
         )
 
-    def on_settings_save(self, data):
+    def on_settings_save(self, data: dict) -> None:
         self._logger.debug("Saving settings: %s", data)
 
         # Get old token from settings
@@ -379,14 +407,14 @@ class TelegramPlugin(
             self.stop_bot()
             self.start_bot()
 
-    def get_settings_restricted_paths(self):
+    def get_settings_restricted_paths(self) -> dict:
         return {"admin": [["token"], ["chats"]]}
 
     ##########
     ### AssetPlugin mixin
     ##########
 
-    def get_assets(self):
+    def get_assets(self) -> dict:
         return {
             "js": ["js/telegram.js"],
             "css": ["css/telegram.css"],
@@ -396,23 +424,23 @@ class TelegramPlugin(
     ### TemplatePlugin mixin
     ##########
 
-    def get_template_configs(self):
+    def get_template_configs(self) -> list[dict]:
         return [{"type": "settings", "name": "Telegram", "custom_bindings": True}]
 
-    def get_template_vars(self):
+    def get_template_vars(self) -> dict:
         return {"custom_emoji_map": Emoji.get_custom_emoji_map(), "plugin_version": self._plugin_version}
 
-    def is_template_autoescaped(self):
+    def is_template_autoescaped(self) -> bool:
         return True
 
     ##########
     ### WizardPlugin mixin
     ##########
 
-    def is_wizard_required(self):
+    def is_wizard_required(self) -> bool:
         return self._settings.get(["token"]) == ""
 
-    def get_wizard_version(self):
+    def get_wizard_version(self) -> int:
         return 1
         # Wizard version numbers used in releases
         # < 1.4.2 : no wizard
@@ -423,26 +451,35 @@ class TelegramPlugin(
     ### SimpleApiPlugin mixin
     ##########
 
-    def is_api_protected(self):
+    def is_api_protected(self) -> bool:
         return True
 
-    def on_api_get(self, request):
+    def on_api_get(self, request: Request) -> Response | tuple[str, int]:
         if not Permissions.SETTINGS.can():
             return "Insufficient permissions", 403
 
+        if self._api is None:
+            return "Plugin not initialized yet", 503
+
         return self._api.handle_get(request.args)
 
-    def get_api_commands(self):
+    def get_api_commands(self) -> dict[str, list[str]]:
+        if self._api is None:
+            return {}
+
         return self._api.get_api_commands()
 
-    def on_api_command(self, command, data):
+    def on_api_command(self, command: str, data: dict) -> Response | tuple[Response, int] | tuple[str, int] | None:
+        if self._api is None:
+            return "Plugin not initialized yet", 503
+
         return self._api.handle_command(command, data)
 
     ##########
     ### EventHandlerPlugin mixin
     ##########
 
-    def on_event(self, event, payload, **kwargs):
+    def on_event(self, event: str, payload: dict, **kwargs: Any) -> None:
         try:
             if not self._plugin_context:
                 self._logger.debug("Received an event, but the plugin is not initialized yet")
@@ -462,7 +499,7 @@ class TelegramPlugin(
     ### Hooks
     ##########
 
-    def get_update_information(self, *args, **kwargs):
+    def get_update_information(self, *args: Any, **kwargs: Any) -> dict:
         return {
             "telegram": {
                 "displayName": self._plugin_name,
@@ -475,7 +512,7 @@ class TelegramPlugin(
             }
         }
 
-    def route_hook(self, server_routes, *args, **kwargs):
+    def route_hook(self, server_routes: list, *args: Any, **kwargs: Any) -> list[tuple]:
         from octoprint.server.util.flask import (
             permission_validator,
         )
@@ -515,7 +552,13 @@ class TelegramPlugin(
             ),
         ]
 
-    def hook_gcode_received(self, comm_instance, line, *args, **kwargs):
+    def hook_gcode_received(
+        self,
+        comm_instance: Any,  # noqa: ANN401
+        line: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
         try:
             if line.startswith(("echo:busy: paused for user", "// action:paused")):
                 if not self._user_pause_already_notified:
@@ -530,12 +573,21 @@ class TelegramPlugin(
 
         return line
 
-    def hook_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def hook_gcode_sent(
+        self,
+        comm_instance: Any,  # noqa: ANN401
+        phase: str,
+        cmd: str,
+        cmd_type: str | None,
+        gcode: str | None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         try:
             if gcode and gcode == "M600":
                 self.on_event("gCode_M600", {})
         except Exception:
             self._logger.exception("Caught an exception on hook_gcode_sent")
 
-    def register_custom_events(self, *args, **kwargs):
+    def register_custom_events(self, *args: Any, **kwargs: Any) -> list[str]:
         return ["preimg", "postimg"]

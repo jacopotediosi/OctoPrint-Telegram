@@ -5,7 +5,7 @@ import datetime
 import html
 import os
 from itertools import islice
-from typing import ClassVar
+from typing import Callable, ClassVar
 
 import octoprint.filemanager
 import requests
@@ -39,7 +39,7 @@ class CmdFiles(BaseCommand):
     _hash_slicer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are slicer profile ids
     _hash_printer_profile_id_map: ClassVar[dict[str, str]] = {}  # Keys are hashes, values are printer profile ids
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         """
         Callback query format: /files_operation_pathHash_pageNumber_additionalArg1_additionalArg2
 
@@ -152,7 +152,7 @@ class CmdFiles(BaseCommand):
         else:
             self._file_list(command_context, None, 0)
 
-    def _file_list(self, command_context: CommandContext, path_hash, page_number):
+    def _file_list(self, command_context: CommandContext, path_hash: str | None, page_number: int) -> None:
         sent_message_id = self.plugin_context.sender.send_message(
             render_emojis("{emo:loading} Loading files..."),
             chat_id=command_context.chat_id,
@@ -360,7 +360,7 @@ class CmdFiles(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _file_info(self, command_context: CommandContext, path_hash, page_number):
+    def _file_info(self, command_context: CommandContext, path_hash: str | None, page_number: int) -> None:
         # Lookup file data and metadata
         try:
             storage_name, file_path = self._find_path_by_hash(path_hash)
@@ -521,7 +521,7 @@ class CmdFiles(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _file_details(self, command_context: CommandContext, path_hash, page_number):
+    def _file_details(self, command_context: CommandContext, path_hash: str | None, page_number: int) -> None:
         # Lookup file data and metadata
         try:
             storage_name, file_path = self._find_path_by_hash(path_hash)
@@ -699,7 +699,9 @@ class CmdFiles(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _file_settings(self, command_context: CommandContext, path_hash, page_number, selection):
+    def _file_settings(
+        self, command_context: CommandContext, path_hash: str | None, page_number: int, selection: str | None
+    ) -> None:
         command_buttons = None
 
         if selection in ("sort", "byname", "bydate"):  # Menu to choose how to sort files
@@ -798,8 +800,14 @@ class CmdFiles(BaseCommand):
         )
 
     def _file_copy_move(
-        self, command_context: CommandContext, from_hash, page_number, to_hash, confirmation, operation
-    ):
+        self,
+        command_context: CommandContext,
+        from_hash: str | None,
+        page_number: int,
+        to_hash: str | None,
+        confirmation: str | None,
+        operation: str,
+    ) -> None:
         sent_message_id = self.plugin_context.sender.send_message(
             render_emojis("{emo:loading} Loading files..."),
             chat_id=command_context.chat_id,
@@ -929,6 +937,7 @@ class CmdFiles(BaseCommand):
                                 if current_origin == from_storage_name and current_path == from_path:
                                     if hasattr(self.plugin_context.printer, "set_job"):
                                         # OctoPrint >= 2.0.0
+                                        # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
                                         self.plugin_context.printer.set_job(None)
                                     else:
                                         # OctoPrint < 2.0.0 backwards compatibility
@@ -1096,7 +1105,7 @@ class CmdFiles(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _file_print(self, command_context: CommandContext, path_hash, page_number):
+    def _file_print(self, command_context: CommandContext, path_hash: str | None, page_number: int) -> None:
         if not permissions.is_command_allowed(
             self.plugin_context.settings, command_context.chat_id, command_context.from_id, "/print"
         ):
@@ -1191,7 +1200,14 @@ class CmdFiles(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _file_slice(self, command_context: CommandContext, path_hash, page_number, additional_arg1, additional_arg2):
+    def _file_slice(
+        self,
+        command_context: CommandContext,
+        path_hash: str | None,
+        page_number: int,
+        additional_arg1: str | None,
+        additional_arg2: str | None,
+    ) -> None:
         # Check if there is at least one configured slicer available
         if not self.plugin_context.slicing_manager.slicing_enabled:
             msg = render_emojis(
@@ -1430,7 +1446,7 @@ class CmdFiles(BaseCommand):
             return
 
         # Perform slicing
-        def slice_callback(*args, **kwargs):
+        def slice_callback(*args: object, **kwargs: object) -> None:
             _error = kwargs.get("_error")
             _cancelled = kwargs.get("_cancelled")
 
@@ -1487,7 +1503,7 @@ class CmdFiles(BaseCommand):
             message_id=command_context.msg_id_to_update,
         )
 
-    def _file_download(self, command_context: CommandContext, path_hash):
+    def _file_download(self, command_context: CommandContext, path_hash: str | None) -> None:
         try:
             storage_name, file_path = self._find_path_by_hash(path_hash)
             file_path_on_disk = self.plugin_context.file_manager.path_on_disk(storage_name, file_path)
@@ -1502,7 +1518,9 @@ class CmdFiles(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _file_delete(self, command_context: CommandContext, path_hash, page_number, confirm):
+    def _file_delete(
+        self, command_context: CommandContext, path_hash: str | None, page_number: int, confirm: str | None
+    ) -> None:
         try:
             storage_name, file_path = self._find_path_by_hash(path_hash)
             full_file_path_to_display = f"/{storage_name}/{file_path}"
@@ -1537,6 +1555,7 @@ class CmdFiles(BaseCommand):
                     if currentFilename == file_path:
                         if hasattr(self.plugin_context.printer, "set_job"):
                             # OctoPrint >= 2.0.0
+                            # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
                             self.plugin_context.printer.set_job(None)
                         else:
                             # OctoPrint < 2.0.0 backwards compatibility
@@ -1551,6 +1570,7 @@ class CmdFiles(BaseCommand):
                         else:
                             # OctoPrint < 2.0.0 backwards compatibility
                             # nosemgrep (this is a fallback for older OctoPrint versions)
+                            # ty: ignore[unresolved-attribute] - wrong annotation in OctoPrint upstream
                             self.plugin_context.printer.delete_sd_file(file_path)
                     else:
                         self.plugin_context.file_manager.remove_file(storage_name, file_path)
@@ -1609,7 +1629,9 @@ class CmdFiles(BaseCommand):
                 message_id=command_context.msg_id_to_update,
             )
 
-    def _update_hash_file_path_map(self, file_listing, locations=None, path=None):
+    def _update_hash_file_path_map(
+        self, file_listing: dict, locations: str | list[str] | None = None, path: str | None = None
+    ) -> None:
         """
         Updates the internal hash-to-file-path mapping for OctoPrint files and folders.
 
@@ -1640,7 +1662,7 @@ class CmdFiles(BaseCommand):
             >>> self._update_hash_file_path_map(file_listing, locations="local", path="models/prints")
         """
 
-        def _process_tree(tree, current_path=""):
+        def _process_tree(tree: dict, current_path: str = "") -> None:
             for node_name, node_data in tree.items():
                 is_folder = node_data.get("type") == "folder"
                 full_node_path = f"{current_path}{node_name}"
@@ -1674,7 +1696,15 @@ class CmdFiles(BaseCommand):
                 else:
                     self._logger.warning("Parameter mismatch: location %s not found in file listing", location)
 
-    def _list_files(self, locations=None, path=None, filter=None, recursive=True, level=0, force_refresh=False):
+    def _list_files(
+        self,
+        locations: str | list[str] | None = None,
+        path: str | None = None,
+        filter: Callable[[dict], bool] | None = None,
+        recursive: bool = True,
+        level: int = 0,
+        force_refresh: bool = False,
+    ) -> dict:
         """
         List files from OctoPrint and update internal hash-to-path map.
         """
@@ -1690,7 +1720,7 @@ class CmdFiles(BaseCommand):
         # Return file listing
         return file_listing
 
-    def _find_path_by_hash(self, path_hash):
+    def _find_path_by_hash(self, path_hash: str | None) -> tuple[str, str]:
         if path_hash not in self._hash_file_path_map:
             raise Exception("File not found")
 
@@ -1700,13 +1730,13 @@ class CmdFiles(BaseCommand):
         path_without_storage = "/".join(path_parts[1:])  # e.g.: '' or foo
         return storage_name, path_without_storage
 
-    def _hash_path(self, path):
+    def _hash_path(self, path: str) -> str:
         return callbacks.hash_value(path, self.HASH_PATH_LENGTH)
 
-    def _hash_slicer_data(self, data):
+    def _hash_slicer_data(self, data: str) -> str:
         return callbacks.hash_value(data, self.HASH_SLICER_DATA_LENGTH)
 
-    def _upload_thumbnail_to_imgbb(self, file_metadata):
+    def _upload_thumbnail_to_imgbb(self, file_metadata: dict) -> str | None:
         """
         Upload thumbnail to imgbb and return public URL.
 

@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdAbort(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if command_context.parameter == "stop":
             self.plugin_context.printer.cancel_print(user=command_context.user)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import urljoin
 
 import requests
@@ -31,7 +31,7 @@ class OctoPrintApi:
         generate_plugin_api_key: Callable[[], str | None],
         octoprint_settings: OctoPrintSettings,
         logger: logging.Logger,
-    ):
+    ) -> None:
         """
         Args:
             server_port (int): The port OctoPrint's API is served on.
@@ -98,7 +98,7 @@ class OctoPrintApi:
             timeout=timeout,
         )
 
-    def send_request(self, url: str, method: str = "GET", **kwargs) -> requests.Response:
+    def send_request(self, url: str, method: str = "GET", **kwargs: Any) -> requests.Response:
         """
         Sends an HTTP request to the OctoPrint API with default authentication headers.
 
@@ -135,12 +135,12 @@ class OctoPrintApi:
             "headers": headers,
             "timeout": 5,
         }
-        request_kwargs = {**default_kwargs, **kwargs}
+        request_kwargs: dict[str, Any] = {**default_kwargs, **kwargs}
 
         loggable_kwargs = {}
         for k, v in request_kwargs.items():
-            if k == "headers" and "X-Api-Key" in v:
-                loggable_kwargs[k] = {**v, "X-Api-Key": "REDACTED"}
+            if k == "headers":
+                loggable_kwargs[k] = {**headers, "X-Api-Key": "REDACTED"}
             elif k == "files":
                 loggable_kwargs[k] = "<binary data>"
             else:

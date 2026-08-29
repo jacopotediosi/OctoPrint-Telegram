@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import html
+from typing import TYPE_CHECKING
 
 from ..emoji import Emoji
 from ..integrations.filament import FILAMENT_PLUGINS
 from ..telegram import Markup
 from .base import BaseCommand, CommandContext
+
+if TYPE_CHECKING:
+    from ..core.context import PluginContext
 
 render_emojis = Emoji.render_emojis
 
@@ -12,11 +18,11 @@ class CmdFilament(BaseCommand):
     # Number of spools to display per page
     PAGE_SIZE = 15
 
-    def __init__(self, plugin_context):
+    def __init__(self, plugin_context: PluginContext) -> None:
         super().__init__(plugin_context)
         self.supported_plugins = [filament_plugin(plugin_context) for filament_plugin in FILAMENT_PLUGINS]
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         """
         Possible callback queries:
 

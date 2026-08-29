@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 class PowerPlugin(ABC):
     """A third-party plugin through which power outlets can be switched on and off."""
 
-    def __init__(self, plugin_context: PluginContext):
+    def __init__(self, plugin_context: PluginContext) -> None:
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("PowerPlugin")
 
@@ -37,9 +37,9 @@ class PowerPlugin(ABC):
         """
 
     @abstractmethod
-    def turn_on(self, plug_data) -> None:
+    def turn_on(self, plug_data: str) -> None:
         """Switch a plug on."""
 
     @abstractmethod
-    def turn_off(self, plug_data) -> None:
+    def turn_off(self, plug_data: str) -> None:
         """Switch a plug off."""

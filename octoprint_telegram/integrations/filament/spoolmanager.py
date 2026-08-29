@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 
 from ...emoji import Emoji
@@ -8,14 +10,14 @@ render_emojis = Emoji.render_emojis
 
 class SpoolManagerFilamentPlugin(FilamentPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "SpoolManager"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "SpoolManager"
 
-    def _build_spool_description(self, spool):
+    def _build_spool_description(self, spool: dict) -> str:
         parts = list(
             filter(
                 None,
@@ -37,7 +39,7 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return " ".join(parts) if parts else ""
 
-    def list_spool(self):
+    def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=all&sortColumn=displayName&sortOrder=asc&filterName=hideInactiveSpools",
             timeout=15,
@@ -54,7 +56,7 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
-    def get_spool_details_msg(self, spool_id):
+    def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=all&sortColumn=displayName&sortOrder=asc&filterName=hideInactiveSpools",
             timeout=15,
@@ -203,17 +205,17 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
 
         return render_emojis("{emo:attention} Spool not found")
 
-    def select_spool(self, tool_index, spool_id):
+    def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": spool_id, "toolIndex": tool_index}
         )
 
-    def deselect_spool(self, tool_index):
+    def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": -1, "toolIndex": tool_index}
         )
 
-    def get_selected_spools(self):
+    def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/loadSpoolsByQuery?selectedPageSize=0&from=0&to=0&sortColumn=&sortOrder=&filterName=",
             timeout=15,

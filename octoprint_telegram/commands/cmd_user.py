@@ -8,9 +8,9 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdUser(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         # Gather data
-        chat_settings = self.plugin_context.chats.get_chat(command_context.chat_id)
+        chat_settings = self.plugin_context.chats.get_chat(command_context.chat_id) or {}
         from_settings = self.plugin_context.chats.get_chat(command_context.from_id)
 
         # -- Chat and user information section --

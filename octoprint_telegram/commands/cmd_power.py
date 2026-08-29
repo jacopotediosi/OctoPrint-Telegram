@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import html
+from typing import TYPE_CHECKING
 
 from ..emoji import Emoji
 from ..integrations.power import POWER_PLUGINS
@@ -6,15 +9,18 @@ from ..telegram import Markup
 from ..utils import StringUtils
 from .base import BaseCommand, CommandContext
 
+if TYPE_CHECKING:
+    from ..core.context import PluginContext
+
 render_emojis = Emoji.render_emojis
 
 
 class CmdPower(BaseCommand):
-    def __init__(self, plugin_context):
+    def __init__(self, plugin_context: PluginContext) -> None:
         super().__init__(plugin_context)
         self.supported_plugins = [power_plugin(plugin_context) for power_plugin in POWER_PLUGINS]
 
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         supported_plugins = self.supported_plugins
 
         available_plugins = [
@@ -78,7 +84,7 @@ class CmdPower(BaseCommand):
 
         else:
             splitted_parameters = StringUtils.split_with_escape_handling(command_context.parameter, "_")
-            plugin_id, plug_data, action = (splitted_parameters + [None] * 3)[:3]
+            plugin_id, plug_data, action = (splitted_parameters + [""] * 3)[:3]
 
             plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
 
@@ -101,7 +107,7 @@ class CmdPower(BaseCommand):
                 )
                 return
 
-            if action is None:  # Command was /power_plugin\_id_plug\_data, show plug status and ask for action
+            if not action:  # Command was /power_plugin\_id_plug\_data, show plug status and ask for action
                 plugs = plugin_handler.get_plugs_data()
                 selected_plug = next((plug for plug in plugs if str(plug["data"]) == plug_data), None)
 

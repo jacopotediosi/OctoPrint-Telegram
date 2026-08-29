@@ -11,6 +11,10 @@ from .video import FfmpegPreset, Video
 from .webcams import WebcamProfile, Webcams
 
 if TYPE_CHECKING:
+    from octoprint.events import EventManager
+    from octoprint.plugin.core import PluginManager
+    from octoprint.printer import PrinterInterface
+
     from ..core.settings import OctoPrintSettings, Settings
     from ..integrations.plugins import Plugins
 
@@ -23,12 +27,12 @@ class Media:
         settings: Settings,
         octoprint_settings: OctoPrintSettings,
         plugins: Plugins,
-        plugin_manager,
-        printer,
-        event_manager,
+        plugin_manager: PluginManager,
+        printer: PrinterInterface,
+        event_manager: EventManager,
         data_folder: str,
         logger: logging.Logger,
-    ):
+    ) -> None:
         self.webcams = Webcams(plugin_manager, plugins, octoprint_settings, logger)
         self.snapshots = Snapshots(self.webcams, logger)
         self.video = Video(self.webcams, settings, octoprint_settings, data_folder, logger)

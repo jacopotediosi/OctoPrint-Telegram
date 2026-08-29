@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.settings import Settings
 
 
 class Formatters:
     """Static formatting utilities for various data types."""
 
     @staticmethod
-    def format_eta(settings, seconds_from_now) -> str:
+    def format_eta(settings: Settings, seconds_from_now: float) -> str:
         """
         Format the clock time reached after the given number of seconds.
 
@@ -32,7 +38,7 @@ class Formatters:
         return finish_time.strftime(time_format)
 
     @staticmethod
-    def format_size(bytes_value) -> str:
+    def format_size(bytes_value: float | None) -> str:
         """
         Format file size in human readable format.
         From octoprint/static/js/app/helpers.js transferred to python.
@@ -57,7 +63,7 @@ class Formatters:
         return f"{bytes_value:.1f}TB"
 
     @staticmethod
-    def format_filament(filament) -> str:
+    def format_filament(filament: dict | None) -> str:
         """
         Format filament usage information.
         From octoprint/static/js/app/helpers.js transferred to python.
@@ -80,7 +86,7 @@ class Formatters:
         return result
 
     @staticmethod
-    def format_duration(seconds) -> str:
+    def format_duration(seconds: float | None) -> str:
         """
         Format duration in HH:MM:SS format.
 
@@ -103,7 +109,7 @@ class Formatters:
         return f"{h:02d}:{m:02d}:{s:02d}"
 
     @staticmethod
-    def format_fuzzy_print_time(total_seconds):
+    def format_fuzzy_print_time(total_seconds: float | None) -> str:
         """
         Formats a print time estimate in a very fuzzy way.
         From octoprint/static/js/app/helpers.js transferred to python.

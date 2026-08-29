@@ -1,7 +1,7 @@
 class MutedChats:
     """The chats that asked to receive no notifications until the print ends."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._muted_chat_ids = set()
 
     def mute_chat(self, chat_id: str) -> None:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 
 from .base import FilamentPlugin
@@ -5,14 +7,14 @@ from .base import FilamentPlugin
 
 class FilamentManagerFilamentPlugin(FilamentPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "filamentmanager"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "FilamentManager"
 
-    def _build_spool_description(self, spool):
+    def _build_spool_description(self, spool: dict) -> str:
         parts = []
 
         if spool.get("name"):
@@ -36,7 +38,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return " ".join(parts) if parts else ""
 
-    def list_spool(self):
+    def list_spool(self) -> dict[str, str]:
         response = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/spools", timeout=15)
         data = response.json()
 
@@ -50,7 +52,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return spool_dict
 
-    def get_spool_details_msg(self, spool_id):
+    def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/spools/{spool_id}",
         )
@@ -87,21 +89,21 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
 
         return msg
 
-    def select_spool(self, tool_index, spool_id):
+    def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections/{tool_index}",
             "PATCH",
             json={"selection": {"tool": tool_index, "spool": {"id": spool_id}, "updateui": True}},
         )
 
-    def deselect_spool(self, tool_index):
+    def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections/{tool_index}",
             "PATCH",
             json={"selection": {"tool": tool_index, "spool": {"id": None}, "updateui": True}},
         )
 
-    def get_selected_spools(self):
+    def get_selected_spools(self) -> dict[int, str]:
         response = self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/selections",
         )

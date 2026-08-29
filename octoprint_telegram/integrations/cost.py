@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class Cost:
     """The print cost rates configured in the Cost plugin."""
 
-    def __init__(self, settings: PluginSettings):
+    def __init__(self, settings: PluginSettings) -> None:
         self._settings = settings
 
     @property

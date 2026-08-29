@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class Commands:
     """The bot commands, ready to run."""
 
-    def __init__(self, plugin_context: PluginContext):
+    def __init__(self, plugin_context: PluginContext) -> None:
         self._commands: dict[str, BaseCommand] = {
             command.name: command.implementation(plugin_context) for command in registry.COMMAND_DEFINITIONS
         }

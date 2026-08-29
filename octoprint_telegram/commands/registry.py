@@ -62,7 +62,7 @@ class CommandDefinition:
     takes_parameter: bool = False
     available_to_everyone: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.description.strip():
             raise ValueError(f"Command {self.name} has no description")
 

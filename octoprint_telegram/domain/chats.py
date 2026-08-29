@@ -22,7 +22,7 @@ PLACEHOLDER_CHAT_ID = "zBOTTOMOFCHATS"
 PICTURE_SIZE = (40, 40)
 
 
-def is_group_or_channel(chat_id) -> bool:
+def is_group_or_channel(chat_id: str) -> bool:
     """Whether a chat id belongs to a group or a channel rather than to a single user."""
     return int(chat_id) < 0
 
@@ -59,7 +59,7 @@ class Chats:
         data_folder: str,
         build_new_chat_settings: Callable[[], dict],
         logger: logging.Logger,
-    ):
+    ) -> None:
         self._settings = settings
         self._telegram_client = telegram_client
         self._frontend = frontend
@@ -124,8 +124,6 @@ class Chats:
         if not self._telegram_client.is_connected:
             return ""
 
-        chat_id = int(chat_id)
-
         self._logger.debug("Saving chat picture for chat %s", chat_id)
 
         try:
@@ -158,7 +156,7 @@ class Chats:
 
             img_bytes = self._telegram_client.download_file(file_id)
             with Image.open(io.BytesIO(img_bytes)) as img:
-                img = img.resize(PICTURE_SIZE, Image.LANCZOS)
+                img = img.resize(PICTURE_SIZE, Image.LANCZOS)  # ty: ignore[unresolved-attribute]
                 img.save(output_filename, format="JPEG")
 
             self._logger.info("Saved chat picture for chat id %s", chat_id)
@@ -166,10 +164,13 @@ class Chats:
             # Nocache is used to force image refresh in the known chats table
             nocache = int(time.time())
 
-            return f"/plugin/telegram/img/user/pic{chat_id}.jpg?nocache={nocache}"
+            return f"/plugin/telegram/img/user/{self._chat_picture_filename(chat_id)}?nocache={nocache}"
         except Exception:
             self._logger.exception("Caught an exception saving chat picture for chat_id %s", chat_id)
             return ""
 
-    def _chat_picture_path(self, chat_id) -> str:
-        return os.path.join(self._data_folder, "img", "user", f"pic{int(chat_id)}.jpg")
+    def _chat_picture_filename(self, chat_id: str) -> str:
+        return f"pic{int(chat_id)}.jpg"
+
+    def _chat_picture_path(self, chat_id: str) -> str:
+        return os.path.join(self._data_folder, "img", "user", self._chat_picture_filename(chat_id))

@@ -13,7 +13,7 @@ from .webcams import WebcamProfile, Webcams
 class Snapshots:
     """Still pictures taken from the webcams."""
 
-    def __init__(self, webcams: Webcams, logger: logging.Logger):
+    def __init__(self, webcams: Webcams, logger: logging.Logger) -> None:
         self._webcams = webcams
         self._logger = logger.getChild("Snapshots")
 
@@ -88,11 +88,11 @@ class Snapshots:
                 )
 
                 if flipH:
-                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                    image = image.transpose(Image.FLIP_LEFT_RIGHT)  # ty: ignore[unresolved-attribute]
                 if flipV:
-                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                    image = image.transpose(Image.FLIP_TOP_BOTTOM)  # ty: ignore[unresolved-attribute]
                 if rotate:
-                    image = image.transpose(Image.ROTATE_90)
+                    image = image.transpose(Image.ROTATE_90)  # ty: ignore[unresolved-attribute]
 
             with io.BytesIO() as output:
                 image.save(output, format="JPEG")

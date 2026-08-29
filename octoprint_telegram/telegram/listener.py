@@ -20,7 +20,7 @@ LONG_POLL_SECONDS = 30
 class Listener(threading.Thread):
     """Fetches updates from Telegram and hands each one to the dispatcher."""
 
-    def __init__(self, plugin_context: PluginContext, dispatcher: Dispatcher):
+    def __init__(self, plugin_context: PluginContext, dispatcher: Dispatcher) -> None:
         threading.Thread.__init__(self, daemon=True)
         self.plugin_context = plugin_context
         self._dispatcher = dispatcher
@@ -31,7 +31,7 @@ class Listener(threading.Thread):
         self._do_stop = False
         self._username = "UNKNOWN"
 
-    def run(self):
+    def run(self) -> None:
         self._logger.debug("Try first connect.")
         self._try_first_contact()
 
@@ -46,7 +46,7 @@ class Listener(threading.Thread):
 
         self._logger.debug("Listener exits NOW.")
 
-    def _try_first_contact(self):
+    def _try_first_contact(self) -> None:
         got_contact = False
         while not self._do_stop and not got_contact:
             try:
@@ -64,7 +64,7 @@ class Listener(threading.Thread):
 
                 time.sleep(RETRY_DELAY_SECONDS)
 
-    def _process_updates(self):
+    def _process_updates(self) -> None:
         # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
             updates = self._get_updates()
@@ -100,7 +100,7 @@ class Listener(threading.Thread):
             self._first_contact = False
             self.plugin_context.notifications.send_notification("PrinterStart")
 
-    def _set_update_offset(self, new_value):
+    def _set_update_offset(self, new_value: int) -> None:
         if new_value >= self._update_offset:
             self._logger.debug(f"Updating update_offset from {self._update_offset} to {1 + new_value}")
             self._update_offset = 1 + new_value
@@ -111,7 +111,7 @@ class Listener(threading.Thread):
                 1 + new_value,
             )
 
-    def _get_updates(self):
+    def _get_updates(self) -> list[dict]:
         # If it is the first contact, drain the updates backlog
         if self._update_offset == 0 and self._first_contact:
             while True:
@@ -149,10 +149,10 @@ class Listener(threading.Thread):
         # Return results
         return results
 
-    def stop(self):
+    def stop(self) -> None:
         self._do_stop = True
 
-    def _set_status(self, status, ok=False):
+    def _set_status(self, status: str, ok: bool = False) -> None:
         if self.plugin_context.connection_status.message == status:
             return
 

@@ -8,7 +8,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdCancelObject(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         cancelobject_id = "cancelobject"
 
         if not self.plugin_context.plugins.is_enabled(cancelobject_id):

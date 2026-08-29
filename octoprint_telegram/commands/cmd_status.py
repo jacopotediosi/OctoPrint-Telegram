@@ -2,7 +2,7 @@ from .base import BaseCommand, CommandContext
 
 
 class CmdStatus(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.notifications.send_notification(
                 "StatusNotConnected", {}, chat_id=command_context.chat_id

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 class FilamentPlugin(ABC):
     """A third-party plugin through which filament spools can be browsed and selected."""
 
-    def __init__(self, plugin_context: PluginContext):
+    def __init__(self, plugin_context: PluginContext) -> None:
         self.plugin_context = plugin_context
 
     @property
@@ -24,7 +24,7 @@ class FilamentPlugin(ABC):
         """The plugin name shown to users."""
 
     @abstractmethod
-    def list_spool(self):
+    def list_spool(self) -> dict[str, str]:
         """
         Retrieve a mapping of spool IDs to their human-readable descriptions.
 
@@ -43,7 +43,7 @@ class FilamentPlugin(ABC):
         """
 
     @abstractmethod
-    def get_spool_details_msg(self, spool_id):
+    def get_spool_details_msg(self, spool_id: str) -> str:
         """
         Retrieve detailed information for a specific spool and format it as HTML message.
 
@@ -69,15 +69,15 @@ class FilamentPlugin(ABC):
         """
 
     @abstractmethod
-    def select_spool(self, tool_index, spool_id):
+    def select_spool(self, tool_index: str, spool_id: str) -> None:
         """Assign a spool to a tool."""
 
     @abstractmethod
-    def deselect_spool(self, tool_index):
+    def deselect_spool(self, tool_index: str) -> None:
         """Clear the spool assigned to a tool."""
 
     @abstractmethod
-    def get_selected_spools(self):
+    def get_selected_spools(self) -> dict[int, str]:
         """
         Retrieve a mapping of tool numbers to their currently selected spool human-readable descriptions.
 

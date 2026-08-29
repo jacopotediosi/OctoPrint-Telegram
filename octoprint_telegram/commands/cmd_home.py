@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdHome(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if self.plugin_context.printer.is_ready():
             msg = render_emojis("{emo:home} Homing.")
             self.plugin_context.printer.home(["x", "y", "z"])

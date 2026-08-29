@@ -6,7 +6,7 @@ WINDOW_SECONDS = 5 * 60
 class Enrollment:
     """The time window during which unknown chats are allowed to add themselves."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._open_until = None
 
     def open(self) -> int:

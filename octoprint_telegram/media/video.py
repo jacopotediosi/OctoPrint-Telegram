@@ -44,7 +44,7 @@ class Video:
         octoprint_settings: OctoPrintSettings,
         data_folder: str,
         logger: logging.Logger,
-    ):
+    ) -> None:
         self._webcams = webcams
         self._settings = settings
         self._octoprint_settings = octoprint_settings
@@ -56,7 +56,7 @@ class Video:
         """The folder recorded videos are written to."""
         return os.path.join(self._data_folder, TEMPORARY_DIRECTORY_NAME)
 
-    def take_all_gifs(self, duration=5) -> list[str]:
+    def take_all_gifs(self, duration: int = 5) -> list[str]:
         taken_gif_paths = []
 
         self._logger.debug("Taking all gifs")
@@ -87,12 +87,12 @@ class Video:
 
     def take_gif(
         self,
-        stream_url,
-        duration=5,
-        gif_filename="gif.mp4",
-        flipH=False,
-        flipV=False,
-        rotate=False,
+        stream_url: str,
+        duration: int = 5,
+        gif_filename: str = "gif.mp4",
+        flipH: bool = False,
+        flipV: bool = False,
+        rotate: bool = False,
     ) -> str:
         stream_url = urljoin("http://localhost/", stream_url)
 
@@ -157,7 +157,7 @@ class Video:
         if shutil.which("nice"):
             cmd = ["nice", "-n", "20"]
 
-        if not cpulimiter_disabled:
+        if cpulimiter_path and not cpulimiter_disabled:
             cmd += [
                 cpulimiter_path,
                 "-l",

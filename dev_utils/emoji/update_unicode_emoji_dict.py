@@ -1,4 +1,3 @@
-import codecs
 from pathlib import Path
 
 import requests
@@ -51,7 +50,7 @@ print(
 )
 
 # Save emoji_dict to file
-with codecs.open(OUTPUT_PATH, encoding="utf-8", mode="w") as file:
+with OUTPUT_PATH.open(mode="w", encoding="utf-8", newline="") as file:
     file.write(
         "# pylint: disable=line-too-long\n"
         "# Generated with data from:\n"

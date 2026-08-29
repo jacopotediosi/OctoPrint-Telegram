@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 from .base import PowerPlugin
 
 
 class EnclosurePowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "enclosure"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "Enclosure"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
         plugs = self.plugin_context.api.send_request(f"/plugin/{self.plugin_id}/outputs").json()
@@ -26,13 +28,13 @@ class EnclosurePowerPlugin(PowerPlugin):
 
         return plugs_data
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command(True, plug_data)
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command(False, plug_data)
 
-    def _send_command(self, status, plug_data):
+    def _send_command(self, status: bool, plug_data: str) -> None:
         self.plugin_context.api.send_request(
             f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json={"status": status}
         )

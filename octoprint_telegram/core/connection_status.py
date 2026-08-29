@@ -1,7 +1,7 @@
 class ConnectionStatus:
     """How the connection to Telegram is doing, as shown on the settings page."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.message = "Disconnected."
         self.ok = False
 

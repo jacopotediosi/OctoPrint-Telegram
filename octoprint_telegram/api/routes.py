@@ -11,6 +11,9 @@ from ..commands import registry
 from ..notifications import NOTIFICATION_DEFINITIONS
 
 if TYPE_CHECKING:
+    from flask import Response
+    from werkzeug.datastructures import MultiDict
+
     from ..core.context import PluginContext
 
 SUGGESTED_PLUGIN_IDS = [
@@ -52,11 +55,11 @@ SUGGESTED_PLUGIN_IDS = [
 class Api:
     """The plugin's own HTTP API, used by its settings page."""
 
-    def __init__(self, plugin_context: PluginContext):
+    def __init__(self, plugin_context: PluginContext) -> None:
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Api")
 
-    def handle_get(self, request_args=None):
+    def handle_get(self, request_args: MultiDict | None = None) -> Response:
         # /?enrollmentCountdown
         if request_args and "enrollmentCountdown" in request_args:
             return jsonify({"remaining": self.plugin_context.enrollment.remaining_seconds})
@@ -123,7 +126,7 @@ class Api:
             }
         )
 
-    def get_api_commands(self):
+    def get_api_commands(self) -> dict[str, list[str]]:
         return {
             "delChat": ["chat_id"],
             "editChat": [
@@ -137,7 +140,7 @@ class Api:
             "testToken": ["token"],
         }
 
-    def handle_command(self, command, data):
+    def handle_command(self, command: str, data: dict) -> Response | tuple[Response, int] | None:
         self._logger.info("Received API command %s with data %s", command, data)
 
         if not Permissions.SETTINGS.can():

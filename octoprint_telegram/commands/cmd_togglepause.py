@@ -5,7 +5,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdTogglePause(BaseCommand):
-    def execute(self, command_context: CommandContext):
+    def execute(self, command_context: CommandContext) -> None:
         if self.plugin_context.printer.is_printing():
             msg = render_emojis("{emo:pause} Pausing the print.")
             self.plugin_context.printer.pause_print(user=command_context.user)

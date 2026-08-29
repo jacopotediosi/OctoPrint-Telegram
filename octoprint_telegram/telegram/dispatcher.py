@@ -20,13 +20,13 @@ render_emojis = Emoji.render_emojis
 class Dispatcher:
     """Routes each update Telegram sends to whatever handles it."""
 
-    def __init__(self, plugin_context: PluginContext, commands: Commands):
+    def __init__(self, plugin_context: PluginContext, commands: Commands) -> None:
         self.plugin_context = plugin_context
         self._commands = commands
         self._uploads = Uploads(plugin_context)
         self._logger = plugin_context.logger.getChild("Dispatcher")
 
-    def process_update(self, update):
+    def process_update(self, update: dict) -> None:
         self._logger.debug("Processing update: %s", update)
 
         chat_id = self._get_chat_id(update)
@@ -71,7 +71,7 @@ class Dispatcher:
         else:
             self._logger.debug("Got an unknown update. Doing nothing. Update was: %s", update)
 
-    def _handle_my_chat_member(self, my_chat_member, chat_id, from_id):
+    def _handle_my_chat_member(self, my_chat_member: dict, chat_id: str, from_id: str) -> None:
         status = my_chat_member.get("new_chat_member", {}).get("status", "")
 
         try:
@@ -97,7 +97,7 @@ class Dispatcher:
             self._logger.info("The bot left chat %s, removing it from settings...", chat_id)
             self.plugin_context.chats.remove_chat(chat_id)
 
-    def _enroll_chat(self, chat_id, chat_title, chat_type):
+    def _enroll_chat(self, chat_id: str, chat_title: str, chat_type: str) -> None:
         """Add a chat to the known chats and tell it that its permissions still have to be configured."""
         self.plugin_context.chats.add_chat(chat_id, chat_title, chat_type)
         self.plugin_context.sender.send_message(
@@ -108,7 +108,7 @@ class Dispatcher:
             chat_id,
         )
 
-    def _handle_new_chat_title_message(self, message, chat_id, from_id):
+    def _handle_new_chat_title_message(self, message: dict, chat_id: str, from_id: str) -> None:
         self._logger.info("Chat %s changed title, updating it...", chat_id)
 
         chat = message["chat"]
@@ -117,12 +117,12 @@ class Dispatcher:
         self.plugin_context.settings.save()
         self.plugin_context.frontend.update_known_chats(self.plugin_context.settings.chats)
 
-    def _handle_new_chat_photo_message(self, message, chat_id, from_id):
+    def _handle_new_chat_photo_message(self, message: dict, chat_id: str, from_id: str) -> None:
         self._logger.info("Chat %s changed picture, updating it...", chat_id)
 
         try:
 
-            def update_chat_picture():
+            def update_chat_picture() -> None:
                 public_path = self.plugin_context.chats.save_chat_picture(chat_id)
                 self.plugin_context.settings.set_chat_field(chat_id, "image", public_path)
                 self.plugin_context.settings.save()
@@ -132,7 +132,7 @@ class Dispatcher:
         except Exception:
             self._logger.exception("Caught an exception updating chat picture for chat_id %s", chat_id)
 
-    def _handle_text_message(self, message, chat_id, from_id):
+    def _handle_text_message(self, message: dict, chat_id: str, from_id: str) -> None:
         message_text = message["text"]
 
         if not message_text.startswith("/"):
@@ -142,9 +142,9 @@ class Dispatcher:
         # Remove bot username from commands like /command@botusername
         command = message_text.split("@")[0]
 
-        self._handle_command(command, chat_id, from_id, message.get("from"))
+        self._handle_command(command, chat_id, from_id, message.get("from") or {})
 
-    def _handle_callback_query(self, callback_query, chat_id, from_id):
+    def _handle_callback_query(self, callback_query: dict, chat_id: str, from_id: str) -> None:
         command = callback_query["data"]
         from_obj = callback_query["from"]
         msg_id_to_update = callback_query.get("message", {}).get("message_id", "")
@@ -165,7 +165,9 @@ class Dispatcher:
         except Exception:
             self._logger.exception("Caught an exception sending answerCallbackQuery")
 
-    def _handle_command(self, command, chat_id, from_id, from_obj, msg_id_to_update=""):
+    def _handle_command(
+        self, command: str, chat_id: str, from_id: str, from_obj: dict, msg_id_to_update: str = ""
+    ) -> None:
         # Separate command and parameter
         parts = command.split("_")
         command = parts[0].lower()
@@ -228,7 +230,7 @@ class Dispatcher:
                 chat_id,
             )
 
-    def _get_chat_id(self, update):
+    def _get_chat_id(self, update: dict) -> str:
         if "message" in update:
             chat_id = update["message"]["chat"]["id"]
         elif "callback_query" in update:
@@ -244,7 +246,7 @@ class Dispatcher:
 
         return str(chat_id)
 
-    def _get_from_id(self, update):
+    def _get_from_id(self, update: dict) -> str:
         if "message" in update:
             from_id = update.get("message", {}).get("from", {}).get("id", "")
         elif "callback_query" in update:

@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 from .base import PowerPlugin
 
 
 class WyzePowerPlugin(PowerPlugin):
     @property
-    def plugin_id(self):
+    def plugin_id(self) -> str:
         return "wyze"
 
     @property
-    def plugin_name(self):
+    def plugin_name(self) -> str:
         return "Wyze"
 
-    def get_plugs_data(self):
+    def get_plugs_data(self) -> list[dict]:
         plugs_data = []
 
         plugs = self.plugin_context.api.send_simpleapi_command(self.plugin_id, "get_devices").json()
@@ -26,11 +28,11 @@ class WyzePowerPlugin(PowerPlugin):
 
         return plugs_data
 
-    def turn_on(self, plug_data):
+    def turn_on(self, plug_data: str) -> None:
         self._send_command("turn_on", plug_data)
 
-    def turn_off(self, plug_data):
+    def turn_off(self, plug_data: str) -> None:
         self._send_command("turn_off", plug_data)
 
-    def _send_command(self, command, plug_data):
+    def _send_command(self, command: str, plug_data: str) -> None:
         self.plugin_context.api.send_simpleapi_command(self.plugin_id, command, {"device_mac": plug_data})
