@@ -235,7 +235,7 @@ class Sender:
         movie: str | None = None,
     ) -> str | None:
         try:
-            message_data["disable_web_page_preview"] = True
+            message_data["link_preview_options"] = json.dumps({"is_disabled": True})
             message_data["disable_notification"] = silent
 
             # Prepare images and gifs to send
