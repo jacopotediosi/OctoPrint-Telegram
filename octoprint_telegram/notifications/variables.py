@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
-from octoprint.filemanager import FileDestinations
 from octoprint.util import get_formatted_timedelta
 
 from ..utils import Formatters
@@ -250,9 +249,19 @@ class NotificationVariables:
         return self._payload.get("user") or ""
 
     @cached_property
+    def storage(self) -> str:
+        """Storage the file currently being printed is stored in"""
+        return self.status.get("job", {}).get("file", {}).get("origin") or ""
+
+    @cached_property
+    def path(self) -> str:
+        """Full path of the file currently being printed"""
+        return self.status.get("job", {}).get("file", {}).get("path") or ""
+
+    @cached_property
     def file(self) -> str:
         """File name of the file currently being printed"""
-        file = self.status.get("job", {}).get("file", {}).get("name", "")
+        file = self.status.get("job", {}).get("file", {}).get("name") or ""
         for key in ("filename", "gcode", "file"):
             value = self._payload.get(key)
             if value:
@@ -261,16 +270,11 @@ class NotificationVariables:
         return file
 
     @cached_property
-    def path(self) -> str:
-        """Full path of the file currently being printed"""
-        return self.status.get("job", {}).get("file", {}).get("path", "")
-
-    @cached_property
     def metadata(self) -> dict:
         """A dictionary containing metadata of the file currently being printed"""
-        if not self.path:
+        if not self.path or self.storage not in self._file_manager.registered_storages:
             return {}
-        return self._file_manager.get_metadata(FileDestinations.LOCAL, self.path)
+        return self._file_manager.get_metadata(self.storage, self.path) or {}
 
     @cached_property
     def error_msg(self) -> str:
