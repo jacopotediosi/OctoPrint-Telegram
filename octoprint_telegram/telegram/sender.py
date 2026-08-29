@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from ..core.connection_status import ConnectionStatus
     from ..domain.chats import Chats
     from ..domain.mute import MutedChats
-    from ..integrations.octoprint_api import OctoPrintApi
     from ..media import Media
     from .client import TelegramClient
 
@@ -37,7 +36,6 @@ class Sender:
         chats: Chats,
         muted_chats: MutedChats,
         media: Media,
-        api: OctoPrintApi,
         connection_status: ConnectionStatus,
         logger: logging.Logger,
     ) -> None:
@@ -45,7 +43,6 @@ class Sender:
         self._chats = chats
         self._muted_chats = muted_chats
         self._media = media
-        self._api = api
         self._connection_status = connection_status
         self._logger = logger.getChild("Sender")
 
@@ -66,7 +63,7 @@ class Sender:
         with_image: bool = False,
         with_gif: bool = False,
         gif_duration: int = 5,
-        thumbnail: str | None = None,
+        thumbnail: bytes | None = None,
         movie: str | None = None,
     ) -> str | None:
         """
@@ -83,7 +80,7 @@ class Sender:
             with_image (bool, optional): Attach a snapshot from every configured webcam.
             with_gif (bool, optional): Attach a video from every configured webcam.
             gif_duration (int, optional): Seconds of video to record from each webcam.
-            thumbnail (str, optional): OctoPrint path of a thumbnail to attach.
+            thumbnail (bytes, optional): Content of a thumbnail image to attach.
             movie (str, optional): Path on disk of a video to attach.
 
         Returns:
@@ -132,7 +129,7 @@ class Sender:
         silent: bool = False,
         with_image: bool = False,
         with_gif: bool = False,
-        thumbnail: str | None = None,
+        thumbnail: bytes | None = None,
         movie: str | None = None,
     ) -> None:
         """Send a message to every chat subscribed to an event."""
@@ -234,7 +231,7 @@ class Sender:
         with_gif: bool = False,
         silent: bool = False,
         gif_duration: int = 5,
-        thumbnail: str | None = None,
+        thumbnail: bytes | None = None,
         movie: str | None = None,
     ) -> str | None:
         try:
@@ -247,12 +244,7 @@ class Sender:
 
             # Add thumbnail to images to send
             if thumbnail:
-                try:
-                    self._logger.debug("Get thumbnail: %s", thumbnail)
-                    thumbnail_response = self._api.send_request(f"/{thumbnail}")
-                    images_to_send.append(thumbnail_response.content)
-                except Exception:
-                    self._logger.exception("Caught an exception getting thumbnail")
+                images_to_send.append(thumbnail)
 
             # Add movie to gifs to send
             if movie:

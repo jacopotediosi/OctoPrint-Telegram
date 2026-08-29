@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ..integrations.cost import Cost
     from ..integrations.octoprint_api import OctoPrintApi
     from ..integrations.plugins import Plugins
+    from ..integrations.thumbnails import Thumbnails
     from ..notifications import Notifications
     from ..telegram.client import TelegramClient
     from ..telegram.sender import Sender
@@ -43,7 +44,7 @@ class PluginContext:
     sender: Sender
     connection_status: ConnectionStatus
 
-    # Plugin settings page
+    # Frontend
     frontend: Frontend
 
     # Chats and notifications
@@ -57,6 +58,9 @@ class PluginContext:
     printer_profiles: PrinterProfileManager
     file_manager: FileManager
     slicing_manager: SlicingManager
+
+    # Printable files
+    thumbnails: Thumbnails
 
     # Other plugins
     api: OctoPrintApi

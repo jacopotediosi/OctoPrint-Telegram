@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ..integrations.display_layer_progress import DisplayLayerProgress
     from ..integrations.octoprint_api import OctoPrintApi
     from ..integrations.plugins import Plugins
+    from ..integrations.thumbnails import Thumbnails
     from ..telegram.client import TelegramClient
     from ..telegram.sender import Sender
 
@@ -38,6 +39,7 @@ class Notifications:
         plugins: Plugins,
         api: OctoPrintApi,
         display_layer_progress: DisplayLayerProgress,
+        thumbnails: Thumbnails,
         plugin_name: str,
         logger: logging.Logger,
     ) -> None:
@@ -50,6 +52,7 @@ class Notifications:
         self._plugins = plugins
         self._api = api
         self._display_layer_progress = display_layer_progress
+        self._thumbnails = thumbnails
         self._plugin_name = plugin_name
         self._logger = logger.getChild("Notifications")
 
@@ -190,9 +193,10 @@ class Notifications:
             thumbnail = None
             try:
                 if event == "PrintStarted":
-                    metadata = variables.metadata
-                    if metadata:
-                        thumbnail = metadata.get("thumbnail")
+                    storage_name = payload.get("origin")
+                    file_path = payload.get("path")
+                    if storage_name and file_path:
+                        thumbnail = self._thumbnails.get_thumbnail(storage_name, file_path)
             except Exception:
                 self._logger.exception("Exception on getting thumbnail")
 
@@ -221,7 +225,7 @@ class Notifications:
                 "silent": silent,
                 "with_image": with_image,
                 "with_gif": with_gif,
-                "thumbnail": thumbnail,
+                "thumbnail_bytes": len(thumbnail) if thumbnail else 0,
                 "movie": movie,
                 "accessed_variables": variables.accessed_names(),
             }

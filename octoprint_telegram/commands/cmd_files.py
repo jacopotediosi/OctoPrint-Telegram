@@ -467,7 +467,7 @@ class CmdFiles(BaseCommand):
                     self._logger.exception("Caught an exception calculating cost")
 
         # Upload the thumbnail image to imgbb to get a public URL
-        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(file_metadata)
+        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(storage_name, file_path)
         if imgbb_thumbnail_url:
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
@@ -676,7 +676,7 @@ class CmdFiles(BaseCommand):
                     self._logger.exception("Caught an exception processing history")
 
         # Upload the thumbnail image to imgbb to get a public URL
-        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(file_metadata)
+        imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(storage_name, file_path)
         if imgbb_thumbnail_url:
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
@@ -1736,12 +1736,13 @@ class CmdFiles(BaseCommand):
     def _hash_slicer_data(self, data: str) -> str:
         return callbacks.hash_value(data, self.HASH_SLICER_DATA_LENGTH)
 
-    def _upload_thumbnail_to_imgbb(self, file_metadata: dict) -> str | None:
+    def _upload_thumbnail_to_imgbb(self, storage_name: str, file_path: str) -> str | None:
         """
-        Upload thumbnail to imgbb and return public URL.
+        Upload the thumbnail of a file to imgbb and return public URL.
 
         Args:
-            file_metadata (dict): Value returned by octoprint.filemanager.storage.StorageInterface.get_metadata().
+            storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).
+            file_path (str): The path of the file inside its storage.
 
         Returns:
             str or None: Public URL of uploaded thumbnail or None if failed.
@@ -1750,22 +1751,16 @@ class CmdFiles(BaseCommand):
             api_key = self.plugin_context.settings.imgbb_api_key
             upload_url = "https://api.imgbb.com/1/upload"
 
-            if not api_key or not isinstance(file_metadata, dict):
+            if not api_key:
                 return
 
-            thumbnail_path = file_metadata.get("thumbnail")
-            if not thumbnail_path:
+            thumbnail = self.plugin_context.thumbnails.get_thumbnail(storage_name, file_path)
+            if not thumbnail:
                 return
 
-            self._logger.info("Get thumbnail: %s", thumbnail_path)
+            self._logger.info("Uploading to imgbb the thumbnail of %s/%s", storage_name, file_path)
 
-            thumbnail_response = self.plugin_context.api.send_request(f"/{thumbnail_path}")
-            if not thumbnail_response.ok:
-                return
-
-            self._logger.info("Uploading thumbnail to imgbb: %s", thumbnail_path)
-
-            encoded_img = base64.b64encode(thumbnail_response.content)
+            encoded_img = base64.b64encode(thumbnail)
             payload = {"key": api_key, "image": encoded_img}
 
             upload_response = requests.post(upload_url, payload)

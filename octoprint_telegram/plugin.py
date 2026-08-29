@@ -34,7 +34,7 @@ from .domain.chats import Chats
 from .domain.enrollment import Enrollment
 from .domain.mute import MutedChats
 from .emoji import Emoji
-from .integrations import Cost, DisplayLayerProgress, OctoPrintApi, Plugins
+from .integrations import Cost, DisplayLayerProgress, OctoPrintApi, Plugins, Thumbnails
 from .media import FfmpegPreset, ImageHookMethod, Media
 from .notifications import NOTIFICATION_DEFINITIONS, Notifications
 from .telegram import ChatAction, ChatType, HttpMethod, Sender
@@ -221,6 +221,7 @@ class TelegramPlugin(
         muted_chats = MutedChats()
         enrollment = Enrollment()
         display_layer_progress = DisplayLayerProgress(plugins, api, self._logger)
+        thumbnails = Thumbnails(self._file_manager, api, self._logger)
 
         telegram_client = TelegramClient(settings, self._logger)
 
@@ -249,7 +250,6 @@ class TelegramPlugin(
             chats,
             muted_chats,
             media,
-            api,
             self._connection_status,
             self._logger,
         )
@@ -263,6 +263,7 @@ class TelegramPlugin(
             plugins,
             api,
             display_layer_progress,
+            thumbnails,
             self._plugin_name,
             self._logger,
         )
@@ -285,6 +286,7 @@ class TelegramPlugin(
             printer_profiles=self._printer_profile_manager,
             file_manager=self._file_manager,
             slicing_manager=self._slicing_manager,
+            thumbnails=thumbnails,
             api=api,
             plugins=plugins,
             cost=Cost(self._settings),
