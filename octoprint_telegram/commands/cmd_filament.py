@@ -256,11 +256,15 @@ class CmdFilament(BaseCommand):
             page_number = int(params[3] or 0) if len(params) > 3 else 0
             spool_id = params[4] if len(params) > 4 else None
 
-            if tool_index is None:  # Show tool selection menu
-                printer_profile = self.plugin_context.printer_profiles.get_current()
-                printer_profile_extruder = printer_profile["extruder"]
-                tool_counts = printer_profile_extruder.get("count", 1)
+            printer_profile = self.plugin_context.printer_profiles.get_current_or_default()
+            printer_profile_extruder = printer_profile["extruder"]
+            tool_counts = printer_profile_extruder.get("count", 1)
+            has_multiple_tools = tool_counts > 1
 
+            if tool_index is None and not has_multiple_tools:
+                tool_index = "0"
+
+            if tool_index is None:  # Show tool selection menu
                 msg = render_emojis("{emo:question} For which tool do you want to select the spool?")
 
                 try:
@@ -336,9 +340,12 @@ class CmdFilament(BaseCommand):
                                 f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number + 1}",
                             )
                         )
-                last_row.append(
-                    (render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select")
+                back_callback = (
+                    f"{command_context.cmd}_{plugin_handler.plugin_id}_select"
+                    if has_multiple_tools
+                    else f"{command_context.cmd}_{plugin_handler.plugin_id}"
                 )
+                last_row.append((render_emojis("{emo:back} Back"), back_callback))
 
                 command_buttons = []
                 command_buttons.extend(spool_buttons)
