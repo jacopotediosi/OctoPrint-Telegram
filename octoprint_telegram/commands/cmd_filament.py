@@ -33,22 +33,23 @@ class CmdFilament(BaseCommand):
     def execute(self, command_context: CommandContext) -> None:
         """Manage filament spools.
 
-        Possible callback queries:
+        Possible callback queries, where {plugin_id} stands for the id of a filament plugin, {page} for a
+        page of the spool list, {tool} for the number of a tool and {spool_id} for the id of a spool:
 
-        Entry points:
-        - /filament -> ask which pluginid or automatically select if there is only one
-        - /filament_pluginid -> ask for which operation (show/select)
+        - /filament -> ask which filament plugin to use, or take the only one installed
+        - /filament_{plugin_id} -> ask whether to show the spools of that plugin or to select one of them
 
-        Show:
-        - /filament_pluginid_show -> user is browsing spools at page 0
-        - /filament_pluginid_show_page -> user is browsing spools at certain page
-        - /filament_pluginid_show_page_id -> show details of spool by id
+        Showing spools:
+        - /filament_{plugin_id}_show -> show the first page of the spools of that plugin
+        - /filament_{plugin_id}_show_{page} -> show that page of the spools of that plugin
+        - /filament_{plugin_id}_show_{page}_{spool_id} -> show the details of that spool
 
-        Select:
-        - /filament_pluginid_select -> ask for which tool or automatically select if there is only one
-        - /filament_pluginid_select_tool -> user is selecting spools at page 0
-        - /filament_pluginid_select_tool_page -> user is selecting spools at certain page
-        - /filament_pluginid_select_tool_page_id -> user has selected spool by id
+        Selecting a spool:
+        - /filament_{plugin_id}_select -> ask which tool to select a spool for, or take the only one there is
+        - /filament_{plugin_id}_select_{tool} -> show the first page of the spools that tool can be given
+        - /filament_{plugin_id}_select_{tool}_{page} -> show that page of the spools that tool can be given
+        - /filament_{plugin_id}_select_{tool}_{page}_{spool_id} -> give that spool to that tool
+        - /filament_{plugin_id}_select_{tool}_{page}_deselect -> take away the spool given to that tool
         """
         supported_plugins = self.supported_plugins
 
@@ -177,12 +178,12 @@ class CmdFilament(BaseCommand):
                 paginated_spools = spools[start_index:end_index]
 
                 spool_buttons = []
-                for spool_id, spool_desc in paginated_spools:
+                for listed_spool_id, listed_spool_description in paginated_spools:
                     spool_buttons.append(
                         [
                             (
-                                spool_desc,
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}_{spool_id}",
+                                listed_spool_description,
+                                f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}_{listed_spool_id}",
                             )
                         ]
                     )
@@ -302,7 +303,8 @@ class CmdFilament(BaseCommand):
                 return
 
             if spool_id is None:  # Show spool selection menu
-                spools = [("deselect", "Deselect")] + list(plugin_handler.list_spool().items())
+                configured_spools = list(plugin_handler.list_spool().items())
+                spools = [("deselect", "Deselect")] + configured_spools
 
                 total_spools = len(spools)
                 total_pages = max(1, (total_spools + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
@@ -314,12 +316,12 @@ class CmdFilament(BaseCommand):
                 paginated_spools = spools[start_index:end_index]
 
                 spool_buttons = []
-                for spool_id, spool_desc in paginated_spools:
+                for listed_spool_id, listed_spool_description in paginated_spools:
                     spool_buttons.append(
                         [
                             (
-                                spool_desc,
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{spool_id}",
+                                listed_spool_description,
+                                f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{listed_spool_id}",
                             )
                         ]
                     )
@@ -351,7 +353,7 @@ class CmdFilament(BaseCommand):
                 command_buttons.extend(spool_buttons)
                 command_buttons.append(last_row)
 
-                if spools:
+                if configured_spools:
                     page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
                     msg = render_emojis(
                         f"{{emo:question}} Which spool do you want to select for <code>Tool {html.escape(tool_index)}</code>? {page_str}"

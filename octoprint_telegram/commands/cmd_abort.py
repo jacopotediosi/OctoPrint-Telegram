@@ -9,6 +9,13 @@ render_emojis = Emoji.render_emojis
 class CmdAbort(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Abort the running print.
+
+        Possible callback queries:
+
+        - /abort -> ask whether to abort the running print, or report that no print is running
+        - /abort_stop -> cancel the running print
+        """
         if command_context.parameter == "stop":
             self.plugin_context.printer.cancel_print(user=command_context.user)
 

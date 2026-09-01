@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 import socket
 
@@ -5,19 +7,43 @@ import sarge
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, callbacks
+from ..telegram import Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
+class SysMenuState(MenuState):
+    """The system actions offered in the menu."""
+
+    def __init__(self, action_identifiers: list[str]) -> None:
+        """Set up the system actions offered in the menu.
+
+        Args:
+            action_identifiers (list[str]): The identifier of each action, in the order they are offered.
+        """
+        self.action_identifiers = action_identifiers
+
+
 class CmdSys(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Run one of the system commands OctoPrint offers.
+
+        Possible callback queries, where {position} stands for the position of a system action in the list
+        and {key} for one of OctoPrint's server command settings (serverRestartCommand, systemRestartCommand,
+        systemShutdownCommand):
+
+        - /sys -> list the system actions and the server commands
+        - /sys_action_{position} -> run that system action, or ask for confirmation when that action asks for it
+        - /sys_action_do_{position} -> run that system action
+        - /sys_server_{key} -> ask for confirmation before running that server command
+        - /sys_server_do_{key} -> run that server command
+        """
         if command_context.parameter:
             params = command_context.parameter.split("_")
 
-            if params[0] == "sys":  # Server built-in commands
+            if params[0] == "server":  # Server built-in commands
                 command_mapping = {
                     "serverRestartCommand": "Restart OctoPrint",
                     "systemRestartCommand": "Restart system",
@@ -36,7 +62,7 @@ class CmdSys(BaseCommand):
                         [
                             (
                                 render_emojis("{emo:check} Execute"),
-                                f"{command_context.cmd}_sys_do_{params[1]}",
+                                f"{command_context.cmd}_server_do_{params[1]}",
                             ),
                             (
                                 render_emojis("{emo:back} Back"),
@@ -84,7 +110,16 @@ class CmdSys(BaseCommand):
                     )
 
             else:  # Custom commands (system actions)
-                action_hash = params[1] if params[0] == "do" else params[0]
+                confirmed = len(params) > 2 and params[1] == "do"
+                action_index = params[2] if confirmed else (params[1] if len(params) > 1 else "")
+
+                menu_state = self.require_menu_state(command_context, SysMenuState)
+
+                action_identifier = (
+                    menu_state.action_identifiers[int(action_index)]
+                    if action_index.isdigit() and int(action_index) < len(menu_state.action_identifiers)
+                    else None
+                )
 
                 actions = self.plugin_context.octoprint_settings.system_actions
                 command = None
@@ -93,8 +128,7 @@ class CmdSys(BaseCommand):
                         if action["action"] == "divider":
                             continue
 
-                        action_identifier = f"{action['name']}-{action['action']}-{action['command']}"
-                        if self._hash_parameter(action_identifier) == action_hash:
+                        if f"{action['name']}-{action['action']}-{action['command']}" == action_identifier:
                             command = action
                             break
                     except Exception:
@@ -108,7 +142,7 @@ class CmdSys(BaseCommand):
                     )
                     return
 
-                if "confirm" in command and params[0] != "do":  # Command requires confirmation, ask for it
+                if "confirm" in command and not confirmed:  # Command requires confirmation, ask for it
                     msg = render_emojis(
                         f"{{emo:question}} Execute System Command <code>{html.escape(command['name'])}</code>?\n"
                         f"{{emo:info}} Confirmation message: <code>{html.escape(command['confirm'])}</code>"
@@ -118,7 +152,7 @@ class CmdSys(BaseCommand):
                         [
                             (
                                 render_emojis("{emo:check} Execute"),
-                                f"{command_context.cmd}_do_{action_hash}",
+                                f"{command_context.cmd}_action_do_{action_index}",
                             ),
                             (
                                 render_emojis("{emo:back} Back"),
@@ -127,13 +161,7 @@ class CmdSys(BaseCommand):
                         ]
                     ]
 
-                    self.plugin_context.sender.send_message(
-                        msg,
-                        chat_id=command_context.chat_id,
-                        markup=Markup.HTML,
-                        buttons=command_buttons,
-                        message_id=command_context.msg_id_to_update,
-                    )
+                    self.show_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
                 else:  # Execute command
                     async_ = command.get("async", False)
@@ -172,15 +200,16 @@ class CmdSys(BaseCommand):
 
         else:  # Display command buttons
             command_buttons = []
+            action_identifiers = []
 
             for action in self.plugin_context.octoprint_settings.system_actions:
                 try:
                     if action["action"] == "divider":
                         continue
 
-                    action_identifier = f"{action['name']}-{action['action']}-{action['command']}"
+                    action_identifiers.append(f"{action['name']}-{action['action']}-{action['command']}")
                     command_buttons.append(
-                        [(f"{action['name']}", f"{command_context.cmd}_{self._hash_parameter(action_identifier)}")]
+                        [(f"{action['name']}", f"{command_context.cmd}_action_{len(action_identifiers) - 1}")]
                     )
                 except Exception:
                     self._logger.exception("Caught an exception parsing system actions")
@@ -189,12 +218,12 @@ class CmdSys(BaseCommand):
             server_commands_map = {
                 "serverRestartCommand": (
                     "Restart OctoPrint",
-                    f"{command_context.cmd}_sys_serverRestartCommand",
+                    f"{command_context.cmd}_server_serverRestartCommand",
                 ),
-                "systemRestartCommand": ("Restart system", f"{command_context.cmd}_sys_systemRestartCommand"),
+                "systemRestartCommand": ("Restart system", f"{command_context.cmd}_server_systemRestartCommand"),
                 "systemShutdownCommand": (
                     "Shutdown system",
-                    f"{command_context.cmd}_sys_systemShutdownCommand",
+                    f"{command_context.cmd}_server_systemShutdownCommand",
                 ),
             }
             for command_key, command_button in server_commands_map.items():
@@ -225,12 +254,6 @@ class CmdSys(BaseCommand):
 
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
+            self.show_menu(
+                command_context, msg, SysMenuState(action_identifiers), markup=Markup.HTML, buttons=command_buttons
             )
-
-    def _hash_parameter(self, text: str) -> str:
-        return callbacks.hash_value(text)

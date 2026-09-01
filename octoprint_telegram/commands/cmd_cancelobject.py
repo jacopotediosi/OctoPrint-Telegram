@@ -12,6 +12,13 @@ render_emojis = Emoji.render_emojis
 class CmdCancelObject(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Cancel one of the objects of the running print.
+
+        Possible callback queries, where {object_id} stands for the id the Cancelobject plugin gave an object:
+
+        - /cancelobject -> list the objects that can still be cancelled
+        - /cancelobject_{object_id} -> cancel that object
+        """
         cancelobject_id = "cancelobject"
 
         if not self.plugin_context.plugins.is_enabled(cancelobject_id):

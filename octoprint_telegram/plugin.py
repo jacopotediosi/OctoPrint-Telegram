@@ -38,7 +38,7 @@ from .emoji import Emoji
 from .integrations import Cost, DisplayLayerProgress, OctoPrintApi, Plugins, Thumbnails
 from .media import FfmpegPreset, ImageHookMethod, Media
 from .notifications import NOTIFICATION_DEFINITIONS, Notifications
-from .telegram import ChatAction, ChatType, HttpMethod, Sender
+from .telegram import ChatAction, ChatType, HttpMethod, MenuStates, Sender
 from .telegram.client import TOKEN_REGEX, TelegramClient
 from .telegram.dispatcher import Dispatcher
 from .telegram.listener import Listener
@@ -240,6 +240,7 @@ class TelegramPlugin(
         frontend = Frontend(self._plugin_manager, self._identifier)
         muted_chats = MutedChats()
         enrollment = Enrollment()
+        menu_states = MenuStates()
         display_layer_progress = DisplayLayerProgress(plugins, api, self._logger)
         thumbnails = Thumbnails(self._file_manager, api, self._logger)
 
@@ -296,6 +297,7 @@ class TelegramPlugin(
             octoprint_settings=octoprint_settings,
             telegram_client=telegram_client,
             sender=sender,
+            menu_states=menu_states,
             connection_status=self._connection_status,
             frontend=frontend,
             chats=chats,

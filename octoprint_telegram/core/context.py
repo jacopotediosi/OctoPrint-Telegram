@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from ..integrations.thumbnails import Thumbnails
     from ..notifications import Notifications
     from ..telegram.client import TelegramClient
+    from ..telegram.menu_states import MenuStates
     from ..telegram.sender import Sender
     from .connection_status import ConnectionStatus
     from .frontend import Frontend
@@ -42,6 +43,7 @@ class PluginContext:
     # Telegram
     telegram_client: TelegramClient
     sender: Sender
+    menu_states: MenuStates
     connection_status: ConnectionStatus
 
     # Frontend

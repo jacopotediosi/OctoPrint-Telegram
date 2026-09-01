@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
+
+from ..telegram import Buttons, Markup, MenuState, StaleMenuError
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
+
+T = TypeVar("T", bound=MenuState)
 
 
 class CommandContext:
@@ -68,3 +72,52 @@ class BaseCommand(ABC):
         Args:
             command_context (CommandContext): The details of a single command invocation.
         """
+
+    def require_menu_state(self, command_context: CommandContext, menu_state_type: type[T]) -> T:
+        """Return the state of the menu the command was invoked from.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            menu_state_type (type): The menu state class of the command.
+
+        Returns:
+            T: The state of the menu.
+
+        Raises:
+            StaleMenuError: If the message has no menu state of that class.
+        """
+        menu_state = self.plugin_context.menu_states.get_menu_state(
+            command_context.chat_id, command_context.msg_id_to_update, menu_state_type
+        )
+        if menu_state is None:
+            raise StaleMenuError
+        return menu_state
+
+    def show_menu(
+        self,
+        command_context: CommandContext,
+        message: str,
+        menu_state: MenuState,
+        *,
+        markup: Markup = Markup.OFF,
+        buttons: Buttons | None = None,
+    ) -> None:
+        """Show a menu, replacing the message the command was invoked from.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            message (str): The text shown above the menu.
+            menu_state (MenuState): The state the buttons of the menu refer to.
+            markup (Markup, optional): The markup Telegram parses in the text.
+            buttons (Buttons, optional): The inline keyboard shown under the message.
+        """
+        message_id = self.plugin_context.sender.send_message(
+            message,
+            chat_id=command_context.chat_id,
+            markup=markup,
+            buttons=buttons,
+            message_id=command_context.msg_id_to_update,
+        )
+        if message_id:
+            command_context.msg_id_to_update = message_id
+            self.plugin_context.menu_states.set_menu_state(command_context.chat_id, message_id, menu_state)

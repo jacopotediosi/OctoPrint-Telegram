@@ -12,5 +12,8 @@ class CmdClose(BaseCommand):
         try:
             if command_context.msg_id_to_update:
                 self.plugin_context.sender.delete_message(command_context.chat_id, command_context.msg_id_to_update)
+                self.plugin_context.menu_states.discard_menu_state(
+                    command_context.chat_id, command_context.msg_id_to_update
+                )
         except Exception:
             pass

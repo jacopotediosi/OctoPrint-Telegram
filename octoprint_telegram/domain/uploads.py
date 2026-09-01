@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import octoprint.filemanager
 
 from ..emoji import Emoji
-from ..telegram import HttpMethod, Markup
+from ..telegram import Markup
 from . import permissions
 
 if TYPE_CHECKING:
@@ -74,18 +74,14 @@ class Uploads:
                 return
 
             # Download the uploaded file
-            saving_file_response = self.plugin_context.telegram_client.send_request(
-                "sendMessage",
-                HttpMethod.POST,
-                data={
-                    "text": render_emojis(
-                        f"{{emo:save}} Saving file <code>{html.escape(uploaded_file_filename)}</code>..."
-                    ),
-                    "chat_id": chat_id,
-                    "parse_mode": Markup.HTML.value,
-                },
+            saving_file_msg_id = (
+                self.plugin_context.sender.send_message(
+                    render_emojis(f"{{emo:save}} Saving file <code>{html.escape(uploaded_file_filename)}</code>..."),
+                    chat_id,
+                    markup=Markup.HTML,
+                )
+                or ""
             )
-            saving_file_msg_id = saving_file_response["result"]["message_id"]
 
             uploaded_file_content = self.plugin_context.telegram_client.download_file(message["document"]["file_id"])
 
@@ -210,7 +206,7 @@ class Uploads:
                                     [
                                         (
                                             render_emojis("{emo:check} Print"),
-                                            "/print_y",
+                                            "/print_yes",
                                         ),
                                         (
                                             render_emojis("{emo:cancel} Close"),

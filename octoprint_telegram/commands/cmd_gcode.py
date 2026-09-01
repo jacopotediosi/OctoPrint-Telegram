@@ -12,6 +12,13 @@ render_emojis = Emoji.render_emojis
 class CmdGcode(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Send a G-code command to the printer.
+
+        Possible callback queries, where {gcode} stands for a G-code command:
+
+        - /gcode -> show how to send a G-code command
+        - /gcode_{gcode} -> send that G-code command to the printer
+        """
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Printer not connected. You can't send any G-code."),

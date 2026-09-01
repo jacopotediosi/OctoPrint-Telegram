@@ -12,6 +12,13 @@ render_emojis = Emoji.render_emojis
 class CmdPrint(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Print the file selected for printing.
+
+        Possible callback queries:
+
+        - /print -> ask whether to print the file selected for printing, or report that none is selected
+        - /print_yes -> start printing the file selected for printing
+        """
         if not self.plugin_context.printer.is_ready():
             msg = render_emojis(
                 f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."
@@ -26,7 +33,7 @@ class CmdPrint(BaseCommand):
         current_data = self.plugin_context.printer.get_current_data()
         job_file_name = current_data.get("job", {}).get("file", {}).get("name", "")
 
-        if command_context.parameter == "y":  # Print the file selected for printing
+        if command_context.parameter == "yes":  # Print the file selected for printing
             if current_data.get("job", {}).get("file", {}).get("name") is None:
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:attention} No file is selected for printing. Did you select one using /files?"),
@@ -54,7 +61,7 @@ class CmdPrint(BaseCommand):
                     [
                         (
                             render_emojis("{emo:play} Print it"),
-                            f"{command_context.cmd}_y",
+                            f"{command_context.cmd}_yes",
                         ),
                         (
                             render_emojis("{emo:folder} Select another one"),

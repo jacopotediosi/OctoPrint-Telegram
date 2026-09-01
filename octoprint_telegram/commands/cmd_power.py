@@ -7,14 +7,26 @@ from typing_extensions import override
 
 from ..emoji import Emoji
 from ..integrations.power import POWER_PLUGINS
-from ..telegram import Markup
-from ..utils import StringUtils
+from ..telegram import Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
 
 render_emojis = Emoji.render_emojis
+
+
+class PowerMenuState(MenuState):
+    """The plugs offered in the menu."""
+
+    def __init__(self, plugs: list[tuple[str, str]]) -> None:
+        """Set up the plugs offered in the menu.
+
+        Args:
+            plugs (list[tuple[str, str]]): The plugin id and the plug identifier of each plug, in the order they are
+                offered.
+        """
+        self.plugs = plugs
 
 
 class CmdPower(BaseCommand):
@@ -29,6 +41,15 @@ class CmdPower(BaseCommand):
 
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Monitor and switch the power plugs of the installed power plugins.
+
+        Possible callback queries, where {position} stands for the position of a plug in the list:
+
+        - /power -> list the plugs of every installed power plugin
+        - /power_{position} -> show the state of that plug and ask what to do with it
+        - /power_{position}_on -> switch that plug on
+        - /power_{position}_off -> switch that plug off
+        """
         supported_plugins = self.supported_plugins
 
         available_plugins = [
@@ -56,6 +77,7 @@ class CmdPower(BaseCommand):
         if not command_context.parameter:  # Command was /power, show plugs list
             message = render_emojis("{emo:question} Which plug do you want to manage?")
 
+            plugs = []
             plug_buttons = []
             for plugin_handler in available_plugins:
                 try:
@@ -65,16 +87,14 @@ class CmdPower(BaseCommand):
                         is_on = plug_data["is_on"]
                         status_emoji_name = "online" if is_on else "offline"
 
-                        data = plug_data["data"]
-                        command = (
-                            command_context.cmd
-                            + "_"
-                            + plugin_handler.plugin_id.replace("_", "\\_")
-                            + "_"
-                            + str(data).replace("_", "\\_")
-                        )
+                        plugs.append((plugin_handler.plugin_id, str(plug_data["data"])))
 
-                        plug_buttons.append((render_emojis(f"{{emo:{status_emoji_name}}} {label}"), command))
+                        plug_buttons.append(
+                            (
+                                render_emojis(f"{{emo:{status_emoji_name}}} {label}"),
+                                f"{command_context.cmd}_{len(plugs) - 1}",
+                            )
+                        )
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
@@ -82,17 +102,32 @@ class CmdPower(BaseCommand):
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
             command_buttons = plug_button_rows + [[(render_emojis("{emo:cancel} Close"), "close")]]
 
-            self.plugin_context.sender.send_message(
-                message,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
-            )
+            self.show_menu(command_context, message, PowerMenuState(plugs), markup=Markup.HTML, buttons=command_buttons)
 
         else:
-            splitted_parameters = StringUtils.split_with_escape_handling(command_context.parameter, "_")
-            plugin_id, plug_data, action = (splitted_parameters + [""] * 3)[:3]
+            params = command_context.parameter.split("_")
+            plug_index, action = (params + [""] * 2)[:2]
+
+            menu_state = self.require_menu_state(command_context, PowerMenuState)
+
+            command_buttons = [
+                [
+                    (render_emojis("{emo:back} Back"), command_context.cmd),
+                    (render_emojis("{emo:cancel} Close"), "close"),
+                ]
+            ]
+
+            if not (plug_index.isdigit() and int(plug_index) < len(menu_state.plugs)):
+                self.plugin_context.sender.send_message(
+                    render_emojis("{emo:attention} Selected plug not found!"),
+                    chat_id=command_context.chat_id,
+                    markup=Markup.HTML,
+                    buttons=command_buttons,
+                    message_id=command_context.msg_id_to_update,
+                )
+                return
+
+            plugin_id, plug = menu_state.plugs[int(plug_index)]
 
             plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
 
@@ -100,12 +135,6 @@ class CmdPower(BaseCommand):
                 message = render_emojis(
                     f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
                 )
-                command_buttons = [
-                    [
-                        (render_emojis("{emo:back} Back"), command_context.cmd),
-                        (render_emojis("{emo:cancel} Close"), "close"),
-                    ]
-                ]
                 self.plugin_context.sender.send_message(
                     message,
                     chat_id=command_context.chat_id,
@@ -115,20 +144,13 @@ class CmdPower(BaseCommand):
                 )
                 return
 
-            if not action:  # Command was /power_plugin\_id_plug\_data, show plug status and ask for action
+            if not action:  # Command was /power_plugIndex, show plug status and ask for action
                 plugs = plugin_handler.get_plugs_data()
-                selected_plug = next((plug for plug in plugs if str(plug["data"]) == plug_data), None)
+                selected_plug = next((p for p in plugs if str(p["data"]) == plug), None)
 
                 if selected_plug is None:
-                    message = render_emojis("{emo:attention} Selected plug not found!")
-                    command_buttons = [
-                        [
-                            (render_emojis("{emo:back} Back"), command_context.cmd),
-                            (render_emojis("{emo:cancel} Close"), "close"),
-                        ]
-                    ]
                     self.plugin_context.sender.send_message(
-                        message,
+                        render_emojis("{emo:attention} Selected plug not found!"),
                         chat_id=command_context.chat_id,
                         markup=Markup.HTML,
                         buttons=command_buttons,
@@ -146,11 +168,10 @@ class CmdPower(BaseCommand):
                     "{emo:question} What do you want to do?"
                 )
 
-                original_command = f"{command_context.cmd}_{command_context.parameter}"
                 command_buttons = [
                     [
-                        (render_emojis("{emo:online} Turn ON"), f"{original_command}_on"),
-                        (render_emojis("{emo:offline} Turn OFF"), f"{original_command}_off"),
+                        (render_emojis("{emo:online} Turn ON"), f"{command_context.cmd}_{plug_index}_on"),
+                        (render_emojis("{emo:offline} Turn OFF"), f"{command_context.cmd}_{plug_index}_off"),
                     ],
                     [
                         (render_emojis("{emo:back} Back"), command_context.cmd),
@@ -158,38 +179,25 @@ class CmdPower(BaseCommand):
                     ],
                 ]
 
-                self.plugin_context.sender.send_message(
-                    message,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                )
-            else:  # Command was /power_plugin\_id_plug\_data_action, execute action
+                self.show_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            else:  # Command was /power_plugIndex_action, execute action
                 action_methods = {"on": plugin_handler.turn_on, "off": plugin_handler.turn_off}
 
                 if action not in action_methods:
                     message = render_emojis("{emo:attention} Action not supported!")
                 else:
                     try:
-                        action_methods[action](plug_data)
+                        action_methods[action](plug)
                         message = render_emojis("{emo:check} Command sent!")
                     except Exception:
                         self._logger.exception("Caught an exception sending action to %s", plugin_id)
                         message = render_emojis("{emo:attention} Something went wrong!")
 
-                original_command = f"{command_context.cmd}_{command_context.parameter.rsplit('_', 1)[0]}"
                 command_buttons = [
                     [
-                        (render_emojis("{emo:back} Back"), original_command),
+                        (render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plug_index}"),
                         (render_emojis("{emo:cancel} Close"), "close"),
                     ],
                 ]
 
-                self.plugin_context.sender.send_message(
-                    message,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                )
+                self.show_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)

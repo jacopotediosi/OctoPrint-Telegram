@@ -9,6 +9,7 @@ from ..domain.chats import get_chat_title
 from ..domain.uploads import Uploads
 from ..emoji import Emoji
 from .enums import ChatMemberStatus, HttpMethod
+from .menu_states import StaleMenuError
 
 if TYPE_CHECKING:
     from ..commands.commands import Commands
@@ -158,7 +159,7 @@ class Dispatcher:
     def _handle_callback_query(self, callback_query: dict, chat_id: str, from_id: str) -> None:
         command = callback_query["data"]
         from_obj = callback_query["from"]
-        msg_id_to_update = callback_query.get("message", {}).get("message_id", "")
+        msg_id_to_update = str(callback_query.get("message", {}).get("message_id", ""))
 
         # Handle callback query data as if it was a text command
         try:
@@ -235,6 +236,14 @@ class Dispatcher:
             # Execute command
             try:
                 self._commands.run_command(command, chat_id, from_id, parameter, msg_id_to_update, user)
+            except StaleMenuError:
+                self.plugin_context.sender.send_message(
+                    render_emojis(
+                        f"{{emo:attention}} The button you pressed was no longer valid. Please run {command} again."
+                    ),
+                    chat_id,
+                    message_id=msg_id_to_update,
+                )
             except Exception:
                 self._logger.exception("Caught an exception executing command %s", command)
                 self.plugin_context.sender.send_message(

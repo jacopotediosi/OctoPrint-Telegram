@@ -5,15 +5,35 @@ import html
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, callbacks
+from ..telegram import Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
+class CtrlMenuState(MenuState):
+    """The printer controls offered in the menu."""
+
+    def __init__(self, control_identifiers: list[str]) -> None:
+        """Set up the printer controls offered in the menu.
+
+        Args:
+            control_identifiers (list[str]): The identifier of each control, in the order they are offered.
+        """
+        self.control_identifiers = control_identifiers
+
+
 class CmdCtrl(BaseCommand):
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Trigger one of the custom printer controls configured in OctoPrint.
+
+        Possible callback queries, where {position} stands for the position of a control in the list:
+
+        - /ctrl -> list the custom printer controls
+        - /ctrl_{position} -> trigger that control, or ask for confirmation when that control asks for it
+        - /ctrl_execute_{position} -> trigger that control
+        """
         if not self.plugin_context.printer.is_operational():
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Printer not connected. You can't trigger any control."),
@@ -25,10 +45,18 @@ class CmdCtrl(BaseCommand):
         if command_context.parameter:
             params = command_context.parameter.split("_")
 
-            control_hash = params[1] if params[0] == "do" else params[0]
+            control_index = params[1] if params[0] == "execute" else params[0]
+
+            menu_state = self.require_menu_state(command_context, CtrlMenuState)
+
+            control_identifier = (
+                menu_state.control_identifiers[int(control_index)]
+                if control_index.isdigit() and int(control_index) < len(menu_state.control_identifiers)
+                else None
+            )
 
             controls = self._get_controls()
-            control = next((c for c in controls if c["hash"] == control_hash), None)
+            control = next((c for c in controls if c["identifier"] == control_identifier), None)
 
             if not control:
                 self.plugin_context.sender.send_message(
@@ -38,7 +66,7 @@ class CmdCtrl(BaseCommand):
                 )
                 return
 
-            if "confirm" in control and params[0] != "do":  # Control requires confirmation, ask for it
+            if "confirm" in control and params[0] != "execute":  # Control requires confirmation, ask for it
                 msg = render_emojis(
                     f"{{emo:question}} Execute control command <code>{html.escape(control['name'])}</code>?\n"
                     f"{{emo:info}} Confirmation message: <code>{html.escape(control['confirm'])}</code>"
@@ -48,7 +76,7 @@ class CmdCtrl(BaseCommand):
                     [
                         (
                             render_emojis("{emo:check} Execute"),
-                            f"{command_context.cmd}_do_{control_hash}",
+                            f"{command_context.cmd}_execute_{control_index}",
                         ),
                         (
                             render_emojis("{emo:back} Back"),
@@ -57,13 +85,7 @@ class CmdCtrl(BaseCommand):
                     ]
                 ]
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                )
+                self.show_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
             else:  # Execute Control
                 try:
                     if control.get("type") == "script":
@@ -102,12 +124,15 @@ class CmdCtrl(BaseCommand):
             message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
 
             try:
-                command_buttons = [
-                    [(control["name"], f"{command_context.cmd}_{control['hash']}")] for control in self._get_controls()
-                ]
+                controls = self._get_controls()
             except Exception:
                 self._logger.exception("Caught an exception getting printer control list")
-                command_buttons = []
+                controls = []
+
+            command_buttons = [
+                [(control["name"], f"{command_context.cmd}_{control_index}")]
+                for control_index, control in enumerate(controls)
+            ]
 
             if not command_buttons:
                 message += render_emojis(
@@ -118,13 +143,9 @@ class CmdCtrl(BaseCommand):
 
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.plugin_context.sender.send_message(
-                message,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
-            )
+            menu_state = CtrlMenuState([control["identifier"] for control in controls])
+
+            self.show_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
         """Flatten the custom controls the user defined in OctoPrint.
@@ -180,7 +201,7 @@ class CmdCtrl(BaseCommand):
                         {
                             "name": key_name,
                             "command": command,
-                            "hash": self._hash_control(f"{key_name}-{command_str}"),
+                            "identifier": f"{key_name}-{command_str}",
                         }
                     )
 
@@ -192,6 +213,3 @@ class CmdCtrl(BaseCommand):
                 self._logger.exception("Caught an exception processing control key")
 
         return controls
-
-    def _hash_control(self, control_identifier: str) -> str:
-        return callbacks.hash_value(control_identifier)

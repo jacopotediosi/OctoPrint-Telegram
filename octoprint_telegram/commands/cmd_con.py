@@ -7,7 +7,7 @@ from typing import Sequence
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, callbacks
+from ..telegram import Markup, MenuState, StaleMenuError
 from .base import BaseCommand, CommandContext
 
 try:
@@ -17,6 +17,27 @@ except ImportError:
     ConnectedPrinter = None
 
 render_emojis = Emoji.render_emojis
+
+
+class ConMenuState(MenuState):
+    """The options the menu offers and the connection settings picked so far."""
+
+    def __init__(
+        self,
+        options: list[str | int | None],
+        port: str | int | None = None,
+        baudrate: str | int | None = None,
+    ) -> None:
+        """Set up the options the menu offers and the connection settings picked so far.
+
+        Args:
+            options (list[str | int | None]): The value behind each option, in the order they are offered.
+            port (str | int | None, optional): The port picked so far, or None for AUTO.
+            baudrate (str | int | None, optional): The baudrate picked so far, or None for AUTO.
+        """
+        self.options = options
+        self.port = port
+        self.baudrate = baudrate
 
 
 class CmdCon(BaseCommand):
@@ -29,11 +50,27 @@ class CmdCon(BaseCommand):
 
     @override
     def execute(self, command_context: CommandContext) -> None:
+        """Connect the printer or disconnect it.
+
+        Possible callback queries, where {position} stands for the position of an option in the list:
+
+        - /con -> show the connection information
+        - /con_disconnect -> disconnect the printer
+        - /con_connect -> ask whether to connect with the default connection or with a serial one
+        - /con_connect_default -> connect with the default connection, or ask which printer profile to use
+        - /con_connect_default_{position} -> connect with the default connection and the profile at that position
+        - /con_connect_serial -> ask which port to connect to
+        - /con_connect_serial_port_{position} -> take the port at that position and ask which baudrate to use
+        - /con_connect_serial_baudrate -> go back to asking which baudrate to use
+        - /con_connect_serial_baudrate_{position} -> take the baudrate at that position, then connect or ask
+          which printer profile to use
+        - /con_connect_serial_profile_{position} -> connect over serial with the profile at that position
+        """
         if command_context.parameter:
             action, *params = command_context.parameter.split("_")
             actions = {
-                "c": self._connect,
-                "d": self._disconnect,
+                "connect": self._connect,
+                "disconnect": self._disconnect,
             }
             if action in actions:
                 actions[action](command_context, params)
@@ -102,7 +139,7 @@ class CmdCon(BaseCommand):
         # Build buttons
         btn_close = (render_emojis("{emo:cancel} Close"), "close")
         if self.plugin_context.printer.is_closed_or_error():
-            btn_connect = (render_emojis("{emo:online} Connect"), f"{command_context.cmd}_c")
+            btn_connect = (render_emojis("{emo:online} Connect"), f"{command_context.cmd}_connect")
             command_buttons = [[btn_connect, btn_close]]
         elif (
             self.plugin_context.printer.is_printing()
@@ -115,7 +152,7 @@ class CmdCon(BaseCommand):
             msg += render_emojis("\n\n{emo:warning} You can't disconnect while printing.")
             command_buttons = [[btn_close]]
         else:
-            btn_disconnect = (render_emojis("{emo:offline} Disconnect"), f"{command_context.cmd}_d")
+            btn_disconnect = (render_emojis("{emo:offline} Disconnect"), f"{command_context.cmd}_disconnect")
             command_buttons = [[btn_disconnect, btn_close]]
 
         # Send message
@@ -150,9 +187,9 @@ class CmdCon(BaseCommand):
 
     def _connect(self, command_context: CommandContext, params: list[str]) -> None:
         if params:
-            if params[0] == "d":  # Default Connection
+            if params[0] == "default":  # Default Connection
                 connection_data = self._ask_default_connection_data(command_context, params[1:])
-            elif params[0] == "s" and self._is_serial_connection_available():  # Serial Connection
+            elif params[0] == "serial" and self._is_serial_connection_available():  # Serial Connection
                 connection_data = self._ask_serial_connection_data(command_context, params[1:])
             else:
                 return
@@ -209,12 +246,12 @@ class CmdCon(BaseCommand):
 
             command_buttons = [
                 [
-                    (render_emojis("{emo:lamp} Use Default Connection"), f"{command_context.cmd}_c_d"),
+                    (render_emojis("{emo:lamp} Use Default Connection"), f"{command_context.cmd}_connect_default"),
                 ],
             ]
             if self._is_serial_connection_available():
                 command_buttons.append(
-                    [(render_emojis("{emo:edit} Use Serial Connection"), f"{command_context.cmd}_c_s")]
+                    [(render_emojis("{emo:edit} Use Serial Connection"), f"{command_context.cmd}_connect_serial")]
                 )
             command_buttons.append([(render_emojis("{emo:back} Back"), command_context.cmd)])
 
@@ -245,8 +282,8 @@ class CmdCon(BaseCommand):
                 }
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_c",
-                callback_prefix=f"{command_context.cmd}_c_d",
+                parent=f"{command_context.cmd}_connect",
+                callback_prefix=f"{command_context.cmd}_connect_default",
                 msg=self._build_connection_summary(preferred_connector, preferred_parameters)
                 + render_emojis("{emo:question} Select the printer profile to use."),
                 options=[(p["id"], p["name"]) for p in all_profiles.values()],
@@ -254,9 +291,8 @@ class CmdCon(BaseCommand):
             )
             return None
 
-        profile_id = next(
-            profile["id"] for profile in all_profiles.values() if self._hash_parameter(profile["id"]) == params[0]
-        )
+        menu_state = self.require_menu_state(command_context, ConMenuState)
+        profile_id = self._chosen_option(menu_state, params[0])
 
         return {
             "connector": preferred_connector,
@@ -283,12 +319,15 @@ class CmdCon(BaseCommand):
         all_profiles = self.plugin_context.printer_profiles.get_all()
         profile_ids = list(all_profiles.keys())
 
+        step = params[0] if params else ""
+        choice = params[1] if len(params) > 1 else ""
+
         # Step 1: ask port
-        if len(params) < 1:
+        if not step:
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_c",
-                callback_prefix=f"{command_context.cmd}_c_s",
+                parent=f"{command_context.cmd}_connect",
+                callback_prefix=f"{command_context.cmd}_connect_serial_port",
                 msg=render_emojis("{emo:question} Select the port to connect to."),
                 options=[(p, p) for p in ports],
                 item_emoji="port",
@@ -296,51 +335,54 @@ class CmdCon(BaseCommand):
             )
             return None
 
-        port = self._resolve_hashed(params[0], ports)
+        menu_state = self.require_menu_state(command_context, ConMenuState)
 
-        # Step 2: ask baudrate
-        if len(params) < 2:
+        # Step 2: ask baudrate, either after the port was picked or coming back from the profile
+        if step == "port" or (step == "baudrate" and not choice):
+            port = self._chosen_option(menu_state, choice) if step == "port" else menu_state.port
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_c_s",
-                callback_prefix=f"{command_context.cmd}_c_s_{params[0]}",
+                parent=f"{command_context.cmd}_connect_serial",
+                callback_prefix=f"{command_context.cmd}_connect_serial_baudrate",
                 msg=render_emojis("{emo:question} Select the baudrate to use."),
                 options=[(b, b) for b in baudrates],
                 item_emoji="speed",
                 with_auto=True,
+                port=port,
             )
             return None
 
-        baudrate = self._resolve_hashed(params[1], baudrates)
-
         # Step 3: ask profile (skip if at most one available)
-        if len(params) < 3:
+        if step == "baudrate":
+            baudrate = self._chosen_option(menu_state, choice)
+
             if len(profile_ids) <= 1:
                 return {
                     "connector": "serial",
-                    "parameters": {"port": port, "baudrate": baudrate},
+                    "parameters": {"port": menu_state.port, "baudrate": baudrate},
                     "profile": profile_ids[0] if profile_ids else None,
                 }
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_c_s_{params[0]}",
-                callback_prefix=f"{command_context.cmd}_c_s_{params[0]}_{params[1]}",
-                msg=self._build_connection_summary("serial", {"port": port, "baudrate": baudrate})
+                parent=f"{command_context.cmd}_connect_serial_baudrate",
+                callback_prefix=f"{command_context.cmd}_connect_serial_profile",
+                msg=self._build_connection_summary("serial", {"port": menu_state.port, "baudrate": baudrate})
                 + render_emojis("{emo:question} Select the printer profile to use."),
                 options=[(p["id"], p["name"]) for p in all_profiles.values()],
                 item_emoji="profile",
+                port=menu_state.port,
+                baudrate=baudrate,
             )
             return None
 
-        profile_id = next(
-            profile["id"] for profile in all_profiles.values() if self._hash_parameter(profile["id"]) == params[2]
-        )
+        if step == "profile":
+            return {
+                "connector": "serial",
+                "parameters": {"port": menu_state.port, "baudrate": menu_state.baudrate},
+                "profile": self._chosen_option(menu_state, choice),
+            }
 
-        return {
-            "connector": "serial",
-            "parameters": {"port": port, "baudrate": baudrate},
-            "profile": profile_id,
-        }
+        return None
 
     def _ask_choice(
         self,
@@ -351,55 +393,58 @@ class CmdCon(BaseCommand):
         options: Sequence[tuple[str | int, str | int]],
         item_emoji: str,
         with_auto: bool = False,
+        port: str | int | None = None,
+        baudrate: str | int | None = None,
     ) -> None:
         """Ask the user to pick one value out of a list.
 
         Args:
             command_context (CommandContext): The details of a single command invocation.
             parent (str): The callback query the back button goes to.
-            callback_prefix (str): The callback query each option is sent with, the hashed value appended to it.
+            callback_prefix (str): The callback query each option is sent with, its position appended to it.
             msg (str): The text shown above the options.
             options (Sequence[tuple]): The value and the label of every option.
             item_emoji (str): The name of the emoji shown on every option.
             with_auto (bool, optional): Offer an AUTO option on top of the list.
+            port (str | int | None, optional): The port picked so far, or None for AUTO.
+            baudrate (str | int | None, optional): The baudrate picked so far, or None for AUTO.
         """
+        values = []
         buttons = []
         if with_auto:
-            buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_AUTO"))
+            values.append(None)
+            buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_0"))
         for value, label in options:
+            values.append(value)
             buttons.append(
                 (
                     render_emojis(f"{{emo:{item_emoji}}} {label}"),
-                    f"{callback_prefix}_{self._hash_parameter(value)}",
+                    f"{callback_prefix}_{len(values) - 1}",
                 )
             )
         command_buttons = [buttons[i : i + 3] for i in range(0, len(buttons), 3)]
         command_buttons.append([(render_emojis("{emo:back} Back"), parent)])
 
-        self.plugin_context.sender.send_message(
-            msg,
-            chat_id=command_context.chat_id,
-            markup=Markup.HTML,
-            buttons=command_buttons,
-            message_id=command_context.msg_id_to_update,
-        )
+        menu_state = ConMenuState(values, port=port, baudrate=baudrate)
 
-    def _resolve_hashed(self, value: str, choices: Sequence[str | int]) -> str | int | None:
-        """Turn back into its original the value a button carried hashed.
+        self.show_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+
+    def _chosen_option(self, menu_state: ConMenuState, choice: str) -> str | int | None:
+        """Return the value behind the option the user picked.
 
         Args:
-            value (str): The hash carried by the callback query, or "AUTO".
-            choices (Sequence[str | int]): The values the hash is looked up among.
+            menu_state (ConMenuState): The state of the menu the option was picked from.
+            choice (str): The position the button carries.
 
         Returns:
-            str | int | None: The original value, or None if the user picked AUTO.
+            str | int | None: The value behind the option, or None if the user picked AUTO.
 
         Raises:
-            StopIteration: If no choice matches the hash.
+            StaleMenuError: If the menu offers no option at that position.
         """
-        if value == "AUTO":
-            return None
-        return next(c for c in choices if self._hash_parameter(c) == value)
+        if not choice.isdigit() or int(choice) >= len(menu_state.options):
+            raise StaleMenuError
+        return menu_state.options[int(choice)]
 
     def _build_connection_summary(self, connector: str | None, parameters: dict | None) -> str:
         connector_label = "Default"
@@ -420,7 +465,7 @@ class CmdCon(BaseCommand):
             if self._is_sensitive_param(key):
                 display = "***"
             else:
-                display = str(value) if value is not None else "AUTO"
+                display = "AUTO" if value in (None, "") else str(value)
             lines.append(f"<b>{html.escape(label)}</b>: {html.escape(display)}")
         lines.append("")
         lines.append("")
@@ -434,8 +479,3 @@ class CmdCon(BaseCommand):
     def _is_sensitive_param(self, key: str) -> bool:
         key_lower = str(key).lower()
         return any(keyword in key_lower for keyword in self.SENSITIVE_PARAM_KEYWORDS)
-
-    def _hash_parameter(self, parameter: str | int) -> str:
-        # The longest callback we build is "/con_c_s_<port>_<baud>_<profile>"
-        # (11 fixed chars + 3 hashes), so 16 hex chars per hash fits safely.
-        return callbacks.hash_value(parameter, 16)
