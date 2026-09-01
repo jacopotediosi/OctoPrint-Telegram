@@ -71,14 +71,7 @@ class CmdSys(BaseCommand):
                         ]
                     ]
 
-                    self.plugin_context.sender.send_message(
-                        msg,
-                        chat_id=command_context.chat_id,
-                        markup=Markup.HTML,
-                        buttons=command_buttons,
-                        message_id=command_context.msg_id_to_update,
-                        reply_to_message_id=command_context.msg_id_to_reply_to,
-                    )
+                    self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
                 else:  # Execute command
                     if params[2] not in command_mapping:
@@ -103,13 +96,7 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.plugin_context.sender.send_message(
-                        msg,
-                        chat_id=command_context.chat_id,
-                        markup=Markup.HTML,
-                        message_id=command_context.msg_id_to_update,
-                        reply_to_message_id=command_context.msg_id_to_reply_to,
-                    )
+                    self.update_menu(command_context, msg, None, markup=Markup.HTML)
 
             else:  # Custom commands (system actions)
                 confirmed = len(params) > 2 and params[1] == "do"
@@ -137,11 +124,10 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception parsing system actions")
 
                 if not command:
-                    self.plugin_context.sender.send_message(
+                    self.update_menu(
+                        command_context,
                         render_emojis("{emo:attention} Sorry, I don't know this System Command."),
-                        chat_id=command_context.chat_id,
-                        message_id=command_context.msg_id_to_update,
-                        reply_to_message_id=command_context.msg_id_to_reply_to,
+                        None,
                     )
                     return
 
@@ -164,7 +150,7 @@ class CmdSys(BaseCommand):
                         ]
                     ]
 
-                    self.show_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                    self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
                 else:  # Execute command
                     async_ = command.get("async", False)
@@ -194,13 +180,7 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.plugin_context.sender.send_message(
-                        msg,
-                        chat_id=command_context.chat_id,
-                        markup=Markup.HTML,
-                        message_id=command_context.msg_id_to_update,
-                        reply_to_message_id=command_context.msg_id_to_reply_to,
-                    )
+                    self.update_menu(command_context, msg, None, markup=Markup.HTML)
 
         else:  # Display command buttons
             command_buttons = []
@@ -258,6 +238,6 @@ class CmdSys(BaseCommand):
 
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.show_menu(
+            self.update_menu(
                 command_context, msg, SysMenuState(action_identifiers), markup=Markup.HTML, buttons=command_buttons
             )

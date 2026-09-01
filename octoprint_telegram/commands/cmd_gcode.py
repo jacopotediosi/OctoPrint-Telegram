@@ -30,7 +30,7 @@ class CmdGcode(BaseCommand):
             return
 
         if not command_context.parameter:
-            self.show_menu(
+            self.update_menu(
                 command_context,
                 render_emojis("{emo:info} Reply to this message with the G-code you want to execute"),
                 ReplyPrompt(command_context.cmd),

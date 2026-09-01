@@ -104,22 +104,22 @@ class BaseCommand(ABC):
             raise StaleMenuError
         return menu_state
 
-    def show_menu(
+    def update_menu(
         self,
         command_context: CommandContext,
         message: str,
-        menu_state: MenuState,
+        menu_state: MenuState | None,
         *,
         markup: Markup = Markup.OFF,
         buttons: Buttons | None = None,
         force_reply: bool = False,
     ) -> None:
-        """Show a menu, replacing the message the command was invoked from.
+        """Update the menu, replacing the message the command was invoked from.
 
         Args:
             command_context (CommandContext): The details of a single command invocation.
             message (str): The text shown above the menu.
-            menu_state (MenuState): The state the buttons of the menu refer to.
+            menu_state (MenuState | None): The state the buttons refer to, or None when the message has no menu.
             markup (Markup, optional): The markup Telegram parses in the text.
             buttons (Buttons, optional): The inline keyboard shown under the message.
             force_reply (bool, optional): Show the reply interface in the chat.
@@ -135,4 +135,7 @@ class BaseCommand(ABC):
         )
         if message_id:
             command_context.msg_id_to_update = message_id
-            self.plugin_context.menu_states.set_menu_state(command_context.chat_id, message_id, menu_state)
+            if menu_state is None:
+                self.plugin_context.menu_states.discard_menu_state(command_context.chat_id, message_id)
+            else:
+                self.plugin_context.menu_states.set_menu_state(command_context.chat_id, message_id, menu_state)

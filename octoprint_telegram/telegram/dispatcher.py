@@ -263,6 +263,7 @@ class Dispatcher:
                     command, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user
                 )
             except StaleMenuError:
+                self.plugin_context.menu_states.discard_menu_state(chat_id, msg_id_to_update)
                 self.plugin_context.sender.send_message(
                     render_emojis(
                         f"{{emo:attention}} The button you pressed was no longer valid. Please run {command} again."
@@ -273,6 +274,7 @@ class Dispatcher:
                 )
             except Exception:
                 self._logger.exception("Caught an exception executing command %s", command)
+                self.plugin_context.menu_states.discard_menu_state(chat_id, msg_id_to_update)
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:attention} Error executing your command! Please check logs."),
                     chat_id,

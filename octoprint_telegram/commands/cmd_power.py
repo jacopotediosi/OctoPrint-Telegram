@@ -65,13 +65,7 @@ class CmdPower(BaseCommand):
             for plugin_handler in supported_plugins:
                 message += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_handler.plugin_id)}/'>{html.escape(plugin_handler.plugin_name)}</a>\n"
 
-            self.plugin_context.sender.send_message(
-                message,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.update_menu(command_context, message, None, markup=Markup.HTML)
 
             return
 
@@ -103,7 +97,9 @@ class CmdPower(BaseCommand):
             plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
             command_buttons = plug_button_rows + [[(render_emojis("{emo:cancel} Close"), "close")]]
 
-            self.show_menu(command_context, message, PowerMenuState(plugs), markup=Markup.HTML, buttons=command_buttons)
+            self.update_menu(
+                command_context, message, PowerMenuState(plugs), markup=Markup.HTML, buttons=command_buttons
+            )
 
         else:
             params = command_context.parameter.split("_")
@@ -119,13 +115,12 @@ class CmdPower(BaseCommand):
             ]
 
             if not (plug_index.isdigit() and int(plug_index) < len(menu_state.plugs)):
-                self.plugin_context.sender.send_message(
+                self.update_menu(
+                    command_context,
                     render_emojis("{emo:attention} Selected plug not found!"),
-                    chat_id=command_context.chat_id,
+                    None,
                     markup=Markup.HTML,
                     buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
                 return
 
@@ -137,14 +132,7 @@ class CmdPower(BaseCommand):
                 message = render_emojis(
                     f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
                 )
-                self.plugin_context.sender.send_message(
-                    message,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.update_menu(command_context, message, None, markup=Markup.HTML, buttons=command_buttons)
                 return
 
             if not action:  # Command was /power_plugIndex, show plug status and ask for action
@@ -152,13 +140,12 @@ class CmdPower(BaseCommand):
                 selected_plug = next((p for p in plugs if str(p["data"]) == plug), None)
 
                 if selected_plug is None:
-                    self.plugin_context.sender.send_message(
+                    self.update_menu(
+                        command_context,
                         render_emojis("{emo:attention} Selected plug not found!"),
-                        chat_id=command_context.chat_id,
+                        None,
                         markup=Markup.HTML,
                         buttons=command_buttons,
-                        message_id=command_context.msg_id_to_update,
-                        reply_to_message_id=command_context.msg_id_to_reply_to,
                     )
                     return
 
@@ -183,7 +170,7 @@ class CmdPower(BaseCommand):
                     ],
                 ]
 
-                self.show_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.update_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
             else:  # Command was /power_plugIndex_action, execute action
                 action_methods = {"on": plugin_handler.turn_on, "off": plugin_handler.turn_off}
 
@@ -204,4 +191,4 @@ class CmdPower(BaseCommand):
                     ],
                 ]
 
-                self.show_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.update_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)

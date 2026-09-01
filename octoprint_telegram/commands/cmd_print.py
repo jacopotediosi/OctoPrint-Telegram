@@ -23,12 +23,7 @@ class CmdPrint(BaseCommand):
             msg = render_emojis(
                 f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."
             )
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.update_menu(command_context, msg, None)
             return
 
         current_data = self.plugin_context.printer.get_current_data()
@@ -36,22 +31,20 @@ class CmdPrint(BaseCommand):
 
         if command_context.parameter == "yes":  # Print the file selected for printing
             if current_data.get("job", {}).get("file", {}).get("name") is None:
-                self.plugin_context.sender.send_message(
+                self.update_menu(
+                    command_context,
                     render_emojis("{emo:attention} No file is selected for printing. Did you select one using /files?"),
-                    chat_id=command_context.chat_id,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
+                    None,
                 )
                 return
 
             self.plugin_context.printer.start_print(user=command_context.user)
 
-            self.plugin_context.sender.send_message(
+            self.update_menu(
+                command_context,
                 render_emojis(f"{{emo:rocket}} Started printing <code>{html.escape(job_file_name)}</code>."),
-                chat_id=command_context.chat_id,
+                None,
                 markup=Markup.HTML,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
         else:  # Propose to print the file selected for printing or to open /files
             if job_file_name:
@@ -79,18 +72,10 @@ class CmdPrint(BaseCommand):
                     ],
                 ]
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
             else:
-                self.plugin_context.sender.send_message(
+                self.update_menu(
+                    command_context,
                     render_emojis("{emo:warning} No file is selected for printing. Please select one using /files."),
-                    chat_id=command_context.chat_id,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
+                    None,
                 )
