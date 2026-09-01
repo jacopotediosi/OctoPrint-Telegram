@@ -1455,6 +1455,12 @@ class CmdFiles(BaseCommand):
 
             self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
+        # Send msg
+        msg = render_emojis(
+            f"{{emo:loading}} Slicing <code>{html.escape(full_file_path_to_display)}</code> to <code>{html.escape(dest_path_to_display)}</code>..."
+        )
+        self.update_menu(command_context, msg, None, markup=Markup.HTML)
+
         # Perform slicing
         self.plugin_context.file_manager.slice(
             slicer_id,
@@ -1466,12 +1472,6 @@ class CmdFiles(BaseCommand):
             printer_profile_id=printer_profile_id,
             callback=slice_callback,
         )
-        msg = render_emojis(
-            f"{{emo:loading}} Slicing <code>{html.escape(full_file_path_to_display)}</code> to <code>{html.escape(dest_path_to_display)}</code>..."
-        )
-
-        # Send msg
-        self.update_menu(command_context, msg, None, markup=Markup.HTML)
 
     def _file_download(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._selected_storage_and_path(menu_state)
