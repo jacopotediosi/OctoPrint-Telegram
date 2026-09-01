@@ -247,9 +247,9 @@ class CmdFiles(BaseCommand):
         if sent_message_id:
             command_context.msg_id_to_update = sent_message_id
 
-        if not menu_state.folder:  # Show storage selection
-            storages = self.plugin_context.file_manager.list_files(recursive=False)
+        storages = self.plugin_context.file_manager.registered_storages
 
+        if not menu_state.folder:  # Show storage selection
             if len(storages) == 1:
                 menu_state.folder = next(iter(storages))
                 self._file_list(command_context, menu_state)
@@ -410,19 +410,29 @@ class CmdFiles(BaseCommand):
                         )
                     )
 
-            # Settings and close
-            nav_and_actions_row.extend(
-                [
+            # Settings
+            nav_and_actions_row.append(
+                (
+                    render_emojis("{emo:settings} Settings"),
+                    f"{command_context.cmd}_settings",
+                )
+            )
+
+            # Back to storage selection, or close
+            if path_is_storage_root and len(storages) > 1:
+                nav_and_actions_row.append(
                     (
-                        render_emojis("{emo:settings} Settings"),
-                        f"{command_context.cmd}_settings",
-                    ),
+                        render_emojis("{emo:back} Back"),
+                        command_context.cmd,
+                    )
+                )
+            else:
+                nav_and_actions_row.append(
                     (
                         render_emojis("{emo:cancel} Close"),
                         "close",
-                    ),
-                ]
-            )
+                    )
+                )
 
             command_buttons.append(nav_and_actions_row)
 
