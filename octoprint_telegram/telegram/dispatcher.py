@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 
 from ..commands import registry
 from ..domain import permissions
-from ..domain.chats import get_chat_title
+from ..domain.chats import get_chat_title, is_group_or_channel
 from ..domain.uploads import Uploads
 from ..emoji import Emoji
 from .enums import ChatMemberStatus, HttpMethod
-from .menu_states import StaleMenuError
+from .menu_states import ReplyPrompt, StaleMenuError
 
 if TYPE_CHECKING:
     from ..commands.commands import Commands
@@ -51,6 +51,7 @@ class Dispatcher:
 
         if "message" in update or "channel_post" in update:
             message = update.get("message", update.get("channel_post"))
+            msg_id_to_reply_to = str(message["message_id"]) if is_group_or_channel(chat_id) else ""
 
             # We got a text message, likely a command
             if "text" in message:
@@ -59,12 +60,12 @@ class Dispatcher:
                     chat = message["chat"]
                     chat_title = get_chat_title(chat)
                     chat_type = chat["type"]
-                    self._enroll_chat(chat_id, chat_title, chat_type)
+                    self._enroll_chat(chat_id, chat_title, chat_type, msg_id_to_reply_to)
                 else:
-                    self._handle_text_message(message, chat_id, from_id)
+                    self._handle_text_message(message, chat_id, from_id, msg_id_to_reply_to)
             # We got a document (file)
             elif "document" in message:
-                self._uploads.store_document(message, chat_id, from_id)
+                self._uploads.store_document(message, chat_id, from_id, msg_id_to_reply_to)
             # We got message with notification for a new chat title so lets update it
             elif "new_chat_title" in message:
                 self._handle_new_chat_title_message(message, chat_id, from_id)
@@ -109,7 +110,7 @@ class Dispatcher:
             self._logger.info("The bot left chat %s, removing it from settings...", chat_id)
             self.plugin_context.chats.remove_chat(chat_id)
 
-    def _enroll_chat(self, chat_id: str, chat_title: str, chat_type: str) -> None:
+    def _enroll_chat(self, chat_id: str, chat_title: str, chat_type: str, msg_id_to_reply_to: str = "") -> None:
         """Add a chat to the known chats and tell it that its permissions still have to be configured."""
         self.plugin_context.chats.add_chat(chat_id, chat_title, chat_type)
         self.plugin_context.sender.send_message(
@@ -118,6 +119,7 @@ class Dispatcher:
                 "Before you can do anything, please go to plugin settings and edit your permissions."
             ),
             chat_id,
+            reply_to_message_id=msg_id_to_reply_to,
         )
 
     def _handle_new_chat_title_message(self, message: dict, chat_id: str, from_id: str) -> None:
@@ -144,8 +146,22 @@ class Dispatcher:
         except Exception:
             self._logger.exception("Caught an exception updating chat picture for chat_id %s", chat_id)
 
-    def _handle_text_message(self, message: dict, chat_id: str, from_id: str) -> None:
+    def _handle_text_message(self, message: dict, chat_id: str, from_id: str, msg_id_to_reply_to: str) -> None:
         message_text = message["text"]
+        from_obj = message.get("from") or {}
+
+        replied_message_id = str(message.get("reply_to_message", {}).get("message_id", ""))
+        reply_prompt = (
+            self.plugin_context.menu_states.get_menu_state(chat_id, replied_message_id, ReplyPrompt)
+            if replied_message_id
+            else None
+        )
+
+        if reply_prompt is not None:
+            self._handle_command(
+                reply_prompt.command, message_text, chat_id, from_id, from_obj, msg_id_to_reply_to=msg_id_to_reply_to
+            )
+            return
 
         if not message_text.startswith("/"):
             self._logger.debug("Ignoring text message '%s' because it doesn't start with a slash", message_text)
@@ -154,16 +170,15 @@ class Dispatcher:
         # Remove bot username from commands like /command@botusername
         command = message_text.split("@")[0]
 
-        self._handle_command(command, chat_id, from_id, message.get("from") or {})
+        self._handle_command(command, "", chat_id, from_id, from_obj, msg_id_to_reply_to=msg_id_to_reply_to)
 
     def _handle_callback_query(self, callback_query: dict, chat_id: str, from_id: str) -> None:
-        command = callback_query["data"]
+        command, _, parameter = callback_query["data"].partition("_")
         from_obj = callback_query["from"]
         msg_id_to_update = str(callback_query.get("message", {}).get("message_id", ""))
 
-        # Handle callback query data as if it was a text command
         try:
-            self._handle_command(command, chat_id, from_id, from_obj, msg_id_to_update)
+            self._handle_command(command, parameter, chat_id, from_id, from_obj, msg_id_to_update)
         except Exception:
             self._logger.exception("Caught an exception calling _handle_command()")
 
@@ -178,22 +193,30 @@ class Dispatcher:
             self._logger.exception("Caught an exception sending answerCallbackQuery")
 
     def _handle_command(
-        self, command: str, chat_id: str, from_id: str, from_obj: dict, msg_id_to_update: str = ""
+        self,
+        command: str,
+        parameter: str,
+        chat_id: str,
+        from_id: str,
+        from_obj: dict,
+        msg_id_to_update: str = "",
+        msg_id_to_reply_to: str = "",
     ) -> None:
         """Run a bot command.
 
         Args:
-            command (str): The command as typed or as carried by the callback query, parameter included.
+            command (str): The command to run.
+            parameter (str): The parameter of the command.
             chat_id (str): The chat the command comes from.
             from_id (str): The id of the user who sent it.
             from_obj (dict): The Telegram user who sent it.
             msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
+            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
         """
-        # Separate command and parameter
-        parts = command.split("_")
-        command = parts[0].lower()
+        command = command.lower()
         command_definition = registry.get(command)
-        parameter = "_".join(parts[1:]) if command_definition is not None and command_definition.takes_parameter else ""
+        if command_definition is None or not command_definition.takes_parameter:
+            parameter = ""
 
         # Log received command
         self._logger.info(
@@ -208,6 +231,7 @@ class Dispatcher:
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:notallowed} I do not understand you!"),
                     chat_id,
+                    reply_to_message_id=msg_id_to_reply_to,
                 )
             return
 
@@ -235,7 +259,9 @@ class Dispatcher:
 
             # Execute command
             try:
-                self._commands.run_command(command, chat_id, from_id, parameter, msg_id_to_update, user)
+                self._commands.run_command(
+                    command, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user
+                )
             except StaleMenuError:
                 self.plugin_context.sender.send_message(
                     render_emojis(
@@ -243,6 +269,7 @@ class Dispatcher:
                     ),
                     chat_id,
                     message_id=msg_id_to_update,
+                    reply_to_message_id=msg_id_to_reply_to,
                 )
             except Exception:
                 self._logger.exception("Caught an exception executing command %s", command)
@@ -250,6 +277,7 @@ class Dispatcher:
                     render_emojis("{emo:attention} Error executing your command! Please check logs."),
                     chat_id,
                     message_id=msg_id_to_update,
+                    reply_to_message_id=msg_id_to_reply_to,
                 )
         else:
             # User was not allowed to execute this command
@@ -257,6 +285,7 @@ class Dispatcher:
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:notallowed} You are not allowed to do this!"),
                 chat_id,
+                reply_to_message_id=msg_id_to_reply_to,
             )
 
     def _get_chat_id(self, update: dict) -> str:

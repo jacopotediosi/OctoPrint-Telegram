@@ -23,7 +23,14 @@ class Commands:
         }
 
     def run_command(
-        self, command: str, chat_id: str, from_id: str, parameter: str, msg_id_to_update: str, user: str
+        self,
+        command: str,
+        chat_id: str,
+        from_id: str,
+        parameter: str,
+        msg_id_to_update: str,
+        msg_id_to_reply_to: str,
+        user: str,
     ) -> None:
         """Run a command by its textual name.
 
@@ -33,9 +40,10 @@ class Commands:
             from_id (str): The id of the user who sent the command.
             parameter (str): The parameter the command was invoked with.
             msg_id_to_update (str): The message to replace with the answer, instead of sending a new one.
+            msg_id_to_reply_to (str): The message the answer is a reply to.
             user (str): The name of the user who sent the command.
 
         Raises:
             KeyError: If the command doesn't exist.
         """
-        return self._commands[command](command, chat_id, from_id, parameter, msg_id_to_update, user)
+        return self._commands[command](command, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user)

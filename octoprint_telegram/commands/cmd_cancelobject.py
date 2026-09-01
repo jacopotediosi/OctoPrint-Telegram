@@ -30,6 +30,7 @@ class CmdCancelObject(BaseCommand):
                 chat_id=command_context.chat_id,
                 markup=Markup.HTML,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -48,6 +49,7 @@ class CmdCancelObject(BaseCommand):
                 markup=Markup.HTML,
                 buttons=command_buttons,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
         else:
             objlist = self.plugin_context.api.send_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
@@ -72,6 +74,7 @@ class CmdCancelObject(BaseCommand):
                     markup=Markup.HTML,
                     buttons=command_buttons,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
             else:
                 msg = render_emojis(
@@ -82,4 +85,5 @@ class CmdCancelObject(BaseCommand):
                     chat_id=command_context.chat_id,
                     markup=Markup.HTML,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )

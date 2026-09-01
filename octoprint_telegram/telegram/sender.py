@@ -68,6 +68,8 @@ class Sender:
         message_id: str = "",
         markup: Markup = Markup.OFF,
         buttons: Buttons | None = None,
+        force_reply: bool = False,
+        reply_to_message_id: str = "",
         delay: int = 0,
         silent: bool = False,
         with_image: bool = False,
@@ -78,7 +80,8 @@ class Sender:
     ) -> str | None:
         """Send a message to a chat, or replace an earlier one when its id is given.
 
-        Replacing a message only honours markup, buttons and delay; the attachments and the silent flag are ignored.
+        Replacing a message only honours markup, buttons and delay; the attachments, the reply interface and the
+        silent flag are ignored.
 
         Args:
             message (str): The text to send.
@@ -86,6 +89,8 @@ class Sender:
             message_id (str, optional): The message to replace instead of sending a new one.
             markup (Markup, optional): The markup Telegram parses in the text.
             buttons (Buttons, optional): The inline keyboard shown under the message.
+            force_reply (bool, optional): Show the reply interface in the chat.
+            reply_to_message_id (str, optional): The message to answer as a reply.
             delay (int, optional): Seconds to wait before delivering.
             silent (bool, optional): Deliver without a notification sound.
             with_image (bool, optional): Attach a snapshot from every configured webcam.
@@ -109,11 +114,16 @@ class Sender:
             # Prepare message data
             message_data = {"chat_id": chat_id}
             self._apply_markup(message_data, markup)
-            self._apply_buttons(message_data, buttons)
+            self._apply_reply_markup(message_data, buttons, force_reply and not message_id)
 
             if message_id:
                 self._edit(message, chat_id, message_data=message_data, message_id=message_id)
                 return message_id
+
+            if reply_to_message_id:
+                message_data["reply_parameters"] = json.dumps(
+                    {"message_id": int(reply_to_message_id), "allow_sending_without_reply": True}
+                )
 
             return self._send(
                 message,
@@ -371,11 +381,12 @@ class Sender:
         if markup is not Markup.OFF:
             data["parse_mode"] = markup.value
 
-    def _apply_buttons(self, data: dict, buttons: Buttons | None) -> None:
-        if not buttons:
-            return
-        rows = [[{"text": button[0], "callback_data": button[1]} for button in row] for row in buttons]
-        data["reply_markup"] = json.dumps({"inline_keyboard": rows})
+    def _apply_reply_markup(self, data: dict, buttons: Buttons | None, force_reply: bool) -> None:
+        if buttons:
+            rows = [[{"text": button[0], "callback_data": button[1]} for button in row] for row in buttons]
+            data["reply_markup"] = json.dumps({"inline_keyboard": rows})
+        elif force_reply:
+            data["reply_markup"] = json.dumps({"force_reply": True, "selective": True})
 
     def _report_failure(self, chat_id: str) -> None:
         self._connection_status.set("Exception sending a message")

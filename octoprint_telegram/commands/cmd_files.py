@@ -242,6 +242,7 @@ class CmdFiles(BaseCommand):
             render_emojis("{emo:loading} Loading files..."),
             chat_id=command_context.chat_id,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
         if sent_message_id:
             command_context.msg_id_to_update = sent_message_id
@@ -286,7 +287,10 @@ class CmdFiles(BaseCommand):
                     f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
                 self.plugin_context.sender.send_message(
-                    msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                    msg,
+                    chat_id=command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
                 return
 
@@ -451,6 +455,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -602,6 +607,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -1059,6 +1065,7 @@ class CmdFiles(BaseCommand):
             render_emojis("{emo:loading} Loading files..."),
             chat_id=command_context.chat_id,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
         if sent_message_id:
             command_context.msg_id_to_update = sent_message_id
@@ -1107,7 +1114,10 @@ class CmdFiles(BaseCommand):
                     f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
                 self.plugin_context.sender.send_message(
-                    msg, chat_id=command_context.chat_id, message_id=command_context.msg_id_to_update
+                    msg,
+                    chat_id=command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
                 return
 
@@ -1199,6 +1209,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -1278,6 +1289,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -1322,6 +1334,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
         slicer = self.plugin_context.slicing_manager.get_slicer(slicer_id)
@@ -1498,6 +1511,7 @@ class CmdFiles(BaseCommand):
             chat_id=command_context.chat_id,
             markup=Markup.HTML,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
 
     def _file_download(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
@@ -1514,6 +1528,7 @@ class CmdFiles(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
     def _file_delete_confirmation(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:

@@ -32,13 +32,14 @@ class Uploads:
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Uploads")
 
-    def store_document(self, message: dict, chat_id: str, from_id: str) -> None:
+    def store_document(self, message: dict, chat_id: str, from_id: str, msg_id_to_reply_to: str = "") -> None:
         """Store into the OctoPrint file library a file a user sent to the bot.
 
         Args:
             message (dict): The Telegram message carrying the document.
             chat_id (str): The chat the document was sent from.
             from_id (str): The id of the user who sent the document.
+            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
         """
         try:
             self._logger.debug("Handling document message: %s", message)
@@ -51,6 +52,7 @@ class Uploads:
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:notallowed} You are not authorized to upload files!"),
                     chat_id,
+                    reply_to_message_id=msg_id_to_reply_to,
                 )
                 return
 
@@ -69,7 +71,9 @@ class Uploads:
                     f"{supported_extensions}, or a ZIP file containing them."
                 )
 
-                self.plugin_context.sender.send_message(msg, chat_id, markup=Markup.HTML)
+                self.plugin_context.sender.send_message(
+                    msg, chat_id, markup=Markup.HTML, reply_to_message_id=msg_id_to_reply_to
+                )
 
                 return
 
@@ -79,6 +83,7 @@ class Uploads:
                     render_emojis(f"{{emo:save}} Saving file <code>{html.escape(uploaded_file_filename)}</code>..."),
                     chat_id,
                     markup=Markup.HTML,
+                    reply_to_message_id=msg_id_to_reply_to,
                 )
                 or ""
             )
@@ -233,4 +238,5 @@ class Uploads:
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:attention} Something went wrong processing your file. Please check logs."),
                 chat_id,
+                reply_to_message_id=msg_id_to_reply_to,
             )

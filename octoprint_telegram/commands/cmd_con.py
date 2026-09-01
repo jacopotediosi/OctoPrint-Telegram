@@ -162,6 +162,7 @@ class CmdCon(BaseCommand):
             markup=Markup.HTML,
             buttons=command_buttons,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
 
     def _disconnect(self, command_context: CommandContext, params: list[str]) -> None:
@@ -183,6 +184,7 @@ class CmdCon(BaseCommand):
             chat_id=command_context.chat_id,
             buttons=command_buttons,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
 
     def _connect(self, command_context: CommandContext, params: list[str]) -> None:
@@ -203,6 +205,7 @@ class CmdCon(BaseCommand):
                 render_emojis("{emo:info} Connecting..."),
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
             parameters = connection_data["parameters"]
@@ -239,6 +242,7 @@ class CmdCon(BaseCommand):
                 markup=Markup.HTML,
                 buttons=command_buttons,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
         else:
@@ -260,6 +264,7 @@ class CmdCon(BaseCommand):
                 chat_id=command_context.chat_id,
                 buttons=command_buttons,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
     def _ask_default_connection_data(self, command_context: CommandContext, params: list[str]) -> dict | None:

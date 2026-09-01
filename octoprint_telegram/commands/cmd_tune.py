@@ -160,6 +160,7 @@ class CmdTune(BaseCommand):
                 chat_id=command_context.chat_id,
                 markup=Markup.HTML,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
     def _go_back(self, command_context: CommandContext) -> None:
@@ -170,6 +171,7 @@ class CmdTune(BaseCommand):
             from_id=command_context.from_id,
             parameter="back",
             msg_id_to_update=command_context.msg_id_to_update,
+            msg_id_to_reply_to=command_context.msg_id_to_reply_to,
             user=command_context.user,
         )
 
@@ -228,6 +230,7 @@ class CmdTune(BaseCommand):
                 chat_id=command_context.chat_id,
                 markup=Markup.HTML,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -245,6 +248,7 @@ class CmdTune(BaseCommand):
                 chat_id=command_context.chat_id,
                 markup=Markup.HTML,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 

@@ -10,6 +10,18 @@ class MenuState:
     """What a command remembers about a menu it has drawn."""
 
 
+class ReplyPrompt(MenuState):
+    """A message asking the user to answer with the parameter of a command."""
+
+    def __init__(self, command: str) -> None:
+        """Set up the prompt.
+
+        Args:
+            command (str): The command the answer is the parameter of.
+        """
+        self.command = command
+
+
 T = TypeVar("T", bound=MenuState)
 
 

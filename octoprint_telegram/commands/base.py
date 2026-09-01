@@ -13,7 +13,14 @@ T = TypeVar("T", bound=MenuState)
 
 class CommandContext:
     def __init__(
-        self, cmd: str, chat_id: str, from_id: str, parameter: str = "", msg_id_to_update: str = "", user: str = ""
+        self,
+        cmd: str,
+        chat_id: str,
+        from_id: str,
+        parameter: str = "",
+        msg_id_to_update: str = "",
+        msg_id_to_reply_to: str = "",
+        user: str = "",
     ) -> None:
         """Set up the details of a single command invocation.
 
@@ -23,6 +30,7 @@ class CommandContext:
             from_id (str): The id of the user who sent the command.
             parameter (str, optional): The parameter the command was invoked with.
             msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
+            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
             user (str, optional): The name of the user who sent the command.
         """
         self.cmd = cmd
@@ -30,6 +38,7 @@ class CommandContext:
         self.from_id = from_id
         self.parameter = parameter
         self.msg_id_to_update = msg_id_to_update
+        self.msg_id_to_reply_to = msg_id_to_reply_to
         self.user = user
 
 
@@ -50,6 +59,7 @@ class BaseCommand(ABC):
         from_id: str,
         parameter: str = "",
         msg_id_to_update: str = "",
+        msg_id_to_reply_to: str = "",
         user: str = "",
     ) -> None:
         """Run the command on a single invocation.
@@ -60,9 +70,10 @@ class BaseCommand(ABC):
             from_id (str): The id of the user who sent the command.
             parameter (str, optional): The parameter the command was invoked with.
             msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
+            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
             user (str, optional): The name of the user who sent the command.
         """
-        command_context = CommandContext(cmd, chat_id, from_id, parameter, msg_id_to_update, user)
+        command_context = CommandContext(cmd, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user)
         return self.execute(command_context)
 
     @abstractmethod
@@ -101,6 +112,7 @@ class BaseCommand(ABC):
         *,
         markup: Markup = Markup.OFF,
         buttons: Buttons | None = None,
+        force_reply: bool = False,
     ) -> None:
         """Show a menu, replacing the message the command was invoked from.
 
@@ -110,13 +122,16 @@ class BaseCommand(ABC):
             menu_state (MenuState): The state the buttons of the menu refer to.
             markup (Markup, optional): The markup Telegram parses in the text.
             buttons (Buttons, optional): The inline keyboard shown under the message.
+            force_reply (bool, optional): Show the reply interface in the chat.
         """
         message_id = self.plugin_context.sender.send_message(
             message,
             chat_id=command_context.chat_id,
             markup=markup,
             buttons=buttons,
+            force_reply=force_reply,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )
         if message_id:
             command_context.msg_id_to_update = message_id

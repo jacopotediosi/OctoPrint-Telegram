@@ -111,7 +111,7 @@ COMMAND_DEFINITIONS: tuple[CommandDefinition, ...] = (
     CommandDefinition(
         "/gcode",
         CmdGcode,
-        "Send G-code commands to the printer (use like /gcode_XXX)",
+        "Send G-code commands to the printer",
         takes_parameter=True,
     ),
     CommandDefinition("/gif", CmdGif, "Show GIFs from the webcams"),

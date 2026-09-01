@@ -28,4 +28,5 @@ class CmdUpload(BaseCommand):
             chat_id=command_context.chat_id,
             markup=Markup.HTML,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )

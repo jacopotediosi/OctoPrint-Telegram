@@ -24,4 +24,5 @@ class CmdSuperGif(BaseCommand):
             with_gif=with_gif,
             gif_duration=self.SUPERGIF_DURATION,
             message_id=command_context.msg_id_to_update,
+            reply_to_message_id=command_context.msg_id_to_reply_to,
         )

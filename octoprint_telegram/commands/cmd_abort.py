@@ -25,6 +25,7 @@ class CmdAbort(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
         else:
             if (
@@ -49,6 +50,7 @@ class CmdAbort(BaseCommand):
                     buttons=command_buttons,
                     chat_id=command_context.chat_id,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
             else:
                 msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
@@ -57,4 +59,5 @@ class CmdAbort(BaseCommand):
                     msg,
                     chat_id=command_context.chat_id,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )

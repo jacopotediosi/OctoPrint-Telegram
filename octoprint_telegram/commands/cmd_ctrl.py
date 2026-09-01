@@ -39,6 +39,7 @@ class CmdCtrl(BaseCommand):
                 render_emojis("{emo:attention} Printer not connected. You can't trigger any control."),
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -63,6 +64,7 @@ class CmdCtrl(BaseCommand):
                     render_emojis("{emo:attention} Control Command not found."),
                     chat_id=command_context.chat_id,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
                 return
 
@@ -118,6 +120,7 @@ class CmdCtrl(BaseCommand):
                     markup=Markup.HTML,
                     buttons=command_buttons,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
 
         else:  # Display all available commands

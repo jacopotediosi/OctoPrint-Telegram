@@ -27,6 +27,7 @@ class CmdPrint(BaseCommand):
                 msg,
                 chat_id=command_context.chat_id,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
             return
 
@@ -39,6 +40,7 @@ class CmdPrint(BaseCommand):
                     render_emojis("{emo:attention} No file is selected for printing. Did you select one using /files?"),
                     chat_id=command_context.chat_id,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
                 return
 
@@ -49,6 +51,7 @@ class CmdPrint(BaseCommand):
                 chat_id=command_context.chat_id,
                 markup=Markup.HTML,
                 message_id=command_context.msg_id_to_update,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
         else:  # Propose to print the file selected for printing or to open /files
             if job_file_name:
@@ -82,10 +85,12 @@ class CmdPrint(BaseCommand):
                     markup=Markup.HTML,
                     buttons=command_buttons,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
             else:
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:warning} No file is selected for printing. Please select one using /files."),
                     chat_id=command_context.chat_id,
                     message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
