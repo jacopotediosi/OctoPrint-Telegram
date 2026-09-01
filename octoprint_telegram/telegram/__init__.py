@@ -1,10 +1,11 @@
 from .client import TelegramClient, TelegramRequestError
 from .enums import ChatAction, ChatType, HttpMethod, Markup
 from .keyboards import Buttons
-from .menu_states import MenuState, MenuStates, ReplyPrompt, StaleMenuError
+from .menu_states import AwaitedReply, MenuState, MenuStates, StaleMenuError
 from .sender import Sender
 
 __all__ = [
+    "AwaitedReply",
     "Buttons",
     "ChatAction",
     "ChatType",
@@ -12,7 +13,6 @@ __all__ = [
     "Markup",
     "MenuState",
     "MenuStates",
-    "ReplyPrompt",
     "Sender",
     "StaleMenuError",
     "TelegramClient",

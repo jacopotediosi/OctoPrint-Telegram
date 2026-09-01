@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, TypeVar
 
-from ..telegram import Buttons, Markup, MenuState, StaleMenuError
+from ..telegram import AwaitedReply, Buttons, Markup, MenuState, StaleMenuError
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
@@ -113,6 +113,8 @@ class BaseCommand(ABC):
         markup: Markup = Markup.OFF,
         buttons: Buttons | None = None,
         force_reply: bool = False,
+        reply_parameter_prefix: str = "",
+        delete_answer_message: bool = False,
     ) -> None:
         """Update the menu, replacing the message the command was invoked from.
 
@@ -122,20 +124,32 @@ class BaseCommand(ABC):
             menu_state (MenuState | None): The state the buttons refer to, or None when the message has no menu.
             markup (Markup, optional): The markup Telegram parses in the text.
             buttons (Buttons, optional): The inline keyboard shown under the message.
-            force_reply (bool, optional): Show the reply interface in the chat.
+            force_reply (bool, optional): Ask the user to answer the message with the parameter of the command.
+            reply_parameter_prefix (str, optional): What the answer is appended to, to build that parameter.
+            delete_answer_message (bool, optional): Remove the message carrying the answer from the chat, once the
+                command has run.
         """
+        msg_id_to_update = command_context.msg_id_to_update
+
         message_id = self.plugin_context.sender.send_message(
             message,
             chat_id=command_context.chat_id,
             markup=markup,
             buttons=buttons,
             force_reply=force_reply,
-            message_id=command_context.msg_id_to_update,
+            message_id=msg_id_to_update,
             reply_to_message_id=command_context.msg_id_to_reply_to,
         )
         if message_id:
             command_context.msg_id_to_update = message_id
-            if menu_state is None:
+            awaited_reply = (
+                AwaitedReply(command_context.cmd, reply_parameter_prefix, msg_id_to_update, delete_answer_message)
+                if force_reply
+                else None
+            )
+            if menu_state is None and awaited_reply is None:
                 self.plugin_context.menu_states.discard_menu_state(command_context.chat_id, message_id)
             else:
-                self.plugin_context.menu_states.set_menu_state(command_context.chat_id, message_id, menu_state)
+                self.plugin_context.menu_states.set_menu_state(
+                    command_context.chat_id, message_id, menu_state, awaited_reply
+                )

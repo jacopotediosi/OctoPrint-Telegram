@@ -25,6 +25,7 @@ class FilesMenuState(MenuState):
     def __init__(
         self,
         folder: str = "",
+        query: str = "",
         page: int = 0,
         items: list[str] | None = None,
         selected: str | None = None,
@@ -38,6 +39,7 @@ class FilesMenuState(MenuState):
 
         Args:
             folder (str, optional): The folder being browsed, its storage included.
+            query (str, optional): The text the names of the files must contain, when files are being searched for.
             page (int, optional): The page of the folder being shown.
             items (list[str], optional): The path of each entry the menu offers, their storage included.
             selected (str, optional): The path the operation acts on, its storage included.
@@ -48,6 +50,7 @@ class FilesMenuState(MenuState):
             printer_profile (str, optional): The id of the printer profile picked so far.
         """
         self.folder = folder
+        self.query = query
         self.page = page
         self.items = items or []
         self.selected = selected
@@ -62,6 +65,9 @@ class CmdFiles(BaseCommand):
     # Number of items (folders + files) to display per page
     PAGE_SIZE = 14
 
+    # Characters of the text to search for that are taken into account, the ones in excess being dropped
+    MAX_QUERY_LENGTH = 20
+
     @override
     def execute(self, command_context: CommandContext) -> None:
         """Browse and manage files.
@@ -74,10 +80,15 @@ class CmdFiles(BaseCommand):
         Browsing:
         - /files -> show the storage menu, or the root of the only storage there is
         - /files_list_{position} -> open the folder at that position
-        - /files_list -> show the folder being browsed, at the page it was left on
-        - /files_up -> open the parent of the folder being browsed
+        - /files_list -> show the folder being browsed, or the search being shown, at the page it was left on
+        - /files_up -> leave the search being shown, or open the parent of the folder being browsed
         - /files_prevpage -> show the previous page of the folder being browsed
         - /files_nextpage -> show the next page of the folder being browsed
+
+        Searching:
+        - /files_search -> ask for the text the names of the files must contain
+        - /files_search_{text} -> show the files whose name contains that text, in the folder being browsed
+          and in all of its subfolders
 
         File information:
         - /files_info_{position} -> select the file at that position and show its information
@@ -129,9 +140,21 @@ class CmdFiles(BaseCommand):
             self._file_list(command_context, menu_state)
 
         elif action == "up":
-            menu_state.folder = "/".join(menu_state.folder.split("/")[:-1])
+            if menu_state.query:
+                menu_state.query = ""
+            else:
+                menu_state.folder = "/".join(menu_state.folder.split("/")[:-1])
             menu_state.page = 0
             self._file_list(command_context, menu_state)
+
+        elif action == "search":
+            query = argument.strip()[: self.MAX_QUERY_LENGTH]
+            if query:
+                menu_state.query = query
+                menu_state.page = 0
+                self._file_list(command_context, menu_state)
+            else:
+                self._file_search_prompt(command_context, menu_state)
 
         elif action in ("prevpage", "nextpage"):
             menu_state.page += -1 if action == "prevpage" else 1
@@ -280,7 +303,7 @@ class CmdFiles(BaseCommand):
 
             try:
                 file_listing = self.plugin_context.file_manager.list_files(
-                    locations=storage_name, path=path_without_storage, recursive=False
+                    storage_name, path_without_storage, recursive=bool(menu_state.query)
                 )
             except Exception:
                 msg = render_emojis(
@@ -291,127 +314,75 @@ class CmdFiles(BaseCommand):
 
             path_content = file_listing.get(storage_name, {})
 
+            # --- Collect the entries to show ---
+            if menu_state.query:
+                entries = self._matching_file_entries(path_with_storage, path_content, menu_state.query)
+                entries_per_row = 1
+            else:
+                entries = self._folder_and_file_entries(path_with_storage, path_content)
+                entries_per_row = 2
+
             # --- Calculate pagination ---
-            folders = {name: data for name, data in path_content.items() if data.get("type") == "folder"}
-
-            file_types_to_show = (
-                ("machinecode", "model") if self.plugin_context.settings.show_models_in_files else ("machinecode",)
-            )
-            files = {name: data for name, data in path_content.items() if data.get("type") in file_types_to_show}
-
-            total_folders = len(folders)
-            total_files = len(files)
-            total_items = total_folders + total_files
-            total_pages = max(1, (total_items + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
+            total_pages = max(1, (len(entries) + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
 
             menu_state.page = max(0, min(menu_state.page, total_pages - 1))
             start_index = menu_state.page * self.PAGE_SIZE
-            end_index = start_index + self.PAGE_SIZE
-
-            menu_state.items = []
-
-            # --- Create folder buttons (paginated) ---
-            sorted_folder_names = sorted(folders.keys())
-            paginated_folder_names = sorted_folder_names[start_index : min(len(sorted_folder_names), end_index)]
-
-            folder_buttons = []
-            for folder_name in paginated_folder_names:
-                menu_state.items.append(f"{path_with_storage}/{folder_name}")
-                folder_buttons.append(
-                    (
-                        render_emojis(f"{{emo:folder}} {folder_name}"),
-                        f"{command_context.cmd}_list_{len(menu_state.items) - 1}",
-                    )
-                )
-
-            # --- Create file buttons (paginated) ---
-            # Calculate remaining slots for files after folders
-            remaining_slots = end_index - len(paginated_folder_names) - start_index
-
-            file_buttons = []
-            if remaining_slots > 0:
-                remaining_start = max(0, start_index - len(sorted_folder_names))
-
-                # Sort files
-                if self.plugin_context.settings.sort_files_by_date:
-                    sorted_files = sorted(files.items(), key=lambda x: x[1].get("date", 0), reverse=True)
-                else:
-                    sorted_files = sorted(files.items())
-
-                # Get only the files for current page
-                paginated_files = sorted_files[remaining_start : remaining_start + remaining_slots]
-
-                # Create buttons only for paginated files
-                for filename, file_data in paginated_files:
-                    file_base_name = filename.rsplit(".", 1)[0]
-                    if file_data.get("type") == "model":
-                        display_filename = render_emojis(f"{{emo:model}} {file_base_name}")
-                    else:
-                        try:
-                            if "history" not in file_data:
-                                display_filename = render_emojis(f"{{emo:new}} {file_base_name}")
-                            else:
-                                history_list = file_data["history"]
-                                if not history_list:
-                                    display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
-                                else:
-                                    history_list.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-                                    latest_history = history_list[0]
-
-                                    if latest_history.get("success"):
-                                        display_filename = render_emojis(f"{{emo:hooray}} {file_base_name}")
-                                    else:
-                                        display_filename = render_emojis(f"{{emo:warning}} {file_base_name}")
-                        except Exception:
-                            self._logger.exception("Error processing history for file '%s'", filename)
-                            display_filename = render_emojis(f"{{emo:file}} {file_base_name}")
-
-                    menu_state.items.append(f"{path_with_storage}/{filename}")
-                    command = f"{command_context.cmd}_info_{len(menu_state.items) - 1}"
-                    file_buttons.append((display_filename, command))
-
-            # --- Combine paginated folder and file buttons ---
-            paginated_folder_and_file_buttons = folder_buttons + file_buttons
+            paginated_entries = entries[start_index : start_index + self.PAGE_SIZE]
 
             # --- Create command buttons ---
             command_buttons = []
+            menu_state.items = []
 
             # Folder and file buttons
-            for i in range(0, len(paginated_folder_and_file_buttons), 2):
-                row = paginated_folder_and_file_buttons[i : i + 2]
+            for row_start in range(0, len(paginated_entries), entries_per_row):
+                row = []
+                for entry_path, entry_label, entry_action in paginated_entries[row_start : row_start + entries_per_row]:
+                    menu_state.items.append(entry_path)
+                    row.append((entry_label, f"{command_context.cmd}_{entry_action}_{len(menu_state.items) - 1}"))
                 command_buttons.append(row)
 
-            # Last row: back, prev/next page, settings, close
-            nav_and_actions_row = []
+            # Prev/next page row
+            page_row = []
+            if menu_state.page > 0:
+                page_row.append(
+                    (
+                        render_emojis("{emo:up} Prev page"),
+                        f"{command_context.cmd}_prevpage",
+                    )
+                )
+            if menu_state.page + 1 < total_pages:
+                page_row.append(
+                    (
+                        render_emojis("{emo:down} Next page"),
+                        f"{command_context.cmd}_nextpage",
+                    )
+                )
+            if page_row:
+                command_buttons.append(page_row)
 
-            # Back button (only within subfolders)
-            if not path_is_storage_root:
-                nav_and_actions_row.append(
+            # Actions row: back, search, settings, close
+            actions_row = []
+
+            # Back button (out of the search being shown, or to the parent folder)
+            if menu_state.query or not path_is_storage_root:
+                actions_row.append(
                     (
                         render_emojis("{emo:back} Back"),
                         f"{command_context.cmd}_up",
                     )
                 )
 
-            # Prev/next page
-            if total_pages > 1:
-                if menu_state.page > 0:
-                    nav_and_actions_row.append(
-                        (
-                            render_emojis("{emo:up} Prev page"),
-                            f"{command_context.cmd}_prevpage",
-                        )
+            # Search
+            if not menu_state.query:
+                actions_row.append(
+                    (
+                        render_emojis("{emo:search} Search"),
+                        f"{command_context.cmd}_search",
                     )
-                if menu_state.page + 1 < total_pages:
-                    nav_and_actions_row.append(
-                        (
-                            render_emojis("{emo:down} Next page"),
-                            f"{command_context.cmd}_nextpage",
-                        )
-                    )
+                )
 
             # Settings
-            nav_and_actions_row.append(
+            actions_row.append(
                 (
                     render_emojis("{emo:settings} Settings"),
                     f"{command_context.cmd}_settings",
@@ -419,29 +390,194 @@ class CmdFiles(BaseCommand):
             )
 
             # Back to storage selection, or close
-            if path_is_storage_root and len(storages) > 1:
-                nav_and_actions_row.append(
+            if path_is_storage_root and not menu_state.query and len(storages) > 1:
+                actions_row.append(
                     (
                         render_emojis("{emo:back} Back"),
                         command_context.cmd,
                     )
                 )
             else:
-                nav_and_actions_row.append(
+                actions_row.append(
                     (
                         render_emojis("{emo:cancel} Close"),
                         "close",
                     )
                 )
 
-            command_buttons.append(nav_and_actions_row)
+            command_buttons.append(actions_row)
 
             # --- Create message ---
             page_str = f"    [{menu_state.page + 1} / {total_pages}]" if total_pages > 1 else ""
-            msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
+            if menu_state.query:
+                msg = render_emojis(
+                    f"{{emo:search}} Files matching <code>{html.escape(menu_state.query)}</code> "
+                    f"in <code>/{html.escape(path_with_storage)}</code>{page_str}"
+                )
+                if not entries:
+                    msg += "\n\nNo file found."
+            else:
+                msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
 
             # --- Send message ---
             self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+
+    def _file_types_to_show(self) -> tuple[str, ...]:
+        """The types of the files the menu lists, as configured in the browsing settings."""
+        return ("machinecode", "model") if self.plugin_context.settings.show_models_in_files else ("machinecode",)
+
+    def _file_date(self, file_data: dict) -> float:
+        """Return the moment a file was uploaded, as a timestamp.
+
+        Args:
+            file_data (dict): The data OctoPrint holds about the file.
+
+        Returns:
+            float: The timestamp, or 0 for the files whose date OctoPrint does not report.
+        """
+        # OctoPrint 2 reports a datetime, the previous versions a timestamp
+        date = file_data.get("date")
+        if isinstance(date, datetime.datetime):
+            return date.timestamp()
+        return date or 0
+
+    def _file_label(self, display_name: str, file_data: dict) -> str:
+        """Return the label of the button of a file, telling how its last print went.
+
+        Args:
+            display_name (str): The name of the file, as it is shown to the user.
+            file_data (dict): The data OctoPrint holds about the file.
+
+        Returns:
+            str: The label of the button.
+        """
+        if file_data.get("type") == "model":
+            return render_emojis(f"{{emo:model}} {display_name}")
+
+        try:
+            if "history" not in file_data:
+                return render_emojis(f"{{emo:new}} {display_name}")
+
+            history_list = file_data["history"]
+            if not history_list:
+                return render_emojis(f"{{emo:file}} {display_name}")
+
+            history_list.sort(key=lambda history_entry: history_entry.get("timestamp", 0), reverse=True)
+            if history_list[0].get("success"):
+                return render_emojis(f"{{emo:hooray}} {display_name}")
+            return render_emojis(f"{{emo:warning}} {display_name}")
+        except Exception:
+            self._logger.exception("Error processing history for file '%s'", display_name)
+            return render_emojis(f"{{emo:file}} {display_name}")
+
+    def _folder_and_file_entries(self, folder: str, folder_content: dict) -> list[tuple[str, str, str]]:
+        """Return the folders and the files a folder holds, in the order the menu offers them.
+
+        Args:
+            folder (str): The folder being browsed, its storage included.
+            folder_content (dict): The entries the folder holds, as OctoPrint lists them.
+
+        Returns:
+            list[tuple[str, str, str]]: For each entry, its path with the storage included, the label of its button
+                and the action the button runs.
+        """
+        entries = []
+
+        folder_names = [name for name, data in folder_content.items() if data.get("type") == "folder"]
+        for folder_name in sorted(folder_names):
+            entries.append(
+                (
+                    f"{folder}/{folder_name}",
+                    render_emojis(f"{{emo:folder}} {folder_name}"),
+                    "list",
+                )
+            )
+
+        file_types_to_show = self._file_types_to_show()
+        files = [(name, data) for name, data in folder_content.items() if data.get("type") in file_types_to_show]
+        if self.plugin_context.settings.sort_files_by_date:
+            files.sort(key=lambda file: self._file_date(file[1]), reverse=True)
+        else:
+            files.sort(key=lambda file: file[0])
+        for file_name, file_data in files:
+            entries.append(
+                (
+                    f"{folder}/{file_name}",
+                    self._file_label(file_name.rsplit(".", 1)[0], file_data),
+                    "info",
+                )
+            )
+
+        return entries
+
+    def _matching_file_entries(self, folder: str, folder_content: dict, query: str) -> list[tuple[str, str, str]]:
+        """Return the files a folder and its subfolders hold whose name contains a text.
+
+        Args:
+            folder (str): The folder being searched, its storage included.
+            folder_content (dict): The entries the folder holds, as OctoPrint lists them recursively.
+            query (str): The text the names of the files must contain, matched ignoring case.
+
+        Returns:
+            list[tuple[str, str, str]]: For each file found, its path with the storage included, the label of its
+                button and the action the button runs.
+        """
+        file_types_to_show = self._file_types_to_show()
+        query = query.lower()
+
+        matches = []
+
+        def collect_matches(content: dict, path_in_folder: str) -> None:
+            """Collect the files of a folder and of its subfolders whose name contains the text."""
+            for name, data in content.items():
+                if data.get("type") == "folder":
+                    collect_matches(data.get("children") or {}, f"{path_in_folder}{name}/")
+                elif data.get("type") in file_types_to_show and query in name.lower():
+                    matches.append((f"{path_in_folder}{name}", data))
+
+        collect_matches(folder_content, "")
+
+        if self.plugin_context.settings.sort_files_by_date:
+            matches.sort(key=lambda match: self._file_date(match[1]), reverse=True)
+        else:
+            matches.sort(key=lambda match: match[0])
+
+        return [
+            (
+                f"{folder}/{file_path_in_folder}",
+                self._file_label(file_path_in_folder.rsplit(".", 1)[0], file_data),
+                "info",
+            )
+            for file_path_in_folder, file_data in matches
+        ]
+
+    def _file_search_prompt(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
+        """Ask the user to answer with the text the names of the files must contain."""
+        msg = render_emojis(
+            "{emo:search} Reply to this message with the text to look for in the names of the files in "
+            f"<code>/{html.escape(menu_state.folder)}</code> and in its subfolders "
+            f"(at most {self.MAX_QUERY_LENGTH} characters)"
+        )
+
+        command_buttons = [
+            [
+                (
+                    render_emojis("{emo:back} Back"),
+                    f"{command_context.cmd}_list",
+                )
+            ]
+        ]
+
+        self.update_menu(
+            command_context,
+            msg,
+            menu_state,
+            markup=Markup.HTML,
+            buttons=command_buttons,
+            force_reply=True,
+            reply_parameter_prefix="search_",
+            delete_answer_message=True,
+        )
 
     def _file_info(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._selected_storage_and_path(menu_state)
@@ -1042,6 +1178,7 @@ class CmdFiles(BaseCommand):
             )
 
             menu_state.folder = "/".join(filter(None, [to_storage_name, to_path]))
+            menu_state.query = ""
             menu_state.page = 0
             command_buttons = [
                 [
@@ -1099,8 +1236,8 @@ class CmdFiles(BaseCommand):
             # Folder buttons
             try:
                 to_path_listing = self.plugin_context.file_manager.list_files(
-                    locations=to_storage_name,
-                    path=to_path,
+                    to_storage_name,
+                    to_path,
                     filter=lambda node: node["type"] == "folder",
                     recursive=False,
                 )

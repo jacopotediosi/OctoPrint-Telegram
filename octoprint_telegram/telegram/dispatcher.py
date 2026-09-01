@@ -9,7 +9,7 @@ from ..domain.chats import get_chat_title, is_group_or_channel
 from ..domain.uploads import Uploads
 from ..emoji import Emoji
 from .enums import ChatMemberStatus, HttpMethod
-from .menu_states import ReplyPrompt, StaleMenuError
+from .menu_states import StaleMenuError
 
 if TYPE_CHECKING:
     from ..commands.commands import Commands
@@ -151,16 +151,27 @@ class Dispatcher:
         from_obj = message.get("from") or {}
 
         replied_message_id = str(message.get("reply_to_message", {}).get("message_id", ""))
-        reply_prompt = (
-            self.plugin_context.menu_states.get_menu_state(chat_id, replied_message_id, ReplyPrompt)
+        awaited_reply = (
+            self.plugin_context.menu_states.get_awaited_reply(chat_id, replied_message_id)
             if replied_message_id
             else None
         )
 
-        if reply_prompt is not None:
+        if awaited_reply is not None:
             self._handle_command(
-                reply_prompt.command, message_text, chat_id, from_id, from_obj, msg_id_to_reply_to=msg_id_to_reply_to
+                awaited_reply.command,
+                awaited_reply.parameter_prefix + message_text,
+                chat_id,
+                from_id,
+                from_obj,
+                msg_id_to_update=awaited_reply.msg_id_to_update,
+                msg_id_to_reply_to=msg_id_to_reply_to,
             )
+            if awaited_reply.delete_answer_message:
+                try:
+                    self.plugin_context.sender.delete_message(chat_id, str(message["message_id"]))
+                except Exception:
+                    self._logger.debug("Could not delete the message answering %s", awaited_reply.command)
             return
 
         if not message_text.startswith("/"):
