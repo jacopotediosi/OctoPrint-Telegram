@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 TEMPORARY_DIRECTORY_NAME = "tmpgif"
 
+FFMPEG_TIMEOUT_SECONDS = 600
+
 
 class FfmpegPreset(Enum):
     """The encoding speed ffmpeg is run with."""
@@ -233,7 +235,7 @@ class Video:
         cmd.append(gif_path)
 
         self._logger.debug("Creating video by running command: %s", cmd)
-        subprocess.run(cmd, check=True)  # noqa: S603
+        subprocess.run(cmd, check=True, timeout=FFMPEG_TIMEOUT_SECONDS)  # noqa: S603
         self._logger.debug("Video created")
 
         if not os.path.isfile(gif_path):

@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
     from ..core.settings import Settings
 
+SYSTEM_COMMAND_TIMEOUT_SECONDS = 300
+
 
 class ImageHookMethod(Enum):
     """How a hook around taking a webcam image is run."""
@@ -69,8 +71,14 @@ class ImageHooks:
             try:
                 proc = subprocess.Popen(command, shell=True)  # noqa: S602
                 self._logger.debug("Pre_image SYSTEM command started (PID=%s)", proc.pid)
-                proc.wait()
+                proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Pre_image SYSTEM command finished with return code %s", proc.returncode)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                self._logger.warning(
+                    "Pre_image SYSTEM command did not finish within %ss, killed it",
+                    SYSTEM_COMMAND_TIMEOUT_SECONDS,
+                )
             except Exception:
                 self._logger.exception("Caught an exception running pre_image SYSTEM command '%s'", command)
 
@@ -109,7 +117,13 @@ class ImageHooks:
             try:
                 proc = subprocess.Popen(command, shell=True)  # noqa: S602
                 self._logger.debug("Post_image SYSTEM command started (PID=%s)", proc.pid)
-                proc.wait()
+                proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Post_image SYSTEM command finished with return code %s", proc.returncode)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                self._logger.warning(
+                    "Post_image SYSTEM command did not finish within %ss, killed it",
+                    SYSTEM_COMMAND_TIMEOUT_SECONDS,
+                )
             except Exception:
                 self._logger.exception("Caught an exception running post_image SYSTEM command '%s'", command)
