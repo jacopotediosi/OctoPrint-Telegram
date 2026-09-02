@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import socket
+from typing import ClassVar
 
 import sarge
 from typing_extensions import override
@@ -26,6 +27,12 @@ class SysMenuState(MenuState):
 
 
 class CmdSys(BaseCommand):
+    SERVER_COMMAND_LABELS: ClassVar[dict[str, str]] = {
+        "serverRestartCommand": "Restart OctoPrint",
+        "systemRestartCommand": "Restart system",
+        "systemShutdownCommand": "Shutdown system",
+    }
+
     @override
     def execute(self, command_context: CommandContext) -> None:
         """Run one of the system commands OctoPrint offers.
@@ -44,31 +51,28 @@ class CmdSys(BaseCommand):
             params = command_context.parameter.split("_")
 
             if params[0] == "server":  # Server built-in commands
-                command_mapping = {
-                    "serverRestartCommand": "Restart OctoPrint",
-                    "systemRestartCommand": "Restart system",
-                    "systemShutdownCommand": "Shutdown system",
-                }
+                confirmed = params[1] == "do"
+                command_key = params[2] if confirmed else params[1]
 
-                if params[1] != "do":  # Ask for confirmation
-                    if params[1] not in command_mapping:
-                        return
+                if command_key not in self.SERVER_COMMAND_LABELS:
+                    return
 
-                    msg = render_emojis(
-                        f"{{emo:question}} Execute System Command <b>{html.escape(command_mapping[params[1]])}</b>?"
-                    )
+                command_to_execute = self.plugin_context.octoprint_settings.server_command(command_key)
+                if not command_to_execute:
+                    return
+
+                if not confirmed:  # Ask for confirmation
+                    command_label = self.SERVER_COMMAND_LABELS[command_key]
+
+                    msg = render_emojis(f"{{emo:question}} Execute System Command <b>{html.escape(command_label)}</b>?")
 
                     keyboard = Keyboard(command_context.cmd)
-                    keyboard.add_row(("{emo:check} Execute", f"server_do_{params[1]}"), (BACK_LABEL, ""))
+                    keyboard.add_row(("{emo:check} Execute", f"server_do_{command_key}"), (BACK_LABEL, ""))
 
                     self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
                 else:  # Execute command
-                    if params[2] not in command_mapping:
-                        return
-
                     try:
-                        command_to_execute = self.plugin_context.octoprint_settings.server_command(params[2])
                         process = sarge.run(command_to_execute, stderr=sarge.Capture(), shell=True, async_=False)
 
                         if process.returncode != 0:
@@ -176,16 +180,11 @@ class CmdSys(BaseCommand):
                 except Exception:
                     self._logger.exception("Caught an exception parsing system actions")
 
-            server_commands_buttons = []
-            server_commands_map = {
-                "serverRestartCommand": ("Restart OctoPrint", "server_serverRestartCommand"),
-                "systemRestartCommand": ("Restart system", "server_systemRestartCommand"),
-                "systemShutdownCommand": ("Shutdown system", "server_systemShutdownCommand"),
-            }
-            for command_key, command_button in server_commands_map.items():
-                command_text = self.plugin_context.octoprint_settings.server_command(command_key)
-                if command_text:
-                    server_commands_buttons.append(command_button)
+            server_commands_buttons = [
+                (command_label, f"server_{command_key}")
+                for command_key, command_label in self.SERVER_COMMAND_LABELS.items()
+                if self.plugin_context.octoprint_settings.server_command(command_key)
+            ]
             keyboard.add_grid(server_commands_buttons, buttons_per_row=2)
 
             if keyboard.rows:
