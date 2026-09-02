@@ -135,7 +135,7 @@ class CmdFiles(BaseCommand):
 
         if action == "list":
             if argument:
-                menu_state.folder = self._chosen_item(menu_state, argument)
+                menu_state.folder = self._get_chosen_item(menu_state, argument)
                 menu_state.page = 0
             self._file_list(command_context, menu_state)
 
@@ -162,7 +162,7 @@ class CmdFiles(BaseCommand):
 
         elif action == "info":
             if argument:
-                menu_state.selected = self._chosen_item(menu_state, argument)
+                menu_state.selected = self._get_chosen_item(menu_state, argument)
             self._file_info(command_context, menu_state)
 
         elif action == "details":
@@ -200,7 +200,7 @@ class CmdFiles(BaseCommand):
                 if argument == "up":
                     menu_state.target = "/".join((menu_state.target or "").split("/")[:-1]) or None
                 elif argument:
-                    menu_state.target = self._chosen_item(menu_state, argument)
+                    menu_state.target = self._get_chosen_item(menu_state, argument)
                 self._file_copy_move_destination(command_context, menu_state)
 
         elif action == "selectforprint":
@@ -210,12 +210,12 @@ class CmdFiles(BaseCommand):
             if not argument:
                 self._clear_slice_choices_from(menu_state, "slicer")
             elif argument.isdigit():
-                self._pick_slice_option(menu_state, self._chosen_item(menu_state, argument))
+                self._pick_slice_option(menu_state, self._get_chosen_item(menu_state, argument))
             elif argument in ("slicer", "slicerprofile", "printerprofile"):
                 self._clear_slice_choices_from(menu_state, argument)
             self._file_slice(command_context, menu_state, confirmed=argument == "confirm")
 
-    def _chosen_item(self, menu_state: FilesMenuState, position: str) -> str:
+    def _get_chosen_item(self, menu_state: FilesMenuState, position: str) -> str:
         """Return the path of the entry the user picked.
 
         Args:
@@ -244,7 +244,7 @@ class CmdFiles(BaseCommand):
         storage_name, _, path_without_storage = path_with_storage.partition("/")
         return storage_name, path_without_storage
 
-    def _selected_storage_and_path(self, menu_state: FilesMenuState) -> tuple[str, str]:
+    def _get_selected_storage_and_path(self, menu_state: FilesMenuState) -> tuple[str, str]:
         """Return the storage the selected file is in and its path inside it.
 
         Args:
@@ -308,10 +308,10 @@ class CmdFiles(BaseCommand):
 
             # --- Collect the entries to show ---
             if menu_state.query:
-                entries = self._matching_file_entries(path_with_storage, path_content, menu_state.query)
+                entries = self._get_matching_file_entries(path_with_storage, path_content, menu_state.query)
                 entries_per_row = 1
             else:
-                entries = self._folder_and_file_entries(path_with_storage, path_content)
+                entries = self._get_folder_and_file_entries(path_with_storage, path_content)
                 entries_per_row = 2
 
             # --- Calculate pagination ---
@@ -378,11 +378,11 @@ class CmdFiles(BaseCommand):
             # --- Send message ---
             self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
-    def _file_types_to_show(self) -> tuple[str, ...]:
+    def _get_file_types_to_show(self) -> tuple[str, ...]:
         """The types of the files the menu lists, as configured in the browsing settings."""
         return ("machinecode", "model") if self.plugin_context.settings.show_models_in_files else ("machinecode",)
 
-    def _file_date(self, file_data: dict) -> float:
+    def _get_file_date(self, file_data: dict) -> float:
         """Return the moment a file was uploaded, as a timestamp.
 
         Args:
@@ -397,7 +397,7 @@ class CmdFiles(BaseCommand):
             return date.timestamp()
         return date or 0
 
-    def _file_label(self, display_name: str, file_data: dict) -> str:
+    def _get_file_label(self, display_name: str, file_data: dict) -> str:
         """Return the label of the button of a file, telling how its last print went.
 
         Args:
@@ -426,7 +426,7 @@ class CmdFiles(BaseCommand):
             self._logger.exception("Error processing history for file '%s'", display_name)
             return render_emojis(f"{{emo:file}} {display_name}")
 
-    def _folder_and_file_entries(self, folder: str, folder_content: dict) -> list[tuple[str, str, str]]:
+    def _get_folder_and_file_entries(self, folder: str, folder_content: dict) -> list[tuple[str, str, str]]:
         """Return the folders and the files a folder holds, in the order the menu offers them.
 
         Args:
@@ -449,24 +449,24 @@ class CmdFiles(BaseCommand):
                 )
             )
 
-        file_types_to_show = self._file_types_to_show()
+        file_types_to_show = self._get_file_types_to_show()
         files = [(name, data) for name, data in folder_content.items() if data.get("type") in file_types_to_show]
         if self.plugin_context.settings.sort_files_by_date:
-            files.sort(key=lambda file: self._file_date(file[1]), reverse=True)
+            files.sort(key=lambda file: self._get_file_date(file[1]), reverse=True)
         else:
             files.sort(key=lambda file: file[0])
         for file_name, file_data in files:
             entries.append(
                 (
                     f"{folder}/{file_name}",
-                    self._file_label(file_name.rsplit(".", 1)[0], file_data),
+                    self._get_file_label(file_name.rsplit(".", 1)[0], file_data),
                     "info",
                 )
             )
 
         return entries
 
-    def _matching_file_entries(self, folder: str, folder_content: dict, query: str) -> list[tuple[str, str, str]]:
+    def _get_matching_file_entries(self, folder: str, folder_content: dict, query: str) -> list[tuple[str, str, str]]:
         """Return the files a folder and its subfolders hold whose name contains a text.
 
         Args:
@@ -478,7 +478,7 @@ class CmdFiles(BaseCommand):
             list[tuple[str, str, str]]: For each file found, its path with the storage included, the label of its
                 button and the action the button runs.
         """
-        file_types_to_show = self._file_types_to_show()
+        file_types_to_show = self._get_file_types_to_show()
         query = query.lower()
 
         matches = []
@@ -494,14 +494,14 @@ class CmdFiles(BaseCommand):
         collect_matches(folder_content, "")
 
         if self.plugin_context.settings.sort_files_by_date:
-            matches.sort(key=lambda match: self._file_date(match[1]), reverse=True)
+            matches.sort(key=lambda match: self._get_file_date(match[1]), reverse=True)
         else:
             matches.sort(key=lambda match: match[0])
 
         return [
             (
                 f"{folder}/{file_path_in_folder}",
-                self._file_label(file_path_in_folder.rsplit(".", 1)[0], file_data),
+                self._get_file_label(file_path_in_folder.rsplit(".", 1)[0], file_data),
                 "info",
             )
             for file_path_in_folder, file_data in matches
@@ -529,26 +529,23 @@ class CmdFiles(BaseCommand):
             delete_answer_message=True,
         )
 
-    def _file_info(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+    def _get_file_summary(self, storage_name: str, file_path: str, filename: str, file_metadata: dict) -> str:
+        """Return the summary of a file.
 
-        # Lookup file data and metadata
-        try:
-            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
-            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
-            analysis = file_metadata.get("analysis") or {}
-            history = file_metadata.get("history") or []
-        except Exception:
-            msg = render_emojis(
-                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
-            )
-            self.send_answer(command_context, msg, None)
-            return
+        Args:
+            storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).
+            file_path (str): The path of the file inside its storage.
+            filename (str): The name of the file, without the folders leading to it.
+            file_metadata (dict): The metadata OctoPrint holds about the file.
 
-        # Message header
-        msg = render_emojis(
-            f"{{emo:info}} <b>File information</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
-        )
+        Returns:
+            str: The lines making up the summary.
+        """
+        analysis = file_metadata.get("analysis") or {}
+        history = file_metadata.get("history") or []
+
+        # Name
+        msg = render_emojis(f"\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>")
 
         # Upload timestamp
         try:
@@ -630,6 +627,25 @@ class CmdFiles(BaseCommand):
                 except Exception:
                     self._logger.exception("Caught an exception calculating cost")
 
+        return msg
+
+    def _file_info(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
+
+        # Lookup file data and metadata
+        try:
+            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
+        except Exception:
+            msg = render_emojis(
+                f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
+            )
+            self.send_answer(command_context, msg, None)
+            return
+
+        msg = render_emojis("{emo:info} <b>File information</b>\n")
+        msg += self._get_file_summary(storage_name, file_path, filename, file_metadata)
+
         # Upload the thumbnail image to imgbb to get a public URL
         imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(storage_name, file_path)
         if imgbb_thumbnail_url:
@@ -663,15 +679,14 @@ class CmdFiles(BaseCommand):
         self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_details(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
 
         # Lookup file data and metadata
         try:
             _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
             file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
-            analysis = file_metadata.get("analysis") or {}
             statistics = file_metadata.get("statistics") or {}
-            history = file_metadata.get("history") or {}
+            history = file_metadata.get("history") or []
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
@@ -679,76 +694,8 @@ class CmdFiles(BaseCommand):
             self.send_answer(command_context, msg, None)
             return
 
-        # Message header
-        msg = render_emojis(
-            f"{{emo:info}} <b>File details</b>\n\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>"
-        )
-
-        # Upload timestamp
-        try:
-            lastmodified = self.plugin_context.file_manager.get_lastmodified(storage_name, file_path)
-            if lastmodified is not None:
-                dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
-                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-        except Exception:
-            self._logger.exception("Caught an exception getting file date")
-
-        # File size
-        filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
-        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {format_size(filesize)}")
-
-        # Filament info
-        filament_length = 0
-        try:
-            filament = analysis.get("filament", {})
-            if filament:
-                msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
-                if len(filament) == 1 and "length" in filament.get("tool0", {}):
-                    msg += format_filament(filament["tool0"])
-                    filament_length += float(filament["tool0"]["length"])
-                else:
-                    for tool in sorted(filament):
-                        length = filament[tool].get("length")
-                        if length is not None:
-                            msg += f"\n      {html.escape(tool)}: {format_filament(filament[tool])}"
-                            filament_length += float(length)
-        except Exception:
-            self._logger.exception("Caught an exception getting filament info")
-
-        # Dimensions
-        dimensions = analysis.get("dimensions", {})
-        dimension_parts = []
-        if "width" in dimensions:
-            dimension_parts.append("{:.2f}mm (X)".format(dimensions["width"]))
-        if "depth" in dimensions:
-            dimension_parts.append("{:.2f}mm (Y)".format(dimensions["depth"]))
-        if "height" in dimensions:
-            dimension_parts.append("{:.2f}mm (Z)".format(dimensions["height"]))
-        if dimension_parts:
-            msg += render_emojis("\n{emo:dimensions} <b>Dimensions:</b> ") + " &#215; ".join(dimension_parts)
-
-        # Print time
-        print_time = analysis.get("estimatedPrintTime")
-        if print_time:
-            msg += render_emojis(f"\n{{emo:stopwatch}} <b>Print Time:</b> {format_fuzzy_print_time(print_time)}")
-
-            # ETA
-            try:
-                time_finish = format_eta(self.plugin_context.settings, print_time)
-                msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
-            except Exception:
-                self._logger.exception("Caught an exception calculating ETA")
-
-            # Cost calculation (if plugin active)
-            if self.plugin_context.plugins.is_enabled("cost") and filament_length:
-                try:
-                    cp_h = self.plugin_context.cost.cost_per_time
-                    cp_m = self.plugin_context.cost.cost_per_length
-                    curr = self.plugin_context.cost.currency
-                    cost = filament_length / 1000 * cp_m + print_time / 3600 * cp_h
-                    msg += render_emojis(f"\n{{emo:cost}} <b>Cost:</b> {html.escape(curr)}{cost:.02f}")
-                except Exception:
-                    self._logger.exception("Caught an exception calculating cost")
+        msg = render_emojis("{emo:info} <b>File details</b>\n")
+        msg += self._get_file_summary(storage_name, file_path, filename, file_metadata)
 
         # Average print times
         try:
@@ -926,7 +873,7 @@ class CmdFiles(BaseCommand):
         """Ask the user to confirm copying or moving the selected file to the destination picked."""
         operation = self._copy_move_operation(menu_state)
 
-        from_storage_name, from_path = self._selected_storage_and_path(menu_state)
+        from_storage_name, from_path = self._get_selected_storage_and_path(menu_state)
         full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
 
         to_storage_name, to_path = self._copy_move_destination(menu_state)
@@ -949,7 +896,7 @@ class CmdFiles(BaseCommand):
         """Copy or move the selected file to the destination picked."""
         operation = self._copy_move_operation(menu_state)
 
-        from_storage_name, from_path = self._selected_storage_and_path(menu_state)
+        from_storage_name, from_path = self._get_selected_storage_and_path(menu_state)
         full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
 
         to_storage_name, to_path = self._copy_move_destination(menu_state)
@@ -1062,7 +1009,7 @@ class CmdFiles(BaseCommand):
 
         operation = self._copy_move_operation(menu_state)
 
-        from_storage_name, from_path = self._selected_storage_and_path(menu_state)
+        from_storage_name, from_path = self._get_selected_storage_and_path(menu_state)
         full_from_file_path_to_display = f"/{from_storage_name}/{from_path}"
 
         storages = self.plugin_context.file_manager.list_files(recursive=False)
@@ -1122,7 +1069,7 @@ class CmdFiles(BaseCommand):
         self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_print(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        destination, file = self._selected_storage_and_path(menu_state)
+        destination, file = self._get_selected_storage_and_path(menu_state)
 
         if not permissions.is_command_allowed(
             self.plugin_context.settings, command_context.chat_id, command_context.from_id, "/print"
@@ -1229,7 +1176,7 @@ class CmdFiles(BaseCommand):
             return
 
         # Get selected file data
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
         # Initialize msg
@@ -1412,7 +1359,7 @@ class CmdFiles(BaseCommand):
         )
 
     def _file_download(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
 
         try:
             file_path_on_disk = self.plugin_context.file_manager.path_on_disk(storage_name, file_path)
@@ -1424,7 +1371,7 @@ class CmdFiles(BaseCommand):
             self.send_answer(command_context, msg, None)
 
     def _file_delete_confirmation(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
         keyboard = Keyboard(command_context.cmd)
@@ -1439,7 +1386,7 @@ class CmdFiles(BaseCommand):
         )
 
     def _file_delete(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        storage_name, file_path = self._selected_storage_and_path(menu_state)
+        storage_name, file_path = self._get_selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
         # Deletion code is adapted from the filemanager plugin: https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
