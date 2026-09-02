@@ -12,6 +12,7 @@ from urllib.parse import urljoin
 
 from werkzeug.utils import secure_filename
 
+from ..utils import resolve_cpulimiter_path, resolve_ffmpeg_path
 from .webcams import Webcams
 
 if TYPE_CHECKING:
@@ -140,19 +141,12 @@ class Video:
         except FileNotFoundError:
             pass
 
-        settings_ffmpeg = self._octoprint_settings.ffmpeg_path
-        ffmpeg_path = (
-            settings_ffmpeg
-            if isinstance(settings_ffmpeg, str)
-            and os.path.isfile(settings_ffmpeg)
-            and os.access(settings_ffmpeg, os.X_OK)
-            else shutil.which("ffmpeg")
-        )
+        ffmpeg_path = resolve_ffmpeg_path(self._octoprint_settings.ffmpeg_path)
         if not ffmpeg_path:
             self._logger.error("ffmpeg not installed")
             raise RuntimeError("ffmpeg not installed")
 
-        cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
+        cpulimiter_path = resolve_cpulimiter_path()
         cpulimiter_disabled = self._settings.no_cpulimit
         if cpulimiter_disabled:
             self._logger.debug("CPU limiter disabled via settings")

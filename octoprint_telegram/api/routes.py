@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import shutil
 from typing import TYPE_CHECKING
 
 from flask import jsonify
@@ -9,6 +7,7 @@ from octoprint.access.permissions import Permissions
 
 from ..commands import registry
 from ..notifications import NOTIFICATION_DEFINITIONS
+from ..utils import resolve_cpulimiter_path, resolve_ffmpeg_path
 
 if TYPE_CHECKING:
     from flask import Response
@@ -106,21 +105,10 @@ class Api:
 
         # /?requirements
         if request_args and "requirements" in request_args:
-            settings_ffmpeg = self.plugin_context.octoprint_settings.ffmpeg_path
-            ffmpeg_path = (
-                settings_ffmpeg
-                if isinstance(settings_ffmpeg, str)
-                and os.path.isfile(settings_ffmpeg)
-                and os.access(settings_ffmpeg, os.X_OK)
-                else shutil.which("ffmpeg")
-            )
-
-            cpulimiter_path = shutil.which("cpulimit") or shutil.which("limitcpu")
-
             return jsonify(
                 {
-                    "ffmpeg_path": ffmpeg_path,
-                    "cpulimiter_path": cpulimiter_path,
+                    "ffmpeg_path": resolve_ffmpeg_path(self.plugin_context.octoprint_settings.ffmpeg_path),
+                    "cpulimiter_path": resolve_cpulimiter_path(),
                     **{
                         plugin_id: self.plugin_context.plugins.status(plugin_id).value
                         for plugin_id in SUGGESTED_PLUGIN_IDS
