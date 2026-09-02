@@ -260,6 +260,39 @@ class CmdFiles(BaseCommand):
             raise StaleMenuError
         return self._split_storage_and_path(menu_state.selected)
 
+    def _is_file_busy(self, storage_name: str, file_path: str) -> bool:
+        """Whether a file is being printed or sliced.
+
+        Args:
+            storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).
+            file_path (str): The path of the file inside its storage.
+
+        Returns:
+            bool: True if the file is in use.
+        """
+        current_data = self.plugin_context.printer.get_current_data() or {}
+        job_file = (current_data.get("job") or {}).get("file") or {}
+        state_flags = (current_data.get("state") or {}).get("flags") or {}
+
+        # Being printed
+        if (
+            job_file.get("origin") == storage_name
+            and job_file.get("path")
+            and self.plugin_context.file_manager.file_in_path(storage_name, file_path, job_file["path"])
+            and any(
+                state_flags.get(flag)
+                for flag in ("printing", "paused", "pausing", "resuming", "cancelling", "finishing")
+            )
+        ):
+            return True
+
+        # Being sliced
+        return any(
+            storage_name == busy_storage
+            and self.plugin_context.file_manager.file_in_path(storage_name, file_path, busy_path)
+            for busy_storage, busy_path in self.plugin_context.file_manager.get_busy_files()
+        )
+
     def _file_list(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         self.send_answer(command_context, render_emojis("{emo:loading} Loading files..."), menu_state)
 
@@ -924,38 +957,13 @@ class CmdFiles(BaseCommand):
                         # Copy the file
                         self.plugin_context.file_manager.copy_file(from_storage_name, from_path, final_to_path)
                     elif operation == "move":
-                        current_job_file = (self.plugin_context.printer.get_current_data() or {}).get("job", {}).get(
-                            "file"
-                        ) or {}
-                        current_origin = current_job_file.get("origin")
-                        current_path = current_job_file.get("path")
-
-                        is_current_file_busy = (
-                            current_path is not None
-                            and current_origin == from_storage_name
-                            and self.plugin_context.file_manager.file_in_path(
-                                from_storage_name, from_path, current_path
-                            )
-                            and (
-                                self.plugin_context.printer.is_printing()
-                                or self.plugin_context.printer.is_paused()
-                                or self.plugin_context.printer.is_pausing()
-                                or self.plugin_context.printer.is_resuming()
-                                or self.plugin_context.printer.is_cancelling()
-                                or self.plugin_context.printer.is_finishing()
-                            )
-                        )
-                        is_busy_in_file_manager = any(
-                            from_storage_name == busy_storage
-                            and self.plugin_context.file_manager.file_in_path(from_storage_name, from_path, busy_path)
-                            for busy_storage, busy_path in self.plugin_context.file_manager.get_busy_files()
-                        )
-
-                        if is_current_file_busy or is_busy_in_file_manager:
+                        if self._is_file_busy(from_storage_name, from_path):
                             failure_reason = "Source is currently in use"
                         else:
                             # Deselect source file if currently selected
-                            if current_origin == from_storage_name and current_path == from_path:
+                            current_data = self.plugin_context.printer.get_current_data() or {}
+                            job_file = (current_data.get("job") or {}).get("file") or {}
+                            if job_file.get("origin") == from_storage_name and job_file.get("path") == from_path:
                                 if hasattr(self.plugin_context.printer, "set_job"):
                                     # OctoPrint >= 2.0.0
                                     # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
@@ -1392,20 +1400,15 @@ class CmdFiles(BaseCommand):
         # Deletion code is adapted from the filemanager plugin: https://github.com/Salandora/OctoPrint-FileManager/blob/master/octoprint_filemanager/__init__.py
         failure_reason = None
         try:
-            from octoprint.server.api.files import (
-                _getCurrentFile,
-                _isBusy,
-                _verifyFileExists,
-            )
-
-            if not _verifyFileExists(storage_name, file_path):
+            if not self.plugin_context.file_manager.file_exists(storage_name, file_path):
                 failure_reason = "File doesn't exist or isn't a file"
-            elif _isBusy(storage_name, file_path):
+            elif self._is_file_busy(storage_name, file_path):
                 failure_reason = "File is currently in use"
             else:
                 # Deselect file if currently selected
-                _, currentFilename = _getCurrentFile()
-                if currentFilename == file_path:
+                current_data = self.plugin_context.printer.get_current_data() or {}
+                job_file = (current_data.get("job") or {}).get("file") or {}
+                if job_file.get("origin") == storage_name and job_file.get("path") == file_path:
                     if hasattr(self.plugin_context.printer, "set_job"):
                         # OctoPrint >= 2.0.0
                         # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
