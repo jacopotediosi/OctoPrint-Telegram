@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeVar
 
 from ..telegram import AwaitedReply, Buttons, Markup, MenuState, StaleMenuError
@@ -11,35 +12,48 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound=MenuState)
 
 
+@dataclass
 class CommandContext:
-    def __init__(
-        self,
-        cmd: str,
-        chat_id: str,
-        from_id: str,
-        parameter: str = "",
-        msg_id_to_update: str = "",
-        msg_id_to_reply_to: str = "",
-        user: str = "",
-    ) -> None:
-        """Set up the details of a single command invocation.
+    """Describes a single command invocation: what was invoked, by whom, and where the answer goes."""
 
-        Args:
-            cmd (str): The command being run.
-            chat_id (str): The chat the command was sent from.
-            from_id (str): The id of the user who sent the command.
-            parameter (str, optional): The parameter the command was invoked with.
-            msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
-            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
-            user (str, optional): The name of the user who sent the command.
-        """
-        self.cmd = cmd
-        self.chat_id = chat_id
-        self.from_id = from_id
-        self.parameter = parameter
-        self.msg_id_to_update = msg_id_to_update
-        self.msg_id_to_reply_to = msg_id_to_reply_to
-        self.user = user
+    cmd: str
+    """The command being run."""
+
+    chat_id: str
+    """The chat the command was sent from."""
+
+    from_id: str
+    """The id of the user who sent the command."""
+
+    parameter: str = ""
+    """The parameter the command was invoked with."""
+
+    msg_id_to_update: str = ""
+    """The message to replace with the answer, instead of sending a new one."""
+
+    msg_id_to_reply_to: str = ""
+    """The message the answer is a reply to."""
+
+    telegram_user: dict = field(default_factory=dict)
+    """The Telegram user who sent the command."""
+
+    @property
+    def user(self) -> str:
+        """The name of the user who sent the command."""
+        username = self.telegram_user.get("username")
+
+        first_name = self.telegram_user.get("first_name")
+        last_name = self.telegram_user.get("last_name")
+        fullname = " ".join(part for part in (first_name, last_name) if part).strip()
+
+        parts = []
+
+        if username:
+            parts.append(f"@{username}")
+        if fullname:
+            parts.append(fullname)
+
+        return "Telegram - " + (" - ".join(parts) if parts else "UNKNOWN")
 
 
 class BaseCommand(ABC):
@@ -51,30 +65,6 @@ class BaseCommand(ABC):
         """
         self.plugin_context = plugin_context
         self._logger = plugin_context.logger.getChild("Commands")
-
-    def __call__(
-        self,
-        cmd: str,
-        chat_id: str,
-        from_id: str,
-        parameter: str = "",
-        msg_id_to_update: str = "",
-        msg_id_to_reply_to: str = "",
-        user: str = "",
-    ) -> None:
-        """Run the command on a single invocation.
-
-        Args:
-            cmd (str): The command being run.
-            chat_id (str): The chat the command was sent from.
-            from_id (str): The id of the user who sent the command.
-            parameter (str, optional): The parameter the command was invoked with.
-            msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
-            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
-            user (str, optional): The name of the user who sent the command.
-        """
-        command_context = CommandContext(cmd, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user)
-        return self.execute(command_context)
 
     @abstractmethod
     def execute(self, command_context: CommandContext) -> None:

@@ -4,6 +4,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from ..commands import registry
+from ..commands.base import CommandContext
 from ..domain import permissions
 from ..domain.chats import get_chat_title, is_group_or_channel
 from ..domain.uploads import Uploads
@@ -148,7 +149,7 @@ class Dispatcher:
 
     def _handle_text_message(self, message: dict, chat_id: str, from_id: str, msg_id_to_reply_to: str) -> None:
         message_text = message["text"]
-        from_obj = message.get("from") or {}
+        telegram_user = message.get("from") or {}
 
         replied_message_id = str(message.get("reply_to_message", {}).get("message_id", ""))
         awaited_reply = (
@@ -159,13 +160,15 @@ class Dispatcher:
 
         if awaited_reply is not None:
             self._handle_command(
-                awaited_reply.command,
-                awaited_reply.parameter_prefix + message_text,
-                chat_id,
-                from_id,
-                from_obj,
-                msg_id_to_update=awaited_reply.msg_id_to_update,
-                msg_id_to_reply_to=msg_id_to_reply_to,
+                CommandContext(
+                    cmd=awaited_reply.command,
+                    chat_id=chat_id,
+                    from_id=from_id,
+                    parameter=awaited_reply.parameter_prefix + message_text,
+                    msg_id_to_update=awaited_reply.msg_id_to_update,
+                    msg_id_to_reply_to=msg_id_to_reply_to,
+                    telegram_user=telegram_user,
+                )
             )
             if awaited_reply.delete_answer_message:
                 try:
@@ -181,15 +184,32 @@ class Dispatcher:
         # Remove bot username from commands like /command@botusername
         command = message_text.split("@")[0]
 
-        self._handle_command(command, "", chat_id, from_id, from_obj, msg_id_to_reply_to=msg_id_to_reply_to)
+        self._handle_command(
+            CommandContext(
+                cmd=command,
+                chat_id=chat_id,
+                from_id=from_id,
+                msg_id_to_reply_to=msg_id_to_reply_to,
+                telegram_user=telegram_user,
+            )
+        )
 
     def _handle_callback_query(self, callback_query: dict, chat_id: str, from_id: str) -> None:
         command, _, parameter = callback_query["data"].partition("_")
-        from_obj = callback_query["from"]
+        telegram_user = callback_query["from"]
         msg_id_to_update = str(callback_query.get("message", {}).get("message_id", ""))
 
         try:
-            self._handle_command(command, parameter, chat_id, from_id, from_obj, msg_id_to_update)
+            self._handle_command(
+                CommandContext(
+                    cmd=command,
+                    chat_id=chat_id,
+                    from_id=from_id,
+                    parameter=parameter,
+                    msg_id_to_update=msg_id_to_update,
+                    telegram_user=telegram_user,
+                )
+            )
         except Exception:
             self._logger.exception("Caught an exception calling _handle_command()")
 
@@ -203,35 +223,25 @@ class Dispatcher:
         except Exception:
             self._logger.exception("Caught an exception sending answerCallbackQuery")
 
-    def _handle_command(
-        self,
-        command: str,
-        parameter: str,
-        chat_id: str,
-        from_id: str,
-        from_obj: dict,
-        msg_id_to_update: str = "",
-        msg_id_to_reply_to: str = "",
-    ) -> None:
+    def _handle_command(self, command_context: CommandContext) -> None:
         """Run a bot command.
 
         Args:
-            command (str): The command to run.
-            parameter (str): The parameter of the command.
-            chat_id (str): The chat the command comes from.
-            from_id (str): The id of the user who sent it.
-            from_obj (dict): The Telegram user who sent it.
-            msg_id_to_update (str, optional): The message to replace with the answer, instead of sending a new one.
-            msg_id_to_reply_to (str, optional): The message the answer is a reply to.
+            command_context (CommandContext): The details of a single command invocation.
         """
-        command = command.lower()
-        command_definition = registry.get(command)
+        command_context.cmd = command_context.cmd.lower()
+
+        command_definition = registry.get(command_context.cmd)
         if command_definition is None or not command_definition.takes_parameter:
-            parameter = ""
+            command_context.parameter = ""
 
         # Log received command
         self._logger.info(
-            "Received command '%s' with parameter '%s' in chat '%s' from '%s'", command, parameter, chat_id, from_id
+            "Received command '%s' with parameter '%s' in chat '%s' from '%s'",
+            command_context.cmd,
+            command_context.parameter,
+            command_context.chat_id,
+            command_context.from_id,
         )
 
         # Is command  known?
@@ -241,64 +251,48 @@ class Dispatcher:
             if not self.plugin_context.settings.no_mistake:
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:notallowed} I do not understand you!"),
-                    chat_id,
-                    reply_to_message_id=msg_id_to_reply_to,
+                    command_context.chat_id,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
             return
 
         # Check if user is allowed to execute the command
-        if permissions.is_command_allowed(self.plugin_context.settings, chat_id, from_id, command):
-            # Identify user
-            user = "Telegram - "
-            try:
-                username = from_obj.get("username")
-
-                first_name = from_obj.get("first_name")
-                last_name = from_obj.get("last_name")
-                fullname = " ".join(part for part in (first_name, last_name) if part).strip()
-
-                parts = []
-
-                if username:
-                    parts.append(f"@{username}")
-                if fullname:
-                    parts.append(fullname)
-
-                user += " - ".join(parts) if parts else "UNKNOWN"
-            except Exception:
-                user += "UNKNOWN"
-
+        if permissions.is_command_allowed(
+            self.plugin_context.settings, command_context.chat_id, command_context.from_id, command_context.cmd
+        ):
             # Execute command
             try:
-                self._commands.run_command(
-                    command, chat_id, from_id, parameter, msg_id_to_update, msg_id_to_reply_to, user
-                )
+                self._commands.run_command(command_context)
             except StaleMenuError:
-                self.plugin_context.menu_states.discard_menu_state(chat_id, msg_id_to_update)
+                self.plugin_context.menu_states.discard_menu_state(
+                    command_context.chat_id, command_context.msg_id_to_update
+                )
                 self.plugin_context.sender.send_message(
                     render_emojis(
-                        f"{{emo:attention}} The button you pressed was no longer valid. Please run {command} again."
+                        f"{{emo:attention}} The button you pressed was no longer valid. Please run {command_context.cmd} again."
                     ),
-                    chat_id,
-                    message_id=msg_id_to_update,
-                    reply_to_message_id=msg_id_to_reply_to,
+                    command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
             except Exception:
-                self._logger.exception("Caught an exception executing command %s", command)
-                self.plugin_context.menu_states.discard_menu_state(chat_id, msg_id_to_update)
+                self._logger.exception("Caught an exception executing command %s", command_context.cmd)
+                self.plugin_context.menu_states.discard_menu_state(
+                    command_context.chat_id, command_context.msg_id_to_update
+                )
                 self.plugin_context.sender.send_message(
                     render_emojis("{emo:attention} Error executing your command! Please check logs."),
-                    chat_id,
-                    message_id=msg_id_to_update,
-                    reply_to_message_id=msg_id_to_reply_to,
+                    command_context.chat_id,
+                    message_id=command_context.msg_id_to_update,
+                    reply_to_message_id=command_context.msg_id_to_reply_to,
                 )
         else:
             # User was not allowed to execute this command
             self._logger.warning("Previous command was from an unauthorized user.")
             self.plugin_context.sender.send_message(
                 render_emojis("{emo:notallowed} You are not allowed to do this!"),
-                chat_id,
-                reply_to_message_id=msg_id_to_reply_to,
+                command_context.chat_id,
+                reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
     def _get_chat_id(self, update: dict) -> str:

@@ -35,31 +35,22 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CommandDefinition:
-    """Describes a bot command: how users invoke it and how it is presented to them.
-
-    Fields:
-
-    - name (str):
-        The command as typed by the user, usually starting with /.
-
-    - implementation (type[BaseCommand]):
-        The class implementing the command.
-
-    - description (str):
-        Human-readable description shown to users.
-
-    - takes_parameter (bool, optional):
-        Whether the command takes a parameter.
-
-    - available_to_everyone (bool, optional):
-        Whether anyone may run the command, with no permission to configure.
-    """
+    """Describes a bot command: how users invoke it and how it is presented to them."""
 
     name: str
+    """The command as typed by the user, usually starting with /."""
+
     implementation: type[BaseCommand]
+    """The class implementing the command."""
+
     description: str
+    """Human-readable description shown to users."""
+
     takes_parameter: bool = False
+    """Whether the command takes a parameter."""
+
     available_to_everyone: bool = False
+    """Whether anyone may run the command, with no permission to configure."""
 
     def __post_init__(self) -> None:
         """Check the validity of the declared command.

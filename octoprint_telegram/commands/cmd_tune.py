@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from dataclasses import replace
 from typing import ClassVar
 
 from typing_extensions import override
@@ -158,15 +159,7 @@ class CmdTune(BaseCommand):
 
     def _go_back(self, command_context: CommandContext) -> None:
         """Handle back navigation."""
-        self(
-            cmd=command_context.cmd,
-            chat_id=command_context.chat_id,
-            from_id=command_context.from_id,
-            parameter="back",
-            msg_id_to_update=command_context.msg_id_to_update,
-            msg_id_to_reply_to=command_context.msg_id_to_reply_to,
-            user=command_context.user,
-        )
+        self.execute(replace(command_context, parameter="back"))
 
     def _create_rate_buttons(self, rate_name: str, command_context: CommandContext) -> Buttons:
         """Create increment/decrement buttons for rate controls (feed/flow)."""

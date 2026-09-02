@@ -10,49 +10,38 @@ class NotificationDefinition:
     """Describes a notification the bot can send: what it says and how it is presented.
 
     Every field but the description is a default the user can change from the plugin settings.
-
-    Fields:
-
-    - description (str):
-        Human-readable description shown in settings/help.
-
-    - text (str, optional):
-        The text sent with the notification. Supports both emoji and variables,
-        using the same format as the text that can be set from the plugin settings.
-
-    - markup (Markup, optional):
-        The markup Telegram parses in the text.
-
-    - image (bool, optional):
-        If true, the message will also include webcam snapshots.
-
-    - gif (bool, optional):
-        If true, the message will also include webcam videos.
-
-    - silent (bool, optional):
-        If true, the notification will be sent silently.
-
-    - shown_in_settings (bool, optional):
-        Whether a checkbox for this notification is shown in the plugin's notification settings.
-        The notifications without one are triggered by users. You must pass chat_id when sending them;
-        otherwise they will be sent to all users with notifications enabled.
-        Example: StatusNotPrinting and StatusNotConnected are not shown.
-
-    - bind_message (str, optional):
-        Binds this message to another message by name. It shares text and other settings
-        with the bound message. When this notification is sent, it contains the same content
-        as the bound message, and no extra edit box is shown in the settings UI.
-        Examples: StatusPrinting and ZChange.
     """
 
     description: str
+    """Human-readable description shown in settings/help."""
+
     text: str = ""
+    """The text sent with the notification. Supports both emoji and variables,
+    using the same format as the text that can be set from the plugin settings."""
+
     markup: Markup = Markup.OFF
+    """The markup Telegram parses in the text."""
+
     image: bool = False
+    """If true, the message will also include webcam snapshots."""
+
     gif: bool = False
+    """If true, the message will also include webcam videos."""
+
     silent: bool = False
+    """If true, the notification will be sent silently."""
+
     shown_in_settings: bool = True
+    """Whether a checkbox for this notification is shown in the plugin's notification settings.
+    The notifications without one are triggered by users. You must pass chat_id when sending them;
+    otherwise they will be sent to all users with notifications enabled.
+    Example: StatusNotPrinting and StatusNotConnected are not shown."""
+
     bind_message: str | None = None
+    """Binds this message to another message by name. It shares text and other settings
+    with the bound message. When this notification is sent, it contains the same content
+    as the bound message, and no extra edit box is shown in the settings UI.
+    Examples: StatusPrinting and ZChange."""
 
     def __post_init__(self) -> None:
         """Check the validity of the declared notification.
