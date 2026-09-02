@@ -128,32 +128,26 @@ class Listener(threading.Thread):
     def _get_updates(self) -> list[dict]:
         # If it is the first contact, drain the updates backlog
         if self._update_offset == 0 and self._first_contact:
-            while True:
-                json_data = self._telegram_client.send_request(
-                    "getUpdates",
-                    HttpMethod.GET,
-                    params={"offset": self._update_offset, "timeout": 0},
-                )
-
-                results = json_data["result"]
-
-                if results and "update_id" in results[0]:
-                    self._set_update_offset(results[0]["update_id"])
-
-                if not results:
-                    self._logger.debug("Ignored all messages until now because first_contact was True.")
-                    break
-
-            if self._update_offset == 0:
-                self._set_update_offset(0)
-
-        # Else, get the updates
-        else:
             json_data = self._telegram_client.send_request(
                 "getUpdates",
                 HttpMethod.GET,
-                params={"offset": self._update_offset, "timeout": LONG_POLL_SECONDS},
+                params={"offset": -1, "timeout": 0},
             )
+
+            results = json_data["result"]
+            if results:
+                self._set_update_offset(results[-1]["update_id"])
+
+            self._logger.debug("Ignored all messages until now because first_contact was True.")
+
+            return []
+
+        # Else, get the updates
+        json_data = self._telegram_client.send_request(
+            "getUpdates",
+            HttpMethod.GET,
+            params={"offset": self._update_offset, "timeout": LONG_POLL_SECONDS},
+        )
 
         # Update update_offset
         results = json_data["result"]
