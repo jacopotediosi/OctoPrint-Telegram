@@ -156,7 +156,7 @@ class CmdCon(BaseCommand):
         # Send message
         self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
-    def _disconnect(self, command_context: CommandContext, params: list[str]) -> None:
+    def _disconnect(self, command_context: CommandContext, _params: list[str]) -> None:
         self.plugin_context.printer.disconnect()
 
         msg = render_emojis("{emo:check} Printer disconnected.")

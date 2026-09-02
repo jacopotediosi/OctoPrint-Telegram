@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import multiprocessing
 import os
 import shutil
@@ -13,10 +12,12 @@ from urllib.parse import urljoin
 from werkzeug.utils import secure_filename
 
 from ..utils import resolve_cpulimiter_path, resolve_ffmpeg_path
-from .webcams import Webcams
 
 if TYPE_CHECKING:
+    import logging
+
     from ..core.settings import OctoPrintSettings, Settings
+    from .webcams import Webcams
 
 TEMPORARY_DIRECTORY_NAME = "tmpgif"
 
@@ -232,10 +233,10 @@ class Video:
         cmd.append(gif_path)
 
         self._logger.debug("Creating video by running command: %s", cmd)
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True)  # noqa: S603
         self._logger.debug("Video created")
 
         if not os.path.isfile(gif_path):
-            raise FileNotFoundError("Expected gif file was not created: %s", gif_path)
+            raise FileNotFoundError(f"Expected gif file was not created: {gif_path}")
 
         return gif_path

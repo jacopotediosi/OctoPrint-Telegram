@@ -255,3 +255,5 @@ class Api:
             self.plugin_context.enrollment.close()
             self.plugin_context.frontend.update_enrollment_countdown(0)
             return jsonify({"ok": True})
+
+        return None

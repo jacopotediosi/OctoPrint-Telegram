@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import replace
-from typing import ClassVar
+from typing import Callable, ClassVar
 
 from typing_extensions import override
 
@@ -79,10 +79,10 @@ class CmdTune(BaseCommand):
             params = command_context.parameter.split("_")
 
             if params[0] == "feedrate":
-                self._handle_rate_control(command_context, "feedrate", "feed_rate")
+                self._handle_rate_control(command_context, "feedrate", self.plugin_context.printer.feed_rate)
 
             elif params[0] == "flowrate":
-                self._handle_rate_control(command_context, "flowrate", "flow_rate")
+                self._handle_rate_control(command_context, "flowrate", self.plugin_context.printer.flow_rate)
 
             elif params[0] == "tool":
                 tool_number = int(params[1])
@@ -254,13 +254,15 @@ class CmdTune(BaseCommand):
 
         self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
-    def _handle_rate_control(self, command_context: CommandContext, rate_name: str, printer_method: str) -> None:
+    def _handle_rate_control(
+        self, command_context: CommandContext, rate_name: str, apply_rate: Callable[[int], None]
+    ) -> None:
         """Handle feedrate and flowrate controls.
 
         Args:
             command_context (CommandContext): The details of a single command invocation.
             rate_name (str): Either "feedrate" or "flowrate".
-            printer_method (str): The name of the printer method that applies the rate.
+            apply_rate (Callable): Callback that sends the rate to the printer.
         """
         params = command_context.parameter.split("_")
 
@@ -271,8 +273,9 @@ class CmdTune(BaseCommand):
             if delta_str.startswith(("+", "-")):
                 menu_state.rate = max(50, min(menu_state.rate + int(delta_str), 200))
             else:
-                getattr(self.plugin_context.printer, printer_method)(menu_state.rate)
-                return self._go_back(command_context)
+                apply_rate(menu_state.rate)
+                self._go_back(command_context)
+                return
         else:
             menu_state = TuneRateMenuState(100)
 
@@ -304,10 +307,12 @@ class CmdTune(BaseCommand):
                 menu_state.temperature = max(menu_state.temperature + int(delta_str), 0)
             elif delta_str == "set":
                 self.plugin_context.printer.set_temperature(tool_key, menu_state.temperature)
-                return self._go_back(command_context)
+                self._go_back(command_context)
+                return
             else:
                 self.plugin_context.printer.set_temperature(tool_key, 0)
-                return self._go_back(command_context)
+                self._go_back(command_context)
+                return
 
         current_temp = temps[tool_key]["actual"]
 

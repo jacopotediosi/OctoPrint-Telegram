@@ -1325,7 +1325,7 @@ class CmdFiles(BaseCommand):
             self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
             return
 
-        def slice_callback(*args: object, **kwargs: object) -> None:
+        def slice_callback(*_args: object, **kwargs: object) -> None:
             """Report the outcome of the slicing in the chat."""
             _error = kwargs.get("_error")
             _cancelled = kwargs.get("_cancelled")
@@ -1462,20 +1462,20 @@ class CmdFiles(BaseCommand):
             upload_url = "https://api.imgbb.com/1/upload"
 
             if not api_key:
-                return
+                return None
 
             thumbnail = self.plugin_context.thumbnails.get_thumbnail(storage_name, file_path)
             if not thumbnail:
-                return
+                return None
 
             self._logger.info("Uploading to imgbb the thumbnail of %s/%s", storage_name, file_path)
 
             encoded_img = base64.b64encode(thumbnail)
             payload = {"key": api_key, "image": encoded_img}
 
-            upload_response = requests.post(upload_url, payload)
+            upload_response = requests.post(upload_url, data=payload, timeout=30)
             if not upload_response.ok:
-                return
+                return None
 
             return upload_response.json()["data"]["url"]
         except Exception:

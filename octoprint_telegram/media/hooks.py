@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import logging
 import subprocess
 import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import logging
+
     from octoprint.events import EventManager
     from octoprint.printer import PrinterInterface
 
@@ -66,7 +67,7 @@ class ImageHooks:
             self._logger.debug("Pre_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True)
+                proc = subprocess.Popen(command, shell=True)  # noqa: S602
                 self._logger.debug("Pre_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait()
                 self._logger.debug("Pre_image SYSTEM command finished with return code %s", proc.returncode)
@@ -106,7 +107,7 @@ class ImageHooks:
             self._logger.debug("Post_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True)
+                proc = subprocess.Popen(command, shell=True)  # noqa: S602
                 self._logger.debug("Post_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait()
                 self._logger.debug("Post_image SYSTEM command finished with return code %s", proc.returncode)

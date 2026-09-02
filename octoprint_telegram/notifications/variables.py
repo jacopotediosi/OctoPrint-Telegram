@@ -57,9 +57,9 @@ class cached_property(Generic[T]):
         Returns:
             T: The value of the template variable.
         """
-        if self._name not in instance._cache:
-            instance._cache[self._name] = self._function(instance)
-        return instance._cache[self._name]
+        if self._name not in instance._cache:  # noqa: SLF001
+            instance._cache[self._name] = self._function(instance)  # noqa: SLF001
+        return instance._cache[self._name]  # noqa: SLF001
 
 
 class NotificationVariables:
@@ -222,6 +222,7 @@ class NotificationVariables:
         print_time_left = progress.get("printTimeLeft")
         if print_time_left is not None:
             return format_eta(self._settings, print_time_left)
+        return None
 
     @cached_property
     def display_layer_progress(self) -> dict:

@@ -73,7 +73,9 @@ class CmdSys(BaseCommand):
 
                 else:  # Execute command
                     try:
-                        process = sarge.run(command_to_execute, stderr=sarge.Capture(), shell=True, async_=False)
+                        process = sarge.run(  # noqa: S604
+                            command_to_execute, stderr=sarge.Capture(), shell=True, async_=False
+                        )
 
                         if process.returncode != 0:
                             returncode = str(process.returncode)
@@ -140,7 +142,7 @@ class CmdSys(BaseCommand):
                     async_ = command.get("async", False)
 
                     try:
-                        process = sarge.run(
+                        process = sarge.run(  # noqa: S604
                             command["command"],
                             stderr=sarge.Capture(),
                             shell=True,

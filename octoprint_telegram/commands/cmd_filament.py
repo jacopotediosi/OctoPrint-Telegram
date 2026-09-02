@@ -227,7 +227,7 @@ class CmdFilament(BaseCommand):
 
             if spool_id is None:  # Show spool selection menu
                 configured_spools = list(plugin_handler.list_spool().items())
-                spools = [("deselect", "Deselect")] + configured_spools
+                spools = [("deselect", "Deselect"), *configured_spools]
 
                 total_spools = len(spools)
                 total_pages = max(1, (total_spools + self.PAGE_SIZE - 1) // self.PAGE_SIZE)

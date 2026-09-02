@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import logging
+
     from octoprint.filemanager import FileManager
     from octoprint.printer import PrinterInterface
     from octoprint.printer.profile import PrinterProfileManager

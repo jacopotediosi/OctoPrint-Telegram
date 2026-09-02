@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 from typing import TYPE_CHECKING
@@ -11,6 +10,8 @@ from .video import FfmpegPreset, Video
 from .webcams import WebcamProfile, Webcams
 
 if TYPE_CHECKING:
+    import logging
+
     from octoprint.events import EventManager
     from octoprint.plugin.core import PluginManager
     from octoprint.printer import PrinterInterface

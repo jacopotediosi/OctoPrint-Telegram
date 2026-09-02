@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -10,6 +9,8 @@ from . import templating
 from .variables import NotificationVariables
 
 if TYPE_CHECKING:
+    import logging
+
     from octoprint.filemanager import FileManager
     from octoprint.printer import PrinterInterface
 

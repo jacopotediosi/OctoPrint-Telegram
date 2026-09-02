@@ -1,15 +1,21 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
-import octoprint.plugin
-
 if TYPE_CHECKING:
+    import logging
+
+    import octoprint.plugin
     from octoprint.plugin.core import PluginManager
 
     from ..core.settings import OctoPrintSettings
     from ..integrations.plugins import Plugins
+
+try:
+    from octoprint.webcams import get_webcams
+except ImportError:
+    # On OctoPrint < 1.9.0 there is no webcam integration
+    get_webcams = None
 
 
 class WebcamProfile:
@@ -94,12 +100,6 @@ class Webcams:
         webcam_profiles: list[WebcamProfile] = []
 
         # New webcam integration (OctoPrint >= 1.9.0)
-        try:
-            from octoprint.webcams import get_webcams
-        except ImportError:
-            get_webcams = None
-            self._logger.debug("New webcam integration not available, this OctoPrint is older than 1.9.0")
-
         if get_webcams:
             try:
                 self._logger.debug("Getting webcam profiles from new webcam integration")

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
-from ..telegram import Markup
 from ..telegram.formatting import escape_text
 from .variables import cached_property
 
 if TYPE_CHECKING:
+    import logging
+
+    from ..telegram import Markup
     from .variables import NotificationVariables
 
 

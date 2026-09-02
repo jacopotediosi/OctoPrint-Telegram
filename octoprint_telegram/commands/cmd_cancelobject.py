@@ -31,8 +31,8 @@ class CmdCancelObject(BaseCommand):
         if command_context.parameter:
             params = command_context.parameter.split("_")
 
-            id = params[0]
-            self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
+            object_id = params[0]
+            self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": object_id})
 
             msg = render_emojis("{emo:check} Command sent!")
 

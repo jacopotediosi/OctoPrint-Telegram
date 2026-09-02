@@ -43,7 +43,7 @@ class Settings:
     @property
     def notification_height(self) -> float:
         """The increase in Z height, in millimetres, that triggers a progress notification, or 0 for none."""
-        return self._settings.get_float(["notification_height"])
+        return self._settings.get_float(["notification_height"]) or 0.0
 
     @notification_height.setter
     def notification_height(self, value: float) -> None:
@@ -52,7 +52,7 @@ class Settings:
     @property
     def notification_time(self) -> int:
         """The minutes between progress notifications, or 0 for none."""
-        return self._settings.get_int(["notification_time"])
+        return self._settings.get_int(["notification_time"]) or 0
 
     @notification_time.setter
     def notification_time(self, value: int) -> None:
@@ -61,17 +61,17 @@ class Settings:
     @property
     def message_at_print_done_delay(self) -> int:
         """The seconds to wait after a print finishes before notifying."""
-        return self._settings.get_int(["message_at_print_done_delay"])
+        return self._settings.get_int(["message_at_print_done_delay"]) or 0
 
     @property
     def force_loop_message(self) -> bool:
         """Whether the printing status is notified on a loop, for prints that raise no events."""
-        return self._settings.get_boolean(["ForceLoopMessage"])
+        return bool(self._settings.get_boolean(["ForceLoopMessage"]))
 
     @property
     def send_gif(self) -> bool:
         """Whether webcam videos may be attached to messages."""
-        return self._settings.get_boolean(["send_gif"])
+        return bool(self._settings.get_boolean(["send_gif"]))
 
     ##########
     ### Commands
@@ -80,17 +80,17 @@ class Settings:
     @property
     def no_mistake(self) -> bool:
         """Whether the bot stays quiet instead of replying to unknown commands."""
-        return self._settings.get_boolean(["no_mistake"])
+        return bool(self._settings.get_boolean(["no_mistake"]))
 
     @property
     def select_file_after_upload(self) -> bool:
         """Whether a file uploaded to the bot should be then selected for printing."""
-        return self._settings.get_boolean(["select_file_after_upload"])
+        return bool(self._settings.get_boolean(["select_file_after_upload"]))
 
     @property
     def sort_files_by_date(self) -> bool:
         """Whether the file list is sorted by upload date, newest first, instead of by name."""
-        return self._settings.get_boolean(["sort_files_by_date"])
+        return bool(self._settings.get_boolean(["sort_files_by_date"]))
 
     @sort_files_by_date.setter
     def sort_files_by_date(self, value: bool) -> None:
@@ -99,7 +99,7 @@ class Settings:
     @property
     def show_models_in_files(self) -> bool:
         """Whether the file list also includes model files."""
-        return self._settings.get_boolean(["show_models_in_files"])
+        return bool(self._settings.get_boolean(["show_models_in_files"]))
 
     @show_models_in_files.setter
     def show_models_in_files(self, value: bool) -> None:
@@ -117,7 +117,7 @@ class Settings:
     @property
     def no_cpulimit(self) -> bool:
         """Whether webcam videos are recorded without cpulimit/limitcpu."""
-        return self._settings.get_boolean(["no_cpulimit"])
+        return bool(self._settings.get_boolean(["no_cpulimit"]))
 
     @property
     def ffmpeg_preset(self) -> str:
@@ -137,7 +137,7 @@ class Settings:
     @property
     def pre_img_delay(self) -> int:
         """The seconds to wait between the action before taking a webcam image and the capture."""
-        return self._settings.get_int(["PreImgDelay"], min=0)
+        return self._settings.get_int(["PreImgDelay"], min=0) or 0
 
     @property
     def post_img_method(self) -> str:
@@ -152,7 +152,7 @@ class Settings:
     @property
     def post_img_delay(self) -> int:
         """The seconds to wait between the capture and the action after taking a webcam image."""
-        return self._settings.get_int(["PostImgDelay"], min=0)
+        return self._settings.get_int(["PostImgDelay"], min=0) or 0
 
     ##########
     ### Time formats
@@ -341,11 +341,11 @@ class OctoPrintSettings:
         return self._settings.global_get(["server", "commands", name])
 
     @property
-    def online_check_host(self) -> str:
+    def online_check_host(self) -> str | None:
         """The host OctoPrint reaches to tell whether it is online."""
         return self._settings.global_get(["server", "onlineCheck", "host"])
 
     @property
-    def online_check_port(self) -> int:
+    def online_check_port(self) -> int | None:
         """The port OctoPrint reaches to tell whether it is online."""
         return self._settings.global_get(["server", "onlineCheck", "port"])

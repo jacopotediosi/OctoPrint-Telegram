@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Iterator
@@ -8,6 +7,8 @@ from typing import TYPE_CHECKING, Iterator
 from .enums import ChatAction, HttpMethod
 
 if TYPE_CHECKING:
+    import logging
+
     from .client import TelegramClient
 
 # A chat action shown in Telegram expires after about five seconds

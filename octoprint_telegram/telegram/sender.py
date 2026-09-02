@@ -2,22 +2,24 @@ from __future__ import annotations
 
 import html
 import json
-import logging
 import os
 import time
 from typing import TYPE_CHECKING
 
 from ..emoji import Emoji
 from .chat_action import chat_action
+from .client import TelegramRequestError
 from .enums import ChatAction, HttpMethod, Markup
-from .keyboards import Buttons
 
 if TYPE_CHECKING:
+    import logging
+
     from ..core.connection_status import ConnectionStatus
     from ..domain.chats import Chats
     from ..domain.mute import MutedChats
     from ..media import Media
     from .client import TelegramClient
+    from .keyboards import Buttons
 
 render_emojis = Emoji.render_emojis
 
@@ -237,8 +239,8 @@ class Sender:
             self._logger.debug("Sending a message update in chat %s: %s", chat_id, message_data)
 
             self._telegram_client.send_request("editMessageText", HttpMethod.POST, data=message_data)
-        except Exception as e:
-            if "Bad Request: message is not modified" not in getattr(e, "telegram_response_text", ""):
+        except TelegramRequestError as e:
+            if not e.description.startswith("Bad Request: message is not modified"):
                 self._logger.exception("Caught an exception in _edit()")
                 self._report_failure(chat_id)
 
@@ -348,14 +350,14 @@ class Sender:
                         "sendMediaGroup", HttpMethod.POST, data=message_data, files=files
                     )
                 return str(response["result"][0]["message_id"])
-            # If there aren't media, send a text-only message
-            else:
-                self._logger.debug("Sending text-only message, chat id: %s", chat_id)
 
-                with chat_action(self._telegram_client, chat_id, ChatAction.TYPING, self._logger):
-                    message_data["text"] = message
-                    response = self._telegram_client.send_request("sendMessage", HttpMethod.POST, data=message_data)
-                return str(response["result"]["message_id"])
+            # If there aren't media, send a text-only message
+            self._logger.debug("Sending text-only message, chat id: %s", chat_id)
+
+            with chat_action(self._telegram_client, chat_id, ChatAction.TYPING, self._logger):
+                message_data["text"] = message
+                response = self._telegram_client.send_request("sendMessage", HttpMethod.POST, data=message_data)
+            return str(response["result"]["message_id"])
         except Exception:
             self._logger.exception("Caught an exception in _send()")
             self._report_failure(chat_id)

@@ -39,7 +39,7 @@ from .integrations import Cost, DisplayLayerProgress, OctoPrintApi, Plugins, Thu
 from .media import FfmpegPreset, ImageHookMethod, Media
 from .notifications import NOTIFICATION_DEFINITIONS, Notifications
 from .telegram import ChatAction, ChatType, HttpMethod, MenuStates, Sender
-from .telegram.client import TOKEN_REGEX, TelegramClient
+from .telegram.client import TOKEN_REGEX, TelegramClient, TelegramRequestError
 from .telegram.dispatcher import Dispatcher
 from .telegram.listener import Listener
 
@@ -169,11 +169,13 @@ class TelegramPlugin(
                             params = {"chat_id": chat_id}
                         try:
                             telegram_client.send_request(endpoint, HttpMethod.GET, params=params, timeout=5)
-                        except Exception as e:
-                            if '"error_code":403' in getattr(e, "telegram_response_text", ""):
+                        except TelegramRequestError as e:
+                            if e.error_code == 403:
                                 self._logger.info("Chat %s is unreachable, removing it from settings...", chat_id)
                                 chats.remove_chat(chat_id)
                                 continue
+                        except Exception:
+                            self._logger.exception("Caught an exception reaching chat %s", chat_id)
 
                         # Update chat pictures
                         public_path = chats.save_chat_picture(chat_id)
@@ -373,7 +375,7 @@ class TelegramPlugin(
             "image": "",
             "allow_users": False,
             "commands": {command.name: False for command in registry.configurable_per_chat()},
-            "notifications": {notification: False for notification in NOTIFICATION_DEFINITIONS},
+            "notifications": dict.fromkeys(NOTIFICATION_DEFINITIONS, False),
         }
 
     @override
@@ -381,8 +383,8 @@ class TelegramPlugin(
         return (
             {},
             {
-                "notification_height": lambda x: float(x),
-                "notification_time": lambda x: int(x),
+                "notification_height": float,
+                "notification_time": int,
             },
         )
 
@@ -554,12 +556,12 @@ class TelegramPlugin(
     ### Hooks
     ##########
 
-    def get_update_information(self, *args: Any, **kwargs: Any) -> dict:
+    def get_update_information(self, *_args: Any, **_kwargs: Any) -> dict:
         """Tell the Software Update plugin where to look for new releases.
 
         Args:
-            *args: Further positional arguments OctoPrint may pass.
-            **kwargs: Further keyword arguments OctoPrint may pass.
+            *_args: Further positional arguments OctoPrint may pass.
+            **_kwargs: Further keyword arguments OctoPrint may pass.
 
         Returns:
             dict: The update configuration, keyed by plugin identifier.
@@ -576,21 +578,21 @@ class TelegramPlugin(
             }
         }
 
-    def route_hook(self, server_routes: list, *args: Any, **kwargs: Any) -> list[tuple]:
+    def route_hook(self, _server_routes: list, *_args: Any, **_kwargs: Any) -> list[tuple]:
         """Declare the direct HTTP routes through which plugin's files can be downloaded.
 
         Args:
-            server_routes (list): The routes OctoPrint has collected so far.
-            *args: Further positional arguments OctoPrint may pass.
-            **kwargs: Further keyword arguments OctoPrint may pass.
+            _server_routes (list): The routes OctoPrint has collected so far.
+            *_args: Further positional arguments OctoPrint may pass.
+            **_kwargs: Further keyword arguments OctoPrint may pass.
 
         Returns:
             list[tuple]: The routes this plugin adds.
         """
-        from octoprint.server.util.flask import (
+        from octoprint.server.util.flask import (  # noqa: PLC0415
             permission_validator,
         )
-        from octoprint.server.util.tornado import (
+        from octoprint.server.util.tornado import (  # noqa: PLC0415
             LargeResponseHandler,
             access_validation_factory,
         )
@@ -628,18 +630,18 @@ class TelegramPlugin(
 
     def hook_gcode_received(
         self,
-        comm_instance: Any,  # noqa: ANN401
+        _comm_instance: Any,  # noqa: ANN401
         line: str,
-        *args: Any,
-        **kwargs: Any,
+        *_args: Any,
+        **_kwargs: Any,
     ) -> str:
         """Notify the events the printer reports through its replies.
 
         Args:
-            comm_instance (Any): The OctoPrint serial connection the line came from.
+            _comm_instance (Any): The OctoPrint serial connection the line came from.
             line (str): The line the printer replied.
-            *args: Further positional arguments OctoPrint may pass.
-            **kwargs: Further keyword arguments OctoPrint may pass.
+            *_args: Further positional arguments OctoPrint may pass.
+            **_kwargs: Further keyword arguments OctoPrint may pass.
 
         Returns:
             str: The line, unchanged.
@@ -660,24 +662,24 @@ class TelegramPlugin(
 
     def hook_gcode_sent(
         self,
-        comm_instance: Any,  # noqa: ANN401
-        phase: str,
-        cmd: str,
-        cmd_type: str | None,
+        _comm_instance: Any,  # noqa: ANN401
+        _phase: str,
+        _cmd: str,
+        _cmd_type: str | None,
         gcode: str | None,
-        *args: Any,
-        **kwargs: Any,
+        *_args: Any,
+        **_kwargs: Any,
     ) -> None:
         """Notify the events triggered by the gcode sent to the printer.
 
         Args:
-            comm_instance (Any): The OctoPrint serial connection the command goes through.
-            phase (str): The phase of the sending the command is in.
-            cmd (str): The command being sent.
-            cmd_type (str | None): The type the command was queued under.
+            _comm_instance (Any): The OctoPrint serial connection the command goes through.
+            _phase (str): The phase of the sending the command is in.
+            _cmd (str): The command being sent.
+            _cmd_type (str | None): The type the command was queued under.
             gcode (str | None): The gcode of the command, when it has one.
-            *args: Further positional arguments OctoPrint may pass.
-            **kwargs: Further keyword arguments OctoPrint may pass.
+            *_args: Further positional arguments OctoPrint may pass.
+            **_kwargs: Further keyword arguments OctoPrint may pass.
         """
         try:
             if gcode and gcode == "M600":
@@ -685,12 +687,12 @@ class TelegramPlugin(
         except Exception:
             self._logger.exception("Caught an exception on hook_gcode_sent")
 
-    def register_custom_events(self, *args: Any, **kwargs: Any) -> list[str]:
+    def register_custom_events(self, *_args: Any, **_kwargs: Any) -> list[str]:
         """Declare the events this plugin fires on the OctoPrint event bus.
 
         Args:
-            *args: Further positional arguments OctoPrint may pass.
-            **kwargs: Further keyword arguments OctoPrint may pass.
+            *_args: Further positional arguments OctoPrint may pass.
+            **_kwargs: Further keyword arguments OctoPrint may pass.
 
         Returns:
             list[str]: The name of every event, without the plugin prefix OctoPrint adds.

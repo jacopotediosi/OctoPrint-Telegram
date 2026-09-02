@@ -43,9 +43,14 @@ class DomoticzPowerPlugin(PowerPlugin):
                     if passcode != "":
                         str_url = f"{str_url}&passcode={passcode}"
                     if username != "":
-                        response = requests.get(str_url, auth=(username, password), timeout=10, verify=False)
+                        response = requests.get(
+                            str_url,
+                            auth=(username, password),
+                            timeout=10,
+                            verify=False,  # noqa: S501
+                        )
                     else:
-                        response = requests.get(str_url, timeout=10, verify=False)
+                        response = requests.get(str_url, timeout=10, verify=False)  # noqa: S501
                     is_on = response.json()["result"][0]["Status"].lower() == "on"
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plug status", self.plugin_id)

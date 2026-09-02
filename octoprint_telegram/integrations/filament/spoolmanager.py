@@ -189,25 +189,18 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
                     section8_parts.append(f"<b>Note</b>:\n<pre>{html.escape(note_str)}</pre>")
 
                 # Build the final message by joining non-empty sections
-                sections = []
-                if section1_parts:
-                    sections.append("\n".join(section1_parts))
-                if section2_parts:
-                    sections.append("\n".join(section2_parts))
-                if section3_parts:
-                    sections.append("\n".join(section3_parts))
-                if section4_parts:
-                    sections.append("\n".join(section4_parts))
-                if section5_parts:
-                    sections.append("\n".join(section5_parts))
-                if section6_parts:
-                    sections.append("\n".join(section6_parts))
-                if section7_parts:
-                    sections.append("\n".join(section7_parts))
-                if section8_parts:
-                    sections.append("\n".join(section8_parts))
+                sections = (
+                    section1_parts,
+                    section2_parts,
+                    section3_parts,
+                    section4_parts,
+                    section5_parts,
+                    section6_parts,
+                    section7_parts,
+                    section8_parts,
+                )
 
-                return "\n\n".join(sections)
+                return "\n\n".join("\n".join(parts) for parts in sections if parts)
 
         return render_emojis("{emo:attention} Spool not found")
 

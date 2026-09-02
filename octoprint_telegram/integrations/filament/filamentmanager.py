@@ -80,7 +80,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
         remaining_weight = total_weight - used_weight
         remaining_percent = int(100 / total_weight * remaining_weight) if total_weight > 0 else 0
 
-        msg = (
+        return (
             f"<b>ID</b>: {html.escape(id_str)}\n\n"
             f"<b>Name</b>: {html.escape(name_str)}\n"
             f"<b>Vendor</b>: {html.escape(vendor_str)}\n"
@@ -92,8 +92,6 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
             f"<b>Used</b>: {used_weight}g\n"
             f"<b>Remaining</b>: {remaining_weight}g ({remaining_percent}%)\n"
         )
-
-        return msg
 
     @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:

@@ -116,7 +116,7 @@ class Listener(threading.Thread):
             new_value (int): The id of the last update handled.
         """
         if new_value >= self._update_offset:
-            self._logger.debug(f"Updating update_offset from {self._update_offset} to {1 + new_value}")
+            self._logger.debug("Updating update_offset from %s to %s", self._update_offset, 1 + new_value)
             self._update_offset = 1 + new_value
         else:
             self._logger.debug(

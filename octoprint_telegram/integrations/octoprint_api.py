@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import urljoin
 
 import requests
 
 if TYPE_CHECKING:
+    import logging
+
     from ..core.settings import OctoPrintSettings
 
 TEXTUAL_CONTENT_TYPES = [
@@ -145,7 +146,7 @@ class OctoPrintApi:
                 loggable_kwargs[k] = v
         self._logger.debug("Sending OctoPrint request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)
 
-        response = requests.request(method, url, **request_kwargs)
+        response = requests.request(method, url, **request_kwargs)  # noqa: S113
 
         # Check if response content should be logged
         content_type = response.headers.get("content-type", "").lower()

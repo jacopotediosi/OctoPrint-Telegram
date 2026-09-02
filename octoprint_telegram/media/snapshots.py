@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import io
-import logging
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import requests
 from PIL import Image
 
-from .webcams import WebcamProfile, Webcams
+if TYPE_CHECKING:
+    import logging
+
+    from .webcams import WebcamProfile, Webcams
 
 
 class Snapshots:
@@ -104,18 +107,20 @@ class Snapshots:
         with io.BytesIO(image_content) as image_buffer, Image.open(image_buffer) as image:
             image.load()
 
+            transformed_image = image
+
             if any([flipH, flipV, rotate]):
                 self._logger.debug(
                     "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flipH, flipV, rotate
                 )
 
                 if flipH:
-                    image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                    transformed_image = transformed_image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                 if flipV:
-                    image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+                    transformed_image = transformed_image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
                 if rotate:
-                    image = image.transpose(Image.Transpose.ROTATE_90)
+                    transformed_image = transformed_image.transpose(Image.Transpose.ROTATE_90)
 
             with io.BytesIO() as output:
-                image.save(output, format="JPEG")
+                transformed_image.save(output, format="JPEG")
                 return output.getvalue()

@@ -20,14 +20,14 @@ class Cost:
     @property
     def cost_per_time(self) -> float:
         """The cost of one hour of printing."""
-        return self._settings.global_get_float(["plugins", "cost", "cost_per_time"])
+        return self._settings.global_get_float(["plugins", "cost", "cost_per_time"]) or 0.0
 
     @property
     def cost_per_length(self) -> float:
         """The cost of one metre of filament."""
-        return self._settings.global_get_float(["plugins", "cost", "cost_per_length"])
+        return self._settings.global_get_float(["plugins", "cost", "cost_per_length"]) or 0.0
 
     @property
     def currency(self) -> str:
         """The currency the costs are expressed in."""
-        return self._settings.global_get(["plugins", "cost", "currency"])
+        return self._settings.global_get(["plugins", "cost", "currency"]) or ""

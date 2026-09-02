@@ -68,10 +68,10 @@ class Dispatcher:
                 self._uploads.store_document(message, chat_id, from_id, msg_id_to_reply_to)
             # We got message with notification for a new chat title so lets update it
             elif "new_chat_title" in message:
-                self._handle_new_chat_title_message(message, chat_id, from_id)
+                self._handle_new_chat_title_message(message, chat_id)
             # We got message with notification for a new chat title photo so lets download it
             elif "new_chat_photo" in message or "delete_chat_photo" in message:
-                self._handle_new_chat_photo_message(update, chat_id, from_id)
+                self._handle_new_chat_photo_message(chat_id)
             # At this point we don't know what message type it is, so we do nothing
             else:
                 self._logger.debug("Got an unknown message. Doing nothing. Update was: %s", update)
@@ -80,11 +80,11 @@ class Dispatcher:
             self._handle_callback_query(update["callback_query"], chat_id, from_id)
         # Triggered when the bot's role in a chat changes (e.g., added, removed, promoted to admin, blocked in private chat, etc.)
         elif "my_chat_member" in update:
-            self._handle_my_chat_member(update["my_chat_member"], chat_id, from_id)
+            self._handle_my_chat_member(update["my_chat_member"], chat_id)
         else:
             self._logger.debug("Got an unknown update. Doing nothing. Update was: %s", update)
 
-    def _handle_my_chat_member(self, my_chat_member: dict, chat_id: str, from_id: str) -> None:
+    def _handle_my_chat_member(self, my_chat_member: dict, chat_id: str) -> None:
         status = my_chat_member.get("new_chat_member", {}).get("status", "")
 
         try:
@@ -122,7 +122,7 @@ class Dispatcher:
             reply_to_message_id=msg_id_to_reply_to,
         )
 
-    def _handle_new_chat_title_message(self, message: dict, chat_id: str, from_id: str) -> None:
+    def _handle_new_chat_title_message(self, message: dict, chat_id: str) -> None:
         self._logger.info("Chat %s changed title, updating it...", chat_id)
 
         chat = message["chat"]
@@ -131,7 +131,7 @@ class Dispatcher:
         self.plugin_context.settings.save()
         self.plugin_context.frontend.update_known_chats(self.plugin_context.settings.chats)
 
-    def _handle_new_chat_photo_message(self, message: dict, chat_id: str, from_id: str) -> None:
+    def _handle_new_chat_photo_message(self, chat_id: str) -> None:
         self._logger.info("Chat %s changed picture, updating it...", chat_id)
 
         try:

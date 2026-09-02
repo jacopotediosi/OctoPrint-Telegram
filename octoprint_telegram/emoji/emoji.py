@@ -188,7 +188,7 @@ class Emoji:
                 end += 1
             elif space_before:
                 # Case: "foo {emo:x}"
-                # # Only space before -> remove group + preceding space
+                # Only space before -> remove group + preceding space
                 replacement = ""
                 start -= 1
                 # Preserve space if the char after group is non-space
@@ -208,8 +208,6 @@ class Emoji:
                 # Insert a space if there are non-space characters before and after
                 if start > 0 and end < len(result) and result[start - 1] != " " and result[end] != " ":
                     replacement = " "
-                else:
-                    replacement = ""
 
             # Apply replacement in the result string
             result = result[:start] + replacement + result[end:]

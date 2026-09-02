@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
-import traceback
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -11,6 +9,8 @@ import requests
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
+    import logging
+
     from ..core.settings import Settings
 
 TOKEN_REGEX = re.compile(r"[\d]{8,10}:[\w-]{35}")
@@ -29,7 +29,14 @@ class TelegramRequestError(Exception):
             telegram_response_text (str, optional): The raw body Telegram answered with.
         """
         super().__init__(message)
-        self.telegram_response_text = telegram_response_text
+
+        try:
+            payload = json.loads(telegram_response_text)
+            self.error_code = payload.get("error_code")
+            self.description = payload.get("description") or ""
+        except Exception:
+            self.error_code = None
+            self.description = ""
 
 
 class TelegramClient:
@@ -102,12 +109,10 @@ class TelegramClient:
         self._logger.debug("Sending Telegram request: method=%s, url=%s, kwargs=%s", method.value, url, loggable_kwargs)
 
         try:
-            response = requests.request(method.value, url, **request_kwargs)
+            response = requests.request(method.value, url, **request_kwargs)  # noqa: S113
             self._logger.debug("Received Telegram response: %s", response.text)
-        except Exception:
-            raise TelegramRequestError(
-                f"Caught an exception sending telegram request. Traceback: {traceback.format_exc()}."
-            )
+        except Exception as e:
+            raise TelegramRequestError(f"Caught an exception sending telegram request: {e}.") from e
 
         if not response.ok:
             raise TelegramRequestError(
@@ -124,10 +129,10 @@ class TelegramClient:
 
         try:
             json_data = response.json()
-        except Exception:
+        except Exception as e:
             raise TelegramRequestError(
                 f"Failed to parse telegram response to json. Response was: {response.text}.", response.text
-            )
+            ) from e
 
         if not json_data.get("ok", False):
             raise TelegramRequestError(
@@ -174,7 +179,7 @@ class TelegramClient:
 
         self._logger.info("Downloading file: %s", file_url)
 
-        file_req = requests.get(file_url, proxies=self._get_proxies())
+        file_req = requests.get(file_url, proxies=self._get_proxies(), timeout=60)
         file_req.raise_for_status()
 
         return file_req.content

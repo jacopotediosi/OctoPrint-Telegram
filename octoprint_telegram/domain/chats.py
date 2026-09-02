@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import io
-import logging
 import os
 import time
 from typing import TYPE_CHECKING, Callable
@@ -12,6 +11,8 @@ from PIL import Image
 from ..telegram import ChatType, HttpMethod
 
 if TYPE_CHECKING:
+    import logging
+
     from ..core.frontend import Frontend
     from ..core.settings import Settings
     from ..telegram.client import TelegramClient
@@ -168,8 +169,7 @@ class Chats:
 
             img_bytes = self._telegram_client.download_file(file_id)
             with Image.open(io.BytesIO(img_bytes)) as img:
-                img = img.resize(PICTURE_SIZE, Image.Resampling.LANCZOS)
-                img.save(output_filename, format="JPEG")
+                img.resize(PICTURE_SIZE, Image.Resampling.LANCZOS).save(output_filename, format="JPEG")
 
             self._logger.info("Saved chat picture for chat id %s", chat_id)
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import logging
+
     from .octoprint_api import OctoPrintApi
     from .plugins import Plugins
 

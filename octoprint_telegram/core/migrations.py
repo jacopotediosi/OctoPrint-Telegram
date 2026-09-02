@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import logging
 from typing import TYPE_CHECKING, Callable
 
 from ..commands import registry
@@ -9,6 +8,8 @@ from ..domain.chats import PLACEHOLDER_CHAT_ID
 from ..notifications import NOTIFICATION_DEFINITIONS
 
 if TYPE_CHECKING:
+    import logging
+
     from octoprint.plugin import PluginSettings
 
 
@@ -131,7 +132,7 @@ def migrate_settings(
                 messages[message] = definition.as_settings()
 
         # Rename vars in notification messages
-        for message, message_props in messages.items():
+        for message_props in messages.values():
             message_text = message_props.get("text")
             if message_text is not None:
                 for old_var, new_var in notification_vars_to_rename.items():

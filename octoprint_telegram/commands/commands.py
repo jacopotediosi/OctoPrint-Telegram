@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from . import registry
-from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
+    from .base import BaseCommand, CommandContext
 
 
 class Commands:
