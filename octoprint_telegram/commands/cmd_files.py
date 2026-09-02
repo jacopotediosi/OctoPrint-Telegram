@@ -13,7 +13,7 @@ from typing_extensions import override
 from ..domain import permissions
 from ..emoji import Emoji
 from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
-from ..utils import Formatters
+from ..utils import format_duration, format_eta, format_filament, format_fuzzy_print_time, format_size
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -575,7 +575,7 @@ class CmdFiles(BaseCommand):
 
         # File size
         filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
-        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
+        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {format_size(filesize)}")
 
         # Dimensions
         dimensions = analysis.get("dimensions", {})
@@ -596,13 +596,13 @@ class CmdFiles(BaseCommand):
             if filament:
                 msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
                 if len(filament) == 1 and "length" in filament.get("tool0", {}):
-                    msg += Formatters.format_filament(filament["tool0"])
+                    msg += format_filament(filament["tool0"])
                     filament_length += float(filament["tool0"]["length"])
                 else:
                     for tool in sorted(filament):
                         length = filament[tool].get("length")
                         if length is not None:
-                            msg += f"\n      {html.escape(tool)}: {Formatters.format_filament(filament[tool])}"
+                            msg += f"\n      {html.escape(tool)}: {format_filament(filament[tool])}"
                             filament_length += float(length)
         except Exception:
             self._logger.exception("Caught an exception getting filament info")
@@ -610,13 +610,11 @@ class CmdFiles(BaseCommand):
         # Print time
         print_time = analysis.get("estimatedPrintTime")
         if print_time:
-            msg += render_emojis(
-                f"\n{{emo:stopwatch}} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
-            )
+            msg += render_emojis(f"\n{{emo:stopwatch}} <b>Print Time:</b> {format_fuzzy_print_time(print_time)}")
 
             # ETA
             try:
-                time_finish = Formatters.format_eta(self.plugin_context.settings, print_time)
+                time_finish = format_eta(self.plugin_context.settings, print_time)
                 msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
@@ -697,7 +695,7 @@ class CmdFiles(BaseCommand):
 
         # File size
         filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
-        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {Formatters.format_size(filesize)}")
+        msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {format_size(filesize)}")
 
         # Filament info
         filament_length = 0
@@ -706,13 +704,13 @@ class CmdFiles(BaseCommand):
             if filament:
                 msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
                 if len(filament) == 1 and "length" in filament.get("tool0", {}):
-                    msg += Formatters.format_filament(filament["tool0"])
+                    msg += format_filament(filament["tool0"])
                     filament_length += float(filament["tool0"]["length"])
                 else:
                     for tool in sorted(filament):
                         length = filament[tool].get("length")
                         if length is not None:
-                            msg += f"\n      {html.escape(tool)}: {Formatters.format_filament(filament[tool])}"
+                            msg += f"\n      {html.escape(tool)}: {format_filament(filament[tool])}"
                             filament_length += float(length)
         except Exception:
             self._logger.exception("Caught an exception getting filament info")
@@ -732,13 +730,11 @@ class CmdFiles(BaseCommand):
         # Print time
         print_time = analysis.get("estimatedPrintTime")
         if print_time:
-            msg += render_emojis(
-                f"\n{{emo:stopwatch}} <b>Print Time:</b> {Formatters.format_fuzzy_print_time(print_time)}"
-            )
+            msg += render_emojis(f"\n{{emo:stopwatch}} <b>Print Time:</b> {format_fuzzy_print_time(print_time)}")
 
             # ETA
             try:
-                time_finish = Formatters.format_eta(self.plugin_context.settings, print_time)
+                time_finish = format_eta(self.plugin_context.settings, print_time)
                 msg += render_emojis(f"\n{{emo:finish}} <b>Completed Time:</b> {html.escape(time_finish)}")
             except Exception:
                 self._logger.exception("Caught an exception calculating ETA")
@@ -762,9 +758,7 @@ class CmdFiles(BaseCommand):
                 for profile_id, average_print_time in islice(average_print_times.items(), 5):
                     try:
                         profile = self.plugin_context.printer_profiles.get(profile_id)
-                        msg += (
-                            f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(average_print_time)}"
-                        )
+                        msg += f"\n      {html.escape(profile['name'])}: {format_duration(average_print_time)}"
                     except Exception:
                         self._logger.exception("Error processing average print time for profile '%s'", profile_id)
         except Exception:
@@ -777,7 +771,7 @@ class CmdFiles(BaseCommand):
             for profile_id, last_print_time in islice(last_print_times.items(), 5):
                 try:
                     profile = self.plugin_context.printer_profiles.get(profile_id)
-                    msg += f"\n      {html.escape(profile['name'])}: {Formatters.format_duration(last_print_time)}"
+                    msg += f"\n      {html.escape(profile['name'])}: {format_duration(last_print_time)}"
                 except Exception:
                     self._logger.exception(
                         "Caught an exception processing last print time for profile '%s'", profile_id
@@ -797,7 +791,7 @@ class CmdFiles(BaseCommand):
 
                     print_time = history_entry.get("printTime")
                     if print_time is not None:
-                        msg += f"\n      Print Time: {Formatters.format_duration(print_time)}"
+                        msg += f"\n      Print Time: {format_duration(print_time)}"
 
                     profile_id = history_entry.get("printerProfile")
                     if profile_id:

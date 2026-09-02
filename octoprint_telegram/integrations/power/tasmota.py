@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing_extensions import override
 
-from ...utils import StringUtils
+from ...utils import split_with_escape_handling
 from .base import PowerPlugin
 
 
@@ -58,5 +58,5 @@ class TasmotaPowerPlugin(PowerPlugin):
         self._send_command("turnOff", plug_data)
 
     def _send_command(self, command: str, plug_data: str) -> None:
-        ip, idx = StringUtils.split_with_escape_handling(plug_data, "|")
+        ip, idx = split_with_escape_handling(plug_data, "|")
         self.plugin_context.api.send_simpleapi_command(self.plugin_id, command, {"ip": ip, "idx": idx})

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
 from octoprint.util import get_formatted_timedelta
 
-from ..utils import Formatters
+from ..utils import format_eta
 from .registry import NOTIFICATION_DEFINITIONS
 
 if TYPE_CHECKING:
@@ -221,7 +221,7 @@ class NotificationVariables:
         progress = self.status.get("progress", {})
         print_time_left = progress.get("printTimeLeft")
         if print_time_left is not None:
-            return Formatters.format_eta(self._settings, print_time_left)
+            return format_eta(self._settings, print_time_left)
 
     @cached_property
     def display_layer_progress(self) -> dict:

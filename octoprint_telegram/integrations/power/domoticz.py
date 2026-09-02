@@ -3,7 +3,7 @@ from __future__ import annotations
 import requests
 from typing_extensions import override
 
-from ...utils import StringUtils
+from ...utils import split_with_escape_handling
 from .base import PowerPlugin
 
 
@@ -69,7 +69,7 @@ class DomoticzPowerPlugin(PowerPlugin):
         self._send_command("turnOff", plug_data)
 
     def _send_command(self, command: str, plug_data: str) -> None:
-        ip, idx = StringUtils.split_with_escape_handling(plug_data, "|")
+        ip, idx = split_with_escape_handling(plug_data, "|")
 
         selected_plug = None
         plugs = self.plugin_context.octoprint_settings.plugin_setting(self.plugin_id, "arrSmartplugs") or []
