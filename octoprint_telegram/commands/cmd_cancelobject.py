@@ -25,13 +25,7 @@ class CmdCancelObject(BaseCommand):
             msg = render_emojis(
                 f"{{emo:attention}} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
             )
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML)
             return
 
         if command_context.parameter:
@@ -43,14 +37,7 @@ class CmdCancelObject(BaseCommand):
             msg = render_emojis("{emo:check} Command sent!")
             command_buttons = [[(render_emojis("{emo:back} Back"), command_context.cmd)]]
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
         else:
             objlist = self.plugin_context.api.send_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
             if objlist:
@@ -68,22 +55,9 @@ class CmdCancelObject(BaseCommand):
                 ]
                 command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
             else:
                 msg = render_emojis(
                     "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."
                 )
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML)

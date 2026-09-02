@@ -155,7 +155,7 @@ class CmdTune(BaseCommand):
 
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
     def _go_back(self, command_context: CommandContext) -> None:
         """Handle back navigation."""
@@ -211,7 +211,7 @@ class CmdTune(BaseCommand):
         enclosure_available = self.plugin_context.plugins.is_enabled(enclosure_plugin_id)
 
         if not enclosure_available:
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis("{emo:attention} Enclosure plugin not available"),
                 None,
@@ -228,7 +228,7 @@ class CmdTune(BaseCommand):
                 break
 
         if not selected_rpi_output:
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis("{emo:attention} Enclosure plugin output not found"),
                 None,
@@ -285,7 +285,7 @@ class CmdTune(BaseCommand):
             ]
         )
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _handle_rate_control(self, command_context: CommandContext, rate_name: str, printer_method: str) -> None:
         """Handle feedrate and flowrate controls.
@@ -313,7 +313,7 @@ class CmdTune(BaseCommand):
 
         command_buttons = self._create_rate_buttons(rate_name, command_context)
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _handle_temp_control(
         self,
@@ -351,4 +351,4 @@ class CmdTune(BaseCommand):
 
         command_buttons = self._create_temp_buttons(tool_identifier, command_context)
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)

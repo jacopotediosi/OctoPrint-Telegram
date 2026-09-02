@@ -261,14 +261,7 @@ class CmdFiles(BaseCommand):
         return self._split_storage_and_path(menu_state.selected)
 
     def _file_list(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        sent_message_id = self.plugin_context.sender.send_message(
-            render_emojis("{emo:loading} Loading files..."),
-            chat_id=command_context.chat_id,
-            message_id=command_context.msg_id_to_update,
-            reply_to_message_id=command_context.msg_id_to_reply_to,
-        )
-        if sent_message_id:
-            command_context.msg_id_to_update = sent_message_id
+        self.send_answer(command_context, render_emojis("{emo:loading} Loading files..."), menu_state)
 
         storages = self.plugin_context.file_manager.registered_storages
 
@@ -292,7 +285,7 @@ class CmdFiles(BaseCommand):
                 ]
                 command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-                self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
         else:  # List files in path
             path_with_storage = menu_state.folder  # e.g.: local or local/foo
@@ -309,7 +302,7 @@ class CmdFiles(BaseCommand):
                 msg = render_emojis(
                     f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
-                self.update_menu(command_context, msg, None)
+                self.send_answer(command_context, msg, None)
                 return
 
             path_content = file_listing.get(storage_name, {})
@@ -420,7 +413,7 @@ class CmdFiles(BaseCommand):
                 msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
 
             # --- Send message ---
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_types_to_show(self) -> tuple[str, ...]:
         """The types of the files the menu lists, as configured in the browsing settings."""
@@ -568,7 +561,7 @@ class CmdFiles(BaseCommand):
             ]
         ]
 
-        self.update_menu(
+        self.send_answer(
             command_context,
             msg,
             menu_state,
@@ -592,7 +585,7 @@ class CmdFiles(BaseCommand):
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
 
         # Message header
@@ -723,7 +716,7 @@ class CmdFiles(BaseCommand):
         command_buttons.append(third_row)
 
         # Send the message
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_details(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._selected_storage_and_path(menu_state)
@@ -739,7 +732,7 @@ class CmdFiles(BaseCommand):
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
 
         # Message header
@@ -892,7 +885,7 @@ class CmdFiles(BaseCommand):
         ]
 
         # Send the message
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_settings(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         """Ask which file browsing setting to change."""
@@ -917,7 +910,7 @@ class CmdFiles(BaseCommand):
             ],
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_sort_setting(
         self, command_context: CommandContext, menu_state: FilesMenuState, sort_by_date: bool | None
@@ -959,7 +952,7 @@ class CmdFiles(BaseCommand):
             ],
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_models_setting(
         self, command_context: CommandContext, menu_state: FilesMenuState, show_models: bool | None
@@ -1002,7 +995,7 @@ class CmdFiles(BaseCommand):
             ],
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _copy_move_operation(self, menu_state: FilesMenuState) -> str:
         """Return whether the selected file is being copied or moved.
@@ -1059,7 +1052,7 @@ class CmdFiles(BaseCommand):
             ]
         ]
 
-        self.update_menu(
+        self.send_answer(
             command_context,
             render_emojis(
                 f"{{emo:warning}} {operation.capitalize()} <code>{html.escape(full_from_file_path_to_display)}</code> to <code>{html.escape(full_to_file_path_to_display)}</code>?"
@@ -1166,7 +1159,7 @@ class CmdFiles(BaseCommand):
                 ]
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
         else:
             if operation == "copy":
                 action_done = "copied"
@@ -1189,18 +1182,11 @@ class CmdFiles(BaseCommand):
                 ]
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_copy_move_destination(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         """Let the user browse to the folder to copy or move the selected file to."""
-        sent_message_id = self.plugin_context.sender.send_message(
-            render_emojis("{emo:loading} Loading files..."),
-            chat_id=command_context.chat_id,
-            message_id=command_context.msg_id_to_update,
-            reply_to_message_id=command_context.msg_id_to_reply_to,
-        )
-        if sent_message_id:
-            command_context.msg_id_to_update = sent_message_id
+        self.send_answer(command_context, render_emojis("{emo:loading} Loading files..."), menu_state)
 
         operation = self._copy_move_operation(menu_state)
 
@@ -1245,7 +1231,7 @@ class CmdFiles(BaseCommand):
                 msg = render_emojis(
                     f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
                 )
-                self.update_menu(command_context, msg, None)
+                self.send_answer(command_context, msg, None)
                 return
 
             to_path_folders = to_path_listing.get(to_storage_name, {})
@@ -1282,7 +1268,7 @@ class CmdFiles(BaseCommand):
         # Back button
         command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info")])
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _file_print(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         destination, file = self._selected_storage_and_path(menu_state)
@@ -1299,7 +1285,7 @@ class CmdFiles(BaseCommand):
                     ),
                 ]
             ]
-            self.update_menu(command_context, msg, menu_state, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, buttons=command_buttons)
             return
 
         if not self.plugin_context.printer.is_ready():
@@ -1314,7 +1300,7 @@ class CmdFiles(BaseCommand):
                     ),
                 ]
             ]
-            self.update_menu(command_context, msg, menu_state, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, buttons=command_buttons)
             return
 
         try:
@@ -1332,7 +1318,7 @@ class CmdFiles(BaseCommand):
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you wanted to print. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
 
         current_data = self.plugin_context.printer.get_current_data() or {}
@@ -1357,7 +1343,7 @@ class CmdFiles(BaseCommand):
             ]
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _pick_slice_option(self, menu_state: FilesMenuState, option: str) -> None:
         """Assign a picked option to the first slicing choice still to make.
@@ -1407,7 +1393,7 @@ class CmdFiles(BaseCommand):
                 "Please install one of the plugins listed at the following link: "
                 "https://plugins.octoprint.org/by_tag/#tag-slicer"
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
 
         # Get selected file data
@@ -1439,7 +1425,7 @@ class CmdFiles(BaseCommand):
                     command_buttons.append([(slicer_name, f"{command_context.cmd}_slice_{len(menu_state.items) - 1}")])
                 command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info")])
 
-                self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
                 return
 
         slicer_id = menu_state.slicer
@@ -1447,7 +1433,7 @@ class CmdFiles(BaseCommand):
         # Get slicer and slicer properties by slicer id
         if slicer_id is None or slicer_id not in configured_slicers:
             msg = render_emojis("{emo:attention} The slicer you chose is not available")
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
         slicer = self.plugin_context.slicing_manager.get_slicer(slicer_id)
         slicer_properties = slicer.get_slicer_properties()
@@ -1485,7 +1471,7 @@ class CmdFiles(BaseCommand):
                     back_cmd = f"{command_context.cmd}_info"
                 command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
 
-                self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
                 return
 
         slicer_profile_id = menu_state.slicer_profile
@@ -1527,7 +1513,7 @@ class CmdFiles(BaseCommand):
                     back_cmd = f"{command_context.cmd}_info"
                 command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
 
-                self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
                 return
 
         printer_profile_id = menu_state.printer_profile
@@ -1569,7 +1555,7 @@ class CmdFiles(BaseCommand):
                 ]
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
             return
 
         def slice_callback(*args: object, **kwargs: object) -> None:
@@ -1600,13 +1586,13 @@ class CmdFiles(BaseCommand):
                 ]
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
         # Send msg
         msg = render_emojis(
             f"{{emo:loading}} Slicing <code>{html.escape(full_file_path_to_display)}</code> to <code>{html.escape(dest_path_to_display)}</code>..."
         )
-        self.update_menu(command_context, msg, None, markup=Markup.HTML)
+        self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
         # Perform slicing
         self.plugin_context.file_manager.slice(
@@ -1630,7 +1616,7 @@ class CmdFiles(BaseCommand):
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
 
     def _file_delete_confirmation(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._selected_storage_and_path(menu_state)
@@ -1649,7 +1635,7 @@ class CmdFiles(BaseCommand):
             ]
         ]
 
-        self.update_menu(
+        self.send_answer(
             command_context,
             render_emojis(f"{{emo:warning}} Delete <code>{html.escape(full_file_path_to_display)}</code>?"),
             menu_state,
@@ -1720,7 +1706,7 @@ class CmdFiles(BaseCommand):
             ]
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _upload_thumbnail_to_imgbb(self, storage_name: str, file_path: str) -> str | None:
         """Upload the thumbnail of a file to imgbb and return public URL.

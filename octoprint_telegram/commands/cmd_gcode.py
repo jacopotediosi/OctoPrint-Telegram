@@ -21,7 +21,7 @@ class CmdGcode(BaseCommand):
         Replying to that request runs the command again, with the reply as its parameter.
         """
         if not self.plugin_context.printer.is_operational():
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis("{emo:attention} Printer not connected. You can't send any G-code."),
                 None,
@@ -29,7 +29,7 @@ class CmdGcode(BaseCommand):
             return
 
         if not command_context.parameter:
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis("{emo:info} Reply to this message with the G-code you want to execute"),
                 None,
@@ -42,7 +42,7 @@ class CmdGcode(BaseCommand):
 
         self.plugin_context.printer.commands(command)
 
-        self.update_menu(
+        self.send_answer(
             command_context,
             render_emojis(f"{{emo:check}} G-code <code>{html.escape(command)}</code> sent!"),
             None,

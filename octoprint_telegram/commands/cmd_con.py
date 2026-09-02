@@ -156,7 +156,7 @@ class CmdCon(BaseCommand):
             command_buttons = [[btn_disconnect, btn_close]]
 
         # Send message
-        self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
     def _disconnect(self, command_context: CommandContext, params: list[str]) -> None:
         self.plugin_context.printer.disconnect()
@@ -172,7 +172,7 @@ class CmdCon(BaseCommand):
             ]
         ]
 
-        self.update_menu(command_context, msg, None, buttons=command_buttons)
+        self.send_answer(command_context, msg, None, buttons=command_buttons)
 
     def _connect(self, command_context: CommandContext, params: list[str]) -> None:
         if params:
@@ -188,7 +188,7 @@ class CmdCon(BaseCommand):
             if connection_data is None:
                 return
 
-            self.update_menu(command_context, render_emojis("{emo:info} Connecting..."), None)
+            self.send_answer(command_context, render_emojis("{emo:info} Connecting..."), None)
 
             parameters = connection_data["parameters"]
             self.plugin_context.printer.connect(
@@ -218,7 +218,7 @@ class CmdCon(BaseCommand):
 
             command_buttons = [[(render_emojis("{emo:back} Back"), f"{command_context.cmd}")]]
 
-            self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
         else:
             msg = render_emojis("{emo:question} How do you want to connect?")
@@ -234,7 +234,7 @@ class CmdCon(BaseCommand):
                 )
             command_buttons.append([(render_emojis("{emo:back} Back"), command_context.cmd)])
 
-            self.update_menu(command_context, msg, None, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, buttons=command_buttons)
 
     def _ask_default_connection_data(self, command_context: CommandContext, params: list[str]) -> dict | None:
         all_profiles = self.plugin_context.printer_profiles.get_all()
@@ -401,7 +401,7 @@ class CmdCon(BaseCommand):
 
         menu_state = ConMenuState(values, port=port, baudrate=baudrate)
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _chosen_option(self, menu_state: ConMenuState, choice: str) -> str | int | None:
         """Return the value behind the option the user picked.

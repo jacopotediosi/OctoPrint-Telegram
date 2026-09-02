@@ -66,13 +66,7 @@ class CmdFilament(BaseCommand):
             for plugin_handler in supported_plugins:
                 msg += f"- <a href='https://plugins.octoprint.org/plugins/{html.escape(plugin_handler.plugin_id)}/'>{html.escape(plugin_handler.plugin_name)}</a>\n"
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
             return
 
@@ -89,14 +83,7 @@ class CmdFilament(BaseCommand):
                 command_buttons.append(row)
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
             return
 
         params = command_context.parameter.split("_")
@@ -117,14 +104,7 @@ class CmdFilament(BaseCommand):
                         (render_emojis("{emo:cancel} Close"), "close"),
                     ]
                 ]
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
                 return
 
         if len(params) < 2:  # Show operation selection
@@ -146,23 +126,11 @@ class CmdFilament(BaseCommand):
             else:
                 command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                markup=Markup.HTML,
-                buttons=command_buttons,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
             return
 
-        self.plugin_context.sender.send_message(
-            render_emojis("{emo:loading} Loading spools..."),
-            chat_id=command_context.chat_id,
-            message_id=command_context.msg_id_to_update,
-            reply_to_message_id=command_context.msg_id_to_reply_to,
-        )
+        self.send_answer(command_context, render_emojis("{emo:loading} Loading spools..."), None)
 
         operation = params[1]
 
@@ -224,14 +192,7 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
             else:  # Show spool details
                 spool_details = plugin_handler.get_spool_details_msg(spool_id)
@@ -250,14 +211,7 @@ class CmdFilament(BaseCommand):
                     ]
                 ]
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
         elif operation == "select":
             tool_index = params[2] if len(params) > 2 else None
@@ -299,14 +253,7 @@ class CmdFilament(BaseCommand):
                     [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}")]
                 )
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
                 return
 
@@ -377,14 +324,7 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
             else:  # Select
                 if spool_id == "deselect":
@@ -405,11 +345,4 @@ class CmdFilament(BaseCommand):
                     [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select")]
                 ]
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    markup=Markup.HTML,
-                    buttons=command_buttons,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)

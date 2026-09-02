@@ -66,10 +66,4 @@ class CmdUser(BaseCommand):
             msg += "No notifications enabled"
 
         # Send the message
-        self.plugin_context.sender.send_message(
-            msg,
-            chat_id=command_context.chat_id,
-            markup=Markup.HTML,
-            message_id=command_context.msg_id_to_update,
-            reply_to_message_id=command_context.msg_id_to_reply_to,
-        )
+        self.send_answer(command_context, msg, None, markup=Markup.HTML)

@@ -35,7 +35,7 @@ class CmdCtrl(BaseCommand):
         - /ctrl_execute_{position} -> trigger that control
         """
         if not self.plugin_context.printer.is_operational():
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis("{emo:attention} Printer not connected. You can't trigger any control."),
                 None,
@@ -59,7 +59,7 @@ class CmdCtrl(BaseCommand):
             control = next((c for c in controls if c["identifier"] == control_identifier), None)
 
             if not control:
-                self.update_menu(command_context, render_emojis("{emo:attention} Control Command not found."), None)
+                self.send_answer(command_context, render_emojis("{emo:attention} Control Command not found."), None)
                 return
 
             if "confirm" in control and params[0] != "execute":  # Control requires confirmation, ask for it
@@ -81,7 +81,7 @@ class CmdCtrl(BaseCommand):
                     ]
                 ]
 
-                self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
             else:  # Execute Control
                 try:
                     if control.get("type") == "script":
@@ -108,7 +108,7 @@ class CmdCtrl(BaseCommand):
                     ]
                 ]
 
-                self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
         else:  # Display all available commands
             message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
@@ -135,7 +135,7 @@ class CmdCtrl(BaseCommand):
 
             menu_state = CtrlMenuState([control["identifier"] for control in controls])
 
-            self.update_menu(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
         """Flatten the custom controls the user defined in OctoPrint.

@@ -84,7 +84,7 @@ class CmdSettings(BaseCommand):
                 ],
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
         elif setting == "time":
             if value:
                 if value.startswith(("+", "-")):
@@ -107,7 +107,7 @@ class CmdSettings(BaseCommand):
                 ],
             ]
 
-            self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
     def _settings_menu(self, command_context: CommandContext) -> None:
         """Show the notification settings currently stored in the plugin settings."""
@@ -136,4 +136,4 @@ class CmdSettings(BaseCommand):
             [(render_emojis("{emo:cancel} Close"), "close")],
         ]
 
-        self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)

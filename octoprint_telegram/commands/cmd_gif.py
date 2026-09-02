@@ -16,10 +16,4 @@ class CmdGif(BaseCommand):
             msg = render_emojis("{emo:notallowed} Sending GIFs is disabled in plugin settings")
             with_gif = False
 
-        self.plugin_context.sender.send_message(
-            msg,
-            chat_id=command_context.chat_id,
-            with_gif=with_gif,
-            message_id=command_context.msg_id_to_update,
-            reply_to_message_id=command_context.msg_id_to_reply_to,
-        )
+        self.send_answer(command_context, msg, None, with_gif=with_gif)

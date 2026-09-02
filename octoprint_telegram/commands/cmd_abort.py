@@ -21,12 +21,7 @@ class CmdAbort(BaseCommand):
 
             msg = render_emojis("{emo:check} Aborting the print.")
 
-            self.plugin_context.sender.send_message(
-                msg,
-                chat_id=command_context.chat_id,
-                message_id=command_context.msg_id_to_update,
-                reply_to_message_id=command_context.msg_id_to_reply_to,
-            )
+            self.send_answer(command_context, msg, None)
         else:
             if (
                 self.plugin_context.printer.is_printing()
@@ -45,19 +40,8 @@ class CmdAbort(BaseCommand):
                     ]
                 ]
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    buttons=command_buttons,
-                    chat_id=command_context.chat_id,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None, buttons=command_buttons)
             else:
                 msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 
-                self.plugin_context.sender.send_message(
-                    msg,
-                    chat_id=command_context.chat_id,
-                    message_id=command_context.msg_id_to_update,
-                    reply_to_message_id=command_context.msg_id_to_reply_to,
-                )
+                self.send_answer(command_context, msg, None)

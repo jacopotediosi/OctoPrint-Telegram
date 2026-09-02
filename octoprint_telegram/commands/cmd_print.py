@@ -23,7 +23,7 @@ class CmdPrint(BaseCommand):
             msg = render_emojis(
                 f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."
             )
-            self.update_menu(command_context, msg, None)
+            self.send_answer(command_context, msg, None)
             return
 
         current_data = self.plugin_context.printer.get_current_data()
@@ -31,7 +31,7 @@ class CmdPrint(BaseCommand):
 
         if command_context.parameter == "yes":  # Print the file selected for printing
             if current_data.get("job", {}).get("file", {}).get("name") is None:
-                self.update_menu(
+                self.send_answer(
                     command_context,
                     render_emojis("{emo:attention} No file is selected for printing. Did you select one using /files?"),
                     None,
@@ -40,7 +40,7 @@ class CmdPrint(BaseCommand):
 
             self.plugin_context.printer.start_print(user=command_context.user)
 
-            self.update_menu(
+            self.send_answer(
                 command_context,
                 render_emojis(f"{{emo:rocket}} Started printing <code>{html.escape(job_file_name)}</code>."),
                 None,
@@ -72,9 +72,9 @@ class CmdPrint(BaseCommand):
                     ],
                 ]
 
-                self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
             else:
-                self.update_menu(
+                self.send_answer(
                     command_context,
                     render_emojis("{emo:warning} No file is selected for printing. Please select one using /files."),
                     None,

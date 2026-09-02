@@ -94,7 +94,7 @@ class BaseCommand(ABC):
             raise StaleMenuError
         return menu_state
 
-    def update_menu(
+    def send_answer(
         self,
         command_context: CommandContext,
         message: str,
@@ -105,19 +105,25 @@ class BaseCommand(ABC):
         force_reply: bool = False,
         reply_parameter_prefix: str = "",
         delete_answer_message: bool = False,
+        with_image: bool = False,
+        with_gif: bool = False,
+        gif_duration: int = 5,
     ) -> None:
-        """Update the menu, replacing the message the command was invoked from.
+        """Send the answer of the command, replacing the message it was invoked from when there is one.
 
         Args:
             command_context (CommandContext): The details of a single command invocation.
-            message (str): The text shown above the menu.
-            menu_state (MenuState | None): The state the buttons refer to, or None when the message has no menu.
+            message (str): The text of the answer.
+            menu_state (MenuState | None): The state the buttons refer to, or None when the answer has no menu.
             markup (Markup, optional): The markup Telegram parses in the text.
-            buttons (Buttons, optional): The inline keyboard shown under the message.
+            buttons (Buttons, optional): The inline keyboard shown under the answer.
             force_reply (bool, optional): Ask the user to answer the message with the parameter of the command.
-            reply_parameter_prefix (str, optional): What the answer is appended to, to build that parameter.
-            delete_answer_message (bool, optional): Remove the message carrying the answer from the chat, once the
-                command has run.
+            reply_parameter_prefix (str, optional): What the user's answer is appended to, to build that parameter.
+            delete_answer_message (bool, optional): Remove the message carrying the user's answer from the chat, once
+                the command has run.
+            with_image (bool, optional): Attach a snapshot from every configured webcam.
+            with_gif (bool, optional): Attach a video from every configured webcam.
+            gif_duration (int, optional): Seconds of video to record from each webcam.
         """
         msg_id_to_update = command_context.msg_id_to_update
 
@@ -129,6 +135,9 @@ class BaseCommand(ABC):
             force_reply=force_reply,
             message_id=msg_id_to_update,
             reply_to_message_id=command_context.msg_id_to_reply_to,
+            with_image=with_image,
+            with_gif=with_gif,
+            gif_duration=gif_duration,
         )
         if message_id:
             command_context.msg_id_to_update = message_id

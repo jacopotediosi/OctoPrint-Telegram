@@ -71,7 +71,7 @@ class CmdSys(BaseCommand):
                         ]
                     ]
 
-                    self.update_menu(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                    self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
 
                 else:  # Execute command
                     if params[2] not in command_mapping:
@@ -96,7 +96,7 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.update_menu(command_context, msg, None, markup=Markup.HTML)
+                    self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
             else:  # Custom commands (system actions)
                 confirmed = len(params) > 2 and params[1] == "do"
@@ -124,7 +124,7 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception parsing system actions")
 
                 if not command:
-                    self.update_menu(
+                    self.send_answer(
                         command_context,
                         render_emojis("{emo:attention} Sorry, I don't know this System Command."),
                         None,
@@ -150,7 +150,7 @@ class CmdSys(BaseCommand):
                         ]
                     ]
 
-                    self.update_menu(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                    self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
 
                 else:  # Execute command
                     async_ = command.get("async", False)
@@ -180,7 +180,7 @@ class CmdSys(BaseCommand):
                         self._logger.exception("Caught an exception executing system command")
                         msg = render_emojis("{emo:attention} Command failed, please check log files.")
 
-                    self.update_menu(command_context, msg, None, markup=Markup.HTML)
+                    self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
         else:  # Display command buttons
             command_buttons = []
@@ -238,6 +238,6 @@ class CmdSys(BaseCommand):
 
             command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
 
-            self.update_menu(
+            self.send_answer(
                 command_context, msg, SysMenuState(action_identifiers), markup=Markup.HTML, buttons=command_buttons
             )
