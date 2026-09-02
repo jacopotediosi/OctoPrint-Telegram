@@ -75,7 +75,7 @@ class Notifications:
 
         self._current_z = 0.0
         self._last_z = 0.0
-        self._last_notification_time = 0
+        self._last_notification_time = float("-inf")
         self._last_prusammu_state = ""
 
         self._event_handlers = {
@@ -143,15 +143,15 @@ class Notifications:
         """
         timediff = self._settings.notification_time
         # Check the timediff
-        if timediff and timediff > 0 and self._last_notification_time + timediff * 60 <= time.time():
-            self._last_notification_time = time.time()
+        if timediff > 0 and self._last_notification_time + timediff * 60 <= time.monotonic():
+            self._last_notification_time = time.monotonic()
             return True
         zdiff = self._settings.notification_height
-        if zdiff and zdiff > 0.0:
+        if zdiff > 0.0:
             if old_z is None or new_z is None or new_z < 0:
                 return False
             # Check the zdiff - ignore big height changes
-            if abs(new_z - (old_z or 0.0)) >= 1.0:
+            if abs(new_z - old_z) >= 1.0:
                 self._last_z = new_z
                 return False
             if new_z >= self._last_z + zdiff or new_z < self._last_z:
@@ -182,7 +182,7 @@ class Notifications:
 
     def _on_print_started(self, payload: dict, event: str, chat_id: str | None) -> None:
         self._last_z = 0.0
-        self._last_notification_time = time.time()
+        self._last_notification_time = time.monotonic()
         self._notify(payload, event, chat_id)
 
     def _on_print_done(self, payload: dict, event: str, chat_id: str | None) -> None:

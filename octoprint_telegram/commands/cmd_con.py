@@ -193,8 +193,8 @@ class CmdCon(BaseCommand):
                 baudrate=parameters.get("baudrate"),
             )
 
-            start_time = time.time()
-            while time.time() - start_time < self.CONNECTION_TIMEOUT:
+            start_time = time.monotonic()
+            while time.monotonic() - start_time < self.CONNECTION_TIMEOUT:
                 if self.plugin_context.printer.is_operational() or self.plugin_context.printer.is_error():
                     break
                 time.sleep(1)
