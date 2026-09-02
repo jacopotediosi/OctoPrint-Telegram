@@ -168,7 +168,7 @@ class Chats:
 
             img_bytes = self._telegram_client.download_file(file_id)
             with Image.open(io.BytesIO(img_bytes)) as img:
-                img = img.resize(PICTURE_SIZE, Image.LANCZOS)  # ty: ignore[unresolved-attribute]
+                img = img.resize(PICTURE_SIZE, Image.Resampling.LANCZOS)
                 img.save(output_filename, format="JPEG")
 
             self._logger.info("Saved chat picture for chat id %s", chat_id)

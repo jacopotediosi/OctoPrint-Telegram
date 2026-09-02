@@ -13,7 +13,7 @@ authors = [
 ]
 requires-python = ">=3.7,<4"
 dependencies = [
-    "pillow",
+    "pillow>=9.1",  # For Image.Transpose and Image.Resampling
     "pylru>=1.1",  # For lrucache.get()
     "requests[socks]",
     "typing_extensions>=4.4",  # For typing_extensions.override

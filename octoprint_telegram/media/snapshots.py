@@ -110,11 +110,11 @@ class Snapshots:
                 )
 
                 if flipH:
-                    image = image.transpose(Image.FLIP_LEFT_RIGHT)  # ty: ignore[unresolved-attribute]
+                    image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                 if flipV:
-                    image = image.transpose(Image.FLIP_TOP_BOTTOM)  # ty: ignore[unresolved-attribute]
+                    image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
                 if rotate:
-                    image = image.transpose(Image.ROTATE_90)  # ty: ignore[unresolved-attribute]
+                    image = image.transpose(Image.Transpose.ROTATE_90)
 
             with io.BytesIO() as output:
                 image.save(output, format="JPEG")
