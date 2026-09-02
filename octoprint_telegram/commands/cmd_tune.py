@@ -7,7 +7,7 @@ from typing import ClassVar
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Buttons, Markup, MenuState
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -100,35 +100,26 @@ class CmdTune(BaseCommand):
 
             profile = self.plugin_context.printer_profiles.get_current()
 
-            command_buttons = [
-                [
-                    (render_emojis("{emo:feedrate} Feedrate"), f"{command_context.cmd}_feedrate"),
-                    (render_emojis("{emo:flowrate} Flowrate"), f"{command_context.cmd}_flowrate"),
-                ]
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(("{emo:feedrate} Feedrate", "feedrate"), ("{emo:flowrate} Flowrate", "flowrate"))
 
             if self.plugin_context.printer.is_operational():
-                tool_command_buttons = []
+                tool_buttons = []
 
                 extruder = profile["extruder"]
                 shared_nozzle = extruder.get("sharedNozzle", False)
                 count = extruder.get("count", 1)
 
                 if shared_nozzle:
-                    tool_command_buttons.append((render_emojis("{emo:tool} Tool"), f"{command_context.cmd}_tool_0"))
+                    tool_buttons.append(("{emo:tool} Tool", "tool_0"))
                 else:
-                    tool_command_buttons.extend(
-                        [
-                            (render_emojis(f"{{emo:tool}} Tool {i}"), f"{command_context.cmd}_tool_{i}")
-                            for i in range(count)
-                        ]
-                    )
+                    tool_buttons.extend([(f"{{emo:tool}} Tool {i}", f"tool_{i}") for i in range(count)])
 
                 if profile["heatedBed"]:
-                    tool_command_buttons.append((render_emojis("{emo:hotbed} Bed"), f"{command_context.cmd}_bed"))
+                    tool_buttons.append(("{emo:hotbed} Bed", "bed"))
 
-                if tool_command_buttons:
-                    command_buttons.append(tool_command_buttons)
+                if tool_buttons:
+                    keyboard.add_row(*tool_buttons)
 
             try:
                 enclosure_plugin_id = "enclosure"
@@ -141,66 +132,48 @@ class CmdTune(BaseCommand):
                         if rpi_output["output_type"] == "temp_hum_control":
                             index_id = rpi_output["index_id"]
                             label = rpi_output["label"]
-                            enclosure_buttons.append(
-                                (
-                                    render_emojis(f"{{emo:plugin}} {label}"),
-                                    f"{command_context.cmd}_enclosure_{index_id}",
-                                )
-                            )
+                            enclosure_buttons.append((f"{{emo:plugin}} {label}", f"enclosure_{index_id}"))
 
                     if enclosure_buttons:
-                        command_buttons.append(enclosure_buttons)
+                        keyboard.add_row(*enclosure_buttons)
             except Exception:
                 self._logger.exception("Caught an exception getting enclosure data")
 
-            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+            keyboard.add_row(CLOSE_BUTTON)
 
-            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
     def _go_back(self, command_context: CommandContext) -> None:
         """Handle back navigation."""
         self.execute(replace(command_context, parameter="back"))
 
-    def _create_rate_buttons(self, rate_name: str, command_context: CommandContext) -> Buttons:
+    def _create_rate_keyboard(self, rate_name: str, command_context: CommandContext) -> Keyboard:
         """Create increment/decrement buttons for rate controls (feed/flow)."""
-        buttons = []
+        keyboard = Keyboard(command_context.cmd)
 
         increment_row = []
         for inc in self.RATE_INCREMENTS:
-            increment_row.extend(
-                [
-                    (f"+{inc}", f"{command_context.cmd}_{rate_name}_+{inc}"),
-                    (f"-{inc}", f"{command_context.cmd}_{rate_name}_-{inc}"),
-                ]
-            )
-        buttons.append(increment_row)
+            increment_row.extend([(f"+{inc}", f"{rate_name}_+{inc}"), (f"-{inc}", f"{rate_name}_-{inc}")])
+        keyboard.add_row(*increment_row)
 
-        buttons.append(
-            [
-                (render_emojis("{emo:check} Set"), f"{command_context.cmd}_{rate_name}_set"),
-                (render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"),
-            ]
+        keyboard.add_row(("{emo:check} Set", f"{rate_name}_set"), (BACK_LABEL, "back"))
+
+        return keyboard
+
+    def _create_temp_keyboard(self, tool_identifier: str, command_context: CommandContext) -> Keyboard:
+        """Create increment/decrement buttons for temperature controls."""
+        keyboard = Keyboard(command_context.cmd)
+
+        keyboard.add_row(*((f"+{inc}", f"{tool_identifier}_+{inc}") for inc in self.TEMP_INCREMENTS))
+        keyboard.add_row(*((f"-{inc}", f"{tool_identifier}_-{inc}") for inc in self.TEMP_INCREMENTS))
+
+        keyboard.add_row(
+            ("{emo:check} Set", f"{tool_identifier}_set"),
+            ("{emo:cooldown} Off", f"{tool_identifier}_off"),
+            (BACK_LABEL, "back"),
         )
 
-        return buttons
-
-    def _create_temp_buttons(self, tool_identifier: str, command_context: CommandContext) -> Buttons:
-        """Create increment/decrement buttons for temperature controls."""
-        buttons = []
-
-        increment_row = []
-        decrement_row = []
-        for inc in self.TEMP_INCREMENTS:
-            increment_row.append((f"+{inc}", f"{command_context.cmd}_{tool_identifier}_+{inc}"))
-            decrement_row.append((f"-{inc}", f"{command_context.cmd}_{tool_identifier}_-{inc}"))
-        buttons.extend([increment_row, decrement_row])
-
-        action_buttons = [(render_emojis("{emo:check} Set"), f"{command_context.cmd}_{tool_identifier}_set")]
-        action_buttons.append((render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_{tool_identifier}_off"))
-        action_buttons.append((render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"))
-        buttons.append(action_buttons)
-
-        return buttons
+        return keyboard
 
     def _handle_enclosure_control(self, command_context: CommandContext) -> None:
         """Handle enclosure temperature controls."""
@@ -268,24 +241,18 @@ class CmdTune(BaseCommand):
             + f"Pending selection: <b>{menu_state.temperature}°C</b>"
         )
 
-        command_buttons = []
+        keyboard = Keyboard(command_context.cmd)
 
-        increment_row = []
-        decrement_row = []
-        for inc in self.ENCLOSURE_INCREMENTS:
-            increment_row.append((f"+{inc}", f"{command_context.cmd}_enclosure_{params[1]}_+{inc}"))
-            decrement_row.append((f"-{inc}", f"{command_context.cmd}_enclosure_{params[1]}_-{inc}"))
-        command_buttons.extend([increment_row, decrement_row])
+        keyboard.add_row(*((f"+{inc}", f"enclosure_{params[1]}_+{inc}") for inc in self.ENCLOSURE_INCREMENTS))
+        keyboard.add_row(*((f"-{inc}", f"enclosure_{params[1]}_-{inc}") for inc in self.ENCLOSURE_INCREMENTS))
 
-        command_buttons.append(
-            [
-                (render_emojis("{emo:check} Set"), f"{command_context.cmd}_enclosure_{params[1]}_set"),
-                (render_emojis("{emo:cooldown} Off"), f"{command_context.cmd}_enclosure_{params[1]}_off"),
-                (render_emojis("{emo:back} Back"), f"{command_context.cmd}_back"),
-            ]
+        keyboard.add_row(
+            ("{emo:check} Set", f"enclosure_{params[1]}_set"),
+            ("{emo:cooldown} Off", f"enclosure_{params[1]}_off"),
+            (BACK_LABEL, "back"),
         )
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _handle_rate_control(self, command_context: CommandContext, rate_name: str, printer_method: str) -> None:
         """Handle feedrate and flowrate controls.
@@ -311,9 +278,9 @@ class CmdTune(BaseCommand):
 
         msg = render_emojis(f"{{emo:{rate_name}}} Set {rate_name}.\nSelection: <b>{menu_state.rate}%</b>")
 
-        command_buttons = self._create_rate_buttons(rate_name, command_context)
+        keyboard = self._create_rate_keyboard(rate_name, command_context)
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _handle_temp_control(
         self,
@@ -349,6 +316,6 @@ class CmdTune(BaseCommand):
             f"Current: {current_temp:.02f}/<b>{menu_state.temperature}°C</b>"
         )
 
-        command_buttons = self._create_temp_buttons(tool_identifier, command_context)
+        keyboard = self._create_temp_keyboard(tool_identifier, command_context)
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)

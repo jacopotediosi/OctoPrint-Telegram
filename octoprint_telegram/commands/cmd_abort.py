@@ -1,6 +1,7 @@
 from typing_extensions import override
 
 from ..emoji import Emoji
+from ..telegram import CLOSE_BUTTON, Keyboard
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -30,17 +31,10 @@ class CmdAbort(BaseCommand):
             ):
                 msg = render_emojis("{emo:question} Really abort the currently running print?")
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis("{emo:check} Stop print"),
-                            f"{command_context.cmd}_stop",
-                        ),
-                        (render_emojis("{emo:cancel} Close"), "close"),
-                    ]
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row(("{emo:check} Stop print", "stop"), CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, None, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, keyboard=keyboard)
             else:
                 msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 

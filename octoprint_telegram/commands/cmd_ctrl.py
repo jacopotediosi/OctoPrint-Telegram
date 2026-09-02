@@ -5,7 +5,7 @@ import html
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, MenuState
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -68,20 +68,10 @@ class CmdCtrl(BaseCommand):
                     f"{{emo:info}} Confirmation message: <code>{html.escape(control['confirm'])}</code>"
                 )
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis("{emo:check} Execute"),
-                            f"{command_context.cmd}_execute_{control_index}",
-                        ),
-                        (
-                            render_emojis("{emo:back} Back"),
-                            command_context.cmd,
-                        ),
-                    ]
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row(("{emo:check} Execute", f"execute_{control_index}"), (BACK_LABEL, ""))
 
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
             else:  # Execute Control
                 try:
                     if control.get("type") == "script":
@@ -99,16 +89,10 @@ class CmdCtrl(BaseCommand):
                         f"{{emo:attention}} Control Command <code>{html.escape(control['name'])}</code> failed."
                     )
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis("{emo:back} Back"),
-                            command_context.cmd,
-                        ),
-                    ]
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row((BACK_LABEL, ""))
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
         else:  # Display all available commands
             message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
@@ -119,23 +103,24 @@ class CmdCtrl(BaseCommand):
                 self._logger.exception("Caught an exception getting printer control list")
                 controls = []
 
-            command_buttons = [
-                [(control["name"], f"{command_context.cmd}_{control_index}")]
-                for control_index, control in enumerate(controls)
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_grid(
+                [(control["name"], str(control_index)) for control_index, control in enumerate(controls)],
+                buttons_per_row=1,
+            )
 
-            if not command_buttons:
+            if not controls:
                 message += render_emojis(
                     "\n\n{emo:warning} No Printer Controls found.\n"
                     "You can add custom controls from the OctoPrint web GUI using the "
                     "<a href='http://plugins.octoprint.org/plugins/customControl/'>Custom Control Editor</a> plugin."
                 )
 
-            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+            keyboard.add_row(CLOSE_BUTTON)
 
             menu_state = CtrlMenuState([control["identifier"] for control in controls])
 
-            self.send_answer(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
         """Flatten the custom controls the user defined in OctoPrint.

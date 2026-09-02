@@ -3,7 +3,7 @@ import html
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup
+from ..telegram import CLOSE_BUTTON, Keyboard, Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -53,26 +53,11 @@ class CmdPrint(BaseCommand):
                     "{emo:question} What do you want to do?"
                 )
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis("{emo:play} Print it"),
-                            f"{command_context.cmd}_yes",
-                        ),
-                        (
-                            render_emojis("{emo:folder} Select another one"),
-                            "/files",
-                        ),
-                    ],
-                    [
-                        (
-                            render_emojis("{emo:cancel} Close"),
-                            "close",
-                        ),
-                    ],
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row(("{emo:play} Print it", "yes"), ("{emo:folder} Select another one", "", "/files"))
+                keyboard.add_row(CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
             else:
                 self.send_answer(
                     command_context,

@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from ..emoji import Emoji
 from ..integrations.power import POWER_PLUGINS
-from ..telegram import Markup, MenuState
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
@@ -84,22 +84,15 @@ class CmdPower(BaseCommand):
 
                         plugs.append((plugin_handler.plugin_id, str(plug_data["data"])))
 
-                        plug_buttons.append(
-                            (
-                                render_emojis(f"{{emo:{status_emoji_name}}} {label}"),
-                                f"{command_context.cmd}_{len(plugs) - 1}",
-                            )
-                        )
+                        plug_buttons.append((f"{{emo:{status_emoji_name}}} {label}", str(len(plugs) - 1)))
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
-            max_per_row = 3
-            plug_button_rows = [plug_buttons[i : i + max_per_row] for i in range(0, len(plug_buttons), max_per_row)]
-            command_buttons = plug_button_rows + [[(render_emojis("{emo:cancel} Close"), "close")]]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_grid(plug_buttons, buttons_per_row=3)
+            keyboard.add_row(CLOSE_BUTTON)
 
-            self.send_answer(
-                command_context, message, PowerMenuState(plugs), markup=Markup.HTML, buttons=command_buttons
-            )
+            self.send_answer(command_context, message, PowerMenuState(plugs), markup=Markup.HTML, keyboard=keyboard)
 
         else:
             params = command_context.parameter.split("_")
@@ -107,12 +100,8 @@ class CmdPower(BaseCommand):
 
             menu_state = self.require_menu_state(command_context, PowerMenuState)
 
-            command_buttons = [
-                [
-                    (render_emojis("{emo:back} Back"), command_context.cmd),
-                    (render_emojis("{emo:cancel} Close"), "close"),
-                ]
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, ""), CLOSE_BUTTON)
 
             if not (plug_index.isdigit() and int(plug_index) < len(menu_state.plugs)):
                 self.send_answer(
@@ -120,7 +109,7 @@ class CmdPower(BaseCommand):
                     render_emojis("{emo:attention} Selected plug not found!"),
                     None,
                     markup=Markup.HTML,
-                    buttons=command_buttons,
+                    keyboard=keyboard,
                 )
                 return
 
@@ -132,7 +121,7 @@ class CmdPower(BaseCommand):
                 message = render_emojis(
                     f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!"
                 )
-                self.send_answer(command_context, message, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, message, None, markup=Markup.HTML, keyboard=keyboard)
                 return
 
             if not action:  # Command was /power_plugIndex, show plug status and ask for action
@@ -145,7 +134,7 @@ class CmdPower(BaseCommand):
                         render_emojis("{emo:attention} Selected plug not found!"),
                         None,
                         markup=Markup.HTML,
-                        buttons=command_buttons,
+                        keyboard=keyboard,
                     )
                     return
 
@@ -159,18 +148,13 @@ class CmdPower(BaseCommand):
                     "{emo:question} What do you want to do?"
                 )
 
-                command_buttons = [
-                    [
-                        (render_emojis("{emo:online} Turn ON"), f"{command_context.cmd}_{plug_index}_on"),
-                        (render_emojis("{emo:offline} Turn OFF"), f"{command_context.cmd}_{plug_index}_off"),
-                    ],
-                    [
-                        (render_emojis("{emo:back} Back"), command_context.cmd),
-                        (render_emojis("{emo:cancel} Close"), "close"),
-                    ],
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row(
+                    ("{emo:online} Turn ON", f"{plug_index}_on"), ("{emo:offline} Turn OFF", f"{plug_index}_off")
+                )
+                keyboard.add_row((BACK_LABEL, ""), CLOSE_BUTTON)
 
-                self.send_answer(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
             else:  # Command was /power_plugIndex_action, execute action
                 action_methods = {"on": plugin_handler.turn_on, "off": plugin_handler.turn_off}
 
@@ -184,11 +168,7 @@ class CmdPower(BaseCommand):
                         self._logger.exception("Caught an exception sending action to %s", plugin_id)
                         message = render_emojis("{emo:attention} Something went wrong!")
 
-                command_buttons = [
-                    [
-                        (render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plug_index}"),
-                        (render_emojis("{emo:cancel} Close"), "close"),
-                    ],
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row((BACK_LABEL, plug_index), CLOSE_BUTTON)
 
-                self.send_answer(command_context, message, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)

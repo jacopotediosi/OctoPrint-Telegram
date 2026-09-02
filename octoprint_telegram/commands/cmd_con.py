@@ -7,7 +7,7 @@ from typing import Sequence
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, MenuState, StaleMenuError
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
 from .base import BaseCommand, CommandContext
 
 try:
@@ -137,10 +137,9 @@ class CmdCon(BaseCommand):
             )
 
         # Build buttons
-        btn_close = (render_emojis("{emo:cancel} Close"), "close")
+        keyboard = Keyboard(command_context.cmd)
         if self.plugin_context.printer.is_closed_or_error():
-            btn_connect = (render_emojis("{emo:online} Connect"), f"{command_context.cmd}_connect")
-            command_buttons = [[btn_connect, btn_close]]
+            keyboard.add_row(("{emo:online} Connect", "connect"), CLOSE_BUTTON)
         elif (
             self.plugin_context.printer.is_printing()
             or self.plugin_context.printer.is_pausing()
@@ -150,29 +149,22 @@ class CmdCon(BaseCommand):
             or self.plugin_context.printer.is_finishing()
         ):
             msg += render_emojis("\n\n{emo:warning} You can't disconnect while printing.")
-            command_buttons = [[btn_close]]
+            keyboard.add_row(CLOSE_BUTTON)
         else:
-            btn_disconnect = (render_emojis("{emo:offline} Disconnect"), f"{command_context.cmd}_disconnect")
-            command_buttons = [[btn_disconnect, btn_close]]
+            keyboard.add_row(("{emo:offline} Disconnect", "disconnect"), CLOSE_BUTTON)
 
         # Send message
-        self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
     def _disconnect(self, command_context: CommandContext, params: list[str]) -> None:
         self.plugin_context.printer.disconnect()
 
         msg = render_emojis("{emo:check} Printer disconnected.")
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}",
-                )
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row((BACK_LABEL, ""))
 
-        self.send_answer(command_context, msg, None, buttons=command_buttons)
+        self.send_answer(command_context, msg, None, keyboard=keyboard)
 
     def _connect(self, command_context: CommandContext, params: list[str]) -> None:
         if params:
@@ -216,25 +208,21 @@ class CmdCon(BaseCommand):
                     f"Current state: <code>{html.escape(current_state)}</code>."
                 )
 
-            command_buttons = [[(render_emojis("{emo:back} Back"), f"{command_context.cmd}")]]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, ""))
 
-            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
         else:
             msg = render_emojis("{emo:question} How do you want to connect?")
 
-            command_buttons = [
-                [
-                    (render_emojis("{emo:lamp} Use Default Connection"), f"{command_context.cmd}_connect_default"),
-                ],
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(("{emo:lamp} Use Default Connection", "connect_default"))
             if self._is_serial_connection_available():
-                command_buttons.append(
-                    [(render_emojis("{emo:edit} Use Serial Connection"), f"{command_context.cmd}_connect_serial")]
-                )
-            command_buttons.append([(render_emojis("{emo:back} Back"), command_context.cmd)])
+                keyboard.add_row(("{emo:edit} Use Serial Connection", "connect_serial"))
+            keyboard.add_row((BACK_LABEL, ""))
 
-            self.send_answer(command_context, msg, None, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, keyboard=keyboard)
 
     def _ask_default_connection_data(self, command_context: CommandContext, params: list[str]) -> dict | None:
         all_profiles = self.plugin_context.printer_profiles.get_all()
@@ -256,8 +244,8 @@ class CmdCon(BaseCommand):
                 }
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_connect",
-                callback_prefix=f"{command_context.cmd}_connect_default",
+                parent="connect",
+                callback_prefix="connect_default",
                 msg=self._build_connection_summary(preferred_connector, preferred_parameters)
                 + render_emojis("{emo:question} Select the printer profile to use."),
                 options=[(p["id"], p["name"]) for p in all_profiles.values()],
@@ -300,8 +288,8 @@ class CmdCon(BaseCommand):
         if not step:
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_connect",
-                callback_prefix=f"{command_context.cmd}_connect_serial_port",
+                parent="connect",
+                callback_prefix="connect_serial_port",
                 msg=render_emojis("{emo:question} Select the port to connect to."),
                 options=[(p, p) for p in ports],
                 item_emoji="port",
@@ -316,8 +304,8 @@ class CmdCon(BaseCommand):
             port = self._chosen_option(menu_state, choice) if step == "port" else menu_state.port
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_connect_serial",
-                callback_prefix=f"{command_context.cmd}_connect_serial_baudrate",
+                parent="connect_serial",
+                callback_prefix="connect_serial_baudrate",
                 msg=render_emojis("{emo:question} Select the baudrate to use."),
                 options=[(b, b) for b in baudrates],
                 item_emoji="speed",
@@ -338,8 +326,8 @@ class CmdCon(BaseCommand):
                 }
             self._ask_choice(
                 command_context,
-                parent=f"{command_context.cmd}_connect_serial_baudrate",
-                callback_prefix=f"{command_context.cmd}_connect_serial_profile",
+                parent="connect_serial_baudrate",
+                callback_prefix="connect_serial_profile",
                 msg=self._build_connection_summary("serial", {"port": menu_state.port, "baudrate": baudrate})
                 + render_emojis("{emo:question} Select the printer profile to use."),
                 options=[(p["id"], p["name"]) for p in all_profiles.values()],
@@ -374,8 +362,8 @@ class CmdCon(BaseCommand):
 
         Args:
             command_context (CommandContext): The details of a single command invocation.
-            parent (str): The callback query the back button goes to.
-            callback_prefix (str): The callback query each option is sent with, its position appended to it.
+            parent (str): The parameter the back button runs the command with.
+            callback_prefix (str): What every option runs the command with, its position appended to it.
             msg (str): The text shown above the options.
             options (Sequence[tuple]): The value and the label of every option.
             item_emoji (str): The name of the emoji shown on every option.
@@ -387,21 +375,18 @@ class CmdCon(BaseCommand):
         buttons = []
         if with_auto:
             values.append(None)
-            buttons.append((render_emojis("{emo:lamp} AUTO"), f"{callback_prefix}_0"))
+            buttons.append(("{emo:lamp} AUTO", f"{callback_prefix}_0"))
         for value, label in options:
             values.append(value)
-            buttons.append(
-                (
-                    render_emojis(f"{{emo:{item_emoji}}} {label}"),
-                    f"{callback_prefix}_{len(values) - 1}",
-                )
-            )
-        command_buttons = [buttons[i : i + 3] for i in range(0, len(buttons), 3)]
-        command_buttons.append([(render_emojis("{emo:back} Back"), parent)])
+            buttons.append((f"{{emo:{item_emoji}}} {label}", f"{callback_prefix}_{len(values) - 1}"))
+
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_grid(buttons, buttons_per_row=3)
+        keyboard.add_row((BACK_LABEL, parent))
 
         menu_state = ConMenuState(values, port=port, baudrate=baudrate)
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _chosen_option(self, menu_state: ConMenuState, choice: str) -> str | int | None:
         """Return the value behind the option the user picked.

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeVar
 
-from ..telegram import AwaitedReply, Buttons, Markup, MenuState, StaleMenuError
+from ..telegram import AwaitedReply, Keyboard, Markup, MenuState, StaleMenuError
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
@@ -101,7 +101,7 @@ class BaseCommand(ABC):
         menu_state: MenuState | None,
         *,
         markup: Markup = Markup.OFF,
-        buttons: Buttons | None = None,
+        keyboard: Keyboard | None = None,
         force_reply: bool = False,
         reply_parameter_prefix: str = "",
         delete_answer_message: bool = False,
@@ -116,7 +116,7 @@ class BaseCommand(ABC):
             message (str): The text of the answer.
             menu_state (MenuState | None): The state the buttons refer to, or None when the answer has no menu.
             markup (Markup, optional): The markup Telegram parses in the text.
-            buttons (Buttons, optional): The inline keyboard shown under the answer.
+            keyboard (Keyboard, optional): The inline keyboard shown under the answer.
             force_reply (bool, optional): Ask the user to answer the message with the parameter of the command.
             reply_parameter_prefix (str, optional): What the user's answer is appended to, to build that parameter.
             delete_answer_message (bool, optional): Remove the message carrying the user's answer from the chat, once
@@ -131,7 +131,7 @@ class BaseCommand(ABC):
             message,
             chat_id=command_context.chat_id,
             markup=markup,
-            buttons=buttons,
+            buttons=keyboard.rows if keyboard else None,
             force_reply=force_reply,
             message_id=msg_id_to_update,
             reply_to_message_id=command_context.msg_id_to_reply_to,

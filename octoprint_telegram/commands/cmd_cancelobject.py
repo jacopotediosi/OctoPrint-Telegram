@@ -3,7 +3,7 @@ import html
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -35,9 +35,11 @@ class CmdCancelObject(BaseCommand):
             self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": id})
 
             msg = render_emojis("{emo:check} Command sent!")
-            command_buttons = [[(render_emojis("{emo:back} Back"), command_context.cmd)]]
 
-            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, ""))
+
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
         else:
             objlist = self.plugin_context.api.send_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
             if objlist:
@@ -48,14 +50,14 @@ class CmdCancelObject(BaseCommand):
                     msg += "\n\nObjects already cancelled:\n"
                     msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
 
-                command_buttons = [
-                    [(obj["object"], f"{command_context.cmd}_{obj['id']}")]
-                    for obj in objlist
-                    if not obj.get("cancelled", False)
-                ]
-                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_grid(
+                    [(obj["object"], str(obj["id"])) for obj in objlist if not obj.get("cancelled", False)],
+                    buttons_per_row=1,
+                )
+                keyboard.add_row(CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
             else:
                 msg = render_emojis(
                     "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."

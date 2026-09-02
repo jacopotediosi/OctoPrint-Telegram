@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from ..emoji import Emoji
 from ..integrations.filament import FILAMENT_PLUGINS
-from ..telegram import Markup
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup
 from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
@@ -75,15 +75,13 @@ class CmdFilament(BaseCommand):
         ):  # Command was /filament and there are multiple available plugins, show plugin selection
             msg = render_emojis("{emo:question} Please choose a filament manager plugin")
 
-            command_buttons = []
-            for i in range(0, len(available_plugins), 2):
-                row = []
-                for plugin in available_plugins[i : i + 2]:
-                    row.append((f"{plugin.plugin_name}", f"{command_context.cmd}_{plugin.plugin_id}"))
-                command_buttons.append(row)
-            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_grid(
+                [(plugin.plugin_name, plugin.plugin_id) for plugin in available_plugins], buttons_per_row=2
+            )
+            keyboard.add_row(CLOSE_BUTTON)
 
-            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
             return
 
         params = command_context.parameter.split("_")
@@ -98,13 +96,10 @@ class CmdFilament(BaseCommand):
 
             if plugin_handler is None:
                 msg = render_emojis(f"{{emo:attention}} Plugin <code>{html.escape(plugin_id)}</code> is not available!")
-                command_buttons = [
-                    [
-                        (render_emojis("{emo:back} Back"), command_context.cmd),
-                        (render_emojis("{emo:cancel} Close"), "close"),
-                    ]
-                ]
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row((BACK_LABEL, ""), CLOSE_BUTTON)
+
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
                 return
 
         if len(params) < 2:  # Show operation selection
@@ -112,21 +107,17 @@ class CmdFilament(BaseCommand):
                 f"{{emo:question}} What do you want to do with <code>{html.escape(plugin_handler.plugin_name)}</code>?"
             )
 
-            command_buttons = [
-                [
-                    (render_emojis("{emo:view} Show spools"), f"{command_context.cmd}_{plugin_handler.plugin_id}_show"),
-                    (
-                        render_emojis("{emo:pointer} Select spool"),
-                        f"{command_context.cmd}_{plugin_handler.plugin_id}_select",
-                    ),
-                ]
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(
+                ("{emo:view} Show spools", f"{plugin_handler.plugin_id}_show"),
+                ("{emo:pointer} Select spool", f"{plugin_handler.plugin_id}_select"),
+            )
             if len(available_plugins) > 1:
-                command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}")])
+                keyboard.add_row((BACK_LABEL, ""))
             else:
-                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+                keyboard.add_row(CLOSE_BUTTON)
 
-            self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
             return
 
@@ -150,36 +141,26 @@ class CmdFilament(BaseCommand):
 
                 paginated_spools = spools[start_index:end_index]
 
-                spool_buttons = []
-                for listed_spool_id, listed_spool_description in paginated_spools:
-                    spool_buttons.append(
-                        [
-                            (
-                                listed_spool_description,
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}_{listed_spool_id}",
-                            )
-                        ]
-                    )
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_grid(
+                    [
+                        (
+                            listed_spool_description,
+                            f"{plugin_handler.plugin_id}_show_{page_number}_{listed_spool_id}",
+                        )
+                        for listed_spool_id, listed_spool_description in paginated_spools
+                    ],
+                    buttons_per_row=1,
+                )
 
                 last_row = []
                 if total_pages > 1:
                     if page_number > 0:
-                        last_row.append(
-                            (
-                                render_emojis("{emo:up} Prev page"),
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number - 1}",
-                            )
-                        )
+                        last_row.append(("{emo:up} Prev page", f"{plugin_handler.plugin_id}_show_{page_number - 1}"))
                     if page_number + 1 < total_pages:
-                        last_row.append(
-                            (
-                                render_emojis("{emo:down} Next page"),
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number + 1}",
-                            )
-                        )
-                last_row.append((render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}"))
-
-                command_buttons = spool_buttons + [last_row]
+                        last_row.append(("{emo:down} Next page", f"{plugin_handler.plugin_id}_show_{page_number + 1}"))
+                last_row.append((BACK_LABEL, plugin_handler.plugin_id))
+                keyboard.add_row(*last_row)
 
                 if spools:
                     page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
@@ -192,7 +173,7 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
             else:  # Show spool details
                 spool_details = plugin_handler.get_spool_details_msg(spool_id)
@@ -202,16 +183,10 @@ class CmdFilament(BaseCommand):
                     f"{spool_details}"
                 )
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis("{emo:back} Back"),
-                            f"{command_context.cmd}_{plugin_handler.plugin_id}_show_{page_number}",
-                        )
-                    ]
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row((BACK_LABEL, f"{plugin_handler.plugin_id}_show_{page_number}"))
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
         elif operation == "select":
             tool_index = params[2] if len(params) > 2 else None
@@ -239,21 +214,14 @@ class CmdFilament(BaseCommand):
                 except Exception:
                     self._logger.exception("Caught an exception getting selected spools")
 
-                command_buttons = [
-                    [
-                        (
-                            render_emojis(f"{{emo:tool}} Tool {i}"),
-                            f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{i}",
-                        )
-                        for i in range(j, min(j + 2, tool_counts))
-                    ]
-                    for j in range(0, tool_counts, 2)
-                ]
-                command_buttons.append(
-                    [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}")]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_grid(
+                    [(f"{{emo:tool}} Tool {i}", f"{plugin_handler.plugin_id}_select_{i}") for i in range(tool_counts)],
+                    buttons_per_row=2,
                 )
+                keyboard.add_row((BACK_LABEL, plugin_handler.plugin_id))
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
                 return
 
@@ -270,43 +238,37 @@ class CmdFilament(BaseCommand):
 
                 paginated_spools = spools[start_index:end_index]
 
-                spool_buttons = []
-                for listed_spool_id, listed_spool_description in paginated_spools:
-                    spool_buttons.append(
-                        [
-                            (
-                                listed_spool_description,
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{listed_spool_id}",
-                            )
-                        ]
-                    )
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_grid(
+                    [
+                        (
+                            listed_spool_description,
+                            f"{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{listed_spool_id}",
+                        )
+                        for listed_spool_id, listed_spool_description in paginated_spools
+                    ],
+                    buttons_per_row=1,
+                )
 
                 last_row = []
                 if total_pages > 1:
                     if page_number > 0:
                         last_row.append(
                             (
-                                render_emojis("{emo:up} Prev page"),
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number - 1}",
+                                "{emo:up} Prev page",
+                                f"{plugin_handler.plugin_id}_select_{tool_index}_{page_number - 1}",
                             )
                         )
                     if page_number + 1 < total_pages:
                         last_row.append(
                             (
-                                render_emojis("{emo:down} Next page"),
-                                f"{command_context.cmd}_{plugin_handler.plugin_id}_select_{tool_index}_{page_number + 1}",
+                                "{emo:down} Next page",
+                                f"{plugin_handler.plugin_id}_select_{tool_index}_{page_number + 1}",
                             )
                         )
-                back_callback = (
-                    f"{command_context.cmd}_{plugin_handler.plugin_id}_select"
-                    if has_multiple_tools
-                    else f"{command_context.cmd}_{plugin_handler.plugin_id}"
-                )
-                last_row.append((render_emojis("{emo:back} Back"), back_callback))
-
-                command_buttons = []
-                command_buttons.extend(spool_buttons)
-                command_buttons.append(last_row)
+                back_action = f"{plugin_handler.plugin_id}_select" if has_multiple_tools else plugin_handler.plugin_id
+                last_row.append((BACK_LABEL, back_action))
+                keyboard.add_row(*last_row)
 
                 if configured_spools:
                     page_str = f"    [{page_number + 1} / {total_pages}]" if total_pages > 1 else ""
@@ -324,7 +286,7 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
             else:  # Select
                 if spool_id == "deselect":
@@ -341,8 +303,7 @@ class CmdFilament(BaseCommand):
                         f"{{emo:check}} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
                     )
 
-                command_buttons = [
-                    [(render_emojis("{emo:back} Back"), f"{command_context.cmd}_{plugin_handler.plugin_id}_select")]
-                ]
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_row((BACK_LABEL, f"{plugin_handler.plugin_id}_select"))
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)

@@ -5,7 +5,7 @@ from typing import ClassVar
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, MenuState
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -75,16 +75,12 @@ class CmdSettings(BaseCommand):
                 f"{{emo:height}} Set new height.\nCurrent: <b>{menu_state.notification_height:.2f}mm</b>"
             )
 
-            command_buttons = [
-                [(f"+{step}", f"{command_context.cmd}_height_+{step}") for step in self.HEIGHT_STEPS],
-                [(f"-{step}", f"{command_context.cmd}_height_-{step}") for step in self.HEIGHT_STEPS],
-                [
-                    (render_emojis("{emo:save} Save"), f"{command_context.cmd}_height_save"),
-                    (render_emojis("{emo:back} Back"), command_context.cmd),
-                ],
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(*((f"+{step}", f"height_+{step}") for step in self.HEIGHT_STEPS))
+            keyboard.add_row(*((f"-{step}", f"height_-{step}") for step in self.HEIGHT_STEPS))
+            keyboard.add_row(("{emo:save} Save", "height_save"), (BACK_LABEL, ""))
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
         elif setting == "time":
             if value:
                 if value.startswith(("+", "-")):
@@ -98,16 +94,12 @@ class CmdSettings(BaseCommand):
 
             msg = render_emojis(f"{{emo:alarmclock}} Set new time.\nCurrent: <b>{menu_state.notification_time}min</b>")
 
-            command_buttons = [
-                [(f"+{step}", f"{command_context.cmd}_time_+{step}") for step in self.TIME_STEPS],
-                [(f"-{step}", f"{command_context.cmd}_time_-{step}") for step in self.TIME_STEPS],
-                [
-                    (render_emojis("{emo:save} Save"), f"{command_context.cmd}_time_save"),
-                    (render_emojis("{emo:back} Back"), command_context.cmd),
-                ],
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(*((f"+{step}", f"time_+{step}") for step in self.TIME_STEPS))
+            keyboard.add_row(*((f"-{step}", f"time_-{step}") for step in self.TIME_STEPS))
+            keyboard.add_row(("{emo:save} Save", "time_save"), (BACK_LABEL, ""))
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _settings_menu(self, command_context: CommandContext) -> None:
         """Show the notification settings currently stored in the plugin settings."""
@@ -122,18 +114,8 @@ class CmdSettings(BaseCommand):
             f"{{emo:alarmclock}} Time: {notification_time:d}min\n\n"
         )
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:height} Set height"),
-                    f"{command_context.cmd}_height",
-                ),
-                (
-                    render_emojis("{emo:alarmclock} Set time"),
-                    f"{command_context.cmd}_time",
-                ),
-            ],
-            [(render_emojis("{emo:cancel} Close"), "close")],
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(("{emo:height} Set height", "height"), ("{emo:alarmclock} Set time", "time"))
+        keyboard.add_row(CLOSE_BUTTON)
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)

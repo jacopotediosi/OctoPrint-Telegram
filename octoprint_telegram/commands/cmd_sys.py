@@ -7,7 +7,7 @@ import sarge
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import Markup, MenuState
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -58,20 +58,10 @@ class CmdSys(BaseCommand):
                         f"{{emo:question}} Execute System Command <b>{html.escape(command_mapping[params[1]])}</b>?"
                     )
 
-                    command_buttons = [
-                        [
-                            (
-                                render_emojis("{emo:check} Execute"),
-                                f"{command_context.cmd}_server_do_{params[1]}",
-                            ),
-                            (
-                                render_emojis("{emo:back} Back"),
-                                command_context.cmd,
-                            ),
-                        ]
-                    ]
+                    keyboard = Keyboard(command_context.cmd)
+                    keyboard.add_row(("{emo:check} Execute", f"server_do_{params[1]}"), (BACK_LABEL, ""))
 
-                    self.send_answer(command_context, msg, None, markup=Markup.HTML, buttons=command_buttons)
+                    self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
                 else:  # Execute command
                     if params[2] not in command_mapping:
@@ -137,20 +127,10 @@ class CmdSys(BaseCommand):
                         f"{{emo:info}} Confirmation message: <code>{html.escape(command['confirm'])}</code>"
                     )
 
-                    command_buttons = [
-                        [
-                            (
-                                render_emojis("{emo:check} Execute"),
-                                f"{command_context.cmd}_action_do_{action_index}",
-                            ),
-                            (
-                                render_emojis("{emo:back} Back"),
-                                command_context.cmd,
-                            ),
-                        ]
-                    ]
+                    keyboard = Keyboard(command_context.cmd)
+                    keyboard.add_row(("{emo:check} Execute", f"action_do_{action_index}"), (BACK_LABEL, ""))
 
-                    self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                    self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
                 else:  # Execute command
                     async_ = command.get("async", False)
@@ -183,7 +163,7 @@ class CmdSys(BaseCommand):
                     self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
         else:  # Display command buttons
-            command_buttons = []
+            keyboard = Keyboard(command_context.cmd)
             action_identifiers = []
 
             for action in self.plugin_context.octoprint_settings.system_actions:
@@ -192,32 +172,23 @@ class CmdSys(BaseCommand):
                         continue
 
                     action_identifiers.append(f"{action['name']}-{action['action']}-{action['command']}")
-                    command_buttons.append(
-                        [(f"{action['name']}", f"{command_context.cmd}_action_{len(action_identifiers) - 1}")]
-                    )
+                    keyboard.add_row((f"{action['name']}", f"action_{len(action_identifiers) - 1}"))
                 except Exception:
                     self._logger.exception("Caught an exception parsing system actions")
 
             server_commands_buttons = []
             server_commands_map = {
-                "serverRestartCommand": (
-                    "Restart OctoPrint",
-                    f"{command_context.cmd}_server_serverRestartCommand",
-                ),
-                "systemRestartCommand": ("Restart system", f"{command_context.cmd}_server_systemRestartCommand"),
-                "systemShutdownCommand": (
-                    "Shutdown system",
-                    f"{command_context.cmd}_server_systemShutdownCommand",
-                ),
+                "serverRestartCommand": ("Restart OctoPrint", "server_serverRestartCommand"),
+                "systemRestartCommand": ("Restart system", "server_systemRestartCommand"),
+                "systemShutdownCommand": ("Shutdown system", "server_systemShutdownCommand"),
             }
             for command_key, command_button in server_commands_map.items():
                 command_text = self.plugin_context.octoprint_settings.server_command(command_key)
                 if command_text:
                     server_commands_buttons.append(command_button)
-            for i in range(0, len(server_commands_buttons), 2):
-                command_buttons.append(server_commands_buttons[i : i + 2])
+            keyboard.add_grid(server_commands_buttons, buttons_per_row=2)
 
-            if command_buttons:
+            if keyboard.rows:
                 msg = render_emojis("{emo:question} Which System Command do you want to activate?")
             else:
                 msg = render_emojis(
@@ -236,8 +207,8 @@ class CmdSys(BaseCommand):
             except Exception:
                 self._logger.exception("Caught an exception retrieving IP address")
 
-            command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+            keyboard.add_row(CLOSE_BUTTON)
 
             self.send_answer(
-                command_context, msg, SysMenuState(action_identifiers), markup=Markup.HTML, buttons=command_buttons
+                command_context, msg, SysMenuState(action_identifiers), markup=Markup.HTML, keyboard=keyboard
             )

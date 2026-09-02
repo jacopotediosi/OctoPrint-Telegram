@@ -12,7 +12,7 @@ from typing_extensions import override
 
 from ..domain import permissions
 from ..emoji import Emoji
-from ..telegram import Markup, MenuState, StaleMenuError
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
 from ..utils import Formatters
 from .base import BaseCommand, CommandContext
 
@@ -274,18 +274,17 @@ class CmdFiles(BaseCommand):
 
                 menu_state.items = list(storages)
 
-                command_buttons = [
+                keyboard = Keyboard(command_context.cmd)
+                keyboard.add_grid(
                     [
-                        (
-                            render_emojis(f"{{emo:folder}} {storage_name}"),
-                            f"{command_context.cmd}_list_{storage_position}",
-                        )
-                    ]
-                    for storage_position, storage_name in enumerate(menu_state.items)
-                ]
-                command_buttons.append([(render_emojis("{emo:cancel} Close"), "close")])
+                        (f"{{emo:folder}} {storage_name}", f"list_{storage_position}")
+                        for storage_position, storage_name in enumerate(menu_state.items)
+                    ],
+                    buttons_per_row=1,
+                )
+                keyboard.add_row(CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
         else:  # List files in path
             path_with_storage = menu_state.folder  # e.g.: local or local/foo
@@ -323,82 +322,46 @@ class CmdFiles(BaseCommand):
             paginated_entries = entries[start_index : start_index + self.PAGE_SIZE]
 
             # --- Create command buttons ---
-            command_buttons = []
+            keyboard = Keyboard(command_context.cmd)
             menu_state.items = []
 
             # Folder and file buttons
-            for row_start in range(0, len(paginated_entries), entries_per_row):
-                row = []
-                for entry_path, entry_label, entry_action in paginated_entries[row_start : row_start + entries_per_row]:
-                    menu_state.items.append(entry_path)
-                    row.append((entry_label, f"{command_context.cmd}_{entry_action}_{len(menu_state.items) - 1}"))
-                command_buttons.append(row)
+            entry_buttons = []
+            for entry_path, entry_label, entry_action in paginated_entries:
+                menu_state.items.append(entry_path)
+                entry_buttons.append((entry_label, f"{entry_action}_{len(menu_state.items) - 1}"))
+            keyboard.add_grid(entry_buttons, buttons_per_row=entries_per_row)
 
             # Prev/next page row
             page_row = []
             if menu_state.page > 0:
-                page_row.append(
-                    (
-                        render_emojis("{emo:up} Prev page"),
-                        f"{command_context.cmd}_prevpage",
-                    )
-                )
+                page_row.append(("{emo:up} Prev page", "prevpage"))
             if menu_state.page + 1 < total_pages:
-                page_row.append(
-                    (
-                        render_emojis("{emo:down} Next page"),
-                        f"{command_context.cmd}_nextpage",
-                    )
-                )
+                page_row.append(("{emo:down} Next page", "nextpage"))
             if page_row:
-                command_buttons.append(page_row)
+                keyboard.add_row(*page_row)
 
             # Actions row: back, search, settings, close
             actions_row = []
 
             # Back button (out of the search being shown, or to the parent folder)
             if menu_state.query or not path_is_storage_root:
-                actions_row.append(
-                    (
-                        render_emojis("{emo:back} Back"),
-                        f"{command_context.cmd}_up",
-                    )
-                )
+                actions_row.append((BACK_LABEL, "up"))
 
             # Search
             if not menu_state.query:
-                actions_row.append(
-                    (
-                        render_emojis("{emo:search} Search"),
-                        f"{command_context.cmd}_search",
-                    )
-                )
+                actions_row.append(("{emo:search} Search", "search"))
 
             # Settings
-            actions_row.append(
-                (
-                    render_emojis("{emo:settings} Settings"),
-                    f"{command_context.cmd}_settings",
-                )
-            )
+            actions_row.append(("{emo:settings} Settings", "settings"))
 
             # Back to storage selection, or close
             if path_is_storage_root and not menu_state.query and len(storages) > 1:
-                actions_row.append(
-                    (
-                        render_emojis("{emo:back} Back"),
-                        command_context.cmd,
-                    )
-                )
+                actions_row.append((BACK_LABEL, ""))
             else:
-                actions_row.append(
-                    (
-                        render_emojis("{emo:cancel} Close"),
-                        "close",
-                    )
-                )
+                actions_row.append(CLOSE_BUTTON)
 
-            command_buttons.append(actions_row)
+            keyboard.add_row(*actions_row)
 
             # --- Create message ---
             page_str = f"    [{menu_state.page + 1} / {total_pages}]" if total_pages > 1 else ""
@@ -413,7 +376,7 @@ class CmdFiles(BaseCommand):
                 msg = render_emojis(f"{{emo:save}} Files in <code>/{html.escape(path_with_storage)}</code>{page_str}")
 
             # --- Send message ---
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_types_to_show(self) -> tuple[str, ...]:
         """The types of the files the menu lists, as configured in the browsing settings."""
@@ -552,21 +515,15 @@ class CmdFiles(BaseCommand):
             f"(at most {self.MAX_QUERY_LENGTH} characters)"
         )
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_list",
-                )
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row((BACK_LABEL, "list"))
 
         self.send_answer(
             command_context,
             msg,
             menu_state,
             markup=Markup.HTML,
-            buttons=command_buttons,
+            keyboard=keyboard,
             force_reply=True,
             reply_parameter_prefix="search_",
             delete_answer_message=True,
@@ -681,42 +638,31 @@ class CmdFiles(BaseCommand):
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
         # Create command buttons
-        command_buttons = []
+        keyboard = Keyboard(command_context.cmd)
 
         # First row
         if "model" in octoprint.filemanager.get_file_type(filename):
             # Slice
-            first_row = [
-                (render_emojis("{emo:slice} Slice"), f"{command_context.cmd}_slice"),
-            ]
+            keyboard.add_row(("{emo:slice} Slice", "slice"))
         else:
             # Print + Details
-            first_row = [
-                (render_emojis("{emo:play} Print"), f"{command_context.cmd}_selectforprint"),
-                (render_emojis("{emo:search} Details"), f"{command_context.cmd}_details"),
-            ]
-        command_buttons.append(first_row)
+            keyboard.add_row(("{emo:play} Print", "selectforprint"), ("{emo:search} Details", "details"))
 
         # Second row: File ops
-        second_row = [
-            (render_emojis("{emo:cut} Move"), f"{command_context.cmd}_move"),
-            (render_emojis("{emo:copy} Copy"), f"{command_context.cmd}_copy"),
-            (render_emojis("{emo:delete} Delete"), f"{command_context.cmd}_delete"),
-        ]
-        command_buttons.append(second_row)
+        keyboard.add_row(("{emo:cut} Move", "move"), ("{emo:copy} Copy", "copy"), ("{emo:delete} Delete", "delete"))
 
         # Third row
         third_row = []
         # Download button
         if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
-            third_row.append((render_emojis("{emo:download} Download"), f"{command_context.cmd}_download"))
+            third_row.append(("{emo:download} Download", "download"))
         # Back button
-        third_row.append((render_emojis("{emo:back} Back"), f"{command_context.cmd}_list"))
+        third_row.append((BACK_LABEL, "list"))
         # Append
-        command_buttons.append(third_row)
+        keyboard.add_row(*third_row)
 
         # Send the message
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_details(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._selected_storage_and_path(menu_state)
@@ -875,42 +821,21 @@ class CmdFiles(BaseCommand):
             msg = f"<a href='{imgbb_thumbnail_url}'>&#8199;</a>\n{msg}"
 
         # Create command buttons
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_info",
-                )
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row((BACK_LABEL, "info"))
 
         # Send the message
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_settings(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         """Ask which file browsing setting to change."""
         msg = render_emojis("{emo:question} Which setting do you want to change?")
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:height} File sorting"),
-                    f"{command_context.cmd}_settings_sort",
-                ),
-                (
-                    render_emojis("{emo:model} Show models"),
-                    f"{command_context.cmd}_settings_models",
-                ),
-            ],
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_list",
-                )
-            ],
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(("{emo:height} File sorting", "settings_sort"), ("{emo:model} Show models", "settings_models"))
+        keyboard.add_row((BACK_LABEL, "list"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_sort_setting(
         self, command_context: CommandContext, menu_state: FilesMenuState, sort_by_date: bool | None
@@ -933,26 +858,13 @@ class CmdFiles(BaseCommand):
             f"{{emo:question}} <b>Choose file sorting</b>\n\nCurrent setting: <code>{current_setting_str}</code>"
         )
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:name} By name"),
-                    f"{command_context.cmd}_settings_sort_byname",
-                ),
-                (
-                    render_emojis("{emo:calendar} By date"),
-                    f"{command_context.cmd}_settings_sort_bydate",
-                ),
-            ],
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_settings",
-                )
-            ],
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(
+            ("{emo:name} By name", "settings_sort_byname"), ("{emo:calendar} By date", "settings_sort_bydate")
+        )
+        keyboard.add_row((BACK_LABEL, "settings"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_models_setting(
         self, command_context: CommandContext, menu_state: FilesMenuState, show_models: bool | None
@@ -976,26 +888,13 @@ class CmdFiles(BaseCommand):
             f"Current setting: <code>{current_setting_str}</code>"
         )
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:online} Show models"),
-                    f"{command_context.cmd}_settings_models_show",
-                ),
-                (
-                    render_emojis("{emo:offline} Hide models"),
-                    f"{command_context.cmd}_settings_models_hide",
-                ),
-            ],
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_settings",
-                )
-            ],
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(
+            ("{emo:online} Show models", "settings_models_show"), ("{emo:offline} Hide models", "settings_models_hide")
+        )
+        keyboard.add_row((BACK_LABEL, "settings"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _copy_move_operation(self, menu_state: FilesMenuState) -> str:
         """Return whether the selected file is being copied or moved.
@@ -1039,18 +938,8 @@ class CmdFiles(BaseCommand):
         to_storage_name, to_path = self._copy_move_destination(menu_state)
         full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:check} Yes"),
-                    f"{command_context.cmd}_copymove_yes",
-                ),
-                (
-                    render_emojis("{emo:cancel} No"),
-                    f"{command_context.cmd}_copymove",
-                ),
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(("{emo:check} Yes", "copymove_yes"), ("{emo:cancel} No", "copymove"))
 
         self.send_answer(
             command_context,
@@ -1059,7 +948,7 @@ class CmdFiles(BaseCommand):
             ),
             menu_state,
             markup=Markup.HTML,
-            buttons=command_buttons,
+            keyboard=keyboard,
         )
 
     def _file_copy_move(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
@@ -1150,16 +1039,10 @@ class CmdFiles(BaseCommand):
                 f"\nReason: {failure_reason}"
             )
 
-            command_buttons = [
-                [
-                    (
-                        render_emojis("{emo:back} Back"),
-                        f"{command_context.cmd}_info",
-                    )
-                ]
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "info"))
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
         else:
             if operation == "copy":
                 action_done = "copied"
@@ -1173,16 +1056,11 @@ class CmdFiles(BaseCommand):
             menu_state.folder = "/".join(filter(None, [to_storage_name, to_path]))
             menu_state.query = ""
             menu_state.page = 0
-            command_buttons = [
-                [
-                    (
-                        render_emojis("{emo:back} Back"),
-                        f"{command_context.cmd}_list",
-                    )
-                ]
-            ]
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "list"))
+
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_copy_move_destination(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         """Let the user browse to the folder to copy or move the selected file to."""
@@ -1199,7 +1077,7 @@ class CmdFiles(BaseCommand):
             f"{{emo:question}} Where do you want to {operation} the file <code>{html.escape(full_from_file_path_to_display)}</code>?"
         )
 
-        command_buttons = []
+        keyboard = Keyboard(command_context.cmd)
         menu_state.items = []
 
         if menu_state.target:  # Start navigation from the target folder
@@ -1210,14 +1088,7 @@ class CmdFiles(BaseCommand):
 
             # Up button
             if to_path or len(storages) > 1:
-                command_buttons.append(
-                    [
-                        (
-                            render_emojis("{emo:up} Parent"),
-                            f"{command_context.cmd}_copymove_up",
-                        )
-                    ]
-                )
+                keyboard.add_row(("{emo:up} Parent", "copymove_up"))
 
             # Folder buttons
             try:
@@ -1237,24 +1108,10 @@ class CmdFiles(BaseCommand):
             to_path_folders = to_path_listing.get(to_storage_name, {})
             for folder_name in sorted(to_path_folders):
                 menu_state.items.append("/".join(filter(None, [to_storage_name, to_path, folder_name])))
-                command_buttons.append(
-                    [
-                        (
-                            render_emojis(f"{{emo:folder}} {folder_name}"),
-                            f"{command_context.cmd}_copymove_{len(menu_state.items) - 1}",
-                        )
-                    ]
-                )
+                keyboard.add_row((f"{{emo:folder}} {folder_name}", f"copymove_{len(menu_state.items) - 1}"))
 
             # Copy/Move here button
-            command_buttons.append(
-                [
-                    (
-                        render_emojis(f"{{emo:check}} {operation.capitalize()} here"),
-                        f"{command_context.cmd}_copymove_here",
-                    )
-                ]
-            )
+            keyboard.add_row((f"{{emo:check}} {operation.capitalize()} here", "copymove_here"))
         else:  # Select storage
             if len(storages) == 1:
                 menu_state.target = next(iter(storages))
@@ -1263,12 +1120,12 @@ class CmdFiles(BaseCommand):
 
             for storage_name in storages:
                 menu_state.items.append(storage_name)
-                command_buttons.append([(storage_name, f"{command_context.cmd}_copymove_{len(menu_state.items) - 1}")])
+                keyboard.add_row((storage_name, f"copymove_{len(menu_state.items) - 1}"))
 
         # Back button
-        command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info")])
+        keyboard.add_row((BACK_LABEL, "info"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _file_print(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         destination, file = self._selected_storage_and_path(menu_state)
@@ -1277,30 +1134,21 @@ class CmdFiles(BaseCommand):
             self.plugin_context.settings, command_context.chat_id, command_context.from_id, "/print"
         ):
             msg = render_emojis("{emo:notallowed} You are not allowed to print!")
-            command_buttons = [
-                [
-                    (
-                        render_emojis("{emo:back} Back"),
-                        f"{command_context.cmd}_info",
-                    ),
-                ]
-            ]
-            self.send_answer(command_context, msg, menu_state, buttons=command_buttons)
+
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "info"))
+
+            self.send_answer(command_context, msg, menu_state, keyboard=keyboard)
             return
 
         if not self.plugin_context.printer.is_ready():
             msg = render_emojis(
                 f"{{emo:warning}} Can't start a new print, printer is not ready. Printer status: {self.plugin_context.printer.get_state_string()}."
             )
-            command_buttons = [
-                [
-                    (
-                        render_emojis("{emo:back} Back"),
-                        f"{command_context.cmd}_info",
-                    ),
-                ]
-            ]
-            self.send_answer(command_context, msg, menu_state, buttons=command_buttons)
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "info"))
+
+            self.send_answer(command_context, msg, menu_state, keyboard=keyboard)
             return
 
         try:
@@ -1330,20 +1178,10 @@ class CmdFiles(BaseCommand):
             "{emo:question} Do you want to start printing it now?"
         )
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:play} Print"),
-                    "/print_yes",
-                ),
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_info",
-                ),
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(("{emo:play} Print", "yes", "/print"), (BACK_LABEL, "info"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _pick_slice_option(self, menu_state: FilesMenuState, option: str) -> None:
         """Assign a picked option to the first slicing choice still to make.
@@ -1413,7 +1251,7 @@ class CmdFiles(BaseCommand):
                 msg += render_emojis("{emo:question} Which slicer do you want to use?")
 
                 menu_state.items = []
-                command_buttons = []
+                keyboard = Keyboard(command_context.cmd)
                 for configured_slicer in configured_slicers:
                     slicer = self.plugin_context.slicing_manager.get_slicer(configured_slicer)
                     slicer_properties = slicer.get_slicer_properties()
@@ -1422,10 +1260,10 @@ class CmdFiles(BaseCommand):
 
                     slicer_name = slicer_properties.get("name")
 
-                    command_buttons.append([(slicer_name, f"{command_context.cmd}_slice_{len(menu_state.items) - 1}")])
-                command_buttons.append([(render_emojis("{emo:back} Back"), f"{command_context.cmd}_info")])
+                    keyboard.add_row((slicer_name, f"slice_{len(menu_state.items) - 1}"))
+                keyboard.add_row((BACK_LABEL, "info"))
 
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
                 return
 
         slicer_id = menu_state.slicer
@@ -1451,27 +1289,20 @@ class CmdFiles(BaseCommand):
                 msg += render_emojis("\n{emo:question} Which slicer profile do you want to use?")
 
                 menu_state.items = []
-                command_buttons = []
+                keyboard = Keyboard(command_context.cmd)
                 for slicer_profile in slicer_profiles:
                     menu_state.items.append(slicer_profile.name)
 
                     slicer_profile_name = slicer_profile.display_name
 
-                    command_buttons.append(
-                        [
-                            (
-                                slicer_profile_name,
-                                f"{command_context.cmd}_slice_{len(menu_state.items) - 1}",
-                            )
-                        ]
-                    )
+                    keyboard.add_row((slicer_profile_name, f"slice_{len(menu_state.items) - 1}"))
                 if len(configured_slicers) > 1:
-                    back_cmd = f"{command_context.cmd}_slice_slicer"
+                    back_action = "slice_slicer"
                 else:
-                    back_cmd = f"{command_context.cmd}_info"
-                command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
+                    back_action = "info"
+                keyboard.add_row((BACK_LABEL, back_action))
 
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
                 return
 
         slicer_profile_id = menu_state.slicer_profile
@@ -1491,29 +1322,22 @@ class CmdFiles(BaseCommand):
                 msg += render_emojis("\n{emo:question} Which printer profile do you want to use?")
 
                 menu_state.items = []
-                command_buttons = []
+                keyboard = Keyboard(command_context.cmd)
                 for printer_profile in printer_profiles:
                     menu_state.items.append(printer_profile.get("id"))
 
                     printer_profile_name = printer_profile.get("name")
 
-                    command_buttons.append(
-                        [
-                            (
-                                printer_profile_name,
-                                f"{command_context.cmd}_slice_{len(menu_state.items) - 1}",
-                            )
-                        ]
-                    )
+                    keyboard.add_row((printer_profile_name, f"slice_{len(menu_state.items) - 1}"))
                 if len(slicer_profiles) > 1:
-                    back_cmd = f"{command_context.cmd}_slice_slicerprofile"
+                    back_action = "slice_slicerprofile"
                 elif len(configured_slicers) > 1:
-                    back_cmd = f"{command_context.cmd}_slice_slicer"
+                    back_action = "slice_slicer"
                 else:
-                    back_cmd = f"{command_context.cmd}_info"
-                command_buttons.append([(render_emojis("{emo:back} Back"), back_cmd)])
+                    back_action = "info"
+                keyboard.add_row((BACK_LABEL, back_action))
 
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
                 return
 
         printer_profile_id = menu_state.printer_profile
@@ -1538,24 +1362,18 @@ class CmdFiles(BaseCommand):
             msg += render_emojis("\n{emo:question} Do you want to confirm the slicing?")
 
             if len(printer_profiles) > 1:
-                back_cmd = f"{command_context.cmd}_slice_printerprofile"
+                back_action = "slice_printerprofile"
             elif len(slicer_profiles) > 1:
-                back_cmd = f"{command_context.cmd}_slice_slicerprofile"
+                back_action = "slice_slicerprofile"
             elif len(configured_slicers) > 1:
-                back_cmd = f"{command_context.cmd}_slice_slicer"
+                back_action = "slice_slicer"
             else:
-                back_cmd = f"{command_context.cmd}_info"
-            command_buttons = [
-                [
-                    (render_emojis("{emo:back} Back"), back_cmd),
-                    (
-                        render_emojis("{emo:check} Confirm"),
-                        f"{command_context.cmd}_slice_confirm",
-                    ),
-                ]
-            ]
+                back_action = "info"
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, back_action), ("{emo:check} Confirm", "slice_confirm"))
+
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
             return
 
         def slice_callback(*args: object, **kwargs: object) -> None:
@@ -1576,17 +1394,10 @@ class CmdFiles(BaseCommand):
                     f"{{emo:check}} <code>{html.escape(full_file_path_to_display)}</code> has been successfully sliced to <code>{html.escape(dest_path_to_display)}</code>"
                 )
 
-            command_buttons = [
-                [
-                    (render_emojis("{emo:back} Back"), f"{command_context.cmd}_info"),
-                    (
-                        render_emojis("{emo:cancel} Close"),
-                        "close",
-                    ),
-                ]
-            ]
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "info"), CLOSE_BUTTON)
 
-            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
         # Send msg
         msg = render_emojis(
@@ -1622,25 +1433,15 @@ class CmdFiles(BaseCommand):
         storage_name, file_path = self._selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:check} Yes"),
-                    f"{command_context.cmd}_delete_yes",
-                ),
-                (
-                    render_emojis("{emo:cancel} No"),
-                    f"{command_context.cmd}_info",
-                ),
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row(("{emo:check} Yes", "delete_yes"), ("{emo:cancel} No", "info"))
 
         self.send_answer(
             command_context,
             render_emojis(f"{{emo:warning}} Delete <code>{html.escape(full_file_path_to_display)}</code>?"),
             menu_state,
             markup=Markup.HTML,
-            buttons=command_buttons,
+            keyboard=keyboard,
         )
 
     def _file_delete(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
@@ -1697,16 +1498,10 @@ class CmdFiles(BaseCommand):
         else:
             msg = render_emojis(f"{{emo:check}} File <code>{html.escape(full_file_path_to_display)}</code> deleted!")
 
-        command_buttons = [
-            [
-                (
-                    render_emojis("{emo:back} Back"),
-                    f"{command_context.cmd}_list",
-                )
-            ]
-        ]
+        keyboard = Keyboard(command_context.cmd)
+        keyboard.add_row((BACK_LABEL, "list"))
 
-        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, buttons=command_buttons)
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _upload_thumbnail_to_imgbb(self, storage_name: str, file_path: str) -> str | None:
         """Upload the thumbnail of a file to imgbb and return public URL.
