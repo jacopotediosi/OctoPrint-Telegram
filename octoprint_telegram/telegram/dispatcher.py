@@ -42,8 +42,7 @@ class Dispatcher:
         """
         self._logger.debug("Processing update: %s", update)
 
-        chat_id = self._get_chat_id(update)
-        from_id = self._get_from_id(update)
+        chat_id, from_id = self._get_chat_and_from_ids(update)
 
         is_chat_unknown = self.plugin_context.chats.get_chat(chat_id) is None
         if is_chat_unknown and not self.plugin_context.enrollment.is_open:
@@ -295,32 +294,24 @@ class Dispatcher:
                 reply_to_message_id=command_context.msg_id_to_reply_to,
             )
 
-    def _get_chat_id(self, update: dict) -> str:
-        if "message" in update:
-            chat_id = update["message"]["chat"]["id"]
-        elif "callback_query" in update:
-            chat_id = update["callback_query"]["message"]["chat"]["id"]
-        elif "my_chat_member" in update:
-            chat_id = update["my_chat_member"]["chat"]["id"]
-        elif "channel_post" in update:
-            chat_id = update["channel_post"]["chat"]["id"]
-        else:
-            raise ValueError(
-                "Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' or 'channel_post' found"
-            )
+    def _get_chat_and_from_ids(self, update: dict) -> tuple[str, str]:
+        """Get the chat an update comes from and the user who sent it.
 
-        return str(chat_id)
+        Args:
+            update (dict): The update as Telegram sent it.
 
-    def _get_from_id(self, update: dict) -> str:
-        if "message" in update:
-            from_id = update.get("message", {}).get("from", {}).get("id", "")
-        elif "callback_query" in update:
-            from_id = update.get("callback_query", {}).get("from", {}).get("id", "")
-        elif "my_chat_member" in update:
-            from_id = update.get("my_chat_member", {}).get("from", {}).get("id", "")
-        elif "channel_post" in update:
-            from_id = update.get("channel_post", {}).get("from", {}).get("id", "")
-        else:
-            raise ValueError("Unsupported update type: no 'message' or 'callback_query' or 'my_chat_member' found")
+        Returns:
+            tuple[str, str]: The id of the chat, then the id of the user, empty when the update has no author.
 
-        return str(from_id)
+        Raises:
+            ValueError: If the update is of a type the bot does not handle.
+        """
+        update_types = ("message", "callback_query", "my_chat_member", "channel_post")
+
+        for update_type in update_types:
+            if update_type in update:
+                update_content = update[update_type]
+                chat = update_content["message"]["chat"] if update_type == "callback_query" else update_content["chat"]
+                return str(chat["id"]), str(update_content.get("from", {}).get("id", ""))
+
+        raise ValueError(f"Unsupported update type: none of {update_types} found")
