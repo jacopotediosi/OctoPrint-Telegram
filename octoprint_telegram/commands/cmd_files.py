@@ -135,7 +135,7 @@ class CmdFiles(BaseCommand):
 
         if action == "list":
             if argument:
-                menu_state.folder = self._get_chosen_item(menu_state, argument)
+                menu_state.folder = self.require_menu_chosen_item(menu_state.items, argument)
                 menu_state.page = 0
             self._file_list(command_context, menu_state)
 
@@ -162,7 +162,7 @@ class CmdFiles(BaseCommand):
 
         elif action == "info":
             if argument:
-                menu_state.selected = self._get_chosen_item(menu_state, argument)
+                menu_state.selected = self.require_menu_chosen_item(menu_state.items, argument)
             self._file_info(command_context, menu_state)
 
         elif action == "details":
@@ -171,9 +171,9 @@ class CmdFiles(BaseCommand):
         elif action == "settings":
             setting, _, value = argument.partition("_")
             if setting == "sort":
-                self._file_sort_setting(command_context, menu_state, value == "bydate" if value else None)
+                self._file_sort_setting(command_context, menu_state, {"byname": False, "bydate": True}.get(value))
             elif setting == "models":
-                self._file_models_setting(command_context, menu_state, value == "show" if value else None)
+                self._file_models_setting(command_context, menu_state, {"hide": False, "show": True}.get(value))
             else:
                 self._file_settings(command_context, menu_state)
 
@@ -200,7 +200,7 @@ class CmdFiles(BaseCommand):
                 if argument == "up":
                     menu_state.target = "/".join((menu_state.target or "").split("/")[:-1]) or None
                 elif argument:
-                    menu_state.target = self._get_chosen_item(menu_state, argument)
+                    menu_state.target = self.require_menu_chosen_item(menu_state.items, argument)
                 self._file_copy_move_destination(command_context, menu_state)
 
         elif action == "selectforprint":
@@ -210,27 +210,10 @@ class CmdFiles(BaseCommand):
             if not argument:
                 self._clear_slice_choices_from(menu_state, "slicer")
             elif argument.isdigit():
-                self._pick_slice_option(menu_state, self._get_chosen_item(menu_state, argument))
+                self._pick_slice_option(menu_state, self.require_menu_chosen_item(menu_state.items, argument))
             elif argument in ("slicer", "slicerprofile", "printerprofile"):
                 self._clear_slice_choices_from(menu_state, argument)
             self._file_slice(command_context, menu_state, confirmed=argument == "confirm")
-
-    def _get_chosen_item(self, menu_state: FilesMenuState, position: str) -> str:
-        """Return the path of the entry the user picked.
-
-        Args:
-            menu_state (FilesMenuState): The state of the menu the entry was picked from.
-            position (str): The position the button carries.
-
-        Returns:
-            str: The path of the entry, its storage included.
-
-        Raises:
-            StaleMenuError: If the menu offers no entry at that position.
-        """
-        if not position.isdigit() or int(position) >= len(menu_state.items):
-            raise StaleMenuError
-        return menu_state.items[int(position)]
 
     def _split_storage_and_path(self, path_with_storage: str) -> tuple[str, str]:
         """Return the storage a path is in and the path inside it.
@@ -1257,7 +1240,13 @@ class CmdFiles(BaseCommand):
         slicer_profile_id = menu_state.slicer_profile
 
         # Get slicer profile name by slicer profile id and add it to msg
-        slicer_profile_name = next((p.display_name.strip() for p in slicer_profiles if p.name == slicer_profile_id), "")
+        slicer_profile_name = next(
+            (p.display_name.strip() for p in slicer_profiles if p.name == slicer_profile_id), None
+        )
+        if slicer_profile_name is None:
+            msg = render_emojis("{emo:attention} The slicer profile you chose is not available")
+            self.send_answer(command_context, msg, None)
+            return
         msg += render_emojis(
             f"{{emo:settings}} Selected slicer profile: <code>{html.escape(slicer_profile_name)}</code>\n"
         )
@@ -1292,9 +1281,12 @@ class CmdFiles(BaseCommand):
         printer_profile_id = menu_state.printer_profile
 
         # Get printer profile name by printer profile id and add it to msg
-        printer_profile_name = (
-            (self.plugin_context.printer_profiles.get(printer_profile_id) or {}).get("name", "").strip()
-        )
+        selected_printer_profile = self.plugin_context.printer_profiles.get(printer_profile_id)
+        if selected_printer_profile is None:
+            msg = render_emojis("{emo:attention} The printer profile you chose is not available")
+            self.send_answer(command_context, msg, None)
+            return
+        printer_profile_name = selected_printer_profile.get("name", "").strip()
         msg += render_emojis(
             f"{{emo:settings}} Selected printer profile: <code>{html.escape(printer_profile_name)}</code>\n"
         )

@@ -7,7 +7,7 @@ from typing import Sequence
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 try:
@@ -254,7 +254,7 @@ class CmdCon(BaseCommand):
             return None
 
         menu_state = self.require_menu_state(command_context, ConMenuState)
-        profile_id = self._chosen_option(menu_state, params[0])
+        profile_id = self.require_menu_chosen_item(menu_state.options, params[0])
 
         return {
             "connector": preferred_connector,
@@ -301,7 +301,7 @@ class CmdCon(BaseCommand):
 
         # Step 2: ask baudrate, either after the port was picked or coming back from the profile
         if step == "port" or (step == "baudrate" and not choice):
-            port = self._chosen_option(menu_state, choice) if step == "port" else menu_state.port
+            port = self.require_menu_chosen_item(menu_state.options, choice) if step == "port" else menu_state.port
             self._ask_choice(
                 command_context,
                 parent="connect_serial",
@@ -316,7 +316,7 @@ class CmdCon(BaseCommand):
 
         # Step 3: ask profile (skip if at most one available)
         if step == "baudrate":
-            baudrate = self._chosen_option(menu_state, choice)
+            baudrate = self.require_menu_chosen_item(menu_state.options, choice)
 
             if len(profile_ids) <= 1:
                 return {
@@ -341,7 +341,7 @@ class CmdCon(BaseCommand):
             return {
                 "connector": "serial",
                 "parameters": {"port": menu_state.port, "baudrate": menu_state.baudrate},
-                "profile": self._chosen_option(menu_state, choice),
+                "profile": self.require_menu_chosen_item(menu_state.options, choice),
             }
 
         return None
@@ -387,23 +387,6 @@ class CmdCon(BaseCommand):
         menu_state = ConMenuState(values, port=port, baudrate=baudrate)
 
         self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
-
-    def _chosen_option(self, menu_state: ConMenuState, choice: str) -> str | int | None:
-        """Return the value behind the option the user picked.
-
-        Args:
-            menu_state (ConMenuState): The state of the menu the option was picked from.
-            choice (str): The position the button carries.
-
-        Returns:
-            str | int | None: The value behind the option, or None if the user picked AUTO.
-
-        Raises:
-            StaleMenuError: If the menu offers no option at that position.
-        """
-        if not choice.isdigit() or int(choice) >= len(menu_state.options):
-            raise StaleMenuError
-        return menu_state.options[int(choice)]
 
     def _build_connection_summary(self, connector: str | None, parameters: dict | None) -> str:
         connector_label = "Default"

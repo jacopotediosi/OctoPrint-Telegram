@@ -64,7 +64,7 @@ class CmdSettings(BaseCommand):
             if value:
                 if value.startswith(("+", "-")):
                     menu_state.notification_height = max(menu_state.notification_height + float(value), 0)
-                else:
+                elif value == "save":
                     self.plugin_context.settings.notification_height = menu_state.notification_height
                     self.plugin_context.settings.save()
 
@@ -85,7 +85,7 @@ class CmdSettings(BaseCommand):
             if value:
                 if value.startswith(("+", "-")):
                     menu_state.notification_time = max(menu_state.notification_time + int(value), 0)
-                else:
+                elif value == "save":
                     self.plugin_context.settings.notification_time = menu_state.notification_time
                     self.plugin_context.settings.save()
 

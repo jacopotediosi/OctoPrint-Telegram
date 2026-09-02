@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Sequence, TypeVar
 
 from ..telegram import AwaitedReply, Keyboard, Markup, MenuState, StaleMenuError
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..core.context import PluginContext
 
 T = TypeVar("T", bound=MenuState)
+MenuChosenItem = TypeVar("MenuChosenItem")
 
 
 @dataclass
@@ -93,6 +94,23 @@ class BaseCommand(ABC):
         if menu_state is None:
             raise StaleMenuError
         return menu_state
+
+    def require_menu_chosen_item(self, menu_items: Sequence[MenuChosenItem], position: str) -> MenuChosenItem:
+        """Return the entry the user picked from a menu.
+
+        Args:
+            menu_items (Sequence): The entries the menu offers, in the order they are offered.
+            position (str): The position the button carries.
+
+        Returns:
+            MenuChosenItem: The entry at that position.
+
+        Raises:
+            StaleMenuError: If the menu offers no entry at that position.
+        """
+        if not position.isdecimal() or int(position) >= len(menu_items):
+            raise StaleMenuError
+        return menu_items[int(position)]
 
     def send_answer(
         self,

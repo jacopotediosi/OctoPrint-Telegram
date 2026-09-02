@@ -43,17 +43,13 @@ class CmdCtrl(BaseCommand):
             return
 
         if command_context.parameter:
-            params = command_context.parameter.split("_")
+            action, _, argument = command_context.parameter.partition("_")
 
-            control_index = params[1] if params[0] == "execute" else params[0]
+            control_index = argument if action == "execute" else action
 
             menu_state = self.require_menu_state(command_context, CtrlMenuState)
 
-            control_identifier = (
-                menu_state.control_identifiers[int(control_index)]
-                if control_index.isdigit() and int(control_index) < len(menu_state.control_identifiers)
-                else None
-            )
+            control_identifier = self.require_menu_chosen_item(menu_state.control_identifiers, control_index)
 
             controls = self._get_controls()
             control = next((c for c in controls if c["identifier"] == control_identifier), None)
@@ -62,7 +58,7 @@ class CmdCtrl(BaseCommand):
                 self.send_answer(command_context, render_emojis("{emo:attention} Control Command not found."), None)
                 return
 
-            if "confirm" in control and params[0] != "execute":  # Control requires confirmation, ask for it
+            if "confirm" in control and action != "execute":  # Control requires confirmation, ask for it
                 msg = render_emojis(
                     f"{{emo:question}} Execute control command <code>{html.escape(control['name'])}</code>?\n"
                     f"{{emo:info}} Confirmation message: <code>{html.escape(control['confirm'])}</code>"

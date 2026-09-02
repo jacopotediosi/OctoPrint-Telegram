@@ -103,17 +103,7 @@ class CmdPower(BaseCommand):
             keyboard = Keyboard(command_context.cmd)
             keyboard.add_row((BACK_LABEL, ""), CLOSE_BUTTON)
 
-            if not (plug_index.isdigit() and int(plug_index) < len(menu_state.plugs)):
-                self.send_answer(
-                    command_context,
-                    render_emojis("{emo:attention} Selected plug not found!"),
-                    None,
-                    markup=Markup.HTML,
-                    keyboard=keyboard,
-                )
-                return
-
-            plugin_id, plug = menu_state.plugs[int(plug_index)]
+            plugin_id, plug = self.require_menu_chosen_item(menu_state.plugs, plug_index)
 
             plugin_handler = next((plugin for plugin in available_plugins if plugin.plugin_id == plugin_id), None)
 

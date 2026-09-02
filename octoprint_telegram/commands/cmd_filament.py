@@ -7,13 +7,25 @@ from typing_extensions import override
 
 from ..emoji import Emoji
 from ..integrations.filament import FILAMENT_PLUGINS
-from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup
+from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
 from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
 
 render_emojis = Emoji.render_emojis
+
+
+class FilamentMenuState(MenuState):
+    """The spools offered in the menu."""
+
+    def __init__(self, spools: list[tuple[str, str]]) -> None:
+        """Set up the spools offered in the menu.
+
+        Args:
+            spools (list[tuple[str, str]]): The id and the description of each spool, in the order they are offered.
+        """
+        self.spools = spools
 
 
 class CmdFilament(BaseCommand):
@@ -34,7 +46,8 @@ class CmdFilament(BaseCommand):
         """Manage filament spools.
 
         Possible callback queries, where {plugin_id} stands for the id of a filament plugin, {page} for a
-        page of the spool list, {tool} for the number of a tool and {spool_id} for the id of a spool:
+        page of the spool list, {tool} for the number of a tool and {position} for the position of a spool
+        in the page being shown:
 
         - /filament -> ask which filament plugin to use, or take the only one installed
         - /filament_{plugin_id} -> ask whether to show the spools of that plugin or to select one of them
@@ -42,14 +55,14 @@ class CmdFilament(BaseCommand):
         Showing spools:
         - /filament_{plugin_id}_show -> show the first page of the spools of that plugin
         - /filament_{plugin_id}_show_{page} -> show that page of the spools of that plugin
-        - /filament_{plugin_id}_show_{page}_{spool_id} -> show the details of that spool
+        - /filament_{plugin_id}_show_{page}_{position} -> show the details of the spool at that position
 
         Selecting a spool:
         - /filament_{plugin_id}_select -> ask which tool to select a spool for, or take the only one there is
         - /filament_{plugin_id}_select_{tool} -> show the first page of the spools that tool can be given
         - /filament_{plugin_id}_select_{tool}_{page} -> show that page of the spools that tool can be given
-        - /filament_{plugin_id}_select_{tool}_{page}_{spool_id} -> give that spool to that tool
-        - /filament_{plugin_id}_select_{tool}_{page}_deselect -> take away the spool given to that tool
+        - /filament_{plugin_id}_select_{tool}_{page}_{position} -> give the spool at that position to that tool,
+          or take away the spool given to it when the position is the one of the Deselect entry
         """
         supported_plugins = self.supported_plugins
 
@@ -121,15 +134,18 @@ class CmdFilament(BaseCommand):
 
             return
 
-        self.send_answer(command_context, render_emojis("{emo:loading} Loading spools..."), None)
+        menu_state = self.plugin_context.menu_states.get_menu_state(
+            command_context.chat_id, command_context.msg_id_to_update, FilamentMenuState
+        )
+        self.send_answer(command_context, render_emojis("{emo:loading} Loading spools..."), menu_state)
 
         operation = params[1]
 
         if operation == "show":
-            page_number = int(params[2] or 0) if len(params) > 2 else 0
-            spool_id = params[3] if len(params) > 3 else None
+            page_number = int(params[2]) if len(params) > 2 and params[2].isdecimal() else 0
+            spool_position = params[3] if len(params) > 3 else None
 
-            if spool_id is None:  # Show all spools
+            if spool_position is None:  # Show all spools
                 spools = list(plugin_handler.list_spool().items())
 
                 total_spools = len(spools)
@@ -146,9 +162,9 @@ class CmdFilament(BaseCommand):
                     [
                         (
                             listed_spool_description,
-                            f"{plugin_handler.plugin_id}_show_{page_number}_{listed_spool_id}",
+                            f"{plugin_handler.plugin_id}_show_{page_number}_{listed_spool_position}",
                         )
-                        for listed_spool_id, listed_spool_description in paginated_spools
+                        for listed_spool_position, (_, listed_spool_description) in enumerate(paginated_spools)
                     ],
                     buttons_per_row=1,
                 )
@@ -173,9 +189,14 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
+                self.send_answer(
+                    command_context, msg, FilamentMenuState(paginated_spools), markup=Markup.HTML, keyboard=keyboard
+                )
 
             else:  # Show spool details
+                menu_state = self.require_menu_state(command_context, FilamentMenuState)
+                spool_id, _ = self.require_menu_chosen_item(menu_state.spools, spool_position)
+
                 spool_details = plugin_handler.get_spool_details_msg(spool_id)
 
                 msg = render_emojis(
@@ -189,14 +210,19 @@ class CmdFilament(BaseCommand):
                 self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
         elif operation == "select":
-            tool_index = params[2] if len(params) > 2 else None
-            page_number = int(params[3] or 0) if len(params) > 3 else 0
-            spool_id = params[4] if len(params) > 4 else None
+            page_number = int(params[3]) if len(params) > 3 and params[3].isdecimal() else 0
+            spool_position = params[4] if len(params) > 4 else None
 
             printer_profile = self.plugin_context.printer_profiles.get_current_or_default()
             printer_profile_extruder = printer_profile["extruder"]
             tool_counts = printer_profile_extruder.get("count", 1)
             has_multiple_tools = tool_counts > 1
+
+            tool_index = (
+                self.require_menu_chosen_item([str(tool) for tool in range(tool_counts)], params[2])
+                if len(params) > 2
+                else None
+            )
 
             if tool_index is None and not has_multiple_tools:
                 tool_index = "0"
@@ -225,7 +251,7 @@ class CmdFilament(BaseCommand):
 
                 return
 
-            if spool_id is None:  # Show spool selection menu
+            if spool_position is None:  # Show spool selection menu
                 configured_spools = list(plugin_handler.list_spool().items())
                 spools = [("deselect", "Deselect"), *configured_spools]
 
@@ -243,9 +269,9 @@ class CmdFilament(BaseCommand):
                     [
                         (
                             listed_spool_description,
-                            f"{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{listed_spool_id}",
+                            f"{plugin_handler.plugin_id}_select_{tool_index}_{page_number}_{listed_spool_position}",
                         )
-                        for listed_spool_id, listed_spool_description in paginated_spools
+                        for listed_spool_position, (_, listed_spool_description) in enumerate(paginated_spools)
                     ],
                     buttons_per_row=1,
                 )
@@ -286,9 +312,14 @@ class CmdFilament(BaseCommand):
                         f"{{emo:warning}} No spool configured in plugin <code>{html.escape(plugin_handler.plugin_name)}</code>.\n"
                     )
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
+                self.send_answer(
+                    command_context, msg, FilamentMenuState(paginated_spools), markup=Markup.HTML, keyboard=keyboard
+                )
 
             else:  # Select
+                menu_state = self.require_menu_state(command_context, FilamentMenuState)
+                spool_id, spool_title = self.require_menu_chosen_item(menu_state.spools, spool_position)
+
                 if spool_id == "deselect":
                     plugin_handler.deselect_spool(tool_index)
 
@@ -298,7 +329,6 @@ class CmdFilament(BaseCommand):
                 else:
                     plugin_handler.select_spool(tool_index, spool_id)
 
-                    spool_title = plugin_handler.list_spool()[spool_id]
                     msg = render_emojis(
                         f"{{emo:check}} Successfully selected spool <code>{html.escape(spool_title)}</code> for <code>Tool {html.escape(tool_index)}</code>!"
                     )
