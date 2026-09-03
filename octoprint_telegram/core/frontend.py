@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from octoprint.access.permissions import Permissions
+
 if TYPE_CHECKING:
     from octoprint.plugin.core import PluginManager
 
@@ -22,11 +24,15 @@ class Frontend:
     def update_known_chats(self, chats: dict) -> None:
         """Update the given chats in the known chats table."""
         self._plugin_manager.send_plugin_message(
-            self._plugin_identifier, {"type": "update_known_chats", "chats": chats}
+            self._plugin_identifier,
+            {"type": "update_known_chats", "chats": chats},
+            permissions=[Permissions.SETTINGS],
         )
 
     def update_enrollment_countdown(self, remaining_seconds: int) -> None:
         """Update how long new chats may be enrolled."""
         self._plugin_manager.send_plugin_message(
-            self._plugin_identifier, {"type": "enrollment_countdown", "remaining": remaining_seconds}
+            self._plugin_identifier,
+            {"type": "enrollment_countdown", "remaining": remaining_seconds},
+            permissions=[Permissions.SETTINGS],
         )
