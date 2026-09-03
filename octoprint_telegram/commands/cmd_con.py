@@ -140,15 +140,8 @@ class CmdCon(BaseCommand):
         keyboard = Keyboard(command_context.cmd)
         if self.plugin_context.printer.is_closed_or_error():
             keyboard.add_row(("{emo:online} Connect", "connect"), CLOSE_BUTTON)
-        elif (
-            self.plugin_context.printer.is_printing()
-            or self.plugin_context.printer.is_pausing()
-            or self.plugin_context.printer.is_paused()
-            or self.plugin_context.printer.is_resuming()
-            or self.plugin_context.printer.is_cancelling()
-            or self.plugin_context.printer.is_finishing()
-        ):
-            msg += render_emojis("\n\n{emo:warning} You can't disconnect while printing.")
+        elif self._is_print_in_progress():
+            msg += render_emojis("\n\n{emo:warning} You can't disconnect while printing. Use /abort to stop the print.")
             keyboard.add_row(CLOSE_BUTTON)
         else:
             keyboard.add_row(("{emo:offline} Disconnect", "disconnect"), CLOSE_BUTTON)
@@ -157,9 +150,12 @@ class CmdCon(BaseCommand):
         self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
     def _disconnect(self, command_context: CommandContext, _params: list[str]) -> None:
-        self.plugin_context.printer.disconnect()
+        if self._is_print_in_progress():
+            msg = render_emojis("{emo:warning} You can't disconnect while printing. Use /abort to stop the print.")
+        else:
+            self.plugin_context.printer.disconnect()
 
-        msg = render_emojis("{emo:check} Printer disconnected.")
+            msg = render_emojis("{emo:check} Printer disconnected.")
 
         keyboard = Keyboard(command_context.cmd)
         keyboard.add_row((BACK_LABEL, ""))
@@ -412,6 +408,21 @@ class CmdCon(BaseCommand):
         lines.append("")
         lines.append("")
         return "\n".join(lines)
+
+    def _is_print_in_progress(self) -> bool:
+        """Whether a print is in progress.
+
+        Returns:
+            bool: True if a print is in progress.
+        """
+        return (
+            self.plugin_context.printer.is_printing()
+            or self.plugin_context.printer.is_pausing()
+            or self.plugin_context.printer.is_paused()
+            or self.plugin_context.printer.is_resuming()
+            or self.plugin_context.printer.is_cancelling()
+            or self.plugin_context.printer.is_finishing()
+        )
 
     def _is_serial_connection_available(self) -> bool:
         # Serial connection is always available on OctoPrint < 2.0.0 (no connectors at all)
