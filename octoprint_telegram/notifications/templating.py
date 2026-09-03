@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import _string  # type: ignore
 import string
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
@@ -160,6 +161,21 @@ class _TemplateContext(dict):
 class _TemplateFormatter(string.Formatter):
     """The formatter resolving every placeholder of a template through its context."""
 
+    def __init__(self, markup: Markup) -> None:
+        super().__init__()
+        self._markup = markup
+
+    @override
+    def get_field(self, field_name: str, args: Sequence[Any], kwargs: Mapping[str, Any]) -> tuple[Any, str]:
+        """Resolve a placeholder to its value, navigating into it with keys and indexes."""
+        _first, rest = _string.formatter_field_name_split(field_name)
+
+        # Dot navigation is refused: reading attributes would escape the template variables, allowing template injection
+        if any(is_attribute for is_attribute, _element in rest):
+            return _UnknownPlaceholder(field_name, self._markup), field_name
+
+        return super().get_field(field_name, args, kwargs)
+
     @override
     def get_value(
         self, key: str | int, args: Sequence[Any], kwargs: Mapping[str, Any]
@@ -182,4 +198,4 @@ def render(template: str, variables: NotificationVariables, markup: Markup, logg
     Returns:
         str: The filled template.
     """
-    return _TemplateFormatter().vformat(template, (), _TemplateContext(variables, markup, logger))
+    return _TemplateFormatter(markup).vformat(template, (), _TemplateContext(variables, markup, logger))
