@@ -25,7 +25,15 @@ class TPLinkSmartplugPowerPlugin(PowerPlugin):
             try:
                 plug_ip = plug["ip"]
                 label = plug.get("label") or plug_ip
-                is_on = plug.get("currentState", "").lower() == "on"
+
+                is_on = False
+                try:
+                    response = self.plugin_context.api.send_simpleapi_command(
+                        self.plugin_id, "checkStatus", {"ip": plug_ip}
+                    )
+                    is_on = response.json().get("currentState", "").lower() == "on"
+                except Exception:
+                    self._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 
                 plugs_data.append({"label": label, "is_on": is_on, "data": plug_ip})
             except Exception:
