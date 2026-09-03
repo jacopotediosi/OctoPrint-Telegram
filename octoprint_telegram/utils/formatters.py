@@ -34,6 +34,27 @@ def format_eta(settings: Settings, seconds_from_now: float) -> str:
     return finish_time.strftime(time_format)
 
 
+def format_short_exception(error: BaseException) -> str:
+    """Format an exception as a short reason.
+
+    Args:
+        error (BaseException): The exception to describe.
+
+    Returns:
+        str: The reason (e.g. "[Errno -2] Name or service not known", "Unauthorized").
+    """
+    cause = error
+    next_cause = cause.__cause__ or cause.__context__
+    while next_cause:
+        cause, next_cause = next_cause, next_cause.__cause__ or next_cause.__context__
+
+    description = getattr(error, "description", "")
+    if description:
+        return description
+
+    return str(cause) if isinstance(cause, OSError) else str(error)[:200]
+
+
 def format_size(bytes_value: float | None) -> str:
     """Format file size in human readable format.
 

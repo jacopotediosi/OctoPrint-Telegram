@@ -7,7 +7,7 @@ from octoprint.access.permissions import Permissions
 
 from ..commands import registry
 from ..notifications import NOTIFICATION_DEFINITIONS
-from ..utils import resolve_cpulimiter_path, resolve_ffmpeg_path
+from ..utils import format_short_exception, resolve_cpulimiter_path, resolve_ffmpeg_path
 
 if TYPE_CHECKING:
     from flask import Response
@@ -191,7 +191,7 @@ class Api:
                 return jsonify(
                     {
                         "ok": False,
-                        "connection_state_str": f"Error testing token: {e}",
+                        "connection_state_str": f"Error testing token: {format_short_exception(e)}",
                         "username": None,
                     }
                 )

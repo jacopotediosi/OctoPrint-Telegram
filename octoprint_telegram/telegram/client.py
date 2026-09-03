@@ -28,6 +28,9 @@ class TelegramRequestError(Exception):
             message (str): The description of what went wrong.
             telegram_response_text (str, optional): The raw body Telegram answered with.
         """
+        message = TOKEN_REGEX.sub("REDACTED", message)
+        telegram_response_text = TOKEN_REGEX.sub("REDACTED", telegram_response_text)
+
         super().__init__(message)
 
         try:

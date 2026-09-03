@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
+from ..utils import format_short_exception
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
@@ -65,7 +66,8 @@ class Listener(threading.Thread):
                 self._set_status(f"Connected as {self._username}", ok=True)
             except Exception as e:
                 error_message = (
-                    f"Caught an exception connecting to telegram: {e}. Waiting 2 minutes before trying again."
+                    f"Caught an exception connecting to telegram: {format_short_exception(e)}. "
+                    "Waiting 2 minutes before trying again."
                 )
 
                 self._logger.exception(error_message)
@@ -78,7 +80,10 @@ class Listener(threading.Thread):
         try:
             updates = self._get_updates()
         except Exception as e:
-            error_message = f"Caught an exception getting updates: {e}. Waiting 2 minutes before trying again."
+            error_message = (
+                f"Caught an exception getting updates: {format_short_exception(e)}. "
+                "Waiting 2 minutes before trying again."
+            )
 
             self._logger.exception(error_message)
             self._set_status(error_message)
