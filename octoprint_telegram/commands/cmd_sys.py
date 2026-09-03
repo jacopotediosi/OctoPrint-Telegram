@@ -56,9 +56,9 @@ class CmdSys(BaseCommand):
                 if not command_to_execute:
                     return
 
-                if not confirmed:  # Ask for confirmation
-                    command_label = self.SERVER_COMMAND_LABELS[action_identifier]
+                command_label = self.SERVER_COMMAND_LABELS[action_identifier]
 
+                if not confirmed:  # Ask for confirmation
                     msg = render_emojis(f"{{emo:question}} Execute System Command <b>{html.escape(command_label)}</b>?")
 
                     keyboard = Keyboard(command_context.cmd)
@@ -67,6 +67,8 @@ class CmdSys(BaseCommand):
                     self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
                 else:  # Execute command
+                    self._logger.info("Executing system command %s", command_label)
+
                     try:
                         process = sarge.run(  # noqa: S604
                             command_to_execute, stderr=sarge.Capture(), shell=True, async_=False
@@ -76,16 +78,25 @@ class CmdSys(BaseCommand):
                             returncode = str(process.returncode)
                             stderr_text = str(process.stderr.text)
 
-                            self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
+                            self._logger.warning(
+                                "System command %s failed with return code %s: %s",
+                                command_label,
+                                returncode,
+                                stderr_text,
+                            )
 
                             msg = render_emojis(
-                                f"{{emo:attention}} Command failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                                f"{{emo:attention}} System Command <b>{html.escape(command_label)}</b> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
                             )
                         else:
-                            msg = render_emojis("{emo:check} System Command executed.")
+                            msg = render_emojis(
+                                f"{{emo:check}} System Command <b>{html.escape(command_label)}</b> executed."
+                            )
                     except Exception:
-                        self._logger.exception("Caught an exception executing system command")
-                        msg = render_emojis("{emo:attention} Command failed, please check log files.")
+                        self._logger.exception("Caught an exception executing system command %s", command_label)
+                        msg = render_emojis(
+                            f"{{emo:attention}} System Command <b>{html.escape(command_label)}</b> failed, please check log files."
+                        )
 
                     self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
@@ -100,7 +111,7 @@ class CmdSys(BaseCommand):
                             command = action
                             break
                     except Exception:
-                        self._logger.exception("Caught an exception parsing system actions")
+                        self._logger.exception("Caught an exception parsing system action %s", action)
 
                 if not command:
                     self.send_answer(
@@ -124,6 +135,8 @@ class CmdSys(BaseCommand):
                 else:  # Execute command
                     async_ = command.get("async", False)
 
+                    self._logger.info("Executing system command %s", command["name"])
+
                     try:
                         process = sarge.run(  # noqa: S604
                             command["command"],
@@ -140,14 +153,21 @@ class CmdSys(BaseCommand):
                             returncode = str(process.returncode)
                             stderr_text = str(process.stderr.text)
 
-                            self._logger.warning("Command failed with return code %s: %s", returncode, stderr_text)
+                            self._logger.warning(
+                                "System command %s failed with return code %s: %s",
+                                command["name"],
+                                returncode,
+                                stderr_text,
+                            )
 
                             msg = render_emojis(
-                                f"{{emo:attention}} Command <code>{html.escape(command['name'])}</code> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
+                                f"{{emo:attention}} System Command <code>{html.escape(command['name'])}</code> failed with return code <code>{html.escape(returncode)}</code>: <code>{html.escape(stderr_text)}</code>."
                             )
                     except Exception:
-                        self._logger.exception("Caught an exception executing system command")
-                        msg = render_emojis("{emo:attention} Command failed, please check log files.")
+                        self._logger.exception("Caught an exception executing system command %s", command["name"])
+                        msg = render_emojis(
+                            f"{{emo:attention}} System Command <code>{html.escape(command['name'])}</code> failed, please check log files."
+                        )
 
                     self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
@@ -163,7 +183,7 @@ class CmdSys(BaseCommand):
                     offered_actions.append(("custom", f"{action['name']}-{action['action']}-{action['command']}"))
                     keyboard.add_row((f"{action['name']}", str(len(offered_actions) - 1)))
                 except Exception:
-                    self._logger.exception("Caught an exception parsing system actions")
+                    self._logger.exception("Caught an exception parsing system action %s", action)
 
             server_commands_buttons = []
             for command_key, command_label in self.SERVER_COMMAND_LABELS.items():
