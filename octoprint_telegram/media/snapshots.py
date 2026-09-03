@@ -121,6 +121,12 @@ class Snapshots:
                 if rotate:
                     transformed_image = transformed_image.transpose(Image.Transpose.ROTATE_90)
 
+            if transformed_image.mode != "RGB":
+                transformed_image = Image.alpha_composite(
+                    Image.new("RGBA", transformed_image.size, "white"),
+                    transformed_image.convert("RGBA"),
+                ).convert("RGB")
+
             with io.BytesIO() as output:
                 transformed_image.save(output, format="JPEG")
                 return output.getvalue()
