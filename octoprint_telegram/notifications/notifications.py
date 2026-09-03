@@ -283,6 +283,7 @@ class Notifications:
                     f"{{emo:attention}} I was not able to format the Notification for the event '{event}' properly.\n"
                     f"Please open your OctoPrint settings for {self._plugin_name} and check message settings for the event '{event}'."
                 )
+                markup = Markup.OFF
 
             # Send the message
             self._logger.debug("Sending notification: %s", message)
