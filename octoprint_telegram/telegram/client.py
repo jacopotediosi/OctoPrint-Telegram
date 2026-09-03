@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from ..core.settings import Settings
 
-TOKEN_REGEX = re.compile(r"[\d]{8,10}:[\w-]{35}")
+TOKEN_REGEX = re.compile(r"[0-9]{6,16}:[A-Za-z0-9_-]{34,40}")
 
 API_BASE_URL = "https://api.telegram.org"
 
