@@ -357,12 +357,8 @@ class CmdFiles(BaseCommand):
             if page_row:
                 keyboard.add_row(*page_row)
 
-            # Actions row: back, search, settings, close
+            # Actions row: search, settings, back, close
             actions_row = []
-
-            # Back button (out of the search being shown, or to the parent folder)
-            if menu_state.query or not path_is_storage_root:
-                actions_row.append((BACK_LABEL, "up"))
 
             # Search
             if not menu_state.query:
@@ -371,11 +367,14 @@ class CmdFiles(BaseCommand):
             # Settings
             actions_row.append(("{emo:settings} Settings", "settings"))
 
-            # Back to storage selection, or close
-            if path_is_storage_root and not menu_state.query and len(storages) > 1:
+            # Back button (out of the search being shown, to the parent folder, or to the storage selection)
+            if menu_state.query or not path_is_storage_root:
+                actions_row.append((BACK_LABEL, "up"))
+            elif len(storages) > 1:
                 actions_row.append((BACK_LABEL, ""))
-            else:
-                actions_row.append(CLOSE_BUTTON)
+
+            # Close
+            actions_row.append(CLOSE_BUTTON)
 
             keyboard.add_row(*actions_row)
 
