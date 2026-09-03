@@ -110,7 +110,7 @@ class Sender:
         try:
             # Delay
             if delay > 0:
-                self._logger.debug("Sleeping %s seconds", delay)
+                self._logger.debug("Send message: sleeping %s seconds", delay)
                 time.sleep(delay)
 
             # Prepare message data
@@ -126,16 +126,20 @@ class Sender:
                     {"message_id": int(reply_to_message_id), "allow_sending_without_reply": True}
                 )
 
+            images, gifs = [], []
+            if with_image or with_gif:
+                with chat_action(self._telegram_client, chat_id, ChatAction.RECORD_VIDEO, self._logger):
+                    images, gifs = self._capture_media(with_image, with_gif, gif_duration)
+
             return self._send(
                 message,
                 chat_id,
                 message_data=message_data,
-                with_image=with_image,
-                with_gif=with_gif,
                 silent=silent,
-                gif_duration=gif_duration,
                 thumbnail=thumbnail,
                 movie=movie,
+                images=images,
+                gifs=gifs,
             )
         except Exception:
             self._logger.exception("Caught an exception in send_message()")
@@ -160,20 +164,34 @@ class Sender:
 
         self._logger.debug("notify() - event: %s", event)
 
-        for chat_id in self._chats.get_chats_subscribed_to(event):
+        chat_ids = [
+            chat_id for chat_id in self._chats.get_chats_subscribed_to(event) if not self._muted_chats.is_muted(chat_id)
+        ]
+        if not chat_ids:
+            return
+
+        # Delay
+        if delay > 0:
+            self._logger.debug("Notify: sleeping %s seconds", delay)
+            time.sleep(delay)
+
+        images, gifs = self._capture_media(with_image, with_gif)
+
+        for chat_id in chat_ids:
             try:
-                if not self._muted_chats.is_muted(chat_id):
-                    self.send_message(
-                        message,
-                        chat_id,
-                        markup=markup,
-                        delay=delay,
-                        silent=silent,
-                        with_image=with_image,
-                        with_gif=with_gif,
-                        thumbnail=thumbnail,
-                        movie=movie,
-                    )
+                message_data = {"chat_id": chat_id}
+                self._apply_markup(message_data, markup)
+
+                self._send(
+                    message,
+                    chat_id,
+                    message_data=message_data,
+                    silent=silent,
+                    thumbnail=thumbnail,
+                    movie=movie,
+                    images=images,
+                    gifs=gifs,
+                )
             except Exception:
                 self._logger.exception("Caught an exception processing chat %s", chat_id)
 
@@ -255,12 +273,11 @@ class Sender:
         chat_id: str,
         *,
         message_data: dict,
-        with_image: bool = False,
-        with_gif: bool = False,
         silent: bool = False,
-        gif_duration: int = 5,
         thumbnail: bytes | None = None,
         movie: str | None = None,
+        images: list[bytes] | None = None,
+        gifs: list[bytes] | None = None,
     ) -> str | None:
         """Deliver a new message to a chat."""
         try:
@@ -274,6 +291,9 @@ class Sender:
             # Add thumbnail to images to send
             if thumbnail:
                 images_to_send.append(thumbnail)
+
+            # Add webcam images to images to send
+            images_to_send += images or []
 
             # Add movie to gifs to send
             if movie:
@@ -289,33 +309,8 @@ class Sender:
                 except Exception:
                     self._logger.exception("Caught an exception reading the movie file")
 
-            if with_image or with_gif:
-                with chat_action(self._telegram_client, chat_id, ChatAction.RECORD_VIDEO, self._logger):
-                    # Pre image
-                    try:
-                        self._media.hooks.run_before_image()
-                    except Exception:
-                        self._logger.exception("Caught an exception calling run_before_image()")
-
-                    # Add webcam images to images to send
-                    if with_image:
-                        try:
-                            images_to_send += self._media.snapshots.take_all_images()
-                        except Exception:
-                            self._logger.exception("Caught an exception taking all images")
-
-                    # Add webcam gifs to gifs to send
-                    if with_gif:
-                        try:
-                            gifs_to_send += self._media.video.take_all_gifs(gif_duration)
-                        except Exception:
-                            self._logger.exception("Caught an exception taking all gifs")
-
-                    # Post image
-                    try:
-                        self._media.hooks.run_after_image()
-                    except Exception:
-                        self._logger.exception("Caught an exception calling run_after_image()")
+            # Add webcam gifs to gifs to send
+            gifs_to_send += gifs or []
 
             # Initialize files and media
             files = {}
@@ -366,6 +361,52 @@ class Sender:
             self._logger.exception("Caught an exception in _send()")
             self._report_failure(chat_id)
             return None
+
+    def _capture_media(
+        self, with_image: bool, with_gif: bool, gif_duration: int = 5
+    ) -> tuple[list[bytes], list[bytes]]:
+        """Take a snapshot and record a video from every webcam.
+
+        Args:
+            with_image (bool): Whether to take the snapshots.
+            with_gif (bool): Whether to record the videos.
+            gif_duration (int, optional): Seconds of video to record from each webcam.
+
+        Returns:
+            tuple[list[bytes], list[bytes]]: The content of the pictures taken, then of the videos recorded.
+        """
+        images, gifs = [], []
+
+        if not with_image and not with_gif:
+            return images, gifs
+
+        # Pre image
+        try:
+            self._media.hooks.run_before_image()
+        except Exception:
+            self._logger.exception("Caught an exception calling run_before_image()")
+
+        # Capture images
+        if with_image:
+            try:
+                images = self._media.snapshots.take_all_images()
+            except Exception:
+                self._logger.exception("Caught an exception taking all images")
+
+        # Capture gifs
+        if with_gif:
+            try:
+                gifs = self._media.video.take_all_gifs(gif_duration)
+            except Exception:
+                self._logger.exception("Caught an exception taking all gifs")
+
+        # Post image
+        try:
+            self._media.hooks.run_after_image()
+        except Exception:
+            self._logger.exception("Caught an exception calling run_after_image()")
+
+        return images, gifs
 
     def _fits_upload_limit(self, size_in_bytes: int, description: str) -> bool:
         """Whether something of a given size is small enough to upload.
