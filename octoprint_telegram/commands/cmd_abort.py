@@ -1,10 +1,24 @@
+import html
+
 from typing_extensions import override
 
 from ..emoji import Emoji
-from ..telegram import CLOSE_BUTTON, Keyboard
+from ..telegram import CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
+
+
+class AbortMenuState(MenuState):
+    """The print the menu offers to abort."""
+
+    def __init__(self, file_path: str) -> None:
+        """Set up the print the menu offers to abort.
+
+        Args:
+            file_path (str): The path of the file being printed, its storage included.
+        """
+        self.file_path = file_path
 
 
 class CmdAbort(BaseCommand):
@@ -15,9 +29,18 @@ class CmdAbort(BaseCommand):
         Possible callback queries:
 
         - /abort -> ask whether to abort the running print, or report that no print is running
-        - /abort_stop -> cancel the running print
+        - /abort_stop -> cancel the print the confirmation was asked for
+
+        Raises:
+            StaleMenuError: If the print the menu offers to abort is no longer the running one.
         """
         if command_context.parameter == "stop":
+            menu_state = self.require_menu_state(command_context, AbortMenuState)
+
+            job_file = self.plugin_context.printer.get_current_data().get("job", {}).get("file", {})
+            if f"{job_file.get('origin')}/{job_file.get('path')}" != menu_state.file_path:
+                raise StaleMenuError
+
             self.plugin_context.printer.cancel_print(user=command_context.user)
 
             msg = render_emojis("{emo:check} Aborting the print.")
@@ -29,12 +52,15 @@ class CmdAbort(BaseCommand):
                 or self.plugin_context.printer.is_pausing()
                 or self.plugin_context.printer.is_paused()
             ):
-                msg = render_emojis("{emo:question} Really abort the currently running print?")
+                job_file = self.plugin_context.printer.get_current_data().get("job", {}).get("file", {})
+                file_path = f"{job_file.get('origin')}/{job_file.get('path')}"
+
+                msg = render_emojis(f"{{emo:question}} Really abort printing <code>/{html.escape(file_path)}</code>?")
 
                 keyboard = Keyboard(command_context.cmd)
                 keyboard.add_row(("{emo:check} Stop print", "stop"), CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, None, keyboard=keyboard)
+                self.send_answer(command_context, msg, AbortMenuState(file_path), markup=Markup.HTML, keyboard=keyboard)
             else:
                 msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 
