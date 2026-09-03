@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -7,6 +8,7 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 from ..utils import format_short_exception
+from .dispatcher import SUPPORTED_UPDATE_TYPES
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
@@ -151,7 +153,11 @@ class Listener(threading.Thread):
         json_data = self._telegram_client.send_request(
             "getUpdates",
             HttpMethod.GET,
-            params={"offset": self._update_offset, "timeout": LONG_POLL_SECONDS},
+            params={
+                "offset": self._update_offset,
+                "timeout": LONG_POLL_SECONDS,
+                "allowed_updates": json.dumps(SUPPORTED_UPDATE_TYPES),
+            },
         )
 
         # Update update_offset

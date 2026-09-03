@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 render_emojis = Emoji.render_emojis
 
+SUPPORTED_UPDATE_TYPES = ("message", "callback_query", "my_chat_member", "channel_post")
+
 
 class Dispatcher:
     """Routes each update Telegram sends to whatever handles it."""
@@ -306,12 +308,10 @@ class Dispatcher:
         Raises:
             ValueError: If the update is of a type the bot does not handle.
         """
-        update_types = ("message", "callback_query", "my_chat_member", "channel_post")
-
-        for update_type in update_types:
+        for update_type in SUPPORTED_UPDATE_TYPES:
             if update_type in update:
                 update_content = update[update_type]
                 chat = update_content["message"]["chat"] if update_type == "callback_query" else update_content["chat"]
                 return str(chat["id"]), str(update_content.get("from", {}).get("id", ""))
 
-        raise ValueError(f"Unsupported update type: none of {update_types} found")
+        raise ValueError(f"Unsupported update type: none of {SUPPORTED_UPDATE_TYPES} found")
