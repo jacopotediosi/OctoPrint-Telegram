@@ -545,32 +545,27 @@ class CmdFiles(BaseCommand):
             delete_answer_message=True,
         )
 
-    def _get_file_summary(self, storage_name: str, file_path: str, filename: str, file_metadata: dict) -> str:
+    def _get_file_summary(self, filename: str, file_data: dict) -> str:
         """Return the summary of a file.
 
         Args:
-            storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).
-            file_path (str): The path of the file inside its storage.
             filename (str): The name of the file, without the folders leading to it.
-            file_metadata (dict): The metadata OctoPrint holds about the file.
+            file_data (dict): The data OctoPrint holds about the file.
 
         Returns:
             str: The lines making up the summary.
         """
-        analysis = file_metadata.get("analysis") or {}
-        history = file_metadata.get("history") or []
+        analysis = file_data.get("analysis") or {}
+        history = file_data.get("history") or []
 
         # Name
         msg = render_emojis(f"\n{{emo:name}} <b>Name:</b> <code>{html.escape(filename)}</code>")
 
         # Upload timestamp
-        try:
-            lastmodified = self.plugin_context.file_manager.get_lastmodified(storage_name, file_path)
-            if lastmodified is not None:
-                dt = datetime.datetime.fromtimestamp(lastmodified).astimezone()
-                msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-        except Exception:
-            self._logger.exception("Caught an exception getting file date")
+        date = self._get_file_date(file_data)
+        if date:
+            dt = datetime.datetime.fromtimestamp(date).astimezone()
+            msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Print history
         if "model" not in octoprint.filemanager.get_file_type(filename):
@@ -587,7 +582,7 @@ class CmdFiles(BaseCommand):
                 msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
 
         # File size
-        filesize = self.plugin_context.file_manager.get_size(storage_name, file_path)
+        filesize = file_data.get("size")
         msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {format_size(filesize)}")
 
         # Dimensions
@@ -648,10 +643,11 @@ class CmdFiles(BaseCommand):
     def _file_info(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._get_selected_storage_and_path(menu_state)
 
-        # Lookup file data and metadata
+        # Lookup file data
         try:
-            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
-            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
+            folder, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            file_listing = self.plugin_context.file_manager.list_files(storage_name, folder, recursive=False)
+            file_data = file_listing[storage_name][filename]
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
@@ -660,7 +656,7 @@ class CmdFiles(BaseCommand):
             return
 
         msg = render_emojis("{emo:info} <b>File information</b>\n")
-        msg += self._get_file_summary(storage_name, file_path, filename, file_metadata)
+        msg += self._get_file_summary(filename, file_data)
 
         # Upload the thumbnail image to imgbb to get a public URL
         imgbb_thumbnail_url = self._upload_thumbnail_to_imgbb(storage_name, file_path)
@@ -697,12 +693,13 @@ class CmdFiles(BaseCommand):
     def _file_details(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         storage_name, file_path = self._get_selected_storage_and_path(menu_state)
 
-        # Lookup file data and metadata
+        # Lookup file data
         try:
-            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
-            file_metadata = self.plugin_context.file_manager.get_metadata(storage_name, file_path) or {}
-            statistics = file_metadata.get("statistics") or {}
-            history = file_metadata.get("history") or []
+            folder, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            file_listing = self.plugin_context.file_manager.list_files(storage_name, folder, recursive=False)
+            file_data = file_listing[storage_name][filename]
+            statistics = file_data.get("statistics") or {}
+            history = file_data.get("history") or []
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
@@ -711,7 +708,7 @@ class CmdFiles(BaseCommand):
             return
 
         msg = render_emojis("{emo:info} <b>File details</b>\n")
-        msg += self._get_file_summary(storage_name, file_path, filename, file_metadata)
+        msg += self._get_file_summary(filename, file_data)
 
         # Average print times
         try:
@@ -747,9 +744,10 @@ class CmdFiles(BaseCommand):
                 try:
                     timestamp = history_entry.get("timestamp")
                     if timestamp:
-                        formatted_ts = (
-                            datetime.datetime.fromtimestamp(timestamp).astimezone().strftime("%Y-%m-%d %H:%M:%S")
-                        )
+                        # OctoPrint 2 reports a datetime, the previous versions a timestamp
+                        if not isinstance(timestamp, datetime.datetime):
+                            timestamp = datetime.datetime.fromtimestamp(timestamp).astimezone()
+                        formatted_ts = timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
                         msg += f"\n      Timestamp: {formatted_ts}"
 
                     print_time = history_entry.get("printTime")
