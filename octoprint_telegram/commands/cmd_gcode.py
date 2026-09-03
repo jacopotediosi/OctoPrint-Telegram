@@ -29,9 +29,13 @@ class CmdGcode(BaseCommand):
             return
 
         if not command_context.parameter:
+            msg = "{emo:info} Reply to this message with the G-code you want to execute"
+            if self.plugin_context.printer.is_printing():
+                msg += "\n\n{emo:warning} A print is in progress. Sending G-code may interfere with it."
+
             self.send_answer(
                 command_context,
-                render_emojis("{emo:info} Reply to this message with the G-code you want to execute"),
+                render_emojis(msg),
                 None,
                 markup=Markup.HTML,
                 force_reply=True,
