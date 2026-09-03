@@ -43,18 +43,20 @@ class Media:
             plugin_manager (PluginManager): The OctoPrint plugin manager.
             printer (PrinterInterface): The printer.
             event_manager (EventManager): The OctoPrint event bus.
-            data_folder (str): The folder the videos are written to.
+            data_folder (str): The plugin's data folder.
             logger (logging.Logger): The logger to write to.
         """
         self.webcams = Webcams(plugin_manager, plugins, octoprint_settings, logger)
         self.snapshots = Snapshots(self.webcams, logger)
-        self.video = Video(self.webcams, settings, octoprint_settings, data_folder, logger)
+        self.video = Video(self.webcams, settings, octoprint_settings, logger)
         self.hooks = ImageHooks(settings, printer, event_manager, logger)
+        self._data_folder = data_folder
 
     def clear_temporary_files(self) -> None:
         """Discard any video left over from a previous run."""
-        shutil.rmtree(self.video.temporary_directory, ignore_errors=True)
-        os.makedirs(self.video.temporary_directory, exist_ok=True)
+        # TODO: the tmpgif folder is no longer used, this only empties what older versions left in it.
+        # Remove this in the future.
+        shutil.rmtree(os.path.join(self._data_folder, "tmpgif"), ignore_errors=True)
 
 
 __all__ = ["FfmpegPreset", "ImageHookMethod", "ImageHooks", "Media", "Snapshots", "Video", "WebcamProfile", "Webcams"]

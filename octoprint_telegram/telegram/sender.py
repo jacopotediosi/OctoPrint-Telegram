@@ -277,13 +277,17 @@ class Sender:
 
             # Add movie to gifs to send
             if movie:
-                if self._fits_upload_limit(os.path.getsize(movie), "the movie"):
-                    gifs_to_send.append(movie)
-                else:
-                    message += (
-                        "\nThe timelapse/Octolapse video could not be sent via Telegram because its size exceeds "
-                        f"{MAX_UPLOAD_MEGABYTES}MB. Please download it manually from the OctoPrint web interface."
-                    )
+                try:
+                    if self._fits_upload_limit(os.path.getsize(movie), "the movie"):
+                        with open(movie, "rb") as movie_file:
+                            gifs_to_send.append(movie_file.read())
+                    else:
+                        message += (
+                            "\nThe timelapse/Octolapse video could not be sent via Telegram because its size exceeds "
+                            f"{MAX_UPLOAD_MEGABYTES}MB. Please download it manually from the OctoPrint web interface."
+                        )
+                except Exception:
+                    self._logger.exception("Caught an exception reading the movie file")
 
             if with_image or with_gif:
                 with chat_action(self._telegram_client, chat_id, ChatAction.RECORD_VIDEO, self._logger):
@@ -327,16 +331,11 @@ class Sender:
 
             # Add gifs to send to files and media
             for i, gif_to_send in enumerate(gifs_to_send):
-                try:
-                    if not self._fits_upload_limit(os.path.getsize(gif_to_send), "a gif"):
-                        continue
+                if not self._fits_upload_limit(len(gif_to_send), "a gif"):
+                    continue
 
-                    with open(gif_to_send, "rb") as gif_file:
-                        files[f"video_{i}"] = gif_file.read()
-
-                    media.append({"type": "video", "media": f"attach://video_{i}"})
-                except Exception:
-                    self._logger.exception("Caught an exception reading gif file")
+                files[f"video_{i}"] = gif_to_send
+                media.append({"type": "video", "media": f"attach://video_{i}"})
 
             # Add the message as the caption of the first media
             if media and message:
