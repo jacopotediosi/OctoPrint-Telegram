@@ -242,13 +242,15 @@ class CmdTune(BaseCommand):
             self._handle_enclosure_temperature_control(command_context, heater, step, menu_state)
             return
 
-        heater_temps = self.plugin_context.printer.get_current_temperatures().get(heater_identifier)
-        if heater_temps is None:
-            self._logger.debug("The printer no longer reports the temperature of %s", heater_identifier)
+        heater_temps = self.plugin_context.printer.get_current_temperatures().get(heater_identifier) or {}
+        current_temp = heater_temps.get("actual")
+        target_temp = heater_temps.get("target")
+
+        if not isinstance(current_temp, (int, float)) or not isinstance(target_temp, (int, float)):
             self.send_answer(
                 command_context,
                 render_emojis(
-                    f"{{emo:attention}} The printer is not reporting <code>{html.escape(heater_name)}</code> anymore."
+                    f"{{emo:attention}} The printer reports no temperature for <code>{html.escape(heater_name)}</code>."
                 ),
                 None,
                 markup=Markup.HTML,
@@ -256,7 +258,7 @@ class CmdTune(BaseCommand):
             return
 
         if menu_state is None:
-            menu_state = TuneHeaterTemperatureMenuState(heater_temps["target"], heater)
+            menu_state = TuneHeaterTemperatureMenuState(target_temp, heater)
         elif step.startswith(("+", "-")):
             menu_state.temperature = max(menu_state.temperature + int(step), 0)
         elif step == "set":
@@ -267,8 +269,6 @@ class CmdTune(BaseCommand):
             self.plugin_context.printer.set_temperature(heater_identifier, 0)
             self._go_back(command_context)
             return
-
-        current_temp = heater_temps["actual"]
 
         msg = render_emojis(
             f"{{emo:{self.HEATER_EMOJI_NAMES[heater_kind]}}} Set temperature for "
