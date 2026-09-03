@@ -434,8 +434,8 @@ class CmdFiles(BaseCommand):
             if not history_list:
                 return render_emojis(f"{{emo:file}} {display_name}")
 
-            history_list.sort(key=lambda history_entry: history_entry.get("timestamp", 0), reverse=True)
-            if history_list[0].get("success"):
+            last_print = max(history_list, key=lambda history_entry: history_entry.get("timestamp", 0))
+            if last_print.get("success"):
                 return render_emojis(f"{{emo:hooray}} {display_name}")
             return render_emojis(f"{{emo:warning}} {display_name}")
         except Exception:
@@ -567,19 +567,19 @@ class CmdFiles(BaseCommand):
             dt = datetime.datetime.fromtimestamp(date).astimezone()
             msg += render_emojis(f"\n{{emo:calendar}} <b>Uploaded:</b> {dt.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # Print history
+        # Number of prints
         if "model" not in octoprint.filemanager.get_file_type(filename):
             if not history:
-                msg += render_emojis("\n{emo:new} <b>Number of Print:</b> 0")
+                msg += render_emojis("\n{emo:new} <b>Number of Prints:</b> 0")
             else:
                 try:
-                    history.sort(key=lambda x: x["timestamp"], reverse=True)
-                    success = history[0].get("success", False)
+                    last_print = max(history, key=lambda entry: entry["timestamp"])
+                    success = last_print.get("success", False)
                     icon_name = "hooray" if success else "warning"
                 except Exception:
-                    self._logger.exception("Caught an exception reading history list")
+                    self._logger.exception("Caught an exception getting number of prints")
                     icon_name = "file"
-                msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Print:</b> {len(history)}")
+                msg += render_emojis(f"\n{{emo:{icon_name}}} <b>Number of Prints:</b> {len(history)}")
 
         # File size
         filesize = file_data.get("size")
@@ -699,7 +699,9 @@ class CmdFiles(BaseCommand):
             file_listing = self.plugin_context.file_manager.list_files(storage_name, folder, recursive=False)
             file_data = file_listing[storage_name][filename]
             statistics = file_data.get("statistics") or {}
-            history = file_data.get("history") or []
+            history = sorted(
+                file_data.get("history") or [], key=lambda entry: entry.get("timestamp") or 0, reverse=True
+            )
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"
