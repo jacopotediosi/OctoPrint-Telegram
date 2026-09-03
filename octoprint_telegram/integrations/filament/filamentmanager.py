@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from urllib.parse import quote
 
 from typing_extensions import override
 
@@ -60,7 +61,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
     @override
     def get_spool_details_msg(self, spool_id: str) -> str:
         response = self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/spools/{spool_id}",
+            f"/plugin/{self.plugin_id}/spools/{quote(spool_id, safe='')}",
         )
         data = response.json()
 
@@ -96,7 +97,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
     @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/selections/{tool_index}",
+            f"/plugin/{self.plugin_id}/selections/{quote(tool_index, safe='')}",
             "PATCH",
             json={"selection": {"tool": tool_index, "spool": {"id": spool_id}, "updateui": True}},
         )
@@ -104,7 +105,7 @@ class FilamentManagerFilamentPlugin(FilamentPlugin):
     @override
     def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/selections/{tool_index}",
+            f"/plugin/{self.plugin_id}/selections/{quote(tool_index, safe='')}",
             "PATCH",
             json={"selection": {"tool": tool_index, "spool": {"id": None}, "updateui": True}},
         )

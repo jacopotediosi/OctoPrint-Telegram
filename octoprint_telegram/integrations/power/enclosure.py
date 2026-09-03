@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from typing_extensions import override
 
 from .base import PowerPlugin
@@ -43,5 +45,5 @@ class EnclosurePowerPlugin(PowerPlugin):
 
     def _send_command(self, status: bool, plug_data: str) -> None:
         self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/outputs/{plug_data}", "PATCH", json={"status": status}
+            f"/plugin/{self.plugin_id}/outputs/{quote(plug_data, safe='')}", "PATCH", json={"status": status}
         )
