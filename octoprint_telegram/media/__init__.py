@@ -4,6 +4,7 @@ import os
 import shutil
 from typing import TYPE_CHECKING
 
+from .captures import Captures
 from .hooks import ImageHookMethod, ImageHooks
 from .snapshots import Snapshots
 from .video import FfmpegPreset, Video
@@ -50,6 +51,7 @@ class Media:
         self.snapshots = Snapshots(self.webcams, logger)
         self.video = Video(self.webcams, settings, octoprint_settings, logger)
         self.hooks = ImageHooks(settings, printer, event_manager, logger)
+        self.captures = Captures(self.snapshots, self.video, self.hooks, logger)
         self._data_folder = data_folder
 
     def clear_temporary_files(self) -> None:
@@ -59,4 +61,14 @@ class Media:
         shutil.rmtree(os.path.join(self._data_folder, "tmpgif"), ignore_errors=True)
 
 
-__all__ = ["FfmpegPreset", "ImageHookMethod", "ImageHooks", "Media", "Snapshots", "Video", "WebcamProfile", "Webcams"]
+__all__ = [
+    "Captures",
+    "FfmpegPreset",
+    "ImageHookMethod",
+    "ImageHooks",
+    "Media",
+    "Snapshots",
+    "Video",
+    "WebcamProfile",
+    "Webcams",
+]

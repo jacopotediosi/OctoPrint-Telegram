@@ -4,6 +4,7 @@ import html
 import json
 import os
 import time
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
 from ..emoji import Emoji
@@ -129,7 +130,7 @@ class Sender:
             images, gifs = [], []
             if with_image or with_gif:
                 with chat_action(self._telegram_client, chat_id, ChatAction.RECORD_VIDEO, self._logger):
-                    images, gifs = self._capture_media(with_image, with_gif, gif_duration)
+                    images, gifs = self._media.captures.capture_media(with_image, with_gif, gif_duration)
 
             return self._send(
                 message,
@@ -175,7 +176,14 @@ class Sender:
             self._logger.debug("Notify: sleeping %s seconds", delay)
             time.sleep(delay)
 
-        images, gifs = self._capture_media(with_image, with_gif)
+        images, gifs = [], []
+        if with_image or with_gif:
+            with ExitStack() as stack:
+                for chat_id in chat_ids:
+                    stack.enter_context(
+                        chat_action(self._telegram_client, chat_id, ChatAction.RECORD_VIDEO, self._logger)
+                    )
+                images, gifs = self._media.captures.capture_media(with_image, with_gif)
 
         for chat_id in chat_ids:
             try:
@@ -361,52 +369,6 @@ class Sender:
             self._logger.exception("Caught an exception in _send()")
             self._report_failure(chat_id)
             return None
-
-    def _capture_media(
-        self, with_image: bool, with_gif: bool, gif_duration: int = 5
-    ) -> tuple[list[bytes], list[bytes]]:
-        """Take a snapshot and record a video from every webcam.
-
-        Args:
-            with_image (bool): Whether to take the snapshots.
-            with_gif (bool): Whether to record the videos.
-            gif_duration (int, optional): Seconds of video to record from each webcam.
-
-        Returns:
-            tuple[list[bytes], list[bytes]]: The content of the pictures taken, then of the videos recorded.
-        """
-        images, gifs = [], []
-
-        if not with_image and not with_gif:
-            return images, gifs
-
-        # Pre image
-        try:
-            self._media.hooks.run_before_image()
-        except Exception:
-            self._logger.exception("Caught an exception calling run_before_image()")
-
-        # Capture images
-        if with_image:
-            try:
-                images = self._media.snapshots.take_all_images()
-            except Exception:
-                self._logger.exception("Caught an exception taking all images")
-
-        # Capture gifs
-        if with_gif:
-            try:
-                gifs = self._media.video.take_all_gifs(gif_duration)
-            except Exception:
-                self._logger.exception("Caught an exception taking all gifs")
-
-        # Post image
-        try:
-            self._media.hooks.run_after_image()
-        except Exception:
-            self._logger.exception("Caught an exception calling run_after_image()")
-
-        return images, gifs
 
     def _fits_upload_limit(self, size_in_bytes: int, description: str) -> bool:
         """Whether something of a given size is small enough to upload.
