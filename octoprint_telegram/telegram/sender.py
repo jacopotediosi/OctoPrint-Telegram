@@ -119,8 +119,7 @@ class Sender:
             self._apply_reply_markup(message_data, buttons, force_reply and not message_id)
 
             if message_id:
-                self._edit(message, chat_id, message_data=message_data, message_id=message_id)
-                return message_id
+                return self._edit(message, chat_id, message_data=message_data, message_id=message_id)
 
             if reply_to_message_id:
                 message_data["reply_parameters"] = json.dumps(
@@ -230,8 +229,12 @@ class Sender:
         *,
         message_data: dict,
         message_id: str,
-    ) -> None:
-        """Replace the text of a message previously sent, identified by its id."""
+    ) -> str | None:
+        """Replace the text of a message previously sent, identified by its id.
+
+        Returns:
+            str | None: The id of the message, or None if it could not be replaced.
+        """
         try:
             message_data["text"] = message
             message_data["message_id"] = message_id
@@ -243,6 +246,8 @@ class Sender:
             if not e.description.startswith("Bad Request: message is not modified"):
                 self._logger.exception("Caught an exception in _edit()")
                 self._report_failure(chat_id)
+                return None
+        return message_id
 
     def _send(
         self,

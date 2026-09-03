@@ -170,3 +170,5 @@ class BaseCommand(ABC):
                 self.plugin_context.menu_states.set_menu_state(
                     command_context.chat_id, message_id, menu_state, awaited_reply
                 )
+        elif msg_id_to_update:
+            self.plugin_context.menu_states.discard_menu_state(command_context.chat_id, msg_id_to_update)
