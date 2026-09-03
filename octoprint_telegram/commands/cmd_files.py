@@ -586,7 +586,7 @@ class CmdFiles(BaseCommand):
         msg += render_emojis(f"\n{{emo:filesize}} <b>Size:</b> {format_size(filesize)}")
 
         # Dimensions
-        dimensions = analysis.get("dimensions", {})
+        dimensions = analysis.get("dimensions") or {}
         dimension_parts = []
         if "width" in dimensions:
             dimension_parts.append("{:.2f}mm (X)".format(dimensions["width"]))
@@ -603,7 +603,7 @@ class CmdFiles(BaseCommand):
             filament = analysis.get("filament", {})
             if filament:
                 msg += render_emojis("\n{emo:filament} <b>Filament:</b> ")
-                if len(filament) == 1 and "length" in filament.get("tool0", {}):
+                if len(filament) == 1 and filament.get("tool0", {}).get("length") is not None:
                     msg += format_filament(filament["tool0"])
                     filament_length += float(filament["tool0"]["length"])
                 else:
@@ -1225,7 +1225,7 @@ class CmdFiles(BaseCommand):
                 for slicer_profile in slicer_profiles:
                     menu_state.items.append(slicer_profile.name)
 
-                    slicer_profile_name = slicer_profile.display_name
+                    slicer_profile_name = slicer_profile.display_name or slicer_profile.name
 
                     keyboard.add_row((slicer_profile_name, f"slice_{len(menu_state.items) - 1}"))
                 if len(configured_slicers) > 1:
@@ -1241,7 +1241,7 @@ class CmdFiles(BaseCommand):
 
         # Get slicer profile name by slicer profile id and add it to msg
         slicer_profile_name = next(
-            (p.display_name.strip() for p in slicer_profiles if p.name == slicer_profile_id), None
+            ((p.display_name or p.name).strip() for p in slicer_profiles if p.name == slicer_profile_id), None
         )
         if slicer_profile_name is None:
             msg = render_emojis("{emo:attention} The slicer profile you chose is not available")
