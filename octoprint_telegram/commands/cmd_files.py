@@ -66,9 +66,6 @@ class FilesMenuState(MenuState):
 
 
 class CmdFiles(BaseCommand):
-    # Number of items (folders + files) to display per page
-    PAGE_SIZE = 14
-
     # Characters of the text to search for that are taken into account, the ones in excess being dropped
     MAX_QUERY_LENGTH = 20
 
@@ -337,32 +334,13 @@ class CmdFiles(BaseCommand):
                 entries = self._get_folder_and_file_entries(path_with_storage, path_content)
                 entries_per_row = 2
 
-            # --- Calculate pagination ---
-            total_pages = max(1, (len(entries) + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
-
-            menu_state.page = max(0, min(menu_state.page, total_pages - 1))
-            start_index = menu_state.page * self.PAGE_SIZE
-            paginated_entries = entries[start_index : start_index + self.PAGE_SIZE]
-
             # --- Create command buttons ---
             keyboard = Keyboard(command_context.cmd)
-            menu_state.items = []
 
             # Folder and file buttons
-            entry_buttons = []
-            for entry_path, entry_label, entry_action in paginated_entries:
-                menu_state.items.append(entry_path)
-                entry_buttons.append((entry_label, f"{entry_action}_{len(menu_state.items) - 1}"))
-            keyboard.add_grid(entry_buttons, buttons_per_row=entries_per_row)
-
-            # Prev/next page row
-            page_row = []
-            if menu_state.page > 0:
-                page_row.append(("{emo:up} Prev page", "prevpage"))
-            if menu_state.page + 1 < total_pages:
-                page_row.append(("{emo:down} Next page", "nextpage"))
-            if page_row:
-                keyboard.add_row(*page_row)
+            menu_state.items, menu_state.page, total_pages = keyboard.add_entries_page(
+                entries, entries_per_row, menu_state.page
+            )
 
             # Actions row: search, settings, back, close
             actions_row = []
