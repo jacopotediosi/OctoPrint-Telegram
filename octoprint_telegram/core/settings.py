@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ class Settings:
             settings (PluginSettings): The OctoPrint settings accessor of this plugin.
         """
         self._settings = settings
+        self.write_lock = threading.RLock()
 
     ##########
     ### Bot
@@ -47,7 +49,8 @@ class Settings:
 
     @notification_height.setter
     def notification_height(self, value: float) -> None:
-        self._settings.set_float(["notification_height"], value)
+        with self.write_lock:
+            self._settings.set_float(["notification_height"], value)
 
     @property
     def notification_time(self) -> int:
@@ -56,7 +59,8 @@ class Settings:
 
     @notification_time.setter
     def notification_time(self, value: int) -> None:
-        self._settings.set_int(["notification_time"], value)
+        with self.write_lock:
+            self._settings.set_int(["notification_time"], value)
 
     @property
     def message_at_print_done_delay(self) -> int:
@@ -94,7 +98,8 @@ class Settings:
 
     @sort_files_by_date.setter
     def sort_files_by_date(self, value: bool) -> None:
-        self._settings.set_boolean(["sort_files_by_date"], value)
+        with self.write_lock:
+            self._settings.set_boolean(["sort_files_by_date"], value)
 
     @property
     def show_models_in_files(self) -> bool:
@@ -103,7 +108,8 @@ class Settings:
 
     @show_models_in_files.setter
     def show_models_in_files(self, value: bool) -> None:
-        self._settings.set_boolean(["show_models_in_files"], value)
+        with self.write_lock:
+            self._settings.set_boolean(["show_models_in_files"], value)
 
     @property
     def imgbb_api_key(self) -> str:
@@ -182,25 +188,24 @@ class Settings:
         """Settings of every known chat, keyed by chat id."""
         return self._settings.get(["chats"]) or {}
 
-    @chats.setter
-    def chats(self, value: dict[str, dict]) -> None:
-        self._settings.set(["chats"], value)
-
     def chat(self, chat_id: str) -> dict | None:
         """Settings of a single chat, or None if the chat is unknown."""
         return self._settings.get(["chats", str(chat_id)])
 
     def set_chat(self, chat_id: str, chat_settings: dict) -> None:
         """Store the settings of a single chat."""
-        self._settings.set(["chats", str(chat_id)], chat_settings)
+        with self.write_lock:
+            self._settings.set(["chats", str(chat_id)], chat_settings)
 
     def set_chat_field(self, chat_id: str, field: str, value: str) -> None:
         """Store one field in the settings of a single chat."""
-        self._settings.set(["chats", str(chat_id), field], value)
+        with self.write_lock:
+            self._settings.set(["chats", str(chat_id), field], value)
 
     def remove_chat(self, chat_id: str) -> None:
         """Remove a chat from the known chats."""
-        self._settings.remove(["chats", str(chat_id)])
+        with self.write_lock:
+            self._settings.remove(["chats", str(chat_id)])
 
     ##########
     ### Notification messages
@@ -216,7 +221,8 @@ class Settings:
 
     def save(self) -> None:
         """Write the settings to disk."""
-        self._settings.save()
+        with self.write_lock:
+            self._settings.save()
 
 
 class OctoPrintSettings:

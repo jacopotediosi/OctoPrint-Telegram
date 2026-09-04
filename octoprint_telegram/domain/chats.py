@@ -111,12 +111,11 @@ class Chats:
         new_chat_settings["title"] = chat_title
         new_chat_settings["image"] = self.save_chat_picture(chat_id)
 
-        settings_chats = self._settings.chats
-        settings_chats[chat_id] = new_chat_settings
-        self._settings.chats = settings_chats
-        self._settings.save()
+        with self._settings.write_lock:
+            self._settings.set_chat(chat_id, new_chat_settings)
+            self._settings.save()
 
-        self._frontend.update_known_chats(self._settings.chats)
+            self._frontend.update_known_chats(self._settings.chats)
 
     def remove_chat(self, chat_id: str) -> None:
         """Remove a chat from the known chats."""
@@ -127,10 +126,11 @@ class Chats:
         except OSError:
             pass
 
-        self._settings.remove_chat(chat_id)
-        self._settings.save()
+        with self._settings.write_lock:
+            self._settings.remove_chat(chat_id)
+            self._settings.save()
 
-        self._frontend.update_known_chats(self._settings.chats)
+            self._frontend.update_known_chats(self._settings.chats)
 
     def save_chat_picture(self, chat_id: str) -> str:
         """Store the chat picture and return the URL it is served from, empty when there is none."""

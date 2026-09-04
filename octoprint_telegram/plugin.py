@@ -179,11 +179,12 @@ class TelegramPlugin(
 
                         # Update chat pictures
                         public_path = chats.save_chat_picture(chat_id)
-                        self._settings.set(["chats", chat_id, "image"], public_path)
+                        plugin_context.settings.set_chat_field(chat_id, "image", public_path)
 
                     # Save settings and update known chats table
-                    self._settings.save()
-                    plugin_context.frontend.update_known_chats(self._settings.get(["chats"]))
+                    with plugin_context.settings.write_lock:
+                        plugin_context.settings.save()
+                        plugin_context.frontend.update_known_chats(plugin_context.settings.chats)
 
                 threading.Thread(target=_update_chats, daemon=True).start()
             except Exception:
