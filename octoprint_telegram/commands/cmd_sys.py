@@ -17,14 +17,16 @@ render_emojis = Emoji.render_emojis
 class SysMenuState(MenuState):
     """The system actions offered in the menu."""
 
-    def __init__(self, actions: list[tuple[str, str]]) -> None:
+    def __init__(self, actions: list[tuple[str, str]] | None = None, page: int = 0) -> None:
         """Set up the system actions offered in the menu.
 
         Args:
-            actions (list[tuple[str, str]]): The source of each action, either "server" or "custom", then its
-                identifier, in the order they are offered.
+            actions (list[tuple[str, str]], optional): The source of each action, either "server" or "custom",
+                then its identifier, in the order they are offered.
+            page (int, optional): The page of the actions being shown.
         """
-        self.actions = actions
+        self.actions = actions or []
+        self.page = page
 
 
 class CmdSys(BaseCommand):
@@ -41,12 +43,20 @@ class CmdSys(BaseCommand):
         Possible callback queries, where {position} stands for the position of an action in the list:
 
         - /sys -> list the system actions and the server commands
+        - /sys_prevpage -> show the previous page of the actions
+        - /sys_nextpage -> show the next page of the actions
         - /sys_{position} -> run the action at that position, or ask for confirmation when it asks for one
         - /sys_{position}_do -> run the action at that position
         """
         if command_context.parameter:
             position, _, confirmation = command_context.parameter.partition("_")
             confirmed = confirmation == "do"
+
+            if position in ("prevpage", "nextpage"):
+                menu_state = self.require_menu_state(command_context, SysMenuState)
+                menu_state.page += -1 if position == "prevpage" else 1
+                self._list_actions(command_context, menu_state)
+                return
 
             menu_state = self.require_menu_state(command_context, SysMenuState)
             action_source, action_identifier = self.require_menu_chosen_item(menu_state.actions, position)
@@ -172,45 +182,49 @@ class CmdSys(BaseCommand):
                     self.send_answer(command_context, msg, None, markup=Markup.HTML)
 
         else:  # Display command buttons
-            keyboard = Keyboard(command_context.cmd)
-            offered_actions = []
+            self._list_actions(command_context, SysMenuState())
 
-            for action in self.plugin_context.octoprint_settings.system_actions:
-                try:
-                    if action["action"] == "divider":
-                        continue
+    def _list_actions(self, command_context: CommandContext, menu_state: SysMenuState) -> None:
+        """List the system actions and the server commands."""
+        action_entries = []
 
-                    offered_actions.append(("custom", f"{action['name']}-{action['action']}-{action['command']}"))
-                    keyboard.add_row((f"{action['name']}", str(len(offered_actions) - 1)))
-                except Exception:
-                    self._logger.exception("Caught an exception parsing system action %s", action)
-
-            server_commands_buttons = []
-            for command_key, command_label in self.SERVER_COMMAND_LABELS.items():
-                if self.plugin_context.octoprint_settings.server_command(command_key):
-                    offered_actions.append(("server", command_key))
-                    server_commands_buttons.append((command_label, str(len(offered_actions) - 1)))
-            keyboard.add_grid(server_commands_buttons, buttons_per_row=2)
-
-            if keyboard.rows:
-                msg = render_emojis("{emo:question} Which System Command do you want to activate?")
-            else:
-                msg = render_emojis(
-                    "{emo:warning} No System Commands found.\n"
-                    "You can add custom commands from the OctoPrint web GUI using the "
-                    "<a href='https://plugins.octoprint.org/plugins/systemcommandeditor/'>System Command Editor</a> plugin."
-                )
-
+        for action in self.plugin_context.octoprint_settings.system_actions:
             try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    host = self.plugin_context.octoprint_settings.online_check_host
-                    port = self.plugin_context.octoprint_settings.online_check_port
-                    s.connect((host, port))
-                    server_ip = s.getsockname()[0]
-                msg += render_emojis(f"\n\n{{emo:info}} IP: {server_ip}:{self.plugin_context.server_port}")
+                if action["action"] == "divider":
+                    continue
+
+                action_entries.append(
+                    (("custom", f"{action['name']}-{action['action']}-{action['command']}"), action["name"], "")
+                )
             except Exception:
-                self._logger.exception("Caught an exception retrieving IP address")
+                self._logger.exception("Caught an exception parsing system action %s", action)
 
-            keyboard.add_row(CLOSE_BUTTON)
+        for command_key, command_label in self.SERVER_COMMAND_LABELS.items():
+            if self.plugin_context.octoprint_settings.server_command(command_key):
+                action_entries.append((("server", command_key), command_label, ""))
 
-            self.send_answer(command_context, msg, SysMenuState(offered_actions), markup=Markup.HTML, keyboard=keyboard)
+        keyboard = Keyboard(command_context.cmd)
+        menu_state.actions, menu_state.page, _ = keyboard.add_entries_page(action_entries, 2, menu_state.page)
+
+        if action_entries:
+            msg = render_emojis("{emo:question} Which System Command do you want to activate?")
+        else:
+            msg = render_emojis(
+                "{emo:warning} No System Commands found.\n"
+                "You can add custom commands from the OctoPrint web GUI using the "
+                "<a href='https://plugins.octoprint.org/plugins/systemcommandeditor/'>System Command Editor</a> plugin."
+            )
+
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                host = self.plugin_context.octoprint_settings.online_check_host
+                port = self.plugin_context.octoprint_settings.online_check_port
+                s.connect((host, port))
+                server_ip = s.getsockname()[0]
+            msg += render_emojis(f"\n\n{{emo:info}} IP: {server_ip}:{self.plugin_context.server_port}")
+        except Exception:
+            self._logger.exception("Caught an exception retrieving IP address")
+
+        keyboard.add_row(CLOSE_BUTTON)
+
+        self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
