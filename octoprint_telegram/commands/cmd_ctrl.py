@@ -14,13 +14,15 @@ render_emojis = Emoji.render_emojis
 class CtrlMenuState(MenuState):
     """The printer controls offered in the menu."""
 
-    def __init__(self, control_identifiers: list[str]) -> None:
+    def __init__(self, control_identifiers: list[str] | None = None, page: int = 0) -> None:
         """Set up the printer controls offered in the menu.
 
         Args:
-            control_identifiers (list[str]): The identifier of each control, in the order they are offered.
+            control_identifiers (list[str], optional): The identifier of each control, in the order they are offered.
+            page (int, optional): The page of the controls being shown.
         """
-        self.control_identifiers = control_identifiers
+        self.control_identifiers = control_identifiers or []
+        self.page = page
 
 
 class CmdCtrl(BaseCommand):
@@ -31,6 +33,8 @@ class CmdCtrl(BaseCommand):
         Possible callback queries, where {position} stands for the position of a control in the list:
 
         - /ctrl -> list the custom printer controls
+        - /ctrl_prevpage -> show the previous page of the controls
+        - /ctrl_nextpage -> show the next page of the controls
         - /ctrl_{position} -> trigger that control, or ask for confirmation when that control asks for it
         - /ctrl_execute_{position} -> trigger that control
         """
@@ -44,6 +48,12 @@ class CmdCtrl(BaseCommand):
 
         if command_context.parameter:
             action, _, argument = command_context.parameter.partition("_")
+
+            if action in ("prevpage", "nextpage"):
+                menu_state = self.require_menu_state(command_context, CtrlMenuState)
+                menu_state.page += -1 if action == "prevpage" else 1
+                self._list_controls(command_context, menu_state)
+                return
 
             control_index = argument if action == "execute" else action
 
@@ -91,32 +101,33 @@ class CmdCtrl(BaseCommand):
                 self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
 
         else:  # Display all available commands
-            message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
+            self._list_controls(command_context, CtrlMenuState())
 
-            try:
-                controls = self._get_controls()
-            except Exception:
-                self._logger.exception("Caught an exception getting printer control list")
-                controls = []
+    def _list_controls(self, command_context: CommandContext, menu_state: CtrlMenuState) -> None:
+        """List the custom printer controls."""
+        message = render_emojis("{emo:question} Which Printer Control do you want to trigger?")
 
-            keyboard = Keyboard(command_context.cmd)
-            keyboard.add_grid(
-                [(control["name"], str(control_index)) for control_index, control in enumerate(controls)],
-                buttons_per_row=1,
+        try:
+            controls = self._get_controls()
+        except Exception:
+            self._logger.exception("Caught an exception getting printer control list")
+            controls = []
+
+        keyboard = Keyboard(command_context.cmd)
+        menu_state.control_identifiers, menu_state.page, _ = keyboard.add_entries_page(
+            [(control["identifier"], control["name"], "") for control in controls], 1, menu_state.page
+        )
+
+        if not controls:
+            message += render_emojis(
+                "\n\n{emo:warning} No Printer Controls found.\n"
+                "You can add custom controls from the OctoPrint web GUI using the "
+                "<a href='http://plugins.octoprint.org/plugins/customControl/'>Custom Control Editor</a> plugin."
             )
 
-            if not controls:
-                message += render_emojis(
-                    "\n\n{emo:warning} No Printer Controls found.\n"
-                    "You can add custom controls from the OctoPrint web GUI using the "
-                    "<a href='http://plugins.octoprint.org/plugins/customControl/'>Custom Control Editor</a> plugin."
-                )
+        keyboard.add_row(CLOSE_BUTTON)
 
-            keyboard.add_row(CLOSE_BUTTON)
-
-            menu_state = CtrlMenuState([control["identifier"] for control in controls])
-
-            self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
+        self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
     def _get_controls(self, tree: list | None = None, container: str = "") -> list[dict]:
         """Flatten the custom controls the user defined in OctoPrint.
