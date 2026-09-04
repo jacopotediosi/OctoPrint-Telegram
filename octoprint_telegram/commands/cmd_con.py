@@ -27,6 +27,7 @@ class ConMenuState(MenuState):
         options: list[str | int | None],
         port: str | int | None = None,
         baudrate: str | int | None = None,
+        page: int = 0,
     ) -> None:
         """Set up the options the menu offers and the connection settings picked so far.
 
@@ -34,10 +35,12 @@ class ConMenuState(MenuState):
             options (list[str | int | None]): The value behind each option, in the order they are offered.
             port (str | int | None, optional): The port picked so far, or None for AUTO.
             baudrate (str | int | None, optional): The baudrate picked so far, or None for AUTO.
+            page (int, optional): The page of the options being shown.
         """
         self.options = options
         self.port = port
         self.baudrate = baudrate
+        self.page = page
 
 
 class CmdCon(BaseCommand):
@@ -65,6 +68,9 @@ class CmdCon(BaseCommand):
         - /con_connect_serial_baudrate_{position} -> take the baudrate at that position, then connect or ask
           which printer profile to use
         - /con_connect_serial_profile_{position} -> connect over serial with the profile at that position
+
+        Every choice above also accepts prevpage and nextpage in place of {position}, to turn the page of
+        its options.
         """
         if command_context.parameter:
             action, *params = command_context.parameter.split("_")
@@ -231,13 +237,19 @@ class CmdCon(BaseCommand):
             preferred_parameters = self.plugin_context.octoprint_settings.preferred_connection_parameters
 
         # Step 1: ask profile (skip if at most one available)
-        if not params:
-            if len(profile_ids) <= 1:
+        if not params or params[0] in ("prevpage", "nextpage"):
+            if not params and len(profile_ids) <= 1:
                 return {
                     "connector": preferred_connector,
                     "parameters": preferred_parameters,
                     "profile": profile_ids[0] if profile_ids else None,
                 }
+
+            page = 0
+            if params:
+                menu_state = self.require_menu_state(command_context, ConMenuState)
+                page = menu_state.page + (-1 if params[0] == "prevpage" else 1)
+
             self._ask_choice(
                 command_context,
                 parent="connect",
@@ -246,6 +258,7 @@ class CmdCon(BaseCommand):
                 + render_emojis("{emo:question} Select the printer profile to use."),
                 options=[(p["id"], p["name"]) for p in all_profiles.values()],
                 item_emoji="profile",
+                page=page,
             )
             return None
 
@@ -281,7 +294,12 @@ class CmdCon(BaseCommand):
         choice = params[1] if len(params) > 1 else ""
 
         # Step 1: ask port
-        if not step:
+        if not step or (step == "port" and choice in ("prevpage", "nextpage")):
+            page = 0
+            if step:
+                menu_state = self.require_menu_state(command_context, ConMenuState)
+                page = menu_state.page + (-1 if choice == "prevpage" else 1)
+
             self._ask_choice(
                 command_context,
                 parent="connect",
@@ -290,14 +308,20 @@ class CmdCon(BaseCommand):
                 options=[(p, p) for p in ports],
                 item_emoji="port",
                 with_auto=True,
+                page=page,
             )
             return None
 
         menu_state = self.require_menu_state(command_context, ConMenuState)
 
         # Step 2: ask baudrate, either after the port was picked or coming back from the profile
-        if step == "port" or (step == "baudrate" and not choice):
+        if step == "port" or (step == "baudrate" and (not choice or choice in ("prevpage", "nextpage"))):
             port = self.require_menu_chosen_item(menu_state.options, choice) if step == "port" else menu_state.port
+
+            page = 0
+            if step == "baudrate" and choice:
+                page = menu_state.page + (-1 if choice == "prevpage" else 1)
+
             self._ask_choice(
                 command_context,
                 parent="connect_serial",
@@ -307,6 +331,7 @@ class CmdCon(BaseCommand):
                 item_emoji="speed",
                 with_auto=True,
                 port=port,
+                page=page,
             )
             return None
 
@@ -334,6 +359,24 @@ class CmdCon(BaseCommand):
             return None
 
         if step == "profile":
+            if choice in ("prevpage", "nextpage"):
+                page = menu_state.page + (-1 if choice == "prevpage" else 1)
+                self._ask_choice(
+                    command_context,
+                    parent="connect_serial_baudrate",
+                    callback_prefix="connect_serial_profile",
+                    msg=self._build_connection_summary(
+                        "serial", {"port": menu_state.port, "baudrate": menu_state.baudrate}
+                    )
+                    + render_emojis("{emo:question} Select the printer profile to use."),
+                    options=[(p["id"], p["name"]) for p in all_profiles.values()],
+                    item_emoji="profile",
+                    port=menu_state.port,
+                    baudrate=menu_state.baudrate,
+                    page=page,
+                )
+                return None
+
             return {
                 "connector": "serial",
                 "parameters": {"port": menu_state.port, "baudrate": menu_state.baudrate},
@@ -353,6 +396,7 @@ class CmdCon(BaseCommand):
         with_auto: bool = False,
         port: str | int | None = None,
         baudrate: str | int | None = None,
+        page: int = 0,
     ) -> None:
         """Ask the user to pick one value out of a list.
 
@@ -366,21 +410,19 @@ class CmdCon(BaseCommand):
             with_auto (bool, optional): Offer an AUTO option on top of the list.
             port (str | int | None, optional): The port picked so far, or None for AUTO.
             baudrate (str | int | None, optional): The baudrate picked so far, or None for AUTO.
+            page (int, optional): The page of the options to show.
         """
-        values = []
-        buttons = []
+        entries = []
         if with_auto:
-            values.append(None)
-            buttons.append(("{emo:lamp} AUTO", f"{callback_prefix}_0"))
+            entries.append((None, "{emo:lamp} AUTO", callback_prefix))
         for value, label in options:
-            values.append(value)
-            buttons.append((f"{{emo:{item_emoji}}} {label}", f"{callback_prefix}_{len(values) - 1}"))
+            entries.append((value, f"{{emo:{item_emoji}}} {label}", callback_prefix))
 
         keyboard = Keyboard(command_context.cmd)
-        keyboard.add_grid(buttons, buttons_per_row=3)
+        values, page, _ = keyboard.add_entries_page(entries, 3, page, f"{callback_prefix}_")
         keyboard.add_row((BACK_LABEL, parent))
 
-        menu_state = ConMenuState(values, port=port, baudrate=baudrate)
+        menu_state = ConMenuState(values, port=port, baudrate=baudrate, page=page)
 
         self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
