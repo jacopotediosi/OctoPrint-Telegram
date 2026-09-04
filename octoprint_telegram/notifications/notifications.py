@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import queue
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -104,14 +106,45 @@ class Notifications:
             "ZChange": self._on_z_change,
         }
 
+        self._queue: queue.Queue[tuple[str, dict | None, str | None] | None] = queue.Queue()
+        self._worker = threading.Thread(target=self._work, daemon=True)
+        self._worker.start()
+
     def send_notification(self, event: str, payload: dict | None = None, chat_id: str | None = None) -> None:
         """Send the notification configured for an event, to a single chat or to every chat subscribed to it.
+
+        A notification to the subscribed chats is delivered in the background, in arrival order; one to a single
+        chat is delivered right away.
 
         Args:
             event (str): The event to notify.
             payload (dict, optional): The data the event carried.
             chat_id (str, optional): The single chat to notify, instead of every chat subscribed to the event.
         """
+        if chat_id:
+            self._process_notification(event, payload, chat_id)
+            return
+
+        self._queue.put((event, payload, chat_id))
+
+    def stop(self) -> None:
+        """Deliver the notifications still queued, then stop delivering."""
+        self._queue.put(None)
+        self._worker.join()
+
+    def _work(self) -> None:
+        while True:
+            item = self._queue.get()
+            if item is None:
+                return
+
+            event, payload, chat_id = item
+            try:
+                self._process_notification(event, payload, chat_id)
+            except Exception:
+                self._logger.exception("Caught an exception processing a notification")
+
+    def _process_notification(self, event: str, payload: dict | None, chat_id: str | None) -> None:
         handler = self._event_handlers.get(event)
         if handler is None:
             return

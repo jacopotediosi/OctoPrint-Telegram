@@ -324,6 +324,8 @@ class TelegramPlugin(
     def on_shutdown(self) -> None:
         """Shut the plugin down."""
         self.on_event("PrinterShutdown", {})
+        if self._plugin_context:
+            self._plugin_context.notifications.stop()
         self.stop_bot()
 
     ##########
