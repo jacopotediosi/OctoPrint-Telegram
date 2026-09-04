@@ -10,20 +10,26 @@ from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
+CANCELOBJECT_PLUGIN_ID = "cancelobject"
+
 
 class CancelObjectMenuState(MenuState):
     """The objects offered in the menu."""
 
-    def __init__(self, object_ids: list[str]) -> None:
+    def __init__(self, object_ids: list[str] | None = None, page: int = 0) -> None:
         """Set up the objects offered in the menu.
 
         Args:
-            object_ids (list[str]): The id of each object, in the order they are offered.
+            object_ids (list[str], optional): The id of each object, in the order they are offered.
+            page (int, optional): The page of the objects being shown.
         """
-        self.object_ids = object_ids
+        self.object_ids = object_ids or []
+        self.page = page
 
 
 class CmdCancelObject(BaseCommand):
+    MAX_LISTED_CANCELLED_OBJECTS = 10
+
     @override
     def execute(self, command_context: CommandContext) -> None:
         """Cancel one of the objects of the running print.
@@ -31,22 +37,28 @@ class CmdCancelObject(BaseCommand):
         Possible callback queries, where {position} stands for the position of an object in the list:
 
         - /cancelobject -> list the objects that can still be cancelled
+        - /cancelobject_prevpage -> show the previous page of the objects
+        - /cancelobject_nextpage -> show the next page of the objects
         - /cancelobject_{position} -> cancel the object at that position
         """
-        cancelobject_id = "cancelobject"
-
-        if not self.plugin_context.plugins.is_enabled(cancelobject_id):
+        if not self.plugin_context.plugins.is_enabled(CANCELOBJECT_PLUGIN_ID):
             msg = render_emojis(
-                f"{{emo:attention}} Please install <a href='https://plugins.octoprint.org/plugins/{cancelobject_id}/'>Cancelobject</a> plugin."
+                f"{{emo:attention}} Please install <a href='https://plugins.octoprint.org/plugins/{CANCELOBJECT_PLUGIN_ID}/'>Cancelobject</a> plugin."
             )
             self.send_answer(command_context, msg, None, markup=Markup.HTML)
             return
 
         if command_context.parameter:
+            if command_context.parameter in ("prevpage", "nextpage"):
+                menu_state = self.require_menu_state(command_context, CancelObjectMenuState)
+                menu_state.page += -1 if command_context.parameter == "prevpage" else 1
+                self._list_objects(command_context, menu_state)
+                return
+
             menu_state = self.require_menu_state(command_context, CancelObjectMenuState)
             object_id = self.require_menu_chosen_item(menu_state.object_ids, command_context.parameter)
 
-            self.plugin_context.api.send_simpleapi_command(cancelobject_id, "cancel", {"cancelled": object_id})
+            self.plugin_context.api.send_simpleapi_command(CANCELOBJECT_PLUGIN_ID, "cancel", {"cancelled": object_id})
 
             msg = render_emojis("{emo:check} Command sent!")
 
@@ -55,42 +67,40 @@ class CmdCancelObject(BaseCommand):
 
             self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
         else:
-            printed_objects = (
-                self.plugin_context.api.send_simpleapi_command(cancelobject_id, "objlist").json().get("list", [])
+            self._list_objects(command_context, CancelObjectMenuState())
+
+    def _list_objects(self, command_context: CommandContext, menu_state: CancelObjectMenuState) -> None:
+        """List the objects that can still be cancelled."""
+        printed_objects = (
+            self.plugin_context.api.send_simpleapi_command(CANCELOBJECT_PLUGIN_ID, "objlist").json().get("list", [])
+        )
+        if printed_objects:
+            msg = render_emojis("{emo:question} Which object do you want to cancel?")
+
+            cancelled_objects = [
+                printed_object["object"] for printed_object in printed_objects if printed_object.get("cancelled", False)
+            ]
+            if len(cancelled_objects) > self.MAX_LISTED_CANCELLED_OBJECTS:
+                msg += f"\n\n{len(cancelled_objects)} objects already cancelled."
+            elif cancelled_objects:
+                msg += "\n\nObjects already cancelled:\n"
+                msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
+
+            cancellable_objects = [
+                printed_object for printed_object in printed_objects if not printed_object.get("cancelled", False)
+            ]
+
+            keyboard = Keyboard(command_context.cmd)
+            menu_state.object_ids, menu_state.page, _ = keyboard.add_entries_page(
+                [(str(printed_object["id"]), printed_object["object"], "") for printed_object in cancellable_objects],
+                1,
+                menu_state.page,
             )
-            if printed_objects:
-                msg = render_emojis("{emo:question} Which object do you want to cancel?")
+            keyboard.add_row(CLOSE_BUTTON)
 
-                cancelled_objects = [
-                    printed_object["object"]
-                    for printed_object in printed_objects
-                    if printed_object.get("cancelled", False)
-                ]
-                if cancelled_objects:
-                    msg += "\n\nObjects already cancelled:\n"
-                    msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
-
-                cancellable_objects = [
-                    printed_object for printed_object in printed_objects if not printed_object.get("cancelled", False)
-                ]
-
-                keyboard = Keyboard(command_context.cmd)
-                keyboard.add_grid(
-                    [
-                        (printed_object["object"], str(object_position))
-                        for object_position, printed_object in enumerate(cancellable_objects)
-                    ],
-                    buttons_per_row=1,
-                )
-                keyboard.add_row(CLOSE_BUTTON)
-
-                menu_state = CancelObjectMenuState(
-                    [str(printed_object["id"]) for printed_object in cancellable_objects]
-                )
-
-                self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
-            else:
-                msg = render_emojis(
-                    "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."
-                )
-                self.send_answer(command_context, msg, None, markup=Markup.HTML)
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
+        else:
+            msg = render_emojis(
+                "{emo:attention} No objects found. Please make sure you've selected for printing the gcode."
+            )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML)
