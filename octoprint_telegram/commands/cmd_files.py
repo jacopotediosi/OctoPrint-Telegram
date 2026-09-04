@@ -27,6 +27,7 @@ class FilesMenuState(MenuState):
         folder: str = "",
         query: str = "",
         page: int = 0,
+        picker_page: int = 0,
         items: list[str] | None = None,
         selected: str | None = None,
         operation: str | None = None,
@@ -42,6 +43,7 @@ class FilesMenuState(MenuState):
             folder (str, optional): The folder being browsed, its storage included.
             query (str, optional): The text the names of the files must contain, when files are being searched for.
             page (int, optional): The page of the folder being shown.
+            picker_page (int, optional): The page of the destination or of the slicing choice being shown.
             items (list[str], optional): The path of each entry the menu offers, their storage included.
             selected (str, optional): The path the operation acts on, its storage included.
             operation (str, optional): Either "copy" or "move".
@@ -55,6 +57,7 @@ class FilesMenuState(MenuState):
         self.folder = folder
         self.query = query
         self.page = page
+        self.picker_page = picker_page
         self.items = items or []
         self.selected = selected
         self.operation = operation
@@ -114,6 +117,8 @@ class CmdFiles(BaseCommand):
         - /files_move -> start choosing the folder to move the selected file to
         - /files_copymove_{position} -> open the folder at that position while choosing the destination
         - /files_copymove_up -> open the parent of the destination being browsed
+        - /files_copymove_prevpage -> show the previous page of the destination being browsed
+        - /files_copymove_nextpage -> show the next page of the destination being browsed
         - /files_copymove_here -> ask whether to copy or move the selected file to the destination being browsed
         - /files_copymove_yes -> copy or move the selected file to the destination being browsed
 
@@ -124,6 +129,8 @@ class CmdFiles(BaseCommand):
         - /files_slice_slicerprofile -> go back to the slicing profile choice, and forget the printer profile
         - /files_slice_printerprofile -> go back to the printer profile choice
         - /files_slice_{position} -> pick the option at that position for the choice being asked
+        - /files_slice_prevpage -> show the previous page of the choice being asked
+        - /files_slice_nextpage -> show the next page of the choice being asked
         - /files_slice_confirm -> slice the selected model with the choices made
         """
         if not command_context.parameter:
@@ -193,6 +200,7 @@ class CmdFiles(BaseCommand):
         elif action in ("copy", "move"):
             menu_state.operation = action
             menu_state.target = None
+            menu_state.picker_page = 0
             self._file_copy_move_destination(command_context, menu_state)
 
         elif action == "copymove":
@@ -201,17 +209,23 @@ class CmdFiles(BaseCommand):
             elif argument == "yes":
                 self._file_copy_move(command_context, menu_state)
             else:
-                if argument == "up":
+                if argument in ("prevpage", "nextpage"):
+                    menu_state.picker_page += -1 if argument == "prevpage" else 1
+                elif argument == "up":
                     menu_state.target = "/".join((menu_state.target or "").split("/")[:-1]) or None
+                    menu_state.picker_page = 0
                 elif argument:
                     menu_state.target = self.require_menu_chosen_item(menu_state.items, argument)
+                    menu_state.picker_page = 0
                 self._file_copy_move_destination(command_context, menu_state)
 
         elif action == "selectforprint":
             self._file_print(command_context, menu_state)
 
         elif action == "slice":
-            if not argument:
+            if argument in ("prevpage", "nextpage"):
+                menu_state.picker_page += -1 if argument == "prevpage" else 1
+            elif not argument:
                 self._clear_slice_choices_from(menu_state, "slicer")
             elif argument.isdigit():
                 self._pick_slice_option(menu_state, self.require_menu_chosen_item(menu_state.items, argument))
@@ -292,15 +306,11 @@ class CmdFiles(BaseCommand):
             elif len(storages) > 1:
                 msg = render_emojis("{emo:save} <b>Select Storage</b>")
 
-                menu_state.items = list(storages)
-
                 keyboard = Keyboard(command_context.cmd)
-                keyboard.add_grid(
-                    [
-                        (f"{{emo:folder}} {storage_name}", f"list_{storage_position}")
-                        for storage_position, storage_name in enumerate(menu_state.items)
-                    ],
-                    buttons_per_row=1,
+                menu_state.items, menu_state.page, _ = keyboard.add_entries_page(
+                    [(storage_name, f"{{emo:folder}} {storage_name}", "list") for storage_name in storages],
+                    1,
+                    menu_state.page,
                 )
                 keyboard.add_row(CLOSE_BUTTON)
 
@@ -1032,9 +1042,17 @@ class CmdFiles(BaseCommand):
                 return
 
             to_path_folders = to_path_listing.get(to_storage_name, {})
-            for folder_name in sorted(to_path_folders):
-                menu_state.items.append("/".join(filter(None, [to_storage_name, to_path, folder_name])))
-                keyboard.add_row((f"{{emo:folder}} {folder_name}", f"copymove_{len(menu_state.items) - 1}"))
+            folder_entries = [
+                (
+                    "/".join(filter(None, [to_storage_name, to_path, folder_name])),
+                    f"{{emo:folder}} {folder_name}",
+                    "copymove",
+                )
+                for folder_name in sorted(to_path_folders)
+            ]
+            menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
+                folder_entries, 2, menu_state.picker_page, "copymove_"
+            )
 
             # Copy/Move here button
             keyboard.add_row((f"{{emo:check}} {operation.capitalize()} here", "copymove_here"))
@@ -1044,9 +1062,12 @@ class CmdFiles(BaseCommand):
                 self._file_copy_move_destination(command_context, menu_state)
                 return
 
-            for storage_name in storages:
-                menu_state.items.append(storage_name)
-                keyboard.add_row((storage_name, f"copymove_{len(menu_state.items) - 1}"))
+            menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
+                [(storage_name, storage_name, "copymove") for storage_name in storages],
+                1,
+                menu_state.picker_page,
+                "copymove_",
+            )
 
         # Back button
         keyboard.add_row((BACK_LABEL, "info"))
@@ -1122,6 +1143,7 @@ class CmdFiles(BaseCommand):
             menu_state.slicer_profile = option
         else:
             menu_state.printer_profile = option
+        menu_state.picker_page = 0
 
     def _clear_slice_choices_from(self, menu_state: FilesMenuState, level: str) -> None:
         """Forget a slicing choice and every choice made after it.
@@ -1135,6 +1157,7 @@ class CmdFiles(BaseCommand):
         if level in ("slicer", "slicerprofile"):
             menu_state.slicer_profile = None
         menu_state.printer_profile = None
+        menu_state.picker_page = 0
 
     def _file_slice(self, command_context: CommandContext, menu_state: FilesMenuState, confirmed: bool) -> None:
         """Ask for the slicing choices still to make, then slice the selected model once confirmed.
@@ -1176,17 +1199,16 @@ class CmdFiles(BaseCommand):
             else:  # If there are multiple slicers, ask to select one
                 msg += render_emojis("{emo:question} Which slicer do you want to use?")
 
-                menu_state.items = []
-                keyboard = Keyboard(command_context.cmd)
+                slicer_entries = []
                 for configured_slicer in configured_slicers:
                     slicer = self.plugin_context.slicing_manager.get_slicer(configured_slicer)
                     slicer_properties = slicer.get_slicer_properties()
+                    slicer_entries.append((slicer_properties.get("type"), slicer_properties.get("name"), "slice"))
 
-                    menu_state.items.append(slicer_properties.get("type"))
-
-                    slicer_name = slicer_properties.get("name")
-
-                    keyboard.add_row((slicer_name, f"slice_{len(menu_state.items) - 1}"))
+                keyboard = Keyboard(command_context.cmd)
+                menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
+                    slicer_entries, 1, menu_state.picker_page, "slice_"
+                )
                 keyboard.add_row((BACK_LABEL, "info"))
 
                 self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
@@ -1214,14 +1236,15 @@ class CmdFiles(BaseCommand):
             else:  # If there are multiple slicer profiles, ask to select one
                 msg += render_emojis("\n{emo:question} Which slicer profile do you want to use?")
 
-                menu_state.items = []
+                slicer_profile_entries = [
+                    (slicer_profile.name, slicer_profile.display_name or slicer_profile.name, "slice")
+                    for slicer_profile in slicer_profiles
+                ]
+
                 keyboard = Keyboard(command_context.cmd)
-                for slicer_profile in slicer_profiles:
-                    menu_state.items.append(slicer_profile.name)
-
-                    slicer_profile_name = slicer_profile.display_name or slicer_profile.name
-
-                    keyboard.add_row((slicer_profile_name, f"slice_{len(menu_state.items) - 1}"))
+                menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
+                    slicer_profile_entries, 1, menu_state.picker_page, "slice_"
+                )
                 if len(configured_slicers) > 1:
                     back_action = "slice_slicer"
                 else:
@@ -1253,14 +1276,15 @@ class CmdFiles(BaseCommand):
             else:  # If there are multiple printer profiles, ask to select one
                 msg += render_emojis("\n{emo:question} Which printer profile do you want to use?")
 
-                menu_state.items = []
+                printer_profile_entries = [
+                    (printer_profile.get("id"), printer_profile.get("name"), "slice")
+                    for printer_profile in printer_profiles
+                ]
+
                 keyboard = Keyboard(command_context.cmd)
-                for printer_profile in printer_profiles:
-                    menu_state.items.append(printer_profile.get("id"))
-
-                    printer_profile_name = printer_profile.get("name")
-
-                    keyboard.add_row((printer_profile_name, f"slice_{len(menu_state.items) - 1}"))
+                menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
+                    printer_profile_entries, 1, menu_state.picker_page, "slice_"
+                )
                 if len(slicer_profiles) > 1:
                     back_action = "slice_slicerprofile"
                 elif len(configured_slicers) > 1:
