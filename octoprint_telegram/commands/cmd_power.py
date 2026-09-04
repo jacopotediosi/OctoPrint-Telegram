@@ -12,6 +12,7 @@ from .base import BaseCommand, CommandContext
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
+    from ..integrations.power.base import PowerPlugin
 
 render_emojis = Emoji.render_emojis
 
@@ -19,14 +20,16 @@ render_emojis = Emoji.render_emojis
 class PowerMenuState(MenuState):
     """The plugs offered in the menu."""
 
-    def __init__(self, plugs: list[tuple[str, str]]) -> None:
+    def __init__(self, plugs: list[tuple[str, str]] | None = None, page: int = 0) -> None:
         """Set up the plugs offered in the menu.
 
         Args:
-            plugs (list[tuple[str, str]]): The plugin id and the plug identifier of each plug, in the order they are
-                offered.
+            plugs (list[tuple[str, str]], optional): The plugin id and the plug identifier of each plug, in the
+                order they are offered.
+            page (int, optional): The page of the plugs being shown.
         """
-        self.plugs = plugs
+        self.plugs = plugs or []
+        self.page = page
 
 
 class CmdPower(BaseCommand):
@@ -46,6 +49,8 @@ class CmdPower(BaseCommand):
         Possible callback queries, where {position} stands for the position of a plug in the list:
 
         - /power -> list the plugs of every installed power plugin
+        - /power_prevpage -> show the previous page of the plugs
+        - /power_nextpage -> show the next page of the plugs
         - /power_{position} -> show the state of that plug and ask what to do with it
         - /power_{position}_on -> switch that plug on
         - /power_{position}_off -> switch that plug off
@@ -70,35 +75,18 @@ class CmdPower(BaseCommand):
             return
 
         if not command_context.parameter:  # Command was /power, show plugs list
-            message = render_emojis("{emo:question} Which plug do you want to manage?")
-
-            plugs = []
-            plug_buttons = []
-            for plugin_handler in available_plugins:
-                try:
-                    for plug_data in plugin_handler.get_plugs_data():
-                        label = plug_data["label"]
-
-                        is_on = plug_data["is_on"]
-                        status_emoji_name = "online" if is_on else "offline"
-
-                        plugs.append((plugin_handler.plugin_id, str(plug_data["data"])))
-
-                        plug_buttons.append((f"{{emo:{status_emoji_name}}} {label}", str(len(plugs) - 1)))
-                except Exception:
-                    self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
-
-            keyboard = Keyboard(command_context.cmd)
-            keyboard.add_grid(plug_buttons, buttons_per_row=3)
-            keyboard.add_row(CLOSE_BUTTON)
-
-            self.send_answer(command_context, message, PowerMenuState(plugs), markup=Markup.HTML, keyboard=keyboard)
+            self._list_plugs(command_context, PowerMenuState(), available_plugins)
 
         else:
             params = command_context.parameter.split("_")
             plug_index, action = (params + [""] * 2)[:2]
 
             menu_state = self.require_menu_state(command_context, PowerMenuState)
+
+            if plug_index in ("prevpage", "nextpage"):
+                menu_state.page += -1 if plug_index == "prevpage" else 1
+                self._list_plugs(command_context, menu_state, available_plugins)
+                return
 
             keyboard = Keyboard(command_context.cmd)
             keyboard.add_row((BACK_LABEL, ""), CLOSE_BUTTON)
@@ -162,3 +150,37 @@ class CmdPower(BaseCommand):
                 keyboard.add_row((BACK_LABEL, plug_index), CLOSE_BUTTON)
 
                 self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
+
+    def _list_plugs(
+        self, command_context: CommandContext, menu_state: PowerMenuState, available_plugins: list[PowerPlugin]
+    ) -> None:
+        """List the plugs of every installed power plugin.
+
+        Args:
+            command_context (CommandContext): The details of a single command invocation.
+            menu_state (PowerMenuState): The state of the menu the plugs are offered in.
+            available_plugins (list[PowerPlugin]): The power plugins installed and enabled.
+        """
+        message = render_emojis("{emo:question} Which plug do you want to manage?")
+
+        plug_entries = []
+        for plugin_handler in available_plugins:
+            try:
+                for plug_data in plugin_handler.get_plugs_data():
+                    status_emoji_name = "online" if plug_data["is_on"] else "offline"
+
+                    plug_entries.append(
+                        (
+                            (plugin_handler.plugin_id, str(plug_data["data"])),
+                            f"{{emo:{status_emoji_name}}} {plug_data['label']}",
+                            "",
+                        )
+                    )
+            except Exception:
+                self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
+
+        keyboard = Keyboard(command_context.cmd)
+        menu_state.plugs, menu_state.page, _ = keyboard.add_entries_page(plug_entries, 2, menu_state.page)
+        keyboard.add_row(CLOSE_BUTTON)
+
+        self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)
