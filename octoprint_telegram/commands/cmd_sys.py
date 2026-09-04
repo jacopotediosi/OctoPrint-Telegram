@@ -204,7 +204,7 @@ class CmdSys(BaseCommand):
                 action_entries.append((("server", command_key), command_label, ""))
 
         keyboard = Keyboard(command_context.cmd)
-        menu_state.actions, menu_state.page, _ = keyboard.add_entries_page(action_entries, 2, menu_state.page)
+        menu_state.actions, menu_state.page, _ = keyboard.add_entries_page(action_entries, menu_state.page, 2)
 
         if action_entries:
             msg = render_emojis("{emo:question} Which System Command do you want to activate?")

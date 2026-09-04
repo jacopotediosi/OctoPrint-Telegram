@@ -419,7 +419,7 @@ class CmdCon(BaseCommand):
             entries.append((value, f"{{emo:{item_emoji}}} {label}", callback_prefix))
 
         keyboard = Keyboard(command_context.cmd)
-        values, page, _ = keyboard.add_entries_page(entries, 3, page, f"{callback_prefix}_")
+        values, page, _ = keyboard.add_entries_page(entries, page, 3, page_action_prefix=f"{callback_prefix}_")
         keyboard.add_row((BACK_LABEL, parent))
 
         menu_state = ConMenuState(values, port=port, baudrate=baudrate, page=page)

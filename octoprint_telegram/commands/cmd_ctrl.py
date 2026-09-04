@@ -115,7 +115,7 @@ class CmdCtrl(BaseCommand):
 
         keyboard = Keyboard(command_context.cmd)
         menu_state.control_identifiers, menu_state.page, _ = keyboard.add_entries_page(
-            [(control["identifier"], control["name"], "") for control in controls], 1, menu_state.page
+            [(control["identifier"], control["name"], "") for control in controls], menu_state.page, 1
         )
 
         if not controls:

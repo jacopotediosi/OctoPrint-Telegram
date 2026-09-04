@@ -309,8 +309,8 @@ class CmdFiles(BaseCommand):
                 keyboard = Keyboard(command_context.cmd)
                 menu_state.items, menu_state.page, _ = keyboard.add_entries_page(
                     [(storage_name, f"{{emo:folder}} {storage_name}", "list") for storage_name in storages],
-                    1,
                     menu_state.page,
+                    1,
                 )
                 keyboard.add_row(CLOSE_BUTTON)
 
@@ -339,17 +339,17 @@ class CmdFiles(BaseCommand):
             # --- Collect the entries to show ---
             if menu_state.query:
                 entries = self._get_matching_file_entries(path_with_storage, path_content, menu_state.query)
-                entries_per_row = 1
+                columns = 1
             else:
                 entries = self._get_folder_and_file_entries(path_with_storage, path_content)
-                entries_per_row = 2
+                columns = 2
 
             # --- Create command buttons ---
             keyboard = Keyboard(command_context.cmd)
 
             # Folder and file buttons
             menu_state.items, menu_state.page, total_pages = keyboard.add_entries_page(
-                entries, entries_per_row, menu_state.page
+                entries, menu_state.page, columns
             )
 
             # Actions row: search, settings, back, close
@@ -1014,7 +1014,6 @@ class CmdFiles(BaseCommand):
         )
 
         keyboard = Keyboard(command_context.cmd)
-        menu_state.items = []
 
         if menu_state.target:  # Start navigation from the target folder
             to_storage_name, to_path = self._split_storage_and_path(menu_state.target)
@@ -1051,7 +1050,7 @@ class CmdFiles(BaseCommand):
                 for folder_name in sorted(to_path_folders)
             ]
             menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
-                folder_entries, 2, menu_state.picker_page, "copymove_"
+                folder_entries, menu_state.picker_page, 2, page_action_prefix="copymove_"
             )
 
             # Copy/Move here button
@@ -1064,9 +1063,9 @@ class CmdFiles(BaseCommand):
 
             menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
                 [(storage_name, storage_name, "copymove") for storage_name in storages],
-                1,
                 menu_state.picker_page,
-                "copymove_",
+                1,
+                page_action_prefix="copymove_",
             )
 
         # Back button
@@ -1207,7 +1206,7 @@ class CmdFiles(BaseCommand):
 
                 keyboard = Keyboard(command_context.cmd)
                 menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
-                    slicer_entries, 1, menu_state.picker_page, "slice_"
+                    slicer_entries, menu_state.picker_page, 1, page_action_prefix="slice_"
                 )
                 keyboard.add_row((BACK_LABEL, "info"))
 
@@ -1243,7 +1242,7 @@ class CmdFiles(BaseCommand):
 
                 keyboard = Keyboard(command_context.cmd)
                 menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
-                    slicer_profile_entries, 1, menu_state.picker_page, "slice_"
+                    slicer_profile_entries, menu_state.picker_page, 1, page_action_prefix="slice_"
                 )
                 if len(configured_slicers) > 1:
                     back_action = "slice_slicer"
@@ -1283,7 +1282,7 @@ class CmdFiles(BaseCommand):
 
                 keyboard = Keyboard(command_context.cmd)
                 menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
-                    printer_profile_entries, 1, menu_state.picker_page, "slice_"
+                    printer_profile_entries, menu_state.picker_page, 1, page_action_prefix="slice_"
                 )
                 if len(slicer_profiles) > 1:
                     back_action = "slice_slicerprofile"

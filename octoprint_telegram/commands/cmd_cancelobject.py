@@ -93,8 +93,8 @@ class CmdCancelObject(BaseCommand):
             keyboard = Keyboard(command_context.cmd)
             menu_state.object_ids, menu_state.page, _ = keyboard.add_entries_page(
                 [(str(printed_object["id"]), printed_object["object"], "") for printed_object in cancellable_objects],
-                1,
                 menu_state.page,
+                1,
             )
             keyboard.add_row(CLOSE_BUTTON)
 

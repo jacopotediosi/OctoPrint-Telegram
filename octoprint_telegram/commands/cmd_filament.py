@@ -93,9 +93,7 @@ class CmdFilament(BaseCommand):
             msg = render_emojis("{emo:question} Please choose a filament manager plugin")
 
             keyboard = Keyboard(command_context.cmd)
-            keyboard.add_grid(
-                [(plugin.plugin_name, plugin.plugin_id) for plugin in available_plugins], buttons_per_row=2
-            )
+            keyboard.add_grid([(plugin.plugin_name, plugin.plugin_id) for plugin in available_plugins], columns=2)
             keyboard.add_row(CLOSE_BUTTON)
 
             self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
@@ -162,10 +160,10 @@ class CmdFilament(BaseCommand):
                         ((spool_id, spool_description), spool_description, f"{plugin_handler.plugin_id}_show")
                         for spool_id, spool_description in spools
                     ],
-                    1,
                     menu_state.page,
-                    f"{plugin_handler.plugin_id}_show_",
-                    page_rows=self.PAGE_ROWS,
+                    1,
+                    rows=self.PAGE_ROWS,
+                    page_action_prefix=f"{plugin_handler.plugin_id}_show_",
                 )
                 keyboard.add_row((BACK_LABEL, plugin_handler.plugin_id))
 
@@ -231,7 +229,7 @@ class CmdFilament(BaseCommand):
                 keyboard = Keyboard(command_context.cmd)
                 keyboard.add_grid(
                     [(f"{{emo:tool}} Tool {i}", f"{plugin_handler.plugin_id}_select_{i}") for i in range(tool_counts)],
-                    buttons_per_row=2,
+                    columns=2,
                 )
                 keyboard.add_row((BACK_LABEL, plugin_handler.plugin_id))
 
@@ -258,10 +256,10 @@ class CmdFilament(BaseCommand):
                         )
                         for spool_id, spool_description in spools
                     ],
-                    1,
                     menu_state.page,
-                    f"{plugin_handler.plugin_id}_select_{tool_index}_",
-                    page_rows=self.PAGE_ROWS,
+                    1,
+                    rows=self.PAGE_ROWS,
+                    page_action_prefix=f"{plugin_handler.plugin_id}_select_{tool_index}_",
                 )
 
                 back_action = f"{plugin_handler.plugin_id}_select" if has_multiple_tools else plugin_handler.plugin_id

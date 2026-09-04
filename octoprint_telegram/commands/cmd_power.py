@@ -180,7 +180,7 @@ class CmdPower(BaseCommand):
                 self._logger.exception("Caught an exception getting %s plugs", plugin_handler.plugin_id)
 
         keyboard = Keyboard(command_context.cmd)
-        menu_state.plugs, menu_state.page, _ = keyboard.add_entries_page(plug_entries, 2, menu_state.page)
+        menu_state.plugs, menu_state.page, _ = keyboard.add_entries_page(plug_entries, menu_state.page, 2)
         keyboard.add_row(CLOSE_BUTTON)
 
         self.send_answer(command_context, message, menu_state, markup=Markup.HTML, keyboard=keyboard)

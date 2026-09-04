@@ -57,37 +57,38 @@ class Keyboard:
             row.append((render_emojis(label), f"{command}_{parameter}" if parameter else command))
         self.rows.append(row)
 
-    def add_grid(self, buttons: Sequence[tuple[str, ...]], buttons_per_row: int) -> None:
+    def add_grid(self, buttons: Sequence[tuple[str, ...]], columns: int) -> None:
         """Add buttons over as many rows as they need, filling every row from its leftmost button.
 
         Args:
             buttons (Sequence[tuple[str, ...]]): The buttons, described as in add_row.
-            buttons_per_row (int): The buttons every row holds.
+            columns (int): The buttons every row holds.
         """
-        for row_start in range(0, len(buttons), buttons_per_row):
-            self.add_row(*buttons[row_start : row_start + buttons_per_row])
+        for row_start in range(0, len(buttons), columns):
+            self.add_row(*buttons[row_start : row_start + columns])
 
     def add_entries_page(
         self,
         entries: Sequence[Entry[T]],
-        entries_per_row: int,
         page: int,
+        columns: int,
+        *,
+        rows: int = DEFAULT_PAGE_ROWS,
         page_action_prefix: str = "",
-        page_rows: int = DEFAULT_PAGE_ROWS,
     ) -> tuple[list[T], int, int]:
         """Add one page of entries, and the buttons to reach the other pages.
 
         Args:
             entries (Sequence[Entry]): The entries to spread over the pages.
-            entries_per_row (int): The entries every row holds.
             page (int): The page to show.
+            columns (int): The entries every row holds.
+            rows (int, optional): The rows of entries every page holds.
             page_action_prefix (str, optional): What the page-turn actions are prefixed with.
-            page_rows (int, optional): The rows of entries every page holds.
 
         Returns:
-            tuple[list[str], int, int]: The item of each entry shown, the page shown, then the number of pages.
+            tuple[list[T], int, int]: The item of each entry shown, the page shown, then the number of pages.
         """
-        page_size = page_rows * entries_per_row
+        page_size = rows * columns
         total_pages = max(1, (len(entries) + page_size - 1) // page_size)
 
         page = max(0, min(page, total_pages - 1))
@@ -99,7 +100,7 @@ class Keyboard:
             items.append(item)
             position = len(items) - 1
             entry_buttons.append((label, f"{action}_{position}" if action else str(position)))
-        self.add_grid(entry_buttons, buttons_per_row=entries_per_row)
+        self.add_grid(entry_buttons, columns=columns)
 
         page_row = []
         if page > 0:
