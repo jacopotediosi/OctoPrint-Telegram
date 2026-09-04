@@ -34,6 +34,7 @@ class FilesMenuState(MenuState):
         slicer: str | None = None,
         slicer_profile: str | None = None,
         printer_profile: str | None = None,
+        confirmation: tuple | None = None,
     ) -> None:
         """Set up the entries the menu offers and the operation being carried out on one of them.
 
@@ -48,6 +49,8 @@ class FilesMenuState(MenuState):
             slicer (str, optional): The id of the slicer picked so far.
             slicer_profile (str, optional): The id of the slicing profile picked so far.
             printer_profile (str, optional): The id of the printer profile picked so far.
+            confirmation (tuple, optional): The operation the confirmation being shown refers to, with the paths
+                it acts on.
         """
         self.folder = folder
         self.query = query
@@ -59,6 +62,7 @@ class FilesMenuState(MenuState):
         self.slicer = slicer
         self.slicer_profile = slicer_profile
         self.printer_profile = printer_profile
+        self.confirmation = confirmation
 
 
 class CmdFiles(BaseCommand):
@@ -132,6 +136,9 @@ class CmdFiles(BaseCommand):
         action, _, argument = command_context.parameter.partition("_")
 
         menu_state = self.require_menu_state(command_context, FilesMenuState)
+
+        if (action, argument) not in (("delete", "yes"), ("copymove", "yes")):
+            menu_state.confirmation = None
 
         if action == "list":
             if argument:
@@ -894,6 +901,8 @@ class CmdFiles(BaseCommand):
         to_storage_name, to_path = self._copy_move_destination(menu_state)
         full_to_file_path_to_display = f"/{to_storage_name}/{to_path}".rstrip("/")
 
+        menu_state.confirmation = (menu_state.operation, menu_state.selected, menu_state.target)
+
         keyboard = Keyboard(command_context.cmd)
         keyboard.add_row(("{emo:check} Yes", "copymove_yes"), ("{emo:cancel} No", "copymove"))
 
@@ -908,7 +917,15 @@ class CmdFiles(BaseCommand):
         )
 
     def _file_copy_move(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
-        """Copy or move the selected file to the destination picked."""
+        """Copy or move the selected file to the destination picked.
+
+        Raises:
+            StaleMenuError: If the confirmation being shown is not for this operation and these paths.
+        """
+        if menu_state.confirmation != (menu_state.operation, menu_state.selected, menu_state.target):
+            raise StaleMenuError
+        menu_state.confirmation = None
+
         operation = self._copy_move_operation(menu_state)
 
         from_storage_name, from_path = self._get_selected_storage_and_path(menu_state)
@@ -1373,6 +1390,8 @@ class CmdFiles(BaseCommand):
         storage_name, file_path = self._get_selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
+        menu_state.confirmation = ("delete", menu_state.selected)
+
         keyboard = Keyboard(command_context.cmd)
         keyboard.add_row(("{emo:check} Yes", "delete_yes"), ("{emo:cancel} No", "info"))
 
@@ -1385,6 +1404,15 @@ class CmdFiles(BaseCommand):
         )
 
     def _file_delete(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
+        """Delete the selected file.
+
+        Raises:
+            StaleMenuError: If the confirmation being shown is not for deleting this file.
+        """
+        if menu_state.confirmation != ("delete", menu_state.selected):
+            raise StaleMenuError
+        menu_state.confirmation = None
+
         storage_name, file_path = self._get_selected_storage_and_path(menu_state)
         full_file_path_to_display = f"/{storage_name}/{file_path}"
 
