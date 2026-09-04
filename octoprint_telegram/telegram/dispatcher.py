@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import threading
 from typing import TYPE_CHECKING
 
@@ -20,6 +21,8 @@ render_emojis = Emoji.render_emojis
 
 SUPPORTED_UPDATE_TYPES = ("message", "callback_query", "my_chat_member", "channel_post")
 
+WORKER_IDLE_TIMEOUT_SECONDS = 10
+
 
 class Dispatcher:
     """Routes each update Telegram sends to whatever handles it."""
@@ -35,8 +38,51 @@ class Dispatcher:
         self._commands = commands
         self._uploads = Uploads(plugin_context)
         self._logger = plugin_context.logger.getChild("Dispatcher")
+        self._queues: dict[str, queue.Queue[dict]] = {}
+        self._queues_lock = threading.Lock()
 
     def process_update(self, update: dict) -> None:
+        """Hand one update to the worker serving its chat.
+
+        Updates from the same chat are processed in arrival order. Each known chat is served by its own worker;
+        the chats the bot does not know all share one.
+
+        Args:
+            update (dict): The update as Telegram sent it.
+
+        Raises:
+            ValueError: If the update is of a type the bot does not handle.
+        """
+        chat_id, _ = self._get_chat_and_from_ids(update)
+
+        key = chat_id if self.plugin_context.chats.get_chat(chat_id) is not None else "unknown"
+
+        with self._queues_lock:
+            updates_queue = self._queues.get(key)
+            if updates_queue is None:
+                updates_queue = queue.Queue()
+                threading.Thread(target=self._work, args=(key, updates_queue), daemon=True).start()
+                self._queues[key] = updates_queue
+
+            updates_queue.put(update)
+
+    def _work(self, key: str, updates_queue: queue.Queue[dict]) -> None:
+        while True:
+            try:
+                update = updates_queue.get(timeout=WORKER_IDLE_TIMEOUT_SECONDS)
+            except queue.Empty:
+                with self._queues_lock:
+                    if updates_queue.empty():
+                        del self._queues[key]
+                        return
+                continue
+
+            try:
+                self._process_update(update)
+            except Exception:
+                self._logger.exception("Caught an exception processing an update")
+
+    def _process_update(self, update: dict) -> None:
         """Route one update to whatever handles it.
 
         Args:
