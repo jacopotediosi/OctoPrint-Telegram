@@ -11,6 +11,7 @@ import requests
 from typing_extensions import override
 
 from ..domain import permissions
+from ..domain.files import is_file_busy
 from ..emoji import Emoji
 from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
 from ..utils import format_duration, format_eta, format_filament, format_fuzzy_print_time, format_size
@@ -260,39 +261,6 @@ class CmdFiles(BaseCommand):
         if not menu_state.selected:
             raise StaleMenuError
         return self._split_storage_and_path(menu_state.selected)
-
-    def _is_file_busy(self, storage_name: str, file_path: str) -> bool:
-        """Whether a file is being printed or sliced.
-
-        Args:
-            storage_name (str): The storage the file is stored in (e.g., octoprint.filemanager.FileDestinations.LOCAL).
-            file_path (str): The path of the file inside its storage.
-
-        Returns:
-            bool: True if the file is in use.
-        """
-        current_data = self.plugin_context.printer.get_current_data() or {}
-        job_file = (current_data.get("job") or {}).get("file") or {}
-        state_flags = (current_data.get("state") or {}).get("flags") or {}
-
-        # Being printed
-        if (
-            job_file.get("origin") == storage_name
-            and job_file.get("path")
-            and self.plugin_context.file_manager.file_in_path(storage_name, file_path, job_file["path"])
-            and any(
-                state_flags.get(flag)
-                for flag in ("printing", "paused", "pausing", "resuming", "cancelling", "finishing")
-            )
-        ):
-            return True
-
-        # Being sliced
-        return any(
-            storage_name == busy_storage
-            and self.plugin_context.file_manager.file_in_path(storage_name, file_path, busy_path)
-            for busy_storage, busy_path in self.plugin_context.file_manager.get_busy_files()
-        )
 
     def _file_list(self, command_context: CommandContext, menu_state: FilesMenuState) -> None:
         self.send_answer(command_context, render_emojis("{emo:loading} Loading files..."), menu_state)
@@ -944,7 +912,12 @@ class CmdFiles(BaseCommand):
                         # Copy the file
                         self.plugin_context.file_manager.copy_file(from_storage_name, from_path, final_to_path)
                     elif operation == "move":
-                        if self._is_file_busy(from_storage_name, from_path):
+                        if is_file_busy(
+                            self.plugin_context.printer,
+                            self.plugin_context.file_manager,
+                            from_storage_name,
+                            from_path,
+                        ):
                             failure_reason = "Source is currently in use"
                         else:
                             # Deselect source file if currently selected
@@ -1422,7 +1395,7 @@ class CmdFiles(BaseCommand):
         try:
             if not self.plugin_context.file_manager.file_exists(storage_name, file_path):
                 failure_reason = "File doesn't exist or isn't a file"
-            elif self._is_file_busy(storage_name, file_path):
+            elif is_file_busy(self.plugin_context.printer, self.plugin_context.file_manager, storage_name, file_path):
                 failure_reason = "File is currently in use"
             else:
                 # Deselect file if currently selected

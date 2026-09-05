@@ -11,6 +11,7 @@ import octoprint.filemanager
 from ..emoji import Emoji
 from ..telegram import Markup
 from . import permissions
+from .files import is_file_busy
 
 if TYPE_CHECKING:
     from ..core.context import PluginContext
@@ -105,6 +106,7 @@ class Uploads:
 
             # Save the file on disk
             added_files_relative_paths = []
+            skipped_busy_files = []
             if is_zip_file:
                 zip_file = io.BytesIO(uploaded_file_content)
                 with zipfile.ZipFile(zip_file, "r") as zf:
@@ -185,6 +187,18 @@ class Uploads:
                                 octoprint.filemanager.FileDestinations.LOCAL, member_destination_folder, member_filename
                             )
 
+                            if is_file_busy(
+                                self.plugin_context.printer,
+                                self.plugin_context.file_manager,
+                                octoprint.filemanager.FileDestinations.LOCAL,
+                                destination_file_relative_path,
+                            ):
+                                self._logger.warning(
+                                    "Not overwriting %s because it is currently in use", destination_file_relative_path
+                                )
+                                skipped_busy_files.append(destination_file_relative_path)
+                                continue
+
                             with zf.open(member) as member_stream:
                                 stream_wrapper = octoprint.filemanager.util.StreamWrapper(
                                     destination_file_relative_path,
@@ -208,6 +222,27 @@ class Uploads:
                 destination_file_relative_path = self.plugin_context.file_manager.join_path(
                     octoprint.filemanager.FileDestinations.LOCAL, destination_folder, uploaded_file_filename
                 )
+
+                if is_file_busy(
+                    self.plugin_context.printer,
+                    self.plugin_context.file_manager,
+                    octoprint.filemanager.FileDestinations.LOCAL,
+                    destination_file_relative_path,
+                ):
+                    self._logger.warning(
+                        "Not overwriting %s because it is currently in use", destination_file_relative_path
+                    )
+                    self.plugin_context.sender.send_message(
+                        render_emojis(
+                            f"{{emo:notallowed}} I can't save <code>{html.escape(uploaded_file_filename)}</code>: "
+                            "it would overwrite a file that is currently in use."
+                        ),
+                        chat_id,
+                        markup=Markup.HTML,
+                        message_id=saving_file_msg_id,
+                    )
+                    return
+
                 stream_wrapper = octoprint.filemanager.util.StreamWrapper(
                     destination_file_relative_path, io.BytesIO(uploaded_file_content)
                 )
@@ -224,6 +259,14 @@ class Uploads:
 
             # Update the "saving file" message
             command_buttons = None
+            skipped_note = ""
+            if skipped_busy_files:
+                skipped_note = render_emojis(
+                    "\n\n{emo:warning} I didn't save "
+                    f"{', '.join(f'<code>{html.escape(path)}</code>' for path in skipped_busy_files)} "
+                    "because currently in use."
+                )
+
             if added_files_relative_paths:
                 if len(added_files_relative_paths) > self.MAX_LISTED_FILES:
                     response_message = render_emojis(
@@ -236,6 +279,8 @@ class Uploads:
                         f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
                         f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
                     )
+
+                response_message += skipped_note
 
                 if len(added_files_relative_paths) == 1:
                     if (
@@ -294,6 +339,8 @@ class Uploads:
                                 response_message += render_emojis(
                                     "\n{emo:attention} But I wasn't able to select the file for printing."
                                 )
+            elif skipped_busy_files:
+                response_message = render_emojis("{emo:warning} No files were saved.") + skipped_note
             else:
                 response_message = render_emojis("{emo:warning} No files were saved. Did you upload an empty zip?")
 
