@@ -450,7 +450,7 @@ class TelegramPlugin(
 
     @override
     def get_settings_restricted_paths(self) -> dict:
-        return {"admin": [["token"], ["chats"]]}
+        return {"admin": [["token"], ["chats"], ["imgbbApiKey"]]}
 
     ##########
     ### AssetPlugin mixin
