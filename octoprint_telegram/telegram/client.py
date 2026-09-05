@@ -108,7 +108,10 @@ class TelegramClient:
         }
         request_kwargs: dict[str, Any] = {**default_kwargs, **kwargs}
 
-        loggable_kwargs = {k: ("<binary data>" if k == "files" else v) for k, v in request_kwargs.items()}
+        loggable_kwargs = dict(request_kwargs)
+        loggable_kwargs["proxies"] = "REDACTED"
+        if "files" in loggable_kwargs:
+            loggable_kwargs["files"] = "BINARY_DATA"
         self._logger.debug("Sending Telegram request: method=%s, url=%s, kwargs=%s", method.value, url, loggable_kwargs)
 
         try:

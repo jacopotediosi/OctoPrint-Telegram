@@ -22,6 +22,8 @@ TEXTUAL_CONTENT_TYPES = [
 
 MAX_LOGGED_RESPONSE_BYTES = 10 * 1024
 
+SENSITIVE_KEY_KEYWORDS = ("user", "pass", "token", "secret", "key")
+
 
 class OctoPrintApi:
     """The OctoPrint HTTP API."""
@@ -141,7 +143,15 @@ class OctoPrintApi:
             if k == "headers":
                 loggable_kwargs[k] = {**headers, "X-Api-Key": "REDACTED"}
             elif k == "files":
-                loggable_kwargs[k] = "<binary data>"
+                loggable_kwargs[k] = "BINARY_DATA"
+            elif k in ("json", "data", "params") and isinstance(v, dict):
+                redacted_payload = {}
+                for payload_key, payload_value in v.items():
+                    if any(keyword in payload_key.lower() for keyword in SENSITIVE_KEY_KEYWORDS):
+                        redacted_payload[payload_key] = "REDACTED"
+                    else:
+                        redacted_payload[payload_key] = payload_value
+                loggable_kwargs[k] = redacted_payload
             else:
                 loggable_kwargs[k] = v
         self._logger.debug("Sending OctoPrint request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)

@@ -52,8 +52,11 @@ class DomoticzPowerPlugin(PowerPlugin):
                     else:
                         response = requests.get(str_url, timeout=10, verify=False)  # noqa: S501
                     is_on = response.json()["result"][0]["Status"].lower() == "on"
-                except Exception:
-                    self._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
+                except Exception as e:
+                    error_message = str(e)
+                    if passcode:
+                        error_message = error_message.replace(passcode, "REDACTED")
+                    self._logger.error("Caught an exception getting %s plug status: %s", self.plugin_id, error_message)
 
                 escaped_ip = ip.replace("|", "\\|")
                 escaped_idx = idx.replace("|", "\\|")

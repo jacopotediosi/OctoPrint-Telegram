@@ -421,8 +421,6 @@ class TelegramPlugin(
         Args:
             data (dict): The settings to save.
         """
-        self._logger.debug("Saving settings: %s", data)
-
         # Get old token from settings
         old_token = self._settings.get(["token"])
 

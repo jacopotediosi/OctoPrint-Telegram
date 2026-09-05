@@ -121,7 +121,10 @@ class CmdSys(BaseCommand):
                             command = action
                             break
                     except Exception:
-                        self._logger.exception("Caught an exception parsing system action %s", action)
+                        self._logger.exception(
+                            "Caught an exception parsing system action %s",
+                            action.get("name") if isinstance(action, dict) else action,
+                        )
 
                 if not command:
                     self.send_answer(
@@ -197,7 +200,10 @@ class CmdSys(BaseCommand):
                     (("custom", f"{action['name']}-{action['action']}-{action['command']}"), action["name"], "")
                 )
             except Exception:
-                self._logger.exception("Caught an exception parsing system action %s", action)
+                self._logger.exception(
+                    "Caught an exception parsing system action %s",
+                    action.get("name") if isinstance(action, dict) else action,
+                )
 
         for command_key, command_label in self.SERVER_COMMAND_LABELS.items():
             if self.plugin_context.octoprint_settings.server_command(command_key):
