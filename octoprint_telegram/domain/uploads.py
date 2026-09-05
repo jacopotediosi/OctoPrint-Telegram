@@ -123,19 +123,20 @@ class Uploads:
                                 )
                                 continue
 
-                            member_content = zf.read(member)
                             destination_file_relative_path = os.path.join(destination_folder, member_filename)
-                            stream_wrapper = octoprint.filemanager.util.StreamWrapper(
-                                destination_file_relative_path,
-                                io.BytesIO(member_content),
-                            )
 
-                            added_file_relative_path = self.plugin_context.file_manager.add_file(
-                                octoprint.filemanager.FileDestinations.LOCAL,
-                                destination_file_relative_path,
-                                stream_wrapper,
-                                allow_overwrite=True,
-                            )
+                            with zf.open(member) as member_stream:
+                                stream_wrapper = octoprint.filemanager.util.StreamWrapper(
+                                    destination_file_relative_path,
+                                    member_stream,
+                                )
+
+                                added_file_relative_path = self.plugin_context.file_manager.add_file(
+                                    octoprint.filemanager.FileDestinations.LOCAL,
+                                    destination_file_relative_path,
+                                    stream_wrapper,
+                                    allow_overwrite=True,
+                                )
                             self._logger.info("Added file to %s", added_file_relative_path)
 
                             added_files_relative_paths.append(added_file_relative_path)
