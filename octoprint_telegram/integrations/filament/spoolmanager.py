@@ -207,13 +207,17 @@ class SpoolManagerFilamentPlugin(FilamentPlugin):
     @override
     def select_spool(self, tool_index: str, spool_id: str) -> None:
         self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": spool_id, "toolIndex": tool_index}
+            f"/plugin/{self.plugin_id}/selectSpool",
+            "PUT",
+            json={"databaseId": spool_id, "toolIndex": tool_index, "commitCurrentSpoolValues": True},
         )
 
     @override
     def deselect_spool(self, tool_index: str) -> None:
         self.plugin_context.api.send_request(
-            f"/plugin/{self.plugin_id}/selectSpool", "PUT", json={"databaseId": -1, "toolIndex": tool_index}
+            f"/plugin/{self.plugin_id}/selectSpool",
+            "PUT",
+            json={"databaseId": -1, "toolIndex": tool_index, "commitCurrentSpoolValues": True},
         )
 
     @override
