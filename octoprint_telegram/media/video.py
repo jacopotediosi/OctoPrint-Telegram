@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-from ..utils import resolve_cpulimiter_path, resolve_ffmpeg_path
+from ..utils import kill_process_group, resolve_cpulimiter_path, resolve_ffmpeg_path
 
 if TYPE_CHECKING:
     import logging
@@ -111,6 +111,8 @@ class Video:
 
         Raises:
             RuntimeError: If ffmpeg or the CPU limiter is not installed, or the recording produced no video.
+            subprocess.CalledProcessError: If ffmpeg exits with an error.
+            subprocess.TimeoutExpired: If the recording does not finish in time.
         """
         stream_url = urljoin("http://localhost/", stream_url)
 
@@ -207,10 +209,19 @@ class Video:
         cmd += ["-f", "mp4", "pipe:1"]
 
         self._logger.debug("Creating video by running command: %s", cmd)
-        result = subprocess.run(cmd, check=True, timeout=FFMPEG_TIMEOUT_SECONDS, stdout=subprocess.PIPE)  # noqa: S603
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, start_new_session=True)  # noqa: S603
+        try:
+            stdout, _ = process.communicate(timeout=FFMPEG_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            kill_process_group(process)
+            process.communicate()
+            raise
         self._logger.debug("Video created")
 
-        if not result.stdout:
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, cmd)
+
+        if not stdout:
             raise RuntimeError("The recording produced no video")
 
-        return result.stdout
+        return stdout

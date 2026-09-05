@@ -5,6 +5,8 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from ..utils import kill_process_group
+
 if TYPE_CHECKING:
     import logging
 
@@ -69,12 +71,13 @@ class ImageHooks:
             self._logger.debug("Pre_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True)  # noqa: S602
+                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602
                 self._logger.debug("Pre_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Pre_image SYSTEM command finished with return code %s", proc.returncode)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                kill_process_group(proc)
+                proc.wait()
                 self._logger.warning(
                     "Pre_image SYSTEM command did not finish within %ss, killed it",
                     SYSTEM_COMMAND_TIMEOUT_SECONDS,
@@ -115,12 +118,13 @@ class ImageHooks:
             self._logger.debug("Post_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True)  # noqa: S602
+                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602
                 self._logger.debug("Post_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Post_image SYSTEM command finished with return code %s", proc.returncode)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                kill_process_group(proc)
+                proc.wait()
                 self._logger.warning(
                     "Post_image SYSTEM command did not finish within %ss, killed it",
                     SYSTEM_COMMAND_TIMEOUT_SECONDS,
