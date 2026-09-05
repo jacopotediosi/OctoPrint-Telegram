@@ -1330,6 +1330,24 @@ class CmdFiles(BaseCommand):
 
             self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
 
+        # Don't overwrite a busy destination
+        if is_file_busy(
+            self.plugin_context.printer,
+            self.plugin_context.file_manager,
+            storage_name,
+            dest_path,
+        ):
+            msg = render_emojis(
+                f"{{emo:notallowed}} I can't slice to <code>{html.escape(dest_path_to_display)}</code>: "
+                "it would overwrite a file that is currently in use."
+            )
+
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row((BACK_LABEL, "info"))
+
+            self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)
+            return
+
         # Send msg
         msg = render_emojis(
             f"{{emo:loading}} Slicing <code>{html.escape(full_file_path_to_display)}</code> to <code>{html.escape(dest_path_to_display)}</code>..."
@@ -1339,9 +1357,9 @@ class CmdFiles(BaseCommand):
         # Perform slicing
         self.plugin_context.file_manager.slice(
             slicer_id,
-            octoprint.filemanager.FileDestinations.LOCAL,
+            storage_name,
             file_path,
-            octoprint.filemanager.FileDestinations.LOCAL,
+            storage_name,
             dest_path,
             profile=slicer_profile_id,
             printer_profile_id=printer_profile_id,
