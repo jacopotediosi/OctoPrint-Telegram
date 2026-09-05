@@ -47,9 +47,8 @@ class CmdCon(BaseCommand):
     # How long to wait for a connection attempt to succeed before giving up.
     CONNECTION_TIMEOUT = 15  # Seconds
 
-    # Substrings (case-insensitive) of connection parameter keys whose values must never
-    # be displayed in chat messages
-    SENSITIVE_PARAM_KEYWORDS = ("key", "password", "psw")
+    # The only connection parameter keys whose values may be displayed in chat messages
+    SHOWN_PARAM_KEYS = ("host", "port", "baudrate", "serial")
 
     @override
     def execute(self, command_context: CommandContext) -> None:
@@ -103,7 +102,7 @@ class CmdCon(BaseCommand):
                 if key in meta_keys:
                     continue
                 label = key.replace("_", " ").title()
-                display = "***" if self._is_sensitive_param(key) else str(value)
+                display = str(value) if self._is_shown_param(key) else "***"
                 connector_params_str += f"<b>{html.escape(label)}</b>: {html.escape(display)}\n"
 
             # Profile
@@ -442,10 +441,10 @@ class CmdCon(BaseCommand):
         ]
         for key, value in (parameters or {}).items():
             label = key.replace("_", " ").title()
-            if self._is_sensitive_param(key):
-                display = "***"
-            else:
+            if self._is_shown_param(key):
                 display = "AUTO" if value in (None, "") else str(value)
+            else:
+                display = "***"
             lines.append(f"<b>{html.escape(label)}</b>: {html.escape(display)}")
         lines.append("")
         lines.append("")
@@ -471,6 +470,5 @@ class CmdCon(BaseCommand):
         # or when the serial_connector plugin is installed and enabled on >= 2.0.0.
         return ConnectedPrinter is None or self.plugin_context.plugins.is_enabled("serial_connector")
 
-    def _is_sensitive_param(self, key: str) -> bool:
-        key_lower = str(key).lower()
-        return any(keyword in key_lower for keyword in self.SENSITIVE_PARAM_KEYWORDS)
+    def _is_shown_param(self, key: str) -> bool:
+        return str(key).lower() in self.SHOWN_PARAM_KEYS
