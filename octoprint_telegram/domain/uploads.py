@@ -23,6 +23,8 @@ UPLOAD_FOLDER_NAME = "TelegramPlugin"
 class Uploads:
     """The files users send to the bot, stored into the OctoPrint file library."""
 
+    MAX_LISTED_FILES = 10
+
     def __init__(self, plugin_context: PluginContext) -> None:
         """Set up the handling of the files users send to the bot.
 
@@ -160,11 +162,17 @@ class Uploads:
             # Update the "saving file" message
             command_buttons = None
             if added_files_relative_paths:
-                response_message = render_emojis(
-                    "{emo:download} I've successfully saved the file"
-                    f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
-                    f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
-                )
+                if len(added_files_relative_paths) > self.MAX_LISTED_FILES:
+                    response_message = render_emojis(
+                        f"{{emo:download}} I've successfully saved the {len(added_files_relative_paths)} files "
+                        "you sent me."
+                    )
+                else:
+                    response_message = render_emojis(
+                        "{emo:download} I've successfully saved the file"
+                        f"{'s' if len(added_files_relative_paths) > 1 else ''} you sent me as "
+                        f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
+                    )
 
                 if len(added_files_relative_paths) == 1:
                     if (
