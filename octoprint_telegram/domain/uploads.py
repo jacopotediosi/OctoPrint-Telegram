@@ -25,6 +25,10 @@ class Uploads:
 
     MAX_LISTED_FILES = 10
 
+    MAX_ZIP_FILES = 300
+    MAX_ZIP_UNCOMPRESSED_FILE_MEGABYTES = 1024
+    MAX_ZIP_UNCOMPRESSED_TOTAL_MEGABYTES = 3 * 1024
+
     def __init__(self, plugin_context: PluginContext) -> None:
         """Set up the handling of the files users send to the bot.
 
@@ -104,6 +108,43 @@ class Uploads:
             if is_zip_file:
                 zip_file = io.BytesIO(uploaded_file_content)
                 with zipfile.ZipFile(zip_file, "r") as zf:
+                    zip_members = [member for member in zf.infolist() if not member.is_dir()]
+                    declared_total_size = sum(member.file_size for member in zip_members)
+
+                    rejection_reason = ""
+                    if len(zip_members) > self.MAX_ZIP_FILES:
+                        rejection_reason = f"it contains more than {self.MAX_ZIP_FILES} files"
+                    elif any(
+                        member.file_size > self.MAX_ZIP_UNCOMPRESSED_FILE_MEGABYTES * 1024 * 1024
+                        for member in zip_members
+                    ):
+                        rejection_reason = (
+                            f"it contains a file larger than {self.MAX_ZIP_UNCOMPRESSED_FILE_MEGABYTES}MB uncompressed"
+                        )
+                    elif declared_total_size > self.MAX_ZIP_UNCOMPRESSED_TOTAL_MEGABYTES * 1024 * 1024:
+                        rejection_reason = (
+                            f"its content is larger than {self.MAX_ZIP_UNCOMPRESSED_TOTAL_MEGABYTES}MB uncompressed"
+                        )
+
+                    if rejection_reason:
+                        self._logger.warning(
+                            "Rejecting zip %s: %s (%s files and %s bytes declared in total)",
+                            uploaded_file_filename,
+                            rejection_reason,
+                            len(zip_members),
+                            declared_total_size,
+                        )
+                        self.plugin_context.sender.send_message(
+                            render_emojis(
+                                f"{{emo:notallowed}} I can't extract <code>{html.escape(uploaded_file_filename)}</code>: "
+                                f"{rejection_reason}."
+                            ),
+                            chat_id,
+                            markup=Markup.HTML,
+                            message_id=saving_file_msg_id,
+                        )
+                        return
+
                     for member in zf.infolist():
                         member_filename = os.path.basename(member.filename)
 
