@@ -146,13 +146,18 @@ class Uploads:
                         return
 
                     for member in zf.infolist():
-                        member_filename = os.path.basename(member.filename)
+                        member_path_parts = [
+                            part
+                            for part in member.filename.replace("\\", "/").split("/")
+                            if part not in ("", ".", "..")
+                        ]
+                        member_filename = member_path_parts[-1] if member_path_parts else ""
 
                         try:
                             # Don't extract folders
-                            if member.is_dir():
+                            if member.is_dir() or not member_filename:
                                 self._logger.debug(
-                                    "Ignoring file %s while extracting a zip because it's a folder", member_filename
+                                    "Ignoring entry %s while extracting a zip because it's not a file", member.filename
                                 )
                                 continue
 
@@ -164,7 +169,21 @@ class Uploads:
                                 )
                                 continue
 
-                            destination_file_relative_path = os.path.join(destination_folder, member_filename)
+                            member_destination_folder = destination_folder
+                            for member_folder_name in member_path_parts[:-1]:
+                                member_destination_folder = self.plugin_context.file_manager.add_folder(
+                                    octoprint.filemanager.FileDestinations.LOCAL,
+                                    self.plugin_context.file_manager.join_path(
+                                        octoprint.filemanager.FileDestinations.LOCAL,
+                                        member_destination_folder,
+                                        member_folder_name,
+                                    ),
+                                    ignore_existing=True,
+                                )
+
+                            destination_file_relative_path = self.plugin_context.file_manager.join_path(
+                                octoprint.filemanager.FileDestinations.LOCAL, member_destination_folder, member_filename
+                            )
 
                             with zf.open(member) as member_stream:
                                 stream_wrapper = octoprint.filemanager.util.StreamWrapper(
@@ -186,7 +205,9 @@ class Uploads:
                                 "Exception while extracting file %s contained in the zip", member_filename
                             )
             else:
-                destination_file_relative_path = os.path.join(destination_folder, uploaded_file_filename)
+                destination_file_relative_path = self.plugin_context.file_manager.join_path(
+                    octoprint.filemanager.FileDestinations.LOCAL, destination_folder, uploaded_file_filename
+                )
                 stream_wrapper = octoprint.filemanager.util.StreamWrapper(
                     destination_file_relative_path, io.BytesIO(uploaded_file_content)
                 )
