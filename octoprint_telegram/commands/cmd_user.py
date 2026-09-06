@@ -2,8 +2,10 @@ import html
 
 from typing_extensions import override
 
+from ..domain import permissions
 from ..emoji import Emoji
 from ..telegram import Markup
+from . import registry
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
@@ -14,7 +16,6 @@ class CmdUser(BaseCommand):
     def execute(self, command_context: CommandContext) -> None:
         # Gather data
         chat_settings = self.plugin_context.chats.get_chat(command_context.chat_id) or {}
-        from_settings = self.plugin_context.chats.get_chat(command_context.from_id)
 
         # -- Chat and user information section --
 
@@ -28,13 +29,21 @@ class CmdUser(BaseCommand):
 
         # -- Commands allowed section --
 
-        enabled_group_commands = []
-        if chat_settings["accept_commands"]:
-            enabled_group_commands = [command for command, enabled in chat_settings["commands"].items() if enabled]
+        enabled_group_commands = sorted(
+            command.name
+            for command in registry.configurable_per_chat()
+            if permissions.is_command_allowed_to_all_members(
+                self.plugin_context.settings, command_context.chat_id, command.name
+            )
+        )
 
-        enabled_individual_commands = []
-        if chat_settings["allow_users"] and from_settings:
-            enabled_individual_commands = [command for command, enabled in from_settings["commands"].items() if enabled]
+        enabled_individual_commands = sorted(
+            command.name
+            for command in registry.configurable_per_chat()
+            if permissions.is_command_allowed_individually(
+                self.plugin_context.settings, command_context.chat_id, command_context.from_id, command.name
+            )
+        )
 
         if enabled_group_commands:
             msg += "<b>All chat members can use the following commands:</b>\n"
