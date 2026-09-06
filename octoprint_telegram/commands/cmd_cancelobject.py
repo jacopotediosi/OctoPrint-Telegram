@@ -87,7 +87,9 @@ class CmdCancelObject(BaseCommand):
                 msg += "\n".join(f"- <code>{html.escape(object_name)}</code>" for object_name in cancelled_objects)
 
             cancellable_objects = [
-                printed_object for printed_object in printed_objects if not printed_object.get("cancelled", False)
+                printed_object
+                for printed_object in printed_objects
+                if not printed_object.get("cancelled", False) and not printed_object.get("ignore", False)
             ]
 
             keyboard = Keyboard(command_context.cmd)
