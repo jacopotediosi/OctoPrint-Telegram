@@ -638,12 +638,14 @@ class CmdFiles(BaseCommand):
 
         # Second row: File ops
         can_move = can_copy = can_delete = True
+        can_download = storage_name == octoprint.filemanager.FileDestinations.LOCAL
         if hasattr(self.plugin_context.file_manager, "capabilities"):
             # OctoPrint >= 2.0.0
             storage_capabilities = self.plugin_context.file_manager.capabilities(storage_name)
             can_move = storage_capabilities.move_file
             can_copy = storage_capabilities.copy_file
             can_delete = storage_capabilities.remove_file
+            can_download = storage_capabilities.read_file
         file_operations_row = []
         if can_move:
             file_operations_row.append(("{emo:cut} Move", "move"))
@@ -657,7 +659,7 @@ class CmdFiles(BaseCommand):
         # Third row
         third_row = []
         # Download button
-        if storage_name == octoprint.filemanager.FileDestinations.LOCAL:
+        if can_download:
             third_row.append(("{emo:download} Download", "download"))
         # Back button
         third_row.append((BACK_LABEL, "list"))
@@ -1381,8 +1383,13 @@ class CmdFiles(BaseCommand):
         storage_name, file_path = self._get_selected_storage_and_path(menu_state)
 
         try:
-            file_path_on_disk = self.plugin_context.file_manager.path_on_disk(storage_name, file_path)
-            self.plugin_context.sender.send_file(command_context.chat_id, file_path_on_disk)
+            _, filename = self.plugin_context.file_manager.split_path(storage_name, file_path)
+            with (
+                self.plugin_context.file_manager.read_file(storage_name, file_path)
+                if hasattr(self.plugin_context.file_manager, "read_file")  # OctoPrint >= 2.0.0
+                else open(self.plugin_context.file_manager.path_on_disk(storage_name, file_path), "rb")
+            ) as document:
+                self.plugin_context.sender.send_file(command_context.chat_id, document, filename)
         except Exception:
             msg = render_emojis(
                 f"{{emo:attention}} I couldn't find the file you were looking for. Perhaps you want to have a look at {command_context.cmd} again?"

@@ -5,7 +5,7 @@ import json
 import os
 import time
 from contextlib import ExitStack
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 from ..emoji import Emoji
 from .chat_action import chat_action
@@ -215,17 +215,27 @@ class Sender:
     ### Files
     ##########
 
-    def send_file(self, chat_id: str, path: str, caption: str = "") -> None:
-        """Send a file from disk to a chat."""
+    def send_file(self, chat_id: str, document: IO[bytes], filename: str, caption: str = "") -> None:
+        """Send a file to a chat.
+
+        Args:
+            chat_id (str): The chat to send the file to.
+            document (IO[bytes]): The content of the file, open for reading.
+            filename (str): The name the file is sent with.
+            caption (str, optional): The text shown under the file.
+        """
         if not self._telegram_client.is_connected:
             return
 
-        self._logger.info("Sending file %s to chat %s", path, chat_id)
+        self._logger.info("Sending file %s to chat %s", filename, chat_id)
 
-        if not self._fits_upload_limit(os.path.getsize(path), f"the file '{path}'"):
+        document.seek(0, os.SEEK_END)
+        size_in_bytes = document.tell()
+        document.seek(0)
+        if not self._fits_upload_limit(size_in_bytes, f"the file '{filename}'"):
             self.send_message(
                 render_emojis(
-                    f"{{emo:warning}} The file <code>{html.escape(os.path.basename(path))}</code> is too large "
+                    f"{{emo:warning}} The file <code>{html.escape(filename)}</code> is too large "
                     f"(>{MAX_UPLOAD_MEGABYTES}MB) to send via Telegram. "
                     "Please download it manually from the OctoPrint web interface."
                 ),
@@ -234,13 +244,11 @@ class Sender:
             )
             return
 
-        with chat_action(self._telegram_client, chat_id, ChatAction.UPLOAD_DOCUMENT, self._logger), open(
-            path, "rb"
-        ) as document:
+        with chat_action(self._telegram_client, chat_id, ChatAction.UPLOAD_DOCUMENT, self._logger):
             self._telegram_client.send_request(
                 "sendDocument",
                 HttpMethod.POST,
-                files={"document": document},
+                files={"document": (filename, document)},
                 data={"chat_id": chat_id, "caption": caption},
             )
 
