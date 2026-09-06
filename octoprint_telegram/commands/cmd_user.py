@@ -1,16 +1,21 @@
 import html
 
+from typing_extensions import override
+
+from ..domain import permissions
 from ..emoji import Emoji
+from ..telegram import Markup
+from . import registry
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdUser(BaseCommand):
-    def execute(self, context: CommandContext):
+    @override
+    def execute(self, command_context: CommandContext) -> None:
         # Gather data
-        chat_settings = self.main._settings.get(["chats", context.chat_id])
-        from_settings = self.main._settings.get(["chats", context.from_id])
+        chat_settings = self.plugin_context.chats.get_chat(command_context.chat_id) or {}
 
         # -- Chat and user information section --
 
@@ -18,19 +23,27 @@ class CmdUser(BaseCommand):
             "{emo:info} <b>Chat and user information:</b>\n\n"
             f"<b>Chat title:</b> {html.escape(chat_settings['title'])}\n"
             f"<b>Chat type:</b> {html.escape(chat_settings['type'])}\n"
-            f"<b>Chat id:</b> {html.escape(context.chat_id)}\n"
-            f"<b>User id:</b> {html.escape(context.from_id)}\n\n"
+            f"<b>Chat id:</b> {html.escape(command_context.chat_id)}\n"
+            f"<b>User id:</b> {html.escape(command_context.from_id)}\n\n"
         )
 
         # -- Commands allowed section --
 
-        enabled_group_commands = []
-        if chat_settings["accept_commands"]:
-            enabled_group_commands = [command for command, enabled in chat_settings["commands"].items() if enabled]
+        enabled_group_commands = sorted(
+            command.name
+            for command in registry.configurable_per_chat()
+            if permissions.is_command_allowed_to_all_members(
+                self.plugin_context.settings, command_context.chat_id, command.name
+            )
+        )
 
-        enabled_individual_commands = []
-        if chat_settings["allow_users"] and from_settings:
-            enabled_individual_commands = [command for command, enabled in from_settings["commands"].items() if enabled]
+        enabled_individual_commands = sorted(
+            command.name
+            for command in registry.configurable_per_chat()
+            if permissions.is_command_allowed_individually(
+                self.plugin_context.settings, command_context.chat_id, command_context.from_id, command.name
+            )
+        )
 
         if enabled_group_commands:
             msg += "<b>All chat members can use the following commands:</b>\n"
@@ -62,9 +75,4 @@ class CmdUser(BaseCommand):
             msg += "No notifications enabled"
 
         # Send the message
-        self.main.send_msg(
-            msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
-        )
+        self.send_answer(command_context, msg, None, markup=Markup.HTML)

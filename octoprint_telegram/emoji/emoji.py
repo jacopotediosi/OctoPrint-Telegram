@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING, ClassVar
 
 from .unicode_emoji_dict import unicode_emoji_dict
+
+if TYPE_CHECKING:
+    from octoprint.plugin import PluginSettings
 
 
 class Emoji:
     # Official emoji CLDR short names can change over time, so to make sure the ones
     # we hardcode in the plugin sources don't break, we initialize the emoji map
     # with some custom ones.
-    _custom_emoji_map = {
+    _custom_emoji_map: ClassVar[dict[str, str]] = {
         # Octoprint specific
         "octo": "\U0001f419",
         "plugin": "\U0001f9e9",
@@ -88,23 +94,28 @@ class Emoji:
         "finish": "\U0001f3c1",
     }
 
-    _emoji_map = _custom_emoji_map.copy()
+    _emoji_map: ClassVar[dict[str, str]] = _custom_emoji_map.copy()
     _emoji_map.update(unicode_emoji_dict)
 
-    _settings = None
+    _settings: ClassVar[PluginSettings | None] = None
 
     _EMOJI_PATTERN = re.compile(r"\{emo:([^\}]+)\}")
     _EMOJI_GROUP_PATTERN = re.compile(r"(\{emo:[^\}]+\}(?:\s*\{emo:[^\}]+\})*)")
 
     @staticmethod
-    def init(settings):
+    def init(settings: PluginSettings) -> None:
+        """Initialize the emoji rendering."""
         Emoji._settings = settings
 
     @staticmethod
     def get_emoji(name: str) -> str:
-        """
-        Return the emoji for the given name (case-insensitive).
-        Returns "" if not found.
+        """Return the emoji with the given name.
+
+        Args:
+            name (str): The emoji name, matched case-insensitively.
+
+        Returns:
+            str: The emoji, or an empty string if the name is unknown.
         """
         # Remove colon (dropped by muan/unicode-emoji-json) and make lookup case-insensitive
         normalized_name = name.replace(":", "").lower()
@@ -113,8 +124,7 @@ class Emoji:
 
     @staticmethod
     def render_emojis(text: str) -> str:
-        """
-        Replace `{emo:name}` placeholders with emojis or remove them if emojis are disabled in plugin settings.
+        """Replace `{emo:name}` placeholders with emojis or remove them if emojis are disabled in plugin settings.
 
         Behavior:
 
@@ -131,6 +141,12 @@ class Emoji:
                 preserved if the other side is a non-space character, to avoid merging words.
             - If no spaces around the group -> the group is removed, but a space is inserted
                 if there are non-space characters immediately before and after, to avoid merging words.
+
+        Args:
+            text (str): The text holding the placeholders.
+
+        Returns:
+            str: The text with the placeholders replaced or removed.
         """
         # Quick return if text doesn't contain emojis
         if "{emo:" not in text:
@@ -140,8 +156,9 @@ class Emoji:
         emojis_active = Emoji._settings and Emoji._settings.get_boolean(["send_icon"])
 
         if emojis_active:
-            # Simple substitution: replace each {emo:name} with the actual emoji
-            def render_emojis(match):
+
+            def render_emojis(match: re.Match) -> str:
+                """Replace a matched placeholder with its emoji."""
                 name = match.group(1).strip()
                 return Emoji.get_emoji(name)
 
@@ -171,7 +188,7 @@ class Emoji:
                 end += 1
             elif space_before:
                 # Case: "foo {emo:x}"
-                # # Only space before -> remove group + preceding space
+                # Only space before -> remove group + preceding space
                 replacement = ""
                 start -= 1
                 # Preserve space if the char after group is non-space
@@ -191,8 +208,6 @@ class Emoji:
                 # Insert a space if there are non-space characters before and after
                 if start > 0 and end < len(result) and result[start - 1] != " " and result[end] != " ":
                     replacement = " "
-                else:
-                    replacement = ""
 
             # Apply replacement in the result string
             result = result[:start] + replacement + result[end:]
@@ -200,5 +215,6 @@ class Emoji:
         return result
 
     @staticmethod
-    def get_custom_emoji_map():
+    def get_custom_emoji_map() -> dict[str, str]:
+        """The emojis the plugin defines itself, keyed by name."""
         return Emoji._custom_emoji_map

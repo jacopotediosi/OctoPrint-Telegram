@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -8,11 +8,17 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.16.4
     hooks:
       - id: ruff-check
         args: [--target-version=py37]
       - id: ruff-format
+
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.75
+    hooks:
+      - id: ty
+        args: [--group=typechecking]
 
   - repo: https://github.com/standard/standard
     rev: v17.1.2
@@ -20,13 +26,13 @@ repos:
       - id: standard
 
   - repo: https://github.com/djlint/djLint
-    rev: v1.36.4
+    rev: v1.44.2
     hooks:
       - id: djlint-reformat-jinja
       - id: djlint-jinja
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.3
     hooks:
       - id: codespell
         additional_dependencies:

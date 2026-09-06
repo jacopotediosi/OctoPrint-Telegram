@@ -1,35 +1,54 @@
 import html
 
+from typing_extensions import override
+
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdGcode(BaseCommand):
-    def execute(self, context: CommandContext):
-        if not self.main._printer.is_operational():
-            self.main.send_msg(
+    @override
+    def execute(self, command_context: CommandContext) -> None:
+        """Send a G-code command to the printer.
+
+        Possible callback queries:
+
+        - /gcode -> ask for the G-code command to send
+
+        Replying to that request runs the command again, with the reply as its parameter.
+        """
+        if not self.plugin_context.printer.is_operational():
+            self.send_answer(
+                command_context,
                 render_emojis("{emo:attention} Printer not connected. You can't send any G-code."),
-                chatID=context.chat_id,
-                msg_id=context.msg_id_to_update,
+                None,
             )
             return
 
-        if context.parameter:
-            command = context.parameter
+        if not command_context.parameter:
+            msg = "{emo:info} Reply to this message with the G-code you want to execute"
+            if self.plugin_context.printer.is_printing():
+                msg += "\n\n{emo:warning} A print is in progress. Sending G-code may interfere with it."
 
-            self.main._printer.commands(command)
-
-            msg = render_emojis(f"{{emo:check}} G-code <code>{html.escape(command)}</code> sent!")
-        else:
-            msg = render_emojis(
-                f"{{emo:info}} Use <code>{context.cmd}_XXX</code> to call the command, where <code>XXX</code> is the G-code you want to execute"
+            self.send_answer(
+                command_context,
+                render_emojis(msg),
+                None,
+                markup=Markup.HTML,
+                force_reply=True,
             )
+            return
 
-        self.main.send_msg(
-            msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
+        command = command_context.parameter
+
+        self.plugin_context.printer.commands(command)
+
+        self.send_answer(
+            command_context,
+            render_emojis(f"{{emo:check}} G-code <code>{html.escape(command)}</code> sent!"),
+            None,
+            markup=Markup.HTML,
         )

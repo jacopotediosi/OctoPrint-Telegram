@@ -1,4 +1,3 @@
-import codecs
 from pathlib import Path
 
 import requests
@@ -6,7 +5,7 @@ import requests
 script_path = Path(__file__).resolve()
 
 # Get latest release tag
-response = requests.get("https://api.github.com/repos/muan/unicode-emoji-json/releases/latest")
+response = requests.get("https://api.github.com/repos/muan/unicode-emoji-json/releases/latest", timeout=30)
 response.raise_for_status()
 latest_release = response.json()
 tag_name = latest_release["tag_name"]
@@ -18,7 +17,7 @@ OUTPUT_PATH = script_path.parent.parent.parent / "octoprint_telegram" / "emoji" 
 
 # Download emoji data
 print(f"Downloading emoji data from: {SOURCE_URL}")
-response = requests.get(SOURCE_URL)
+response = requests.get(SOURCE_URL, timeout=30)
 response.raise_for_status()
 emoji_data = response.json()
 
@@ -51,7 +50,7 @@ print(
 )
 
 # Save emoji_dict to file
-with codecs.open(OUTPUT_PATH, encoding="utf-8", mode="w") as file:
+with OUTPUT_PATH.open(mode="w", encoding="utf-8", newline="") as file:
     file.write(
         "# pylint: disable=line-too-long\n"
         "# Generated with data from:\n"

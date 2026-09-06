@@ -1,3 +1,4 @@
+```python
 METADATA = {
     "statistics": {
         "averagePrintTime": {"FlowPrintr": 882.9036154747009},
@@ -47,3 +48,4 @@ FILE = {
     "type": "machinecode",
     "size": 1977128,
 }
+```

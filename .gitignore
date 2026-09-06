@@ -7,7 +7,9 @@ dist
 *.egg*
 .DS_Store
 *.zip
-*.*~
-*.yaml
-dev_utils/NOTES.txt
-dev_utils/NOTES.txt
+__pycache__
+venv
+.venv
+.vscode
+.ruff_cache
+uv.lock

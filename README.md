@@ -37,7 +37,7 @@ If you'd like to support the maintainers of this project, you can donate via the
 
 ## Contacts
 
-You can get support and connect with the maintainers and other users of this plugin by joining the **[Octoprint-Telegram-Users Group](https://telegram.me/joinchat/CXFirQjl9XTp5dr4OZqH9Q)**.
+You can get support and connect with the maintainers and other users of this plugin by joining the **[Octoprint-Telegram-Users Group](https://t.me/joinchat/CXFirQjl9XTp5dr4OZqH9Q)**.
 
 ## Disclaimer
 

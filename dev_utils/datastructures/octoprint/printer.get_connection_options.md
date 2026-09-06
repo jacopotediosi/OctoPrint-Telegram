@@ -1,3 +1,4 @@
+```python
 {
     "portPreference": "VIRTUAL",
     "autoconnect": True,
@@ -5,3 +6,4 @@
     "ports": ["VIRTUAL"],
     "baudratePreference": None,
 }
+```

@@ -1,26 +1,24 @@
 import html
 
+from typing_extensions import override
+
 from ..emoji import Emoji
+from ..telegram import Markup
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis
 
 
 class CmdHelp(BaseCommand):
-    def execute(self, context: CommandContext):
-        commands = [
-            (cmd, info.get("desc", "No description provided"))
-            for cmd, info in self.main.commands.commands_dict.items()
-            if cmd.startswith("/")
-        ]
-        commands.sort()
+    @override
+    def execute(self, command_context: CommandContext) -> None:
+        commands = sorted(
+            (command.name, command.description)
+            for command in self.plugin_context.command_definitions
+            if command.shown_to_users
+        )
 
         msg = render_emojis("{emo:info} <b>The following commands are available:</b>\n\n")
-        msg += "\n".join(f"{html.escape(cmd)} - {html.escape(desc)}" for cmd, desc in commands)
+        msg += "\n".join(f"{html.escape(name)} - {html.escape(description)}" for name, description in commands)
 
-        self.main.send_msg(
-            msg,
-            chatID=context.chat_id,
-            markup="HTML",
-            msg_id=context.msg_id_to_update,
-        )
+        self.send_answer(command_context, msg, None, markup=Markup.HTML)

@@ -1,3 +1,5 @@
+from typing_extensions import override
+
 from ..emoji import Emoji
 from .base import BaseCommand, CommandContext
 
@@ -5,11 +7,7 @@ render_emojis = Emoji.render_emojis
 
 
 class CmdPhoto(BaseCommand):
-    def execute(self, context: CommandContext):
+    @override
+    def execute(self, command_context: CommandContext) -> None:
         msg = render_emojis("{emo:photo} Here are your photo(s)")
-        self.main.send_msg(
-            msg,
-            chatID=context.chat_id,
-            with_image=True,
-            msg_id=context.msg_id_to_update,
-        )
+        self.send_answer(command_context, msg, None, with_image=True)
