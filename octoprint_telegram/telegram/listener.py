@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 from ..utils import format_short_exception
-from .dispatcher import SUPPORTED_UPDATE_TYPES
+from .dispatcher import SUPPORTED_UPDATE_TYPES, Dispatcher
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
+    from ..commands.commands import Commands
     from ..core.context import PluginContext
-    from .dispatcher import Dispatcher
 
 # How long to wait before retrying after a failed call to Telegram
 RETRY_DELAY_SECONDS = 120
@@ -25,47 +25,52 @@ LONG_POLL_SECONDS = 30
 class Listener(threading.Thread):
     """Fetches updates from Telegram and hands each one to the dispatcher."""
 
-    def __init__(self, plugin_context: PluginContext, dispatcher: Dispatcher) -> None:
+    def __init__(self, plugin_context: PluginContext, commands: Commands) -> None:
         """Set up the fetching of the updates from Telegram.
 
         Args:
             plugin_context (PluginContext): The plugin context.
-            dispatcher (Dispatcher): The dispatcher of received updates.
+            commands (Commands): The bot commands, ready to run.
         """
         threading.Thread.__init__(self, daemon=True)
         self.plugin_context = plugin_context
-        self._dispatcher = dispatcher
+        self._commands = commands
         self._telegram_client = plugin_context.telegram_client
         self._logger = plugin_context.logger.getChild("Listener")
         self._update_offset = 0
         self._first_contact = True
         self._do_stop = False
-        self._username = "UNKNOWN"
+        self._bot_username = ""
 
     @override
     def run(self) -> None:
         self._logger.debug("Try first connect.")
-        self._try_first_contact()
+        dispatcher = self._try_first_contact()
 
-        self._logger.debug("Listener is running.")
+        if dispatcher is not None:
+            self._logger.debug("Listener is running.")
 
-        # Repeat fetching and processing messages until thread stopped
-        while not self._do_stop:
-            try:
-                self._process_updates()
-            except Exception:
-                self._logger.exception("Caught an exception calling _process_updates()")
+            # Repeat fetching and processing messages until thread stopped
+            while not self._do_stop:
+                try:
+                    self._process_updates(dispatcher)
+                except Exception:
+                    self._logger.exception("Caught an exception calling _process_updates()")
 
         self._logger.debug("Listener exits NOW.")
 
-    def _try_first_contact(self) -> None:
-        got_contact = False
-        while not self._do_stop and not got_contact:
+    def _try_first_contact(self) -> Dispatcher | None:
+        """Make contact with Telegram, retrying until it succeeds or the listener is asked to stop.
+
+        Returns:
+            Dispatcher | None: The dispatcher of the received updates, or None if the listener was asked to stop
+                before making contact.
+        """
+        while not self._do_stop:
             try:
-                token = self.plugin_context.settings.token
-                self._username = self._telegram_client.get_bot_username(token)
-                got_contact = True
-                self._set_status(f"Connected as {self._username}", ok=True)
+                self._bot_username = self._telegram_client.get_bot_username()
+                self._set_status(f"Connected as {self._bot_username}", ok=True)
+                return Dispatcher(self.plugin_context, self._commands, self._bot_username)
             except Exception as e:
                 error_message = (
                     f"Caught an exception connecting to telegram: {format_short_exception(e)}. "
@@ -77,7 +82,9 @@ class Listener(threading.Thread):
 
                 time.sleep(RETRY_DELAY_SECONDS)
 
-    def _process_updates(self) -> None:
+        return None
+
+    def _process_updates(self, dispatcher: Dispatcher) -> None:
         # Try to check for incoming messages. Wait 120 seconds and repeat on failure.
         try:
             updates = self._get_updates()
@@ -95,7 +102,7 @@ class Listener(threading.Thread):
 
         for update in updates:
             try:
-                self._dispatcher.process_update(update)
+                dispatcher.process_update(update)
             except Exception:
                 self._logger.exception("Caught an exception processing a message")
 
@@ -110,7 +117,7 @@ class Listener(threading.Thread):
         except Exception:
             self._logger.exception("Exception ForceLoopMessage caught!")
 
-        self._set_status(f"Connected as {self._username}", ok=True)
+        self._set_status(f"Connected as {self._bot_username}", ok=True)
         # We had first contact after octoprint startup so lets send startup message
         if self._first_contact:
             self._first_contact = False

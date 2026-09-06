@@ -40,7 +40,6 @@ from .media import FfmpegPreset, ImageHookMethod, Media
 from .notifications import NOTIFICATION_DEFINITIONS, Notifications
 from .telegram import ChatAction, ChatType, HttpMethod, MenuStates, Sender
 from .telegram.client import TOKEN_REGEX, TelegramClient, TelegramRequestError
-from .telegram.dispatcher import Dispatcher
 from .telegram.listener import Listener
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -139,8 +138,7 @@ class TelegramPlugin(
             telegram_client = plugin_context.telegram_client
             telegram_client.connect(token)
 
-            dispatcher = Dispatcher(plugin_context, commands)
-            self._listener = Listener(plugin_context, dispatcher)
+            self._listener = Listener(plugin_context, commands)
             self._listener.start()
 
             # Set bot commands

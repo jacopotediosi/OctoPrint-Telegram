@@ -27,15 +27,17 @@ WORKER_IDLE_TIMEOUT_SECONDS = 10
 class Dispatcher:
     """Routes each update Telegram sends to whatever handles it."""
 
-    def __init__(self, plugin_context: PluginContext, commands: Commands) -> None:
+    def __init__(self, plugin_context: PluginContext, commands: Commands, bot_username: str) -> None:
         """Set up the routing of the updates Telegram sends.
 
         Args:
             plugin_context (PluginContext): The plugin context.
             commands (Commands): The bot commands, ready to run.
+            bot_username (str): The @username of the bot.
         """
         self.plugin_context = plugin_context
         self._commands = commands
+        self._bot_username = bot_username
         self._uploads = Uploads(plugin_context)
         self._logger = plugin_context.logger.getChild("Dispatcher")
         self._queues: dict[str, queue.Queue[dict]] = {}
@@ -228,8 +230,11 @@ class Dispatcher:
             self._logger.debug("Ignoring text message '%s' because it doesn't start with a slash", message_text)
             return
 
-        # Remove bot username from commands like /command@botusername
-        command = message_text.split("@")[0]
+        # Commands like /command@botusername are meant for that bot only
+        command, _, mentioned_bot_username = message_text.partition("@")
+        if mentioned_bot_username and f"@{mentioned_bot_username}".lower() != self._bot_username.lower():
+            self._logger.debug("Ignoring command '%s' because it's addressed to @%s", command, mentioned_bot_username)
+            return
 
         self._handle_command(
             CommandContext(
