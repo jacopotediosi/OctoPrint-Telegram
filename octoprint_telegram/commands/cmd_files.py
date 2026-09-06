@@ -637,7 +637,22 @@ class CmdFiles(BaseCommand):
             keyboard.add_row(("{emo:play} Print", "selectforprint"), ("{emo:search} Details", "details"))
 
         # Second row: File ops
-        keyboard.add_row(("{emo:cut} Move", "move"), ("{emo:copy} Copy", "copy"), ("{emo:delete} Delete", "delete"))
+        can_move = can_copy = can_delete = True
+        if hasattr(self.plugin_context.file_manager, "capabilities"):
+            # OctoPrint >= 2.0.0
+            storage_capabilities = self.plugin_context.file_manager.capabilities(storage_name)
+            can_move = storage_capabilities.move_file
+            can_copy = storage_capabilities.copy_file
+            can_delete = storage_capabilities.remove_file
+        file_operations_row = []
+        if can_move:
+            file_operations_row.append(("{emo:cut} Move", "move"))
+        if can_copy:
+            file_operations_row.append(("{emo:copy} Copy", "copy"))
+        if can_delete:
+            file_operations_row.append(("{emo:delete} Delete", "delete"))
+        if file_operations_row:
+            keyboard.add_row(*file_operations_row)
 
         # Third row
         third_row = []
