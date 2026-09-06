@@ -107,6 +107,7 @@ class Uploads:
             # Save the file on disk
             added_files_relative_paths = []
             skipped_busy_files = []
+            failed_files = []
             if is_zip_file:
                 zip_file = io.BytesIO(uploaded_file_content)
                 with zipfile.ZipFile(zip_file, "r") as zf:
@@ -218,6 +219,7 @@ class Uploads:
                             self._logger.exception(
                                 "Exception while extracting file %s contained in the zip", member_filename
                             )
+                            failed_files.append(member.filename)
             else:
                 destination_file_relative_path = self.plugin_context.file_manager.join_path(
                     octoprint.filemanager.FileDestinations.LOCAL, destination_folder, uploaded_file_filename
@@ -259,12 +261,23 @@ class Uploads:
 
             # Update the "saving file" message
             command_buttons = None
-            skipped_note = ""
+            unsaved_notes = ""
             if skipped_busy_files:
-                skipped_note = render_emojis(
+                unsaved_notes += render_emojis(
                     "\n\n{emo:warning} I didn't save "
                     f"{', '.join(f'<code>{html.escape(path)}</code>' for path in skipped_busy_files)} "
                     "because currently in use."
+                )
+            if len(failed_files) > self.MAX_LISTED_FILES:
+                unsaved_notes += render_emojis(
+                    f"\n\n{{emo:attention}} I couldn't save {len(failed_files)} files because of errors. "
+                    "Please check logs."
+                )
+            elif failed_files:
+                unsaved_notes += render_emojis(
+                    "\n\n{emo:attention} I couldn't save "
+                    f"{', '.join(f'<code>{html.escape(name)}</code>' for name in failed_files)} "
+                    "because of errors. Please check logs."
                 )
 
             if added_files_relative_paths:
@@ -280,7 +293,7 @@ class Uploads:
                         f"{', '.join(f'<code>{html.escape(path)}</code>' for path in added_files_relative_paths)}."
                     )
 
-                response_message += skipped_note
+                response_message += unsaved_notes
 
                 if len(added_files_relative_paths) == 1:
                     if (
@@ -339,8 +352,8 @@ class Uploads:
                                 response_message += render_emojis(
                                     "\n{emo:attention} But I wasn't able to select the file for printing."
                                 )
-            elif skipped_busy_files:
-                response_message = render_emojis("{emo:warning} No files were saved.") + skipped_note
+            elif skipped_busy_files or failed_files:
+                response_message = render_emojis("{emo:warning} No files were saved.") + unsaved_notes
             else:
                 response_message = render_emojis("{emo:warning} No files were saved. Did you upload an empty zip?")
 
