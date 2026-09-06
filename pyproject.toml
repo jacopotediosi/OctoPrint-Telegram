@@ -17,7 +17,9 @@ dependencies = [
     "psutil",
     "pylru>=1.1",  # For lrucache.get()
     "requests[socks]",
+    "sarge>=0.1.5",  # For run(async_=...)
     "typing_extensions>=4.4",  # For typing_extensions.override
+    "urllib3",
 ]
 dynamic = [
     "license",
