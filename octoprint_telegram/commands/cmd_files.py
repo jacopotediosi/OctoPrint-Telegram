@@ -1000,12 +1000,7 @@ class CmdFiles(BaseCommand):
 
             # Folder buttons
             try:
-                to_path_listing = self.plugin_context.file_manager.list_files(
-                    to_storage_name,
-                    to_path,
-                    filter=lambda node: node["type"] == "folder",
-                    recursive=False,
-                )
+                to_path_listing = self.plugin_context.file_manager.list_files(to_storage_name, to_path, recursive=False)
             except Exception:
                 msg = render_emojis(
                     f"{{emo:attention}} The path you were browsing no longer exists. Perhaps you want to have a look at {command_context.cmd} again?"
@@ -1013,7 +1008,8 @@ class CmdFiles(BaseCommand):
                 self.send_answer(command_context, msg, None)
                 return
 
-            to_path_folders = to_path_listing.get(to_storage_name, {})
+            to_path_content = to_path_listing.get(to_storage_name, {})
+            to_path_folders = [name for name, data in to_path_content.items() if data.get("type") == "folder"]
             folder_entries = [
                 (
                     "/".join(filter(None, [to_storage_name, to_path, folder_name])),
