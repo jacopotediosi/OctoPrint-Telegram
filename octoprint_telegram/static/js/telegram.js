@@ -508,10 +508,7 @@ $(function () {
     self.delChat = function (data) {
       if (!data || !data.id) return
 
-      const title = _.escape(data.title || 'this chat')
-      const message = `Do you really want to delete ${title}?`
-
-      showConfirmationDialog(message, function () {
+      showConfirmationDialog(`Do you really want to delete ${_.escape(data.title || 'this chat')}?`, function () {
         OctoPrint.simpleApiCommand(
           self.pluginIdentifier,
           'delChat',
