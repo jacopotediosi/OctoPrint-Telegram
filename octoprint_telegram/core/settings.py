@@ -195,7 +195,9 @@ class Settings:
     def set_chat(self, chat_id: str, chat_settings: dict) -> None:
         """Store the settings of a single chat."""
         with self.write_lock:
-            self._settings.set(["chats", str(chat_id)], chat_settings)
+            chats = self.chats
+            chats[str(chat_id)] = chat_settings
+            self._settings.set(["chats"], chats)
 
     def set_chat_field(self, chat_id: str, field: str, value: str) -> None:
         """Store one field in the settings of a single chat."""
