@@ -33,7 +33,7 @@ class WemoSwitchPowerPlugin(PowerPlugin):
                     # Wemoswitch plugin has no API for getting plug status, so we need to use the plugin functions
                     plugin_implementation = self.plugin_context.plugins.implementation(self.plugin_id)
                     chk = plugin_implementation.sendCommand("info", plug_ip)
-                    is_on = chk == 1 or chk == 8
+                    is_on = chk in {1, 8}
                 except Exception:
                     self._logger.exception("Caught an exception getting %s plug status", self.plugin_id)
 

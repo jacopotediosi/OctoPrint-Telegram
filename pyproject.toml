@@ -93,7 +93,6 @@ ignore = [
     "PLR0913", # too-many-arguments
     "PLR0915", # too-many-statements
     "PLR0917", # too-many-positional-arguments
-    "PLR1714", # repeated-equality-comparison
     "PLR2004", # magic-value-comparison
     "PLR5501", # collapsible-else-if
     "S110", # try-except-pass
