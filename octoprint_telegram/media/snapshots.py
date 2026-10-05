@@ -100,8 +100,8 @@ class Snapshots:
         if image_content is None:
             raise RuntimeError(f"Unable to take an image of webcam {webcam_profile.name}")
 
-        flipH = webcam_profile.flipH
-        flipV = webcam_profile.flipV
+        flip_h = webcam_profile.flipH
+        flip_v = webcam_profile.flipV
         rotate = webcam_profile.rotate90
 
         with io.BytesIO(image_content) as image_buffer, Image.open(image_buffer) as image:
@@ -109,14 +109,14 @@ class Snapshots:
 
             transformed_image = image
 
-            if any([flipH, flipV, rotate]):
+            if any([flip_h, flip_v, rotate]):
                 self._logger.debug(
-                    "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flipH, flipV, rotate
+                    "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flip_h, flip_v, rotate
                 )
 
-                if flipH:
+                if flip_h:
                     transformed_image = transformed_image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                if flipV:
+                if flip_v:
                     transformed_image = transformed_image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
                 if rotate:
                     transformed_image = transformed_image.transpose(Image.Transpose.ROTATE_90)
