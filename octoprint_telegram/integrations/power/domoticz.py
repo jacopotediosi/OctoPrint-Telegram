@@ -56,7 +56,7 @@ class DomoticzPowerPlugin(PowerPlugin):
                     error_message = str(e)
                     if passcode:
                         error_message = error_message.replace(passcode, "REDACTED")
-                    self._logger.error("Caught an exception getting %s plug status: %s", self.plugin_id, error_message)
+                    self._logger.error("Caught an exception getting %s plug status: %s", self.plugin_id, error_message)  # noqa: TRY400 - stacktrace would leak sensitive data
 
                 escaped_ip = ip.replace("|", "\\|")
                 escaped_idx = idx.replace("|", "\\|")

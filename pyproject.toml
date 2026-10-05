@@ -100,7 +100,6 @@ ignore = [
     "TID252", # relative-imports
     "TRY002", # raise-vanilla-class
     "TRY003", # raise-vanilla-args
-    "TRY400", # error-instead-of-exception
 ]
 
 [tool.ruff.lint.flake8-annotations]
