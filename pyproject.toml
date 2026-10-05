@@ -62,51 +62,64 @@ fix = true
 preview = true
 explicit-preview-rules = true
 extend-select = [
-    "A", # flake8-builtins
-    "ANN", # flake8-annotations
-    "ARG", # flake8-unused-arguments
-    "B", # flake8-bugbear
-    "BLE", # flake8-blind-except
-    "C4", # flake8-comprehensions
-    "D", # pydocstyle
-    "D420", # incorrect-section-order
-    "DOC102", # docstring-extraneous-parameter
-    "DOC201", # docstring-missing-returns
-    "DOC202", # docstring-extraneous-returns
-    "DOC402", # docstring-missing-yields
-    "DOC403", # docstring-extraneous-yields
-    "DOC501", # docstring-missing-exception
-    "DTZ", # flake8-datetimez
-    "EXE", # flake8-executable
-    "FA", # flake8-future-annotations
-    "G", # flake8-logging-format
-    "I", # isort
-    "ICN", # flake8-import-conventions
-    "INP", # flake8-no-pep420
-    "INT", # flake8-gettext
-    "LOG", # flake8-logging
-    "PIE", # flake8-pie
-    "PLC", # Pylint
-    "PLE", # Pylint
-    "PLW", # Pylint
-    "RET", # flake8-return
-    "RSE", # flake8-raise
-    "RUF", # Ruff-specific rules
-    "S", # flake8-bandit
-    "SLF", # flake8-self
-    "SLOT", # flake8-slots
-    "T20", # flake8-print
-    "TC", # flake8-type-checking
-    "UP", # pyupgrade
-    "YTT", # flake8-2020
+    "ALL",
+    "D420", # incorrect-section-order (preview)
+    "DOC102", # docstring-extraneous-parameter (preview)
+    "DOC201", # docstring-missing-returns (preview)
+    "DOC202", # docstring-extraneous-returns (preview)
+    "DOC402", # docstring-missing-yields (preview)
+    "DOC403", # docstring-extraneous-yields (preview)
+    "DOC501", # docstring-missing-exception (preview)
 ]
 ignore = [
     "BLE001", # blind-except
+    "C901", # complex-structure
+    "COM812", # missing-trailing-comma
+    "CPY001", # missing-copyright-notice
     "D100", # undocumented-public-module
     "D101", # undocumented-public-class
     "D104", # undocumented-public-package
+    "E501", # line-too-long
+    "EM101", # raw-string-in-exception
+    "EM102", # f-string-in-exception
+    "ERA001", # commented-out-code
+    "FBT001", # boolean-type-hint-positional-argument
+    "FBT002", # boolean-default-value-positional-argument
+    "FBT003", # boolean-positional-value-in-call
+    "FIX002", # line-contains-todo
+    "N801", # invalid-class-name
+    "N802", # invalid-function-name
+    "N803", # invalid-argument-name
+    "N806", # non-lowercase-variable-in-function
+    "PERF203", # try-except-in-loop
+    "PERF401", # manual-list-comprehension
+    "PGH003", # blanket-type-ignore
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "PLR0917", # too-many-positional-arguments
+    "PLR1714", # repeated-equality-comparison
+    "PLR2004", # magic-value-comparison
+    "PLR5501", # collapsible-else-if
+    "PTH103", # os-makedirs
+    "PTH107", # os-remove
+    "PTH113", # os-path-isfile
+    "PTH118", # os-path-join
+    "PTH119", # os-path-basename
+    "PTH120", # os-path-dirname
+    "PTH122", # os-path-splitext
+    "PTH123", # builtin-open
+    "PTH202", # os-path-getsize
     "S110", # try-except-pass
+    "SIM105", # suppressible-exception
+    "SIM108", # if-else-block-instead-of-if-exp
+    "TD002", # missing-todo-author
+    "TD003", # missing-todo-link
+    "TID252", # relative-imports
     "TRY002", # raise-vanilla-class
+    "TRY003", # raise-vanilla-args
+    "TRY400", # error-instead-of-exception
 ]
 
 [tool.ruff.lint.flake8-annotations]
