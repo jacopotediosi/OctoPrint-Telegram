@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Sequence
 from typing_extensions import override
 
 from ..telegram.formatting import escape_text
-from .variables import cached_property
+from .variables import TemplateVariable
 
 if TYPE_CHECKING:
     import logging
@@ -120,7 +120,7 @@ class _UnknownPlaceholder:
 class _TemplateContext(dict):
     """Secure context for template variable access.
 
-    Only the notification variables decorated with `@cached_property` can be accessed from templates.
+    Only the notification variables decorated with `@TemplateVariable` can be accessed from templates.
     Unknown or not allowed variables are returned as literal placeholders.
     """
 
@@ -129,9 +129,9 @@ class _TemplateContext(dict):
         self._markup = markup
         self._logger = logger
 
-        # Only variables decorated with @cached_property are allowed
+        # Only variables decorated with @TemplateVariable are allowed
         self._allowed_names = {
-            name for name, attribute in type(variables).__dict__.items() if isinstance(attribute, cached_property)
+            name for name, attribute in type(variables).__dict__.items() if isinstance(attribute, TemplateVariable)
         }
 
     def __getitem__(self, key: str) -> _MarkupEscapedValue | _UnknownPlaceholder:

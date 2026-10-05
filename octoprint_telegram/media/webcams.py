@@ -23,11 +23,11 @@ class WebcamProfile:
         self,
         name: str | None = None,
         snapshot: str | None = None,
-        snapshotTimeout: int | None = 15,
-        snapshotSslValidation: bool = True,
+        snapshot_timeout: int | None = 15,
+        snapshot_ssl_validation: bool = True,
         stream: str | None = None,
-        flipH: bool = False,
-        flipV: bool = False,
+        flip_h: bool = False,
+        flip_v: bool = False,
         rotate90: bool = False,
         provider: octoprint.plugin.types.WebcamProviderPlugin | None = None,
     ) -> None:
@@ -36,21 +36,21 @@ class WebcamProfile:
         Args:
             name (str, optional): The name of the webcam.
             snapshot (str, optional): The URL a snapshot is fetched from.
-            snapshotTimeout (int, optional): The seconds to wait for a snapshot.
-            snapshotSslValidation (bool, optional): Whether the certificate of the snapshot URL is validated.
+            snapshot_timeout (int, optional): The seconds to wait for a snapshot.
+            snapshot_ssl_validation (bool, optional): Whether the certificate of the snapshot URL is validated.
             stream (str, optional): The URL of the stream.
-            flipH (bool, optional): Whether the image is flipped horizontally.
-            flipV (bool, optional): Whether the image is flipped vertically.
+            flip_h (bool, optional): Whether the image is flipped horizontally.
+            flip_v (bool, optional): Whether the image is flipped vertically.
             rotate90 (bool, optional): Whether the image is rotated by 90 degrees.
             provider (WebcamProviderPlugin, optional): The OctoPrint plugin the webcam comes from.
         """
         self.name = name
         self.snapshot = snapshot
-        self.snapshotTimeout = snapshotTimeout
-        self.snapshotSslValidation = snapshotSslValidation
+        self.snapshot_timeout = snapshot_timeout
+        self.snapshot_ssl_validation = snapshot_ssl_validation
         self.stream = stream
-        self.flipH = flipH
-        self.flipV = flipV
+        self.flip_h = flip_h
+        self.flip_v = flip_v
         self.rotate90 = rotate90
         self.provider = provider
 
@@ -62,8 +62,8 @@ class WebcamProfile:
         """
         return (
             f"<WebcamProfile name={self.name!r} snapshot={self.snapshot!r} "
-            f"snapshotTimeout={self.snapshotTimeout!r} snapshotSslValidation={self.snapshotSslValidation} "
-            f"stream={self.stream!r} flipH={self.flipH} flipV={self.flipV} rotate90={self.rotate90} "
+            f"snapshot_timeout={self.snapshot_timeout!r} snapshot_ssl_validation={self.snapshot_ssl_validation} "
+            f"stream={self.stream!r} flip_h={self.flip_h} flip_v={self.flip_v} rotate90={self.rotate90} "
             f"provider={type(self.provider).__name__ if self.provider is not None else None}>"
         )
 
@@ -120,11 +120,11 @@ class Webcams:
                     webcam_profile = WebcamProfile(
                         name=getattr(wc, "name", None),
                         snapshot=getattr(compat, "snapshot", None),
-                        snapshotTimeout=max(15, getattr(compat, "snapshotTimeout", 0) or 0),
-                        snapshotSslValidation=bool(getattr(compat, "snapshotSslValidation", True)),
+                        snapshot_timeout=max(15, getattr(compat, "snapshotTimeout", 0) or 0),
+                        snapshot_ssl_validation=bool(getattr(compat, "snapshotSslValidation", True)),
                         stream=getattr(compat, "stream", None),
-                        flipH=bool(getattr(wc, "flipH", False)),
-                        flipV=bool(getattr(wc, "flipV", False)),
+                        flip_h=bool(getattr(wc, "flipH", False)),
+                        flip_v=bool(getattr(wc, "flipV", False)),
                         rotate90=bool(getattr(wc, "rotate90", False)),
                         provider=getattr(provided_webcam, "providerPlugin", None) if can_snapshot else None,
                     )
@@ -146,11 +146,11 @@ class Webcams:
                         webcam_profile = WebcamProfile(
                             name=multicam_profile.get("name"),
                             snapshot=multicam_profile.get("snapshot"),
-                            snapshotTimeout=15,  # Multicam currently doesn't expose snapshotTimeout, see https://github.com/mikedmor/OctoPrint_MultiCam/issues/78
-                            snapshotSslValidation=False,  # Multicam doesn't expose snapshotSslValidation either
+                            snapshot_timeout=15,  # Multicam currently doesn't expose snapshotTimeout, see https://github.com/mikedmor/OctoPrint_MultiCam/issues/78
+                            snapshot_ssl_validation=False,  # Multicam doesn't expose snapshotSslValidation either
                             stream=multicam_profile.get("URL"),
-                            flipH=bool(multicam_profile.get("flipH", False)),
-                            flipV=bool(multicam_profile.get("flipV", False)),
+                            flip_h=bool(multicam_profile.get("flipH", False)),
+                            flip_v=bool(multicam_profile.get("flipV", False)),
                             rotate90=bool(multicam_profile.get("rotate90", False)),
                         )
                         webcam_profiles.append(webcam_profile)
@@ -167,11 +167,11 @@ class Webcams:
                 webcam_profile = WebcamProfile(
                     name=self._octoprint_settings.webcam_name,
                     snapshot=self._octoprint_settings.webcam_snapshot,
-                    snapshotTimeout=max(15, self._octoprint_settings.webcam_snapshot_timeout or 0),
-                    snapshotSslValidation=self._octoprint_settings.webcam_snapshot_ssl_validation,
+                    snapshot_timeout=max(15, self._octoprint_settings.webcam_snapshot_timeout or 0),
+                    snapshot_ssl_validation=self._octoprint_settings.webcam_snapshot_ssl_validation,
                     stream=self._octoprint_settings.webcam_stream,
-                    flipH=self._octoprint_settings.webcam_flip_h,
-                    flipV=self._octoprint_settings.webcam_flip_v,
+                    flip_h=self._octoprint_settings.webcam_flip_h,
+                    flip_v=self._octoprint_settings.webcam_flip_v,
                     rotate90=self._octoprint_settings.webcam_rotate_90,
                 )
                 webcam_profiles.append(webcam_profile)

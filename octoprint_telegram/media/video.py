@@ -79,8 +79,8 @@ class Video:
                 taken_gif_content = self.take_gif(
                     webcam_profile.stream,
                     duration,
-                    webcam_profile.flipH,
-                    webcam_profile.flipV,
+                    webcam_profile.flip_h,
+                    webcam_profile.flip_v,
                     webcam_profile.rotate90,
                 )
                 taken_gifs_contents.append(taken_gif_content)
@@ -93,8 +93,8 @@ class Video:
         self,
         stream_url: str,
         duration: int = 5,
-        flipH: bool = False,
-        flipV: bool = False,
+        flip_h: bool = False,
+        flip_v: bool = False,
         rotate: bool = False,
     ) -> bytes:
         """Record a video from a single webcam stream.
@@ -102,8 +102,8 @@ class Video:
         Args:
             stream_url (str): The URL of the stream to record.
             duration (int, optional): The seconds to record, brought back within 1 and 60.
-            flipH (bool, optional): Whether the image is flipped horizontally.
-            flipV (bool, optional): Whether the image is flipped vertically.
+            flip_h (bool, optional): Whether the image is flipped horizontally.
+            flip_v (bool, optional): Whether the image is flipped vertically.
             rotate (bool, optional): Whether the image is rotated by 90 degrees.
 
         Returns:
@@ -196,9 +196,9 @@ class Video:
 
         filters = ["format=yuv420p"]
 
-        if flipV:
+        if flip_v:
             filters.append("vflip")
-        if flipH:
+        if flip_h:
             filters.append("hflip")
         if rotate:
             filters.append("transpose=2")

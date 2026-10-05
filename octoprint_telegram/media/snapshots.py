@@ -88,8 +88,8 @@ class Snapshots:
 
                 r = requests.get(
                     snapshot_url,
-                    timeout=webcam_profile.snapshotTimeout,
-                    verify=webcam_profile.snapshotSslValidation,
+                    timeout=webcam_profile.snapshot_timeout,
+                    verify=webcam_profile.snapshot_ssl_validation,
                 )
                 r.raise_for_status()
 
@@ -100,8 +100,8 @@ class Snapshots:
         if image_content is None:
             raise RuntimeError(f"Unable to take an image of webcam {webcam_profile.name}")
 
-        flip_h = webcam_profile.flipH
-        flip_v = webcam_profile.flipV
+        flip_h = webcam_profile.flip_h
+        flip_v = webcam_profile.flip_v
         rotate = webcam_profile.rotate90
 
         with io.BytesIO(image_content) as image_buffer, Image.open(image_buffer) as image:
@@ -111,7 +111,7 @@ class Snapshots:
 
             if any([flip_h, flip_v, rotate]):
                 self._logger.debug(
-                    "Applying image transformations: flipH=%s, flipV=%s, rotate=%s", flip_h, flip_v, rotate
+                    "Applying image transformations: flip_h=%s, flip_v=%s, rotate=%s", flip_h, flip_v, rotate
                 )
 
                 if flip_h:

@@ -87,9 +87,6 @@ ignore = [
     "FBT002", # boolean-default-value-positional-argument
     "FBT003", # boolean-positional-value-in-call
     "FIX002", # line-contains-todo
-    "N801", # invalid-class-name
-    "N802", # invalid-function-name
-    "N803", # invalid-argument-name
     "PERF203", # try-except-in-loop
     "PGH003", # blanket-type-ignore
     "PLR0911", # too-many-return-statements
