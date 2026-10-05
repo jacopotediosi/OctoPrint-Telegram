@@ -62,7 +62,7 @@ class Thumbnails:
             self._logger.debug("Reading the OctoPrint thumbnail of %s/%s", storage_name, file_path)
 
             thumbnail = self._file_manager.read_thumbnail(storage_name, file_path)
-            if not thumbnail:
+            if not thumbnail:  # ty: ignore[redundant-condition] - wrong annotation in OctoPrint upstream
                 return None
 
             _, thumbnail_handle = thumbnail

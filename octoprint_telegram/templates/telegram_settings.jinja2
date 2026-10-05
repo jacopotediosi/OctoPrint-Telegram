@@ -62,6 +62,7 @@
                     <label class="control-label">Test token</label>
                     <div class="controls">
                         <button class="btn"
+                                type="button"
                                 data-bind="click: function() { testToken($('#telegram-settings-token').val()) }, disable: isTestingToken()"
                                 title="Test the token">
                             <i class="icon-key"></i> Test above token
@@ -71,7 +72,8 @@
                             Token status is:
                             <strong id="telegram-settings-token-state"
                                     data-bind="text: token_state_str, visible: !isTestingToken()"></strong>
-                            <strong class="text-warning" data-bind="if: isTestingToken">Testing the token, please wait...</strong>
+                            <strong class="text-warning"
+                                    data-bind="if: isTestingToken">Testing the token, please wait...</strong>
                         </span>
                     </div>
                 </div>
@@ -168,6 +170,7 @@
                               style="cursor: default"></span>
                         <!-- Reload icon (shown only if one is missing) -->
                         <button class="btn btn-mini"
+                                type="button"
                                 title="Check again requirements"
                                 data-bind="visible: !requirements().ffmpeg_path || (!requirements().cpulimiter_path && !settings.settings.plugins.telegram.no_cpulimit()), click: requestRequirements">
                             <i class="icon-refresh"></i>
@@ -342,7 +345,8 @@
                                 The ImgBB API key is required to display thumbnails while browsing files on Telegram.
                                 If you provide it, previews of your G-code files will be uploaded to ImgBB.
                                 It is recommended to set your ImgBB account to private and enable automatic deletion of files after 5 minutes.
-                                Refer to the <a href="https://imgbb.com/privacy" target="_blank">ImgBB Privacy Policy</a> for more information.
+                                Refer to the <a href="https://imgbb.com/privacy"
+    target="_blank">ImgBB Privacy Policy</a> for more information.
                             </small>
                         </span>
                     </div>
@@ -353,6 +357,7 @@
                     Proxies (for Telegram connection)
                     <button title="Click to open information dialog"
                             class="btn btn-info btn-small"
+                            type="button"
                             data-bind="click: function() {$root.proxyInfoDialog.modal('show');}">
                         <i class="icon-info-sign"></i> Proxy formats
                     </button>
@@ -379,6 +384,7 @@
                     Time formats
                     <button title="Click to open information dialog"
                             class="btn btn-info btn-small"
+                            type="button"
                             data-bind="click: function() {$root.timeInfoDialog.modal('show');}">
                         <i class="icon-info-sign"></i> Time formats
                     </button>
@@ -829,14 +835,17 @@
                     Messages at...
                     <div class="btn-group">
                         <button class="btn btn-info btn-small"
+                                type="button"
                                 data-bind="click: function() {$root.mupInfoDialog.modal('show');}">
                             <i class="icon-info-sign"></i> Markups
                         </button>
                         <button class="btn btn-info btn-small"
+                                type="button"
                                 data-bind="click: function() {$root.varInfoDialog.modal('show');}">
                             <i class="icon-info-sign"></i> Variables
                         </button>
                         <button class="btn btn-info btn-small"
+                                type="button"
                                 data-bind="click: function() {$root.emoInfoDialog.modal('show');}">
                             <i class="icon-info-sign"></i> Emojis
                         </button>
@@ -846,7 +855,9 @@
                     <!-- Message settings get listed here -->
                 </div>
                 <div class="text-center">
-                    <button class="btn" data-bind="click: resetNotificationMessages">⚠️ Reset all notification messages to default</button>
+                    <button class="btn"
+                            type="button"
+                            data-bind="click: resetNotificationMessages">⚠️ Reset all notification messages to default</button>
                 </div>
             </div>
         </div>
@@ -859,7 +870,8 @@
      data-backdrop="static">
     <div class="modal-header">
         <h4>
-            <i class="icon-wrench icon-large" style="color:dimgray"></i> Edit chat: <span data-bind="text: currChatTitle"></span>
+            <i class="icon-wrench icon-large"
+               style="color:dimgray"></i> Edit chat: <span data-bind="text: currChatTitle"></span>
         </h4>
     </div>
     <div class="modal-body">
@@ -867,14 +879,14 @@
         </form>
     </div>
     <div class="modal-footer">
-        <button class="btn btn-primary" data-bind="click: updateChat">Close</button>
+        <button class="btn btn-primary" type="button" data-bind="click: updateChat">Close</button>
     </div>
 </div>
 <!-- EDIT COMMANDS / NOTIFICATIONS DIALOG -->
 <div id="settings-telegramDialogEditCommands"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
         <h4>
@@ -914,14 +926,14 @@
 <div id="settings-telegramDialogVarInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
-        <nobr>
+        <div style="white-space:nowrap">
             <h4>
                 <i class="icon-info-sign icon-large" style="color:blue"></i> Variables
             </h4>
-        </nobr>
+        </div>
     </div>
     <div class="modal-body">
         Use Variables by adding <code>{&lt;var_name&gt;}</code> to your message text (e.g., <code>{file}</code>). Usable Variables are:
@@ -1102,14 +1114,14 @@
 <div id="settings-telegramDialogEmoInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
-        <nobr>
+        <div style="white-space:nowrap">
             <h4>
                 <i class="icon-info-sign icon-large" style="color:blue"></i> Emojis
             </h4>
-        </nobr>
+        </div>
     </div>
     <div class="modal-body">
         <p>
@@ -1144,7 +1156,8 @@
                             {% for j in [0, 1] %}
                                 {% if i + j < items|length %}
                                     {% set key, _ = items[i + j] %}
-                                    <td style="border-right:1px dashed #ddd; text-align:center;">{{ key | telegram_emoji }}</td>
+                                    <td style="border-right:1px dashed #ddd;
+                                               text-align:center">{{ key | telegram_emoji }}</td>
                                     <td style="border-right:1px solid #ddd">{{ key }}</td>
                                 {% else %}
                                     <td>&nbsp;</td>
@@ -1159,7 +1172,8 @@
         <p>
             <span class="muted">
                 <small>
-                    Data for internal icon list taken from: <a href="https://github.com/muan/unicode-emoji-json" target="_blank">muan/unicode-emoji-json</a>.
+                    Data for internal icon list taken from: <a href="https://github.com/muan/unicode-emoji-json"
+    target="_blank">muan/unicode-emoji-json</a>.
                 </small>
             </span>
         </p>
@@ -1169,14 +1183,14 @@
 <div id="settings-telegramDialogMupInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
-        <nobr>
+        <div style="white-space:nowrap">
             <h4>
                 <i class="icon-info-sign icon-large" style="color:blue"></i> Markups
             </h4>
-        </nobr>
+        </div>
     </div>
     <div class="modal-body">
         <p>
@@ -1247,14 +1261,14 @@
 <div id="settings-telegramDialogTimeInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
-        <nobr>
+        <div style="white-space:nowrap">
             <h4>
                 <i class="icon-info-sign icon-large" style="color:blue"></i> Time formats
             </h4>
-        </nobr>
+        </div>
     </div>
     <div class="modal-body">
         <p>
@@ -1320,14 +1334,14 @@
 <div id="settings-telegramDialogProxyInfo"
      class="modal modal-full hide fade">
     <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
-        <nobr>
+        <div style="white-space:nowrap">
             <h4>
                 <i class="icon-info-sign icon-large" style="color:blue"></i> Proxy formats
             </h4>
-        </nobr>
+        </div>
     </div>
     <div class="modal-body">
         <p>
