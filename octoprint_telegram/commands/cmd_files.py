@@ -416,17 +416,15 @@ class CmdFiles(BaseCommand):
             list[tuple[str, str, str]]: For each entry, its path with the storage included, the label of its button
                 and the action the button runs.
         """
-        entries = []
-
         folder_names = [name for name, data in folder_content.items() if data.get("type") == "folder"]
-        for folder_name in sorted(folder_names):
-            entries.append(
-                (
-                    f"{folder}/{folder_name}",
-                    render_emojis(f"{{emo:folder}} {folder_name}"),
-                    "list",
-                )
+        entries = [
+            (
+                f"{folder}/{folder_name}",
+                render_emojis(f"{{emo:folder}} {folder_name}"),
+                "list",
             )
+            for folder_name in sorted(folder_names)
+        ]
 
         file_types_to_show = self._get_file_types_to_show()
         files = [(name, data) for name, data in folder_content.items() if data.get("type") in file_types_to_show]

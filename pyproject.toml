@@ -91,7 +91,6 @@ ignore = [
     "N802", # invalid-function-name
     "N803", # invalid-argument-name
     "PERF203", # try-except-in-loop
-    "PERF401", # manual-list-comprehension
     "PGH003", # blanket-type-ignore
     "PLR0911", # too-many-return-statements
     "PLR0912", # too-many-branches
