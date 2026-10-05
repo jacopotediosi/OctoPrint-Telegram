@@ -168,10 +168,7 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
         # Days
         if hours >= 16:
             replacements["days"] += 1
-            if replacements["days"] == 1:
-                text = "%(days)d day"
-            else:
-                text = "%(days)d days"
+            text = "%(days)d day" if replacements["days"] == 1 else "%(days)d days"
         elif 8 <= hours < 16:
             text = "%(days)d.5 days"
         elif days == 1:
@@ -183,20 +180,14 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
         if hours < 12:
             if minutes < 15:
                 # Less than .15 => .0
-                if hours == 1:
-                    text = "%(hours)d hour"
-                else:
-                    text = "%(hours)d hours"
+                text = "%(hours)d hour" if hours == 1 else "%(hours)d hours"
             elif 15 <= minutes < 45:
                 # Between .25 and .75 => .5
                 text = "%(hours)d.5 hours"
             else:
                 # Over .75 => hours + 1
                 replacements["hours"] += 1
-                if replacements["hours"] == 1:
-                    text = "%(hours)d hour"
-                else:
-                    text = "%(hours)d hours"
+                text = "%(hours)d hour" if replacements["hours"] == 1 else "%(hours)d hours"
         elif hours == 23 and minutes > 30:
             # Over 23.5 hours => 1 day
             text = "1 day"
@@ -208,10 +199,7 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
     elif minutes >= 1:
         # Only minutes
         if minutes < 2:
-            if seconds < 30:
-                text = "a minute"
-            else:
-                text = "2 minutes"
+            text = "a minute" if seconds < 30 else "2 minutes"
         elif minutes < 30:
             if seconds > 30:
                 replacements["minutes"] += 1
@@ -222,8 +210,8 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
             text = "50 minutes"
         else:
             text = "1 hour"
-    # Only seconds
     elif seconds < 30:
+        # Only seconds
         text = "a few seconds"
     else:
         text = "less than a minute"

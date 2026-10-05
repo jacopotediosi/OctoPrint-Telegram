@@ -1228,10 +1228,7 @@ class CmdFiles(BaseCommand):
                 menu_state.items, menu_state.picker_page, _ = keyboard.add_entries_page(
                     slicer_profile_entries, menu_state.picker_page, 1, page_action_prefix="slice_"
                 )
-                if len(configured_slicers) > 1:
-                    back_action = "slice_slicer"
-                else:
-                    back_action = "info"
+                back_action = "slice_slicer" if len(configured_slicers) > 1 else "info"
                 keyboard.add_row((BACK_LABEL, back_action))
 
                 self.send_answer(command_context, msg, menu_state, markup=Markup.HTML, keyboard=keyboard)

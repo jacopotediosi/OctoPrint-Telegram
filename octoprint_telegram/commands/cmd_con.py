@@ -441,10 +441,12 @@ class CmdCon(BaseCommand):
         ]
         for key, value in (parameters or {}).items():
             label = key.replace("_", " ").title()
-            if self._is_shown_param(key):
-                display = "AUTO" if value in (None, "") else str(value)
-            else:
+            if not self._is_shown_param(key):
                 display = "***"
+            elif value in (None, ""):
+                display = "AUTO"
+            else:
+                display = str(value)
             lines.append(f"<b>{html.escape(label)}</b>: {html.escape(display)}")
         lines.append("")
         lines.append("")

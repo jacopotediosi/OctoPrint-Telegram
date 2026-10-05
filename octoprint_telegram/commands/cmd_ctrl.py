@@ -167,10 +167,7 @@ class CmdCtrl(BaseCommand):
                     elif "command" in key or "commands" in key:
                         control["type"] = "commands"
 
-                        if "command" in key:
-                            command = key["command"]
-                        else:
-                            command = key["commands"]
+                        command = key["command"] if "command" in key else key["commands"]
 
                         if not isinstance(command, list):
                             command = [command]

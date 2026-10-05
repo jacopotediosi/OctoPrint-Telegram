@@ -95,7 +95,6 @@ ignore = [
     "PLR0917", # too-many-positional-arguments
     "PLR2004", # magic-value-comparison
     "S110", # try-except-pass
-    "SIM108", # if-else-block-instead-of-if-exp
     "TD002", # missing-todo-author
     "TD003", # missing-todo-link
     "TID252", # relative-imports
