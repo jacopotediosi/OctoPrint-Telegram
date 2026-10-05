@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import _string  # type: ignore
+import _string  # ty: ignore[unresolved-import]  # pyright: ignore[reportMissingImports]
 import string
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 

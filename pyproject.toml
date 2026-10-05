@@ -88,7 +88,6 @@ ignore = [
     "FBT003", # boolean-positional-value-in-call
     "FIX002", # line-contains-todo
     "PERF203", # try-except-in-loop
-    "PGH003", # blanket-type-ignore
     "PLR0911", # too-many-return-statements
     "PLR0912", # too-many-branches
     "PLR0913", # too-many-arguments
