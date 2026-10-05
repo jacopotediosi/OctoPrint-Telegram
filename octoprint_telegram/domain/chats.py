@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import copy
 import io
 import time
@@ -121,10 +122,8 @@ class Chats:
         """Remove a chat from the known chats."""
         self._logger.info("Removing chat %s from known chats", chat_id)
 
-        try:
+        with contextlib.suppress(OSError):
             self._chat_picture_path(chat_id).unlink()
-        except OSError:
-            pass
 
         with self._settings.write_lock:
             self._settings.remove_chat(chat_id)
@@ -160,10 +159,8 @@ class Chats:
             if not file_id:
                 self._logger.debug("Chat %s has no photo", chat_id)
 
-                try:
+                with contextlib.suppress(Exception):
                     output_filename.unlink()
-                except Exception:
-                    pass
 
                 return ""
 

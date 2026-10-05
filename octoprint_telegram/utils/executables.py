@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import signal
@@ -53,9 +54,7 @@ def kill_process_group(process: subprocess.Popen) -> None:
                 children = []
             process.kill()
             for child in children:
-                try:
+                with contextlib.suppress(psutil.NoSuchProcess):
                     child.kill()
-                except psutil.NoSuchProcess:
-                    pass
     except ProcessLookupError:
         pass
