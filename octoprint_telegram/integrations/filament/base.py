@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...core.context import PluginContext
+    from octoprint_telegram.core.context import PluginContext
 
 
 class FilamentPlugin(ABC):

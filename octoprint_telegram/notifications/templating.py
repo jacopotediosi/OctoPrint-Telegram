@@ -6,13 +6,15 @@ from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from typing_extensions import override
 
-from ..telegram.formatting import escape_text
+from octoprint_telegram.telegram.formatting import escape_text
+
 from .variables import TemplateVariable
 
 if TYPE_CHECKING:
     import logging
 
-    from ..telegram import Markup
+    from octoprint_telegram.telegram import Markup
+
     from .variables import NotificationVariables
 
 

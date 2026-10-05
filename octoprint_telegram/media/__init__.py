@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from octoprint.plugin.core import PluginManager
     from octoprint.printer import PrinterInterface
 
-    from ..core.settings import OctoPrintSettings, Settings
-    from ..integrations.plugins import Plugins
+    from octoprint_telegram.core.settings import OctoPrintSettings, Settings
+    from octoprint_telegram.integrations.plugins import Plugins
 
 
 class Media:

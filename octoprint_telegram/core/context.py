@@ -11,18 +11,19 @@ if TYPE_CHECKING:
     from octoprint.printer.profile import PrinterProfileManager
     from octoprint.slicing import SlicingManager
 
-    from ..commands.registry import CommandDefinition
-    from ..domain.chats import Chats
-    from ..domain.enrollment import Enrollment
-    from ..domain.mute import MutedChats
-    from ..integrations.cost import Cost
-    from ..integrations.octoprint_api import OctoPrintApi
-    from ..integrations.plugins import Plugins
-    from ..integrations.thumbnails import Thumbnails
-    from ..notifications import Notifications
-    from ..telegram.client import TelegramClient
-    from ..telegram.menu_states import MenuStates
-    from ..telegram.sender import Sender
+    from octoprint_telegram.commands.registry import CommandDefinition
+    from octoprint_telegram.domain.chats import Chats
+    from octoprint_telegram.domain.enrollment import Enrollment
+    from octoprint_telegram.domain.mute import MutedChats
+    from octoprint_telegram.integrations.cost import Cost
+    from octoprint_telegram.integrations.octoprint_api import OctoPrintApi
+    from octoprint_telegram.integrations.plugins import Plugins
+    from octoprint_telegram.integrations.thumbnails import Thumbnails
+    from octoprint_telegram.notifications import Notifications
+    from octoprint_telegram.telegram.client import TelegramClient
+    from octoprint_telegram.telegram.menu_states import MenuStates
+    from octoprint_telegram.telegram.sender import Sender
+
     from .connection_status import ConnectionStatus
     from .frontend import Frontend
     from .settings import OctoPrintSettings, Settings

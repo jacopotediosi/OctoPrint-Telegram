@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING, Callable
 
 from PIL import Image
 
-from ..telegram import ChatType, HttpMethod
+from octoprint_telegram.telegram import ChatType, HttpMethod
 
 if TYPE_CHECKING:
     import logging
 
-    from ..core.frontend import Frontend
-    from ..core.settings import Settings
-    from ..telegram.client import TelegramClient
+    from octoprint_telegram.core.frontend import Frontend
+    from octoprint_telegram.core.settings import Settings
+    from octoprint_telegram.telegram.client import TelegramClient
 
 # Dummy element to avoid bug https://github.com/OctoPrint/OctoPrint/issues/5177
 PLACEHOLDER_CHAT_ID = "zBOTTOMOFCHATS"

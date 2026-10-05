@@ -7,13 +7,14 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import override
 
-from ..utils import format_short_exception
+from octoprint_telegram.utils import format_short_exception
+
 from .dispatcher import SUPPORTED_UPDATE_TYPES, Dispatcher
 from .enums import HttpMethod
 
 if TYPE_CHECKING:
-    from ..commands.commands import Commands
-    from ..core.context import PluginContext
+    from octoprint_telegram.commands.commands import Commands
+    from octoprint_telegram.core.context import PluginContext
 
 # How long to wait before retrying after a failed call to Telegram
 RETRY_DELAY_SECONDS = 120

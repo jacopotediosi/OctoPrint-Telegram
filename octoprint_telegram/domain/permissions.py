@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..commands import registry
+from octoprint_telegram.commands import registry
+
 from .chats import is_group_or_channel
 
 if TYPE_CHECKING:
-    from ..core.settings import Settings
+    from octoprint_telegram.core.settings import Settings
 
 
 def is_command_allowed_to_all_members(settings: Settings, chat_id: str, command: str) -> bool:

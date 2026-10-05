@@ -11,11 +11,12 @@ import octoprint.filemanager
 import requests
 from typing_extensions import override
 
-from ..domain import permissions
-from ..domain.files import is_file_busy
-from ..emoji import Emoji
-from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
-from ..utils import format_duration, format_eta, format_filament, format_fuzzy_print_time, format_size
+from octoprint_telegram.domain import permissions
+from octoprint_telegram.domain.files import is_file_busy
+from octoprint_telegram.emoji import Emoji
+from octoprint_telegram.telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState, StaleMenuError
+from octoprint_telegram.utils import format_duration, format_eta, format_filament, format_fuzzy_print_time, format_size
+
 from .base import BaseCommand, CommandContext
 
 render_emojis = Emoji.render_emojis

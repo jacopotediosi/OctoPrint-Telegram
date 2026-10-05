@@ -5,7 +5,7 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from ..utils import kill_process_group
+from octoprint_telegram.utils import kill_process_group
 
 if TYPE_CHECKING:
     import logging
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from octoprint.events import EventManager
     from octoprint.printer import PrinterInterface
 
-    from ..core.settings import Settings
+    from octoprint_telegram.core.settings import Settings
 
 SYSTEM_COMMAND_TIMEOUT_SECONDS = 300
 

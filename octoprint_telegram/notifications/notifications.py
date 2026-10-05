@@ -5,8 +5,9 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from ..emoji import Emoji
-from ..telegram import Markup
+from octoprint_telegram.emoji import Emoji
+from octoprint_telegram.telegram import Markup
+
 from . import templating
 from .variables import NotificationVariables
 
@@ -16,14 +17,14 @@ if TYPE_CHECKING:
     from octoprint.filemanager import FileManager
     from octoprint.printer import PrinterInterface
 
-    from ..core.settings import Settings
-    from ..domain.mute import MutedChats
-    from ..integrations.display_layer_progress import DisplayLayerProgress
-    from ..integrations.octoprint_api import OctoPrintApi
-    from ..integrations.plugins import Plugins
-    from ..integrations.thumbnails import Thumbnails
-    from ..telegram.client import TelegramClient
-    from ..telegram.sender import Sender
+    from octoprint_telegram.core.settings import Settings
+    from octoprint_telegram.domain.mute import MutedChats
+    from octoprint_telegram.integrations.display_layer_progress import DisplayLayerProgress
+    from octoprint_telegram.integrations.octoprint_api import OctoPrintApi
+    from octoprint_telegram.integrations.plugins import Plugins
+    from octoprint_telegram.integrations.thumbnails import Thumbnails
+    from octoprint_telegram.telegram.client import TelegramClient
+    from octoprint_telegram.telegram.sender import Sender
 
 render_emojis = Emoji.render_emojis
 

@@ -8,7 +8,8 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from ..emoji import Emoji
+from octoprint_telegram.emoji import Emoji
+
 from .chat_action import chat_action
 from .client import TelegramRequestError
 from .enums import ChatAction, HttpMethod, Markup
@@ -16,10 +17,11 @@ from .enums import ChatAction, HttpMethod, Markup
 if TYPE_CHECKING:
     import logging
 
-    from ..core.connection_status import ConnectionStatus
-    from ..domain.chats import Chats
-    from ..domain.mute import MutedChats
-    from ..media import Media
+    from octoprint_telegram.core.connection_status import ConnectionStatus
+    from octoprint_telegram.domain.chats import Chats
+    from octoprint_telegram.domain.mute import MutedChats
+    from octoprint_telegram.media import Media
+
     from .client import TelegramClient
     from .keyboards import Buttons
 

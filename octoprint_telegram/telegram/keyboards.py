@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple, TypeVar
 
-from ..emoji import Emoji
+from octoprint_telegram.emoji import Emoji
 
 render_emojis = Emoji.render_emojis
 

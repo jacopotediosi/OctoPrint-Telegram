@@ -8,7 +8,7 @@ import requests
 if TYPE_CHECKING:
     import logging
 
-    from ..core.settings import OctoPrintSettings
+    from octoprint_telegram.core.settings import OctoPrintSettings
 
 TEXTUAL_CONTENT_TYPES = [
     "application/json",

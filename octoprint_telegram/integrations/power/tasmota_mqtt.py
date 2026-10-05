@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing_extensions import override
 
-from ...utils import split_with_escape_handling
+from octoprint_telegram.utils import split_with_escape_handling
+
 from .base import PowerPlugin
 
 

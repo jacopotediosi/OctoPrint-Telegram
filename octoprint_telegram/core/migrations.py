@@ -3,9 +3,9 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Callable
 
-from ..commands import registry
-from ..domain.chats import PLACEHOLDER_CHAT_ID
-from ..notifications import NOTIFICATION_DEFINITIONS
+from octoprint_telegram.commands import registry
+from octoprint_telegram.domain.chats import PLACEHOLDER_CHAT_ID
+from octoprint_telegram.notifications import NOTIFICATION_DEFINITIONS
 
 if TYPE_CHECKING:
     import logging

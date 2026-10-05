@@ -11,7 +11,7 @@ from .enums import HttpMethod
 if TYPE_CHECKING:
     import logging
 
-    from ..core.settings import Settings
+    from octoprint_telegram.core.settings import Settings
 
 TOKEN_REGEX = re.compile(r"[0-9]{6,16}:[A-Za-z0-9_-]{34,40}")
 

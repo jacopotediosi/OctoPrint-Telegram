@@ -4,18 +4,19 @@ import queue
 import threading
 from typing import TYPE_CHECKING
 
-from ..commands import registry
-from ..commands.base import CommandContext
-from ..domain import permissions
-from ..domain.chats import get_chat_title, is_group_or_channel
-from ..domain.uploads import Uploads
-from ..emoji import Emoji
+from octoprint_telegram.commands import registry
+from octoprint_telegram.commands.base import CommandContext
+from octoprint_telegram.domain import permissions
+from octoprint_telegram.domain.chats import get_chat_title, is_group_or_channel
+from octoprint_telegram.domain.uploads import Uploads
+from octoprint_telegram.emoji import Emoji
+
 from .enums import ChatMemberStatus, HttpMethod
 from .menu_states import StaleMenuError
 
 if TYPE_CHECKING:
-    from ..commands.commands import Commands
-    from ..core.context import PluginContext
+    from octoprint_telegram.commands.commands import Commands
+    from octoprint_telegram.core.context import PluginContext
 
 render_emojis = Emoji.render_emojis
 

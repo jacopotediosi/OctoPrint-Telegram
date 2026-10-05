@@ -5,17 +5,18 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
 from octoprint.util import get_formatted_timedelta
 
-from ..utils import format_eta
+from octoprint_telegram.utils import format_eta
+
 from .registry import NOTIFICATION_DEFINITIONS
 
 if TYPE_CHECKING:
     from octoprint.filemanager import FileManager
     from octoprint.printer import PrinterInterface
 
-    from ..core.settings import Settings
-    from ..integrations.display_layer_progress import DisplayLayerProgress
-    from ..integrations.octoprint_api import OctoPrintApi
-    from ..integrations.plugins import Plugins
+    from octoprint_telegram.core.settings import Settings
+    from octoprint_telegram.integrations.display_layer_progress import DisplayLayerProgress
+    from octoprint_telegram.integrations.octoprint_api import OctoPrintApi
+    from octoprint_telegram.integrations.plugins import Plugins
 
 
 T = TypeVar("T")

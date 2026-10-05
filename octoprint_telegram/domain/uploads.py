@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING
 
 import octoprint.filemanager
 
-from ..emoji import Emoji
-from ..telegram import Markup
+from octoprint_telegram.emoji import Emoji
+from octoprint_telegram.telegram import Markup
+
 from . import permissions
 from .files import is_file_busy
 
 if TYPE_CHECKING:
-    from ..core.context import PluginContext
+    from octoprint_telegram.core.context import PluginContext
 
 render_emojis = Emoji.render_emojis
 

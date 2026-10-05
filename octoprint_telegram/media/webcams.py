@@ -8,8 +8,8 @@ if TYPE_CHECKING:
     import octoprint.plugin
     from octoprint.plugin.core import PluginManager
 
-    from ..core.settings import OctoPrintSettings
-    from ..integrations.plugins import Plugins
+    from octoprint_telegram.core.settings import OctoPrintSettings
+    from octoprint_telegram.integrations.plugins import Plugins
 
 try:
     from octoprint.webcams import get_webcams

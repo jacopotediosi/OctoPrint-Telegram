@@ -4,7 +4,8 @@ import html
 
 from typing_extensions import override
 
-from ...emoji import Emoji
+from octoprint_telegram.emoji import Emoji
+
 from .base import FilamentPlugin
 
 render_emojis = Emoji.render_emojis

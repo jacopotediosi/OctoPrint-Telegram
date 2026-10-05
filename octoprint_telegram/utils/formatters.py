@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..core.settings import Settings
+    from octoprint_telegram.core.settings import Settings
 
 
 def format_eta(settings: Settings, seconds_from_now: float) -> str:

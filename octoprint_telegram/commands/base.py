@@ -4,10 +4,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence, TypeVar
 
-from ..telegram import AwaitedReply, Keyboard, Markup, MenuState, StaleMenuError
+from octoprint_telegram.telegram import AwaitedReply, Keyboard, Markup, MenuState, StaleMenuError
 
 if TYPE_CHECKING:
-    from ..core.context import PluginContext
+    from octoprint_telegram.core.context import PluginContext
 
 T = TypeVar("T", bound=MenuState)
 MenuChosenItem = TypeVar("MenuChosenItem")

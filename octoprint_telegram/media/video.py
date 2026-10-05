@@ -8,12 +8,13 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-from ..utils import kill_process_group, resolve_cpulimiter_path, resolve_ffmpeg_path
+from octoprint_telegram.utils import kill_process_group, resolve_cpulimiter_path, resolve_ffmpeg_path
 
 if TYPE_CHECKING:
     import logging
 
-    from ..core.settings import OctoPrintSettings, Settings
+    from octoprint_telegram.core.settings import OctoPrintSettings, Settings
+
     from .webcams import Webcams
 
 FFMPEG_TIMEOUT_SECONDS = 600

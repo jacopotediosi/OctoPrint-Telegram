@@ -1,6 +1,6 @@
 import logging
 
-from ..telegram.client import TOKEN_REGEX
+from octoprint_telegram.telegram.client import TOKEN_REGEX
 
 
 class RedactingFormatter(logging.Formatter):

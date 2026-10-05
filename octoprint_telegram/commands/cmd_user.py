@@ -2,9 +2,10 @@ import html
 
 from typing_extensions import override
 
-from ..domain import permissions
-from ..emoji import Emoji
-from ..telegram import Markup
+from octoprint_telegram.domain import permissions
+from octoprint_telegram.emoji import Emoji
+from octoprint_telegram.telegram import Markup
+
 from . import registry
 from .base import BaseCommand, CommandContext
 

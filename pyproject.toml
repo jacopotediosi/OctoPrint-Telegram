@@ -97,7 +97,6 @@ ignore = [
     "S110", # try-except-pass
     "TD002", # missing-todo-author
     "TD003", # missing-todo-link
-    "TID252", # relative-imports
     "TRY002", # raise-vanilla-class
     "TRY003", # raise-vanilla-args
 ]

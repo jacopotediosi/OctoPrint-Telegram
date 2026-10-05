@@ -5,15 +5,15 @@ from typing import TYPE_CHECKING
 from flask import jsonify
 from octoprint.access.permissions import Permissions
 
-from ..commands import registry
-from ..notifications import NOTIFICATION_DEFINITIONS
-from ..utils import format_short_exception, resolve_cpulimiter_path, resolve_ffmpeg_path
+from octoprint_telegram.commands import registry
+from octoprint_telegram.notifications import NOTIFICATION_DEFINITIONS
+from octoprint_telegram.utils import format_short_exception, resolve_cpulimiter_path, resolve_ffmpeg_path
 
 if TYPE_CHECKING:
     from flask import Response
     from werkzeug.datastructures import MultiDict
 
-    from ..core.context import PluginContext
+    from octoprint_telegram.core.context import PluginContext
 
 SUGGESTED_PLUGIN_IDS = [
     "cancelobject",

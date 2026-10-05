@@ -6,8 +6,9 @@ from typing import Sequence
 
 from typing_extensions import override
 
-from ..emoji import Emoji
-from ..telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
+from octoprint_telegram.emoji import Emoji
+from octoprint_telegram.telegram import BACK_LABEL, CLOSE_BUTTON, Keyboard, Markup, MenuState
+
 from .base import BaseCommand, CommandContext
 
 try:

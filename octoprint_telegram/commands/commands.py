@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from . import registry
 
 if TYPE_CHECKING:
-    from ..core.context import PluginContext
+    from octoprint_telegram.core.context import PluginContext
+
     from .base import BaseCommand, CommandContext
 
 
