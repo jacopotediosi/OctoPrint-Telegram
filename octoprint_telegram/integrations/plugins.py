@@ -36,7 +36,7 @@ class Plugins:
         """The Python module of a plugin, or None when the plugin is unavailable."""
         return self._plugin_manager.get_plugin(plugin_id, True)
 
-    def implementation(self, plugin_id: str) -> Any:  # noqa: ANN401
+    def implementation(self, plugin_id: str) -> Any:  # noqa: ANN401 - plugin instances are untyped
         """The running instance of a plugin."""
         return self._plugin_manager.plugins[plugin_id].implementation
 

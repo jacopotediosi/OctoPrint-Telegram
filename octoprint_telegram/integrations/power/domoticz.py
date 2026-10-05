@@ -48,10 +48,10 @@ class DomoticzPowerPlugin(PowerPlugin):
                             str_url,
                             auth=(username, password),
                             timeout=10,
-                            verify=False,  # noqa: S501
+                            verify=False,  # noqa: S501 - same as the Domoticz plugin sources
                         )
                     else:
-                        response = requests.get(str_url, timeout=10, verify=False)  # noqa: S501
+                        response = requests.get(str_url, timeout=10, verify=False)  # noqa: S501 - same as the Domoticz plugin sources
                     is_on = response.json()["result"][0]["Status"].lower() == "on"
                 except Exception as e:
                     error_message = str(e)

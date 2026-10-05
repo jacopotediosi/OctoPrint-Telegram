@@ -210,7 +210,7 @@ class Video:
         cmd += ["-f", "mp4", "pipe:1"]
 
         self._logger.debug("Creating video by running command: %s", cmd)
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, start_new_session=True)  # noqa: S603
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, start_new_session=True)  # noqa: S603 - arguments built internally
         try:
             stdout, _ = process.communicate(timeout=FFMPEG_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired:

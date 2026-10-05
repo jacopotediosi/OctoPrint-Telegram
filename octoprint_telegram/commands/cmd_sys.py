@@ -81,7 +81,7 @@ class CmdSys(BaseCommand):
                     self._logger.info("Executing system command %s", command_label)
 
                     try:
-                        process = sarge.run(  # noqa: S604
+                        process = sarge.run(  # noqa: S604 - user-configured shell command
                             command_to_execute, stderr=sarge.Capture(), shell=True, async_=False
                         )
 
@@ -152,7 +152,7 @@ class CmdSys(BaseCommand):
                     self._logger.info("Executing system command %s", command["name"])
 
                     try:
-                        process = sarge.run(  # noqa: S604
+                        process = sarge.run(  # noqa: S604 - user-configured shell command
                             command["command"],
                             stderr=sarge.Capture(),
                             shell=True,

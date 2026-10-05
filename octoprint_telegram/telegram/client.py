@@ -115,7 +115,7 @@ class TelegramClient:
         self._logger.debug("Sending Telegram request: method=%s, url=%s, kwargs=%s", method.value, url, loggable_kwargs)
 
         try:
-            response = requests.request(method.value, url, **request_kwargs)  # noqa: S113
+            response = requests.request(method.value, url, **request_kwargs)  # noqa: S113 - timeout set in default_kwargs
             self._logger.debug("Received Telegram response: %s", response.text)
         except Exception as e:
             raise TelegramRequestError(f"Caught an exception sending telegram request: {e}.") from e

@@ -588,10 +588,10 @@ class TelegramPlugin(
         Returns:
             list[tuple]: The routes this plugin adds.
         """
-        from octoprint.server.util.flask import (  # noqa: PLC0415
+        from octoprint.server.util.flask import (  # noqa: PLC0415 - lazy import, as in OctoPrint docs
             permission_validator,
         )
-        from octoprint.server.util.tornado import (  # noqa: PLC0415
+        from octoprint.server.util.tornado import (  # noqa: PLC0415 - lazy import, as in OctoPrint docs
             LargeResponseHandler,
             access_validation_factory,
         )
@@ -629,7 +629,7 @@ class TelegramPlugin(
 
     def hook_gcode_received(
         self,
-        _comm_instance: Any,  # noqa: ANN401
+        _comm_instance: Any,  # noqa: ANN401 - connection type varies across OctoPrint versions
         line: str,
         *_args: Any,
         **_kwargs: Any,
@@ -661,7 +661,7 @@ class TelegramPlugin(
 
     def hook_gcode_sent(
         self,
-        _comm_instance: Any,  # noqa: ANN401
+        _comm_instance: Any,  # noqa: ANN401 - connection type varies across OctoPrint versions
         _phase: str,
         _cmd: str,
         _cmd_type: str | None,

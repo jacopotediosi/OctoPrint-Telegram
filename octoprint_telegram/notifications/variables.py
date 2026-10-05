@@ -315,7 +315,7 @@ class NotificationVariables:
         return self._payload.get("error", "")
 
     @TemplateVariable
-    def UserNotif_Text(self) -> str:  # noqa: N802
+    def UserNotif_Text(self) -> str:  # noqa: N802 - name exposed to user templates since previous versions, we can't change that w/o migrating settings
         """The text received via the serial message echo:UserNotif TEXT, which is triggered by printing a G-code like: M118 E1 UserNotif TEXT."""
         return self._payload.get("UserNotif", "")
 

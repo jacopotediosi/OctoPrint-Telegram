@@ -32,7 +32,7 @@ class _MarkupEscapedValue:
 
     def __init__(
         self,
-        value: Any,  # noqa: ANN401
+        value: Any,  # noqa: ANN401 - template values can be anything
         markup: Markup,
         logger: logging.Logger,
     ) -> None:

@@ -156,7 +156,7 @@ class OctoPrintApi:
                 loggable_kwargs[k] = v
         self._logger.debug("Sending OctoPrint request: method=%s, url=%s, kwargs=%s", method, url, loggable_kwargs)
 
-        response = requests.request(method, url, **request_kwargs)  # noqa: S113
+        response = requests.request(method, url, **request_kwargs)  # noqa: S113 - timeout set in default_kwargs
 
         # Check if response content should be logged
         content_type = response.headers.get("content-type", "").lower()

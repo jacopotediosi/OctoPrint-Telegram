@@ -242,7 +242,7 @@ class OctoPrintSettings:
     ### Other plugins
     ##########
 
-    def plugin_setting(self, plugin_id: str, *path: str) -> Any:  # noqa: ANN401
+    def plugin_setting(self, plugin_id: str, *path: str) -> Any:  # noqa: ANN401 - other plugins' settings are untyped
         """A setting belonging to another plugin."""
         return self._settings.global_get(["plugins", plugin_id, *path])
 

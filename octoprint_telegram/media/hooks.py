@@ -71,7 +71,7 @@ class ImageHooks:
             self._logger.debug("Pre_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602
+                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602 - user-configured shell command
                 self._logger.debug("Pre_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Pre_image SYSTEM command finished with return code %s", proc.returncode)
@@ -118,7 +118,7 @@ class ImageHooks:
             self._logger.debug("Post_image gcode command sent")
         elif method is ImageHookMethod.SYSTEM:
             try:
-                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602
+                proc = subprocess.Popen(command, shell=True, start_new_session=True)  # noqa: S602 - user-configured shell command
                 self._logger.debug("Post_image SYSTEM command started (PID=%s)", proc.pid)
                 proc.wait(timeout=SYSTEM_COMMAND_TIMEOUT_SECONDS)
                 self._logger.debug("Post_image SYSTEM command finished with return code %s", proc.returncode)
