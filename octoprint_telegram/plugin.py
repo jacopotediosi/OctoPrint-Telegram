@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import sys
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import octoprint.plugin
@@ -596,14 +596,14 @@ class TelegramPlugin(
             access_validation_factory,
         )
 
-        os.makedirs(os.path.join(self.get_plugin_data_folder(), "img", "user"), exist_ok=True)
+        (Path(self.get_plugin_data_folder()) / "img" / "user").mkdir(parents=True, exist_ok=True)
 
         return [
             (
                 r"/img/user/(.*)",
                 LargeResponseHandler,
                 {
-                    "path": os.path.join(self.get_plugin_data_folder(), "img", "user"),
+                    "path": str(Path(self.get_plugin_data_folder()) / "img" / "user"),
                     "allow_client_caching": False,
                     "access_validation": access_validation_factory(
                         app,
@@ -616,7 +616,7 @@ class TelegramPlugin(
                 r"/static/img/(.*)",
                 LargeResponseHandler,
                 {
-                    "path": os.path.join(self._basefolder, "static", "img"),
+                    "path": str(Path(self._basefolder) / "static" / "img"),
                     "allow_client_caching": True,
                     "access_validation": access_validation_factory(
                         app,

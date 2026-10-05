@@ -3,8 +3,9 @@ from __future__ import annotations
 import base64
 import datetime
 import html
-import os
+import posixpath
 from itertools import islice
+from pathlib import Path
 
 import octoprint.filemanager
 import requests
@@ -1296,7 +1297,7 @@ class CmdFiles(BaseCommand):
 
         # Calculate destination path and add it to msg
         dest_ext = (slicer_properties.get("destination_extensions") or ["gco"])[0]
-        file_path_root = os.path.splitext(file_path)[0]
+        file_path_root = posixpath.splitext(file_path)[0]
         dest_path = f"{file_path_root}.{dest_ext}"
         dest_path_to_display = f"/{storage_name}/{dest_path}"
         msg += render_emojis(f"\n{{emo:save}} Destination path: <code>{html.escape(dest_path_to_display)}</code>\n")
@@ -1387,7 +1388,7 @@ class CmdFiles(BaseCommand):
             with (
                 self.plugin_context.file_manager.read_file(storage_name, file_path)
                 if hasattr(self.plugin_context.file_manager, "read_file")  # OctoPrint >= 2.0.0
-                else open(self.plugin_context.file_manager.path_on_disk(storage_name, file_path), "rb")
+                else Path(self.plugin_context.file_manager.path_on_disk(storage_name, file_path)).open("rb")
             ) as document:
                 self.plugin_context.sender.send_file(command_context.chat_id, document, filename)
         except Exception:

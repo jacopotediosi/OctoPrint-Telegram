@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .captures import Captures
@@ -58,7 +58,7 @@ class Media:
         """Discard any video left over from a previous run."""
         # TODO: the tmpgif folder is no longer used, this only empties what older versions left in it.
         # Remove this in the future.
-        shutil.rmtree(os.path.join(self._data_folder, "tmpgif"), ignore_errors=True)
+        shutil.rmtree(Path(self._data_folder) / "tmpgif", ignore_errors=True)
 
 
 __all__ = [

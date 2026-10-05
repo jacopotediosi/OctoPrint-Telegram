@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import html
 import io
-import os
 import zipfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import octoprint.filemanager
@@ -51,7 +51,7 @@ class Uploads:
         try:
             self._logger.debug("Handling document message: %s", message)
 
-            uploaded_file_filename = os.path.basename(message["document"]["file_name"])
+            uploaded_file_filename = Path(message["document"]["file_name"]).name
 
             # Check if upload command is allowed
             if not permissions.is_command_allowed(self.plugin_context.settings, chat_id, from_id, "/upload"):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import psutil
@@ -20,7 +21,7 @@ def resolve_ffmpeg_path(configured_path: str | None) -> str | None:
     Returns:
         str | None: The path of the binary, or None when ffmpeg is not installed.
     """
-    if isinstance(configured_path, str) and os.path.isfile(configured_path) and os.access(configured_path, os.X_OK):
+    if isinstance(configured_path, str) and Path(configured_path).is_file() and os.access(configured_path, os.X_OK):
         return configured_path
     return shutil.which("ffmpeg")
 

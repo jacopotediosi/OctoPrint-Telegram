@@ -102,15 +102,6 @@ ignore = [
     "PLR1714", # repeated-equality-comparison
     "PLR2004", # magic-value-comparison
     "PLR5501", # collapsible-else-if
-    "PTH103", # os-makedirs
-    "PTH107", # os-remove
-    "PTH113", # os-path-isfile
-    "PTH118", # os-path-join
-    "PTH119", # os-path-basename
-    "PTH120", # os-path-dirname
-    "PTH122", # os-path-splitext
-    "PTH123", # builtin-open
-    "PTH202", # os-path-getsize
     "S110", # try-except-pass
     "SIM105", # suppressible-exception
     "SIM108", # if-else-block-instead-of-if-exp

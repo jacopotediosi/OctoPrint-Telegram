@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import copy
 import io
-import os
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from PIL import Image
@@ -122,7 +122,7 @@ class Chats:
         self._logger.info("Removing chat %s from known chats", chat_id)
 
         try:
-            os.remove(self._chat_picture_path(chat_id))
+            self._chat_picture_path(chat_id).unlink()
         except OSError:
             pass
 
@@ -143,7 +143,7 @@ class Chats:
             is_group = is_group_or_channel(chat_id)
 
             output_filename = self._chat_picture_path(chat_id)
-            os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+            output_filename.parent.mkdir(parents=True, exist_ok=True)
 
             file_id = None
             if is_group:
@@ -161,7 +161,7 @@ class Chats:
                 self._logger.debug("Chat %s has no photo", chat_id)
 
                 try:
-                    os.remove(output_filename)
+                    output_filename.unlink()
                 except Exception:
                     pass
 
@@ -184,5 +184,5 @@ class Chats:
     def _chat_picture_filename(self, chat_id: str) -> str:
         return f"pic{int(chat_id)}.jpg"
 
-    def _chat_picture_path(self, chat_id: str) -> str:
-        return os.path.join(self._data_folder, "img", "user", self._chat_picture_filename(chat_id))
+    def _chat_picture_path(self, chat_id: str) -> Path:
+        return Path(self._data_folder) / "img" / "user" / self._chat_picture_filename(chat_id)

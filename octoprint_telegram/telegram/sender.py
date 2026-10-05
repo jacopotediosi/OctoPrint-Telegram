@@ -5,6 +5,7 @@ import json
 import os
 import time
 from contextlib import ExitStack
+from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
 from ..emoji import Emoji
@@ -314,9 +315,8 @@ class Sender:
             # Add movie to gifs to send
             if movie:
                 try:
-                    if self._fits_upload_limit(os.path.getsize(movie), "the movie"):
-                        with open(movie, "rb") as movie_file:
-                            gifs_to_send.append(movie_file.read())
+                    if self._fits_upload_limit(Path(movie).stat().st_size, "the movie"):
+                        gifs_to_send.append(Path(movie).read_bytes())
                     else:
                         message += (
                             "\nThe timelapse/Octolapse video could not be sent via Telegram because its size exceeds "
