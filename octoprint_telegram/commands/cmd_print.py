@@ -51,21 +51,20 @@ class CmdPrint(BaseCommand):
                 None,
                 markup=Markup.HTML,
             )
-        else:  # Propose to print the file selected for printing or to open /files
-            if job_file_name:
-                msg = render_emojis(
-                    f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is selected for printing.\n\n"
-                    "{emo:question} What do you want to do?"
-                )
+        elif job_file_name:
+            msg = render_emojis(
+                f"{{emo:info}} The file <code>{html.escape(job_file_name)}</code> is selected for printing.\n\n"
+                "{emo:question} What do you want to do?"
+            )
 
-                keyboard = Keyboard(command_context.cmd)
-                keyboard.add_row(("{emo:play} Print it", "yes"), ("{emo:folder} Select another one", "", "/files"))
-                keyboard.add_row(CLOSE_BUTTON)
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(("{emo:play} Print it", "yes"), ("{emo:folder} Select another one", "", "/files"))
+            keyboard.add_row(CLOSE_BUTTON)
 
-                self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
-            else:
-                self.send_answer(
-                    command_context,
-                    render_emojis("{emo:warning} No file is selected for printing. Please select one using /files."),
-                    None,
-                )
+            self.send_answer(command_context, msg, None, markup=Markup.HTML, keyboard=keyboard)
+        else:
+            self.send_answer(
+                command_context,
+                render_emojis("{emo:warning} No file is selected for printing. Please select one using /files."),
+                None,
+            )

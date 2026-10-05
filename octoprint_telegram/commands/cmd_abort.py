@@ -46,22 +46,21 @@ class CmdAbort(BaseCommand):
             msg = render_emojis("{emo:check} Aborting the print.")
 
             self.send_answer(command_context, msg, None)
+        elif (
+            self.plugin_context.printer.is_printing()
+            or self.plugin_context.printer.is_pausing()
+            or self.plugin_context.printer.is_paused()
+        ):
+            job_file = self.plugin_context.printer.get_current_data().get("job", {}).get("file", {})
+            file_path = f"{job_file.get('origin')}/{job_file.get('path')}"
+
+            msg = render_emojis(f"{{emo:question}} Really abort printing <code>/{html.escape(file_path)}</code>?")
+
+            keyboard = Keyboard(command_context.cmd)
+            keyboard.add_row(("{emo:check} Stop print", "stop"), CLOSE_BUTTON)
+
+            self.send_answer(command_context, msg, AbortMenuState(file_path), markup=Markup.HTML, keyboard=keyboard)
         else:
-            if (
-                self.plugin_context.printer.is_printing()
-                or self.plugin_context.printer.is_pausing()
-                or self.plugin_context.printer.is_paused()
-            ):
-                job_file = self.plugin_context.printer.get_current_data().get("job", {}).get("file", {})
-                file_path = f"{job_file.get('origin')}/{job_file.get('path')}"
+            msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
 
-                msg = render_emojis(f"{{emo:question}} Really abort printing <code>/{html.escape(file_path)}</code>?")
-
-                keyboard = Keyboard(command_context.cmd)
-                keyboard.add_row(("{emo:check} Stop print", "stop"), CLOSE_BUTTON)
-
-                self.send_answer(command_context, msg, AbortMenuState(file_path), markup=Markup.HTML, keyboard=keyboard)
-            else:
-                msg = render_emojis("{emo:warning} Currently I'm not printing, so there is nothing to stop.")
-
-                self.send_answer(command_context, msg, None)
+            self.send_answer(command_context, msg, None)

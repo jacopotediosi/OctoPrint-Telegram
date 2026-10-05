@@ -174,11 +174,10 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
                 text = "%(days)d days"
         elif 8 <= hours < 16:
             text = "%(days)d.5 days"
+        elif days == 1:
+            text = "%(days)d day"
         else:
-            if days == 1:
-                text = "%(days)d day"
-            else:
-                text = "%(days)d days"
+            text = "%(days)d days"
     elif hours >= 1:
         # Only hours
         if hours < 12:
@@ -198,15 +197,14 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
                     text = "%(hours)d hour"
                 else:
                     text = "%(hours)d hours"
+        elif hours == 23 and minutes > 30:
+            # Over 23.5 hours => 1 day
+            text = "1 day"
         else:
-            if hours == 23 and minutes > 30:
-                # Over 23.5 hours => 1 day
-                text = "1 day"
-            else:
-                if minutes > 30:
-                    # Over .5 => hours + 1
-                    replacements["hours"] += 1
-                text = "%(hours)d hours"
+            if minutes > 30:
+                # Over .5 => hours + 1
+                replacements["hours"] += 1
+            text = "%(hours)d hours"
     elif minutes >= 1:
         # Only minutes
         if minutes < 2:
@@ -224,11 +222,10 @@ def format_fuzzy_print_time(total_seconds: float | None) -> str:
             text = "50 minutes"
         else:
             text = "1 hour"
+    # Only seconds
+    elif seconds < 30:
+        text = "a few seconds"
     else:
-        # Only seconds
-        if seconds < 30:
-            text = "a few seconds"
-        else:
-            text = "less than a minute"
+        text = "less than a minute"
 
     return text % replacements

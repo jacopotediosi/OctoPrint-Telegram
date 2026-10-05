@@ -923,36 +923,35 @@ class CmdFiles(BaseCommand):
                     to_storage_name, final_to_path
                 ) or self.plugin_context.file_manager.folder_exists(to_storage_name, final_to_path):
                     failure_reason = "Destination already exists"
-                else:
-                    if operation == "copy":
-                        # Copy the file
-                        self.plugin_context.file_manager.copy_file(from_storage_name, from_path, final_to_path)
-                    elif operation == "move":
-                        if is_file_busy(
-                            self.plugin_context.printer,
-                            self.plugin_context.file_manager,
-                            from_storage_name,
-                            from_path,
-                        ):
-                            failure_reason = "Source is currently in use"
-                        else:
-                            # Deselect source file if currently selected
-                            current_data = self.plugin_context.printer.get_current_data() or {}
-                            job_file = (current_data.get("job") or {}).get("file") or {}
-                            if job_file.get("origin") == from_storage_name and job_file.get("path") == from_path:
-                                if hasattr(self.plugin_context.printer, "set_job"):
-                                    # OctoPrint >= 2.0.0
-                                    # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
-                                    self.plugin_context.printer.set_job(None)
-                                else:
-                                    # OctoPrint < 2.0.0 backwards compatibility
-                                    # nosemgrep (this is a fallback for older OctoPrint versions)
-                                    self.plugin_context.printer.unselect_file()
-
-                            # Move the file
-                            self.plugin_context.file_manager.move_file(from_storage_name, from_path, final_to_path)
+                elif operation == "copy":
+                    # Copy the file
+                    self.plugin_context.file_manager.copy_file(from_storage_name, from_path, final_to_path)
+                elif operation == "move":
+                    if is_file_busy(
+                        self.plugin_context.printer,
+                        self.plugin_context.file_manager,
+                        from_storage_name,
+                        from_path,
+                    ):
+                        failure_reason = "Source is currently in use"
                     else:
-                        failure_reason = "Unknown operation"
+                        # Deselect source file if currently selected
+                        current_data = self.plugin_context.printer.get_current_data() or {}
+                        job_file = (current_data.get("job") or {}).get("file") or {}
+                        if job_file.get("origin") == from_storage_name and job_file.get("path") == from_path:
+                            if hasattr(self.plugin_context.printer, "set_job"):
+                                # OctoPrint >= 2.0.0
+                                # ty: ignore[invalid-argument-type] - wrong annotation in OctoPrint upstream
+                                self.plugin_context.printer.set_job(None)
+                            else:
+                                # OctoPrint < 2.0.0 backwards compatibility
+                                # nosemgrep (this is a fallback for older OctoPrint versions)
+                                self.plugin_context.printer.unselect_file()
+
+                        # Move the file
+                        self.plugin_context.file_manager.move_file(from_storage_name, from_path, final_to_path)
+                else:
+                    failure_reason = "Unknown operation"
 
         except Exception:
             self._logger.exception("Caught an exception copying/moving file %s", full_to_file_path_to_display)
